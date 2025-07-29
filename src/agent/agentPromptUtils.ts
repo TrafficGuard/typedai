@@ -2,6 +2,7 @@ import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import type { FileStore } from '#functions/storage/filestore';
+import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import type { FileMetadata } from '#shared/files/files.model';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
@@ -12,11 +13,12 @@ import { generateFileSystemTreeWithSummaries } from '#swe/index/repositoryMap';
 /**
  * @return An XML representation of the agent's memory
  */
-export function buildMemoryPrompt(): string {
+export async function buildMemoryPrompt(): Promise<string> {
 	const memory = agentContext().memory;
 	let result = '<memory>\n';
 	for (const mem of Object.entries(memory)) {
-		result += `<${mem[0]}>\n${mem[1]}\n</${mem[0]}>\n`;
+		const tokens = await countTokens(mem[1]);
+		result += `<${mem[0]} tokens="${tokens}">\n${mem[1]}\n</${mem[0]}>\n`;
 	}
 	result += '</memory>\n';
 	return result;
@@ -27,7 +29,7 @@ export function buildMemoryPrompt(): string {
  * TODO move the string generation into the tool classes
  */
 export async function buildToolStatePrompt(): Promise<string> {
-	return (await buildFileSystemTreePrompt()) + (await buildLiveFilesPrompt()) + (await buildFileStorePrompt()) + (await buildFileSystemPrompt());
+	return (await buildLiveFilesPrompt()) + (await buildFileStorePrompt()) + (await buildFileSystemServicePrompt());
 }
 
 export async function buildFileSystemTreePrompt(): Promise<string> {
@@ -65,9 +67,9 @@ ${treeString}
 }
 
 /**
- * @return An XML representation of the FileSystem tool state
+ * @return An XML representation of the FileSystemService tool state
  */
-async function buildFileSystemPrompt(): Promise<string> {
+async function buildFileSystemServicePrompt(): Promise<string> {
 	const functions = agentContext().functions;
 	const hasAnyFileSystemFunction = functions.getFunctionClassNames().some((name) => name.startsWith('FileSystem'));
 	if (!hasAnyFileSystemFunction) return '';

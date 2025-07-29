@@ -9,6 +9,7 @@ import type { ColumnType } from 'kysely';
 export interface AgentContextsTable {
 	agent_id: string; // PRIMARY KEY
 	execution_id: string;
+	container_id: string;
 	typed_ai_repo_dir: string | null;
 	trace_id: string;
 	name: string | null;
@@ -84,6 +85,7 @@ export interface AgentIterationsTable {
 	iteration_number: number; // Part of composite PK
 	functions_serialized: string | null; // Function class names as JSONB array, was string[] | null
 	prompt: string | null;
+	response: string | null;
 	summary: string | null;
 	expanded_user_request: string | null;
 	observations_reasoning: string | null;

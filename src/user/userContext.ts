@@ -25,7 +25,7 @@ const userContextStorage = new AsyncLocalStorage<User>();
  * @param fn the function which will have the user available via currentUser() during execution
  * @returns The return value of the provided function `fn`.
  */
-export function runWithUser<T>(user: User, fn: () => T): T {
+export function runAsUser<T>(user: User, fn: () => T): T {
 	return userContextStorage.run(user, fn as any) as T;
 }
 

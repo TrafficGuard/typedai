@@ -12,7 +12,7 @@ import {
 	AI_INFO_FILENAME,
 	type ProjectInfo,
 	type ProjectInfoFileFormat,
-	detectProjectInfo,
+	getProjectInfos,
 	mapProjectInfoToFileFormat,
 	normalizeScriptCommandToArray,
 	normalizeScriptCommandToFileFormat,
@@ -192,7 +192,7 @@ describe('projectDetection', () => {
 			};
 			setupMockFs(mockFsConfig, MOCK_CWD, MOCK_CWD);
 
-			const result = await detectProjectInfo();
+			const result = await getProjectInfos();
 
 			expect(result).to.be.an('array').with.lengthOf(1);
 			const project = result[0];
@@ -241,7 +241,7 @@ describe('projectDetection', () => {
 			};
 			setupMockFs(mockFsConfig, MOCK_CWD, MOCK_VCS_ROOT_DIFFERENT);
 
-			const result = await detectProjectInfo();
+			const result = await getProjectInfos();
 
 			expect(result).to.be.an('array').with.lengthOf(1);
 			expect(result[0].baseDir).to.equal('vcs_project/');
@@ -277,7 +277,7 @@ describe('projectDetection', () => {
 			const detectionStub = sandbox.stub().resolves(agentDetectedProjects);
 			setProjectDetectionAgent(detectionStub);
 
-			const result = await detectProjectInfo();
+			const result = await getProjectInfos();
 
 			expect(detectionStub.calledOnce).to.be.true;
 
@@ -302,7 +302,7 @@ describe('projectDetection', () => {
 			const detectionStub = sandbox.stub().resolves([]); // Agent finds nothing after rename
 			setProjectDetectionAgent(detectionStub);
 
-			await detectProjectInfo();
+			await getProjectInfos();
 
 			// Verify rename by checking old file is gone and new one exists (state validation)
 			const filesInCwd = await fsAsync.readdir(MOCK_CWD);
@@ -325,7 +325,7 @@ describe('projectDetection', () => {
 			};
 			setupMockFs(mockFsConfig, MOCK_CWD, MOCK_CWD);
 
-			const result = await detectProjectInfo();
+			const result = await getProjectInfos();
 
 			expect(result).to.deep.equal([]);
 			// The agent should not be called if a valid file is found
@@ -379,7 +379,7 @@ describe('projectDetection', () => {
 			// getWorkingDirectory() should naturally return CWD_SUBDIR_PATH as it's the basePath.
 			// No need to stub fssInstance.getWorkingDirectory() for this specific test.
 
-			const result = await detectProjectInfo();
+			const result = await getProjectInfos();
 
 			// Assertions
 			expect(result).to.be.an('array').with.lengthOf(1);

@@ -3,7 +3,7 @@ import { type AgentExecution, agentExecutions } from '#agent/autonomous/autonomo
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendNotFound } from '#fastify/index';
 
-export async function listenAgentEventsRoute(fastify: AppFastifyInstance) {
+export async function listenAgentEventsRoute(fastify: AppFastifyInstance): Promise<void> {
 	// Server-Send Events route for real-time agent updates
 	fastify.get(
 		'/api/agent/v1/listen/:agentId',

@@ -35,23 +35,23 @@ function openAICostFunction(inputMil: number, outputMil: number): LlmCostFunctio
 	};
 }
 
-export function openAIo3() {
+export function openAIo3(): LLM {
 	return new OpenAI('OpenAI o3', 'o3', openAICostFunction(2, 8), 200_000);
 }
 
-export function openAIo4mini() {
+export function openAIo4mini(): LLM {
 	return new OpenAI('OpenAI o4-mini', 'o4-mini', openAICostFunction(1.1, 4.4), 200_000);
 }
 
-export function openaiGPT41() {
+export function openaiGPT41(): LLM {
 	return new OpenAI('GPT4.1', 'gpt-4.1', openAICostFunction(2, 8), 1_047_576);
 }
 
-export function openaiGPT41mini() {
+export function openaiGPT41mini(): LLM {
 	return new OpenAI('GPT4.1 mini', 'gpt-4.1-mini', openAICostFunction(0.4, 1.6), 1_047_576);
 }
 
-export function openaiGPT41nano() {
+export function openaiGPT41nano(): LLM {
 	return new OpenAI('GPT4.1 nano', 'gpt-4.1-nano', openAICostFunction(0.1, 0.4), 1_047_576);
 }
 

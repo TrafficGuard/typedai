@@ -7,10 +7,13 @@ import { AGENT_COMPLETED_PARAM_NAME } from '#agent/autonomous/functions/agentFun
 import { runXmlAgent } from '#agent/autonomous/xml/xmlAutonomousAgent';
 import { appContext } from '#app/applicationContext';
 import { FUNC_SEP } from '#functionSchema/functions';
+import { Git } from '#functions/scm/git';
+import { GitHub } from '#functions/scm/github';
 import { logger } from '#o11y/logger';
 import type { AgentCompleted, AgentContext, AgentLLMs, AgentType } from '#shared/agent/agent.model';
 import type { FunctionCallResult } from '#shared/llm/llm.model';
 import type { User } from '#shared/user/user.model';
+import { runAsUser } from '#user/userContext';
 import { errorToString } from '#utils/errors';
 import { CDATA_END, CDATA_START } from '#utils/xml-utils';
 
@@ -52,6 +55,8 @@ export interface RunAgentConfig {
 	fileSystemPath?: string;
 	/** Use shared repository location instead of agent-specific directory. Defaults to true. */
 	useSharedRepos?: boolean;
+	/** If running in a container, the ID of the container */
+	containerId?: string;
 	/** Additional details for the agent */
 	metadata?: Record<string, any>;
 }
@@ -69,6 +74,13 @@ export interface AgentExecution {
  * TODO convert to a Map
  */
 export const agentExecutions: Record<string, AgentExecution> = {};
+
+/**
+ * The agents that are in a human-in-the-loop check to continue
+ * Key: agentId
+ * Value: reason for the human-in-the-loop check and a function to resume the agent
+ */
+export const agentHumanInLoop: Record<string, { reason: string; resume: () => void }> = {};
 
 /**
  * Starts a new autonomous agent
@@ -103,6 +115,16 @@ async function _startAgent(agent: AgentContext): Promise<AgentExecution> {
 
 	await checkRepoHomeAndWorkingDirectory(agent);
 
+	const metadata = agent.metadata ?? {};
+	const githubProject = metadata.github?.repository;
+	if (githubProject) {
+		runAsUser(agent.user, async () => {
+			const repoPath = await new GitHub().cloneProject(githubProject);
+			agent.fileSystem.setWorkingDirectory(repoPath);
+			if (metadata.github.branch) await new Git().switchToBranch(metadata.github.branch);
+		});
+	}
+
 	switch (agent.subtype) {
 		case 'xml':
 			execution = await runXmlAgent(agent);
@@ -123,10 +145,41 @@ async function _startAgent(agent: AgentContext): Promise<AgentExecution> {
 
 export async function startAgentAndWaitForCompletion(config: RunAgentConfig): Promise<string> {
 	const agentExecution = await startAgent(config);
-	await agentExecution.execution;
+
+	// Wait for the initial execution promise to settle, but also poll for terminal state
+	// as the promise might resolve early in fire-and-forget scenarios.
+	try {
+		await agentExecution.execution;
+	} catch (e) {
+		logger.warn(e, `Agent execution promise for ${agentExecution.agentId} rejected. Polling for final state.`);
+	}
+
+	// Polling loop to ensure we wait until the agent is in a terminal state.
+	const poll = async (agentId: string): Promise<void> => {
+		const terminalStates = ['completed', 'error', 'cancelled'];
+		let agent = await appContext().agentStateService.load(agentId);
+
+		while (!terminalStates.includes(agent.state)) {
+			await new Promise((resolve) => setTimeout(resolve, 2000)); // Poll every 2 seconds
+			agent = await appContext().agentStateService.load(agentId);
+			logger.debug(`Polling agent ${agentId}, current state: ${agent.state}`);
+		}
+	};
+
+	await poll(agentExecution.agentId);
+
 	const agent = await appContext().agentStateService.load(agentExecution.agentId);
-	if (agent.state !== 'completed') throw new Error(`Agent has completed executing in state "${agent.state}"`);
-	return agent.functionCallHistory.at(-1).parameters[AGENT_COMPLETED_PARAM_NAME];
+	if (agent.state !== 'completed') {
+		const errorMessage = agent.error ? errorToString(agent.error as any) : `Agent finished in non-completed state: ${agent.state}`;
+		throw new Error(errorMessage);
+	}
+
+	const lastCall = agent.functionCallHistory.at(-1);
+	if (!lastCall || !lastCall.parameters || !(AGENT_COMPLETED_PARAM_NAME in lastCall.parameters)) {
+		throw new Error('Agent completed, but could not find the final result note.');
+	}
+
+	return lastCall.parameters[AGENT_COMPLETED_PARAM_NAME];
 }
 
 export async function runAgentAndWait(config: RunAgentConfig): Promise<string> {
@@ -329,6 +382,11 @@ async function checkRepoHomeAndWorkingDirectory(agent: AgentContext) {
 		}
 		agent.typedAiRepoDir = currentRepoDir;
 	}
-	const workDirExists = await fss.fileExists(fss.getWorkingDirectory());
-	if (!workDirExists) throw new Error(`Working directory ${fss.getWorkingDirectory()} does not exist`);
+	const workingDir = fss.getWorkingDirectory();
+	logger.info({ workingDir }, 'Verifying working directory exists');
+	const workDirExists = await fss.directoryExists(workingDir);
+	if (!workDirExists) {
+		throw new Error(`Working directory ${workingDir} does not exist or is not a directory.`);
+	}
+	logger.info({ workingDir }, 'Working directory verified.');
 }

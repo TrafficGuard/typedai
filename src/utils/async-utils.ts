@@ -1,4 +1,4 @@
-export async function sleep(millis: number) {
+export async function sleep(millis: number): Promise<void> {
 	return new Promise((resolve) => {
 		setTimeout(() => resolve(null), millis);
 	});
@@ -72,7 +72,7 @@ export async function allSettledAndFulFilled<T>(promises: Promise<T>[]): Promise
 	return getFulfilled(settled);
 }
 
-export function getFulfilled<T>(settledResults: PromiseSettledResult<T>[]) {
+export function getFulfilled<T>(settledResults: PromiseSettledResult<T>[]): T[] {
 	const rejects = settledResults.filter((result) => result.status === 'rejected').map((result) => (result as PromiseRejectedResult).reason);
 	console.log(rejects);
 	return settledResults.filter((result) => result.status === 'fulfilled').map((result) => (result as PromiseFulfilledResult<T>).value);
@@ -124,7 +124,7 @@ export function mutex(originalMethod: any, context: ClassMethodDecoratorContext)
 /**
  * Executes a list of promises in batches
  */
-export async function batch<T>(promises: Promise<T>[], batchSize: number) {
+export async function batch<T>(promises: Promise<T>[], batchSize: number): Promise<T[]> {
 	const results: T[] = [];
 	for (let i = 0; i < promises.length; i += batchSize) {
 		const end = Math.min(i + batchSize, promises.length);

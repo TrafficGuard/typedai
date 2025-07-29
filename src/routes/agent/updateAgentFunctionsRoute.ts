@@ -6,7 +6,7 @@ import { AGENT_API } from '#shared/agent/agent.api';
 import { NotAllowed, NotFound } from '#shared/errors';
 import { registerApiRoute } from '../routeUtils';
 
-export async function updateAgentFunctionsRoute(fastify: AppFastifyInstance) {
+export async function updateAgentFunctionsRoute(fastify: AppFastifyInstance): Promise<void> {
 	/** Updates the functions available to an agent */
 	registerApiRoute(fastify, AGENT_API.updateFunctions, async (req, reply) => {
 		const { agentId, functions } = req.body;

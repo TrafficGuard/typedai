@@ -234,7 +234,7 @@ function getFileUpdatedTimestamp(filePath: string): Date | null {
 	}
 }
 
-export function generatePythonClass(type: Type) {
+export function generatePythonClass(type: Type): void {
 	if (type.isInterface()) {
 	} else if (type.isTypeParameter()) {
 	}

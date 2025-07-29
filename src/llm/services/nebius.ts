@@ -12,7 +12,7 @@ export function nebiusLLMRegistry(): Record<string, () => LLM> {
 	};
 }
 
-export function nebiusDeepSeekR1() {
+export function nebiusDeepSeekR1(): LLM {
 	return new NebiusLLM('DeepSeek R1 (Nebius)', 'deepseek-ai/DeepSeek-R1', fixedCostPerMilTokens(0.8, 2.4));
 }
 

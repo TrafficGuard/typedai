@@ -14,7 +14,7 @@ import { parseProcessArgs, saveAgentId } from './cli';
 
 const llms: AgentLLMs = defaultLLMs();
 
-export async function main() {
+export async function main(): Promise<void> {
 	const systemPrompt = readFileSync('src/cli/research-system', 'utf-8');
 
 	const { initialPrompt, resumeAgentId } = parseProcessArgs();

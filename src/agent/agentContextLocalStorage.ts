@@ -18,18 +18,18 @@ export function setFileSystemOverride(fs: IFileSystemService | null): void {
 export const agentContextStorage = new AsyncLocalStorage<AgentContext>();
 
 export function agentContext(): AgentContext | undefined {
-	return agentContextStorage?.getStore();
+	return agentContextStorage.getStore();
 }
 
 export function llms(): AgentLLMs {
-	return agentContextStorage.getStore().llms;
+	return agentContextStorage.getStore()?.llms;
 }
 
 /**
  * Adds costs to the current agent context (from LLM calls, Perplexity etc)
  * @param cost the cost spent in $USD
  */
-export function addCost(cost: number) {
+export function addCost(cost: number): void {
 	const store = agentContextStorage.getStore();
 	if (!store) return;
 	logger.debug(`Adding cost $${cost.toFixed(6)}`);
@@ -70,6 +70,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		typedAiRepoDir: process.env.TYPEDAI_HOME || process.cwd(),
 		childAgents: [],
 		traceId: '',
+		containerId: config.containerId,
 		metadata: config.metadata ?? {},
 		name: config.agentName,
 		type: (config as RunAgentConfig).type ?? 'workflow',
@@ -78,6 +79,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		inputPrompt: '',
 		userPrompt: config.initialPrompt,
 		state: 'agent',
+		error: undefined,
 		iterations: 0,
 		functionCallHistory: [],
 		messages: [],
@@ -96,6 +98,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		memory: {},
 		invoking: [],
 		lastUpdate: Date.now(),
+		createdAt: Date.now(),
 		toolState: {},
 		codeTaskId: config.codeTaskId,
 	};

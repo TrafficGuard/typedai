@@ -40,6 +40,7 @@ xdescribe('AgentIterationsComponent', () => {
 		summary: 'Test iteration 1 summary',
 		functions: ['TestFunction'],
 		prompt: '<prompt>Test prompt for iteration 1</prompt>',
+		response: 'Test response for iteration 1',
 		images: [],
 		expandedUserRequest: 'Expanded request',
 		observationsReasoning: 'Observations and reasoning',

@@ -240,6 +240,7 @@ The output or error from the previously executed Python script will be provided 
 - **Full Content Access:**
     - The full result of the previous script is available in the Python variable
       `PREVIOUS_SCRIPT_RESULT` (or `PREVIOUS_SCRIPT_ERROR` if the previous run raised an error).
+    - Note that PREVIOUS_SCRIPT_RESULT is a string value in JSON format. You will need to parse it to a Dict to lookup keys.
     - The `<script-result>` or `<script-error>` tag in the prompt provides a summary
       of the output/error and indicates the name of the Python variable holding the
       full content or handle via the `py_var_name` attribute.
@@ -265,6 +266,7 @@ Instructions:
     - List all of the "Interpreting User Requests" items and identify which ones are relevant
 - List the reasoning techniques relevant to the user request and the plan tasks to complete next.
 - Rephrase the selected reasoning techniques to be more specific to the next plan tasks.
+- Identify any memory items to remove from the context to reduce LLM costs.
 -->
 </observations-reasoning>
 <plan>
@@ -300,6 +302,7 @@ Python code instructions:
 - Assume the imports for built-in packages typing, json, re, math and datetime will be added to the start of the script. No import statements or other packages are allowed.
 - await on every call to functions defined previously in the <functions> block.
 - Keep the code as simple as possible. Do not manipulate the function return values unless absolutely necessary. Prefer returning the values returned from the functions directly.
+- For lookups by value where a single item is expected, if the result is not a single match, the full collection must be returned for analysis.
 - Add comments with your reasoning.
 - Add print calls throughout your code
 - If defining new variables then add typings from the value being assigned.
@@ -367,19 +370,33 @@ return { list1: list1, list2: list2}
 
 <code-review>
 <!--
-Review the code for general high level planning, valid memory keys etc
-Then review the draft python code against each of the Python code instructions, one by one.
-- Property access comment:
-- Dict array access:
-- f-string escaping:
-- Comment on function return value:
-- Verify assumptions about types/values:
-- Return after deterministic steps:
-- Unexpected object/collection:
-- Use positional arguments
-- Assume provided function hints are correct
-- Do NOT assume anything about the value of the results from functions other than from the function docs and type hints. Return values that require further analysis of the values
-... (list the rest of the review items)
+Provide a review for general high level planning instructions, valid memory keys etc
+Provide a review of the draft python code against each of the Python code instructions, one by one.
+- Delete memory items no longer required
+- Assume built-in imports; no other packages/imports.
+- Await all calls to functions defined in `<functions>` block.
+- Keep code simple; prefer direct returns; no manipulation unless necessary.
+- For single-item lookups, return full collection if not single match.
+- Add reasoning comments.
+- Add print calls throughout.
+- Add typings for new variables.
+- Do not return saved variables; do not re-save existing memory.
+- Code defensively; check object properties.
+- Handle user-specified items flexibly (refer to 'Interpreting User Requests').
+- If item not found using assumptions, return all values.
+- Directly return `Agent_completed` result (after storing info).
+- Do not assume Python files (e.g., TS, Java, Terraform, PHP, C#, C++, Ruby).
+- Directly analyze/return text/data from `<memory>` and `<script-result>`; return unstructured data in Dict for analysis.
+- All math in Python code.
+- Use `json.dumps(data, cls=JsProxyEncoder)`.
+- Return images in Dict with `{"type": "image", "source": "...", "value": "..."}` structure.
+- Comment on property existence; use array access for Dicts.
+- Escape literal curly braces in f-strings (`{{` and `}}`).
+- Comment on known function return values; do not assume others.
+- Return original object/collection if processing results in unexpected (empty) outcome.
+- Use positional arguments for function calls.
+- Assume function return objects match type hints.
+- Return Dict with values for next step decision.
 -->
 </code-review>
 

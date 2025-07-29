@@ -1,6 +1,5 @@
-import { App, type KnownEventFromType, type SayFn } from '@slack/bolt';
-import type { StringIndexed } from '@slack/bolt/dist/types/helpers';
-import type { MessageElement } from '@slack/web-api/dist/response/ConversationsRepliesResponse';
+import { App, type KnownEventFromType, type SayFn, StringIndexed } from '@slack/bolt';
+import { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
 import { getLastFunctionCallArg } from '#agent/autonomous/agentCompletion';
 import { resumeCompleted, resumeCompletedWithUpdatedUserRequest, startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';

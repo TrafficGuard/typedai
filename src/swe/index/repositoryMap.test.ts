@@ -77,7 +77,7 @@ describe.skip('buildFolderStructure', () => {
 
 			// Determine if we are processing the root directory based on the test setup
 			// Resolve startPath relative to the *basePath* of the FileSystemService for accurate comparison with gitRoot
-			const resolvedStartPath = path.resolve(fileSystemService.basePath, startPath);
+			const resolvedStartPath = path.resolve(fileSystemService.getBasePath(), startPath);
 			const isRoot = resolvedStartPath === gitRoot;
 			// logger.debug(`Stub loadGitignoreRules: resolvedStartPath='${resolvedStartPath}', gitRoot='${gitRoot}', isRoot=${isRoot}`); // Debugging line
 

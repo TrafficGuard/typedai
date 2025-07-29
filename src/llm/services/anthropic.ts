@@ -11,17 +11,17 @@ export const ANTHROPIC_SERVICE = 'anthropic';
 export function anthropicLLMRegistry(): Record<string, () => LLM> {
 	return {
 		[`${ANTHROPIC_SERVICE}:claude-3-5-haiku`]: Claude3_5_Haiku,
-		[`${ANTHROPIC_SERVICE}:claude-sonnet-4`]: anthropicClaude4_Sonnet,
-		[`${ANTHROPIC_SERVICE}:claude-opus-4`]: anthropicClaude4_Opus,
+		[`${ANTHROPIC_SERVICE}:claude-sonnet-4-0`]: anthropicClaude4_Sonnet,
+		[`${ANTHROPIC_SERVICE}:claude-opus-4-0`]: anthropicClaude4_Opus,
 	};
 }
 
-export function anthropicClaude4_Opus() {
-	return new Anthropic('Claude 4 Opus (Anthropic)', 'claude-opus-4', anthropicCostFunction(15, 75));
+export function anthropicClaude4_Opus(): LLM {
+	return new Anthropic('Claude 4 Opus (Anthropic)', 'claude-opus-4-0', anthropicCostFunction(15, 75));
 }
 
-export function anthropicClaude4_Sonnet() {
-	return new Anthropic('Claude 4 Sonnet (Anthropic)', 'claude-sonnet-4', anthropicCostFunction(3, 15));
+export function anthropicClaude4_Sonnet(): LLM {
+	return new Anthropic('Claude 4 Sonnet (Anthropic)', 'claude-sonnet-4-0', anthropicCostFunction(3, 15));
 }
 
 // export function Claude3_5_Sonnet() {
@@ -32,7 +32,7 @@ export function anthropicClaude4_Sonnet() {
 // 	return new Anthropic('Claude 3.7 Sonnet', 'claude-3-7-sonnet-latest', 3, 15);
 // }
 
-export function Claude3_5_Haiku() {
+export function Claude3_5_Haiku(): LLM {
 	return new Anthropic('Claude 3.5 Haiku', 'claude-3-5-haiku-20241022', anthropicCostFunction(1, 5));
 }
 

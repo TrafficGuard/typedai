@@ -3,7 +3,7 @@ import { getLLM, llmTypes } from '#llm/llmFactory';
 import { logger } from '#o11y/logger';
 import { LLMS_API } from '#shared/llm/llm.api';
 
-export async function llmRoutes(fastify: AppFastifyInstance) {
+export async function llmRoutes(fastify: AppFastifyInstance): Promise<void> {
 	// Returns the LLMs which are configured for the current user
 	fastify.route({
 		method: LLMS_API.list.method,

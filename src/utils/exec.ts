@@ -6,7 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { CONTAINER_PATH } from 'src/benchmarks/swebench/swe-bench-runner';
+import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { withSpan } from '#o11y/trace';
 
@@ -16,7 +17,7 @@ const execAsync = promisify(exec);
  * @param result
  * @param message
  */
-export function checkExecResult(result: ExecResults, message: string) {
+export function checkExecResult(result: ExecResults, message: string): void {
 	if (result.error) {
 		logger.info(result.stdout);
 		logger.error(result.stderr);
@@ -48,22 +49,42 @@ function getAvailableShell(): string {
 	return process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
 }
 
+function buildDockerCommand(containerId: string, command: string, workdir?: string, envVars?: Record<string, string>): string {
+	const effectiveWorkdir = workdir || CONTAINER_PATH;
+	const workdirFlag = `--workdir ${shellEscape(effectiveWorkdir)}`;
+	const envVarsString = envVars
+		? Object.entries(envVars)
+				.map(([key, value]) => `-e ${key}=${shellEscape(value)}`)
+				.join(' ')
+		: '';
+	return `docker exec ${envVarsString} ${workdirFlag} ${containerId} bash -c ${shellEscape(command)}`;
+}
+
 export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDirectory()): ExecResults {
+	const context = agentContext();
+	const containerId = context?.containerId;
 	const home = process.env.HOME;
 
-	if (command.startsWith('~') && home) command = home + command.substring(1);
+	let commandToRun = command;
+	if (commandToRun.startsWith('~') && home) commandToRun = home + commandToRun.substring(1);
+
+	const hostCwd = containerId ? getFileSystem().getVcsRoot() : cwd;
+	if (containerId) {
+		commandToRun = buildDockerCommand(containerId, commandToRun, cwd);
+	}
+
 	try {
 		const shell = getAvailableShell();
-		logger.debug(`execCmdSync ${command}\ncwd: ${cwd}\nshell: ${shell}`);
+		logger.debug(`execCmdSync ${commandToRun}\ncwd: ${hostCwd}\nshell: ${shell}`);
 
 		const options: ExecSyncOptions = {
-			cwd,
+			cwd: hostCwd,
 			shell,
 			encoding: 'utf8',
 			env: { ...process.env, PATH: `${process.env.PATH}:/bin:/usr/bin` },
 		};
 
-		let stdout = execSync(command, options);
+		let stdout = execSync(commandToRun, options);
 		if (typeof stdout !== 'string') stdout = stdout.toString();
 
 		logger.info(stdout);
@@ -77,7 +98,7 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 			cwd,
 		};
 	} catch (error) {
-		logger.error(error, `Error executing command: ${command} in ${cwd}`);
+		logger.error(error, `Error executing command: ${commandToRun} in ${cwd}`);
 		return {
 			cmd: command,
 			stdout: error.stdout?.toString() || '',
@@ -103,16 +124,25 @@ export interface ExecResults {
  * @param cwd current working directory
  * @returns
  */
-export async function execCmd(command: string, cwd = getFileSystem().getWorkingDirectory()): Promise<ExecResults> {
+export async function execCmd(command: string, cwd: string = getFileSystem().getWorkingDirectory()): Promise<ExecResults> {
 	return withSpan('execCmd', async (span) => {
+		const context = agentContext();
+		const containerId = context?.containerId;
 		const home = process.env.HOME;
-		logger.info(`execCmd ${home ? command.replace(home, '~') : command} ${cwd}`);
+
+		logger.info(`execCmd ${home ? command.replace(home, '~') : command} ${cwd}${containerId ? ` [container: ${containerId}]` : ''}`);
+
+		const hostCwd = containerId ? getFileSystem().getVcsRoot() : cwd;
+		// If a containerId is present, wrap the command. Otherwise, use the original command.
+		const commandToRun = containerId ? buildDockerCommand(containerId, command, cwd) : command;
+
 		// Use the available shell
 		const shell = getAvailableShell();
 		const result = await new Promise<ExecResults>((resolve, reject) => {
-			exec(command, { cwd, shell }, (error, stdout, stderr) => {
+			// Use the potentially wrapped command string here
+			exec(commandToRun, { cwd: hostCwd, shell }, (error, stdout, stderr) => {
 				resolve({
-					cmd: command,
+					cmd: command, // IMPORTANT: Return the original command for compatibility
 					stdout: formatAnsiWithMarkdownLinks(stdout),
 					stderr: formatAnsiWithMarkdownLinks(stderr),
 					error,
@@ -125,10 +155,10 @@ export async function execCmd(command: string, cwd = getFileSystem().getWorkingD
 		if (!result.error) {
 			span.setAttributes({
 				cwd,
-				command,
+				command: commandToRun, // Log the actual command executed
 				stdout: result.stdout,
 				stderr: result.stderr,
-				exitCode: result.error ? 1 : 0,
+				exitCode: result.exitCode,
 			});
 			span.setStatus({ code: result.error ? SpanStatusCode.ERROR : SpanStatusCode.OK });
 		}
@@ -169,6 +199,56 @@ export interface ExecCmdOptions {
 
 export async function execCommand(command: string, opts?: ExecCmdOptions): Promise<ExecResult> {
 	return withSpan('execCommand', async (span) => {
+		const context = agentContext();
+		// Docker container Id to run the command in
+		const containerId = context?.containerId;
+
+		if (containerId) {
+			// Running inside a container via docker exec
+			const dockerCommand = buildDockerCommand(containerId, command, opts?.workingDirectory, opts?.envVars);
+			const hostCwd = getFileSystem().getVcsRoot();
+			const options: ExecOptions = { cwd: hostCwd, env: process.env };
+
+			try {
+				logger.info(`DOCKER_EXEC: ${command} (in container ${containerId})`);
+				logger.info(`Executing: ${dockerCommand}`);
+				let { stdout, stderr } = await execAsync(dockerCommand, options);
+				stdout = formatAnsiWithMarkdownLinks(stdout);
+				stderr = formatAnsiWithMarkdownLinks(stderr);
+				span.setAttributes({
+					'container.id': containerId,
+					'container.command': command,
+					cwd: opts?.workingDirectory ?? CONTAINER_PATH,
+					command: dockerCommand,
+					stdout,
+					stderr,
+					exitCode: 0,
+				});
+				span.setStatus({ code: SpanStatusCode.OK });
+				return { stdout, stderr, exitCode: 0, command };
+			} catch (error) {
+				span.setAttributes({
+					'container.id': containerId,
+					'container.command': command,
+					cwd: opts?.workingDirectory ?? CONTAINER_PATH, // Log container CWD
+					command: dockerCommand,
+					stdout: formatAnsiWithMarkdownLinks(error.stdout),
+					stderr: formatAnsiWithMarkdownLinks(error.stderr),
+					exitCode: error.code,
+				});
+				span.recordException(error);
+				span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+				logger.error(error, `Error executing ${command} in container ${containerId}`);
+				if (opts?.throwOnError) {
+					const e: any = new Error(`Error running ${command} in container. ${error.stdout} ${error.stderr}`);
+					e.code = error.code;
+					throw e;
+				}
+				return { stdout: error.stdout, stderr: error.stderr, exitCode: error.code, command };
+			}
+		}
+
+		// Original logic for host execution
 		const shell = getAvailableShell();
 
 		const env = opts?.envVars ? { ...process.env, ...opts.envVars } : process.env;
@@ -209,29 +289,44 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 	});
 }
 
+// only used by ripgrep in the filesystem at the moment. had issues with the other exec functions
 export async function spawnCommand(command: string, workingDirectory?: string): Promise<ExecResult> {
 	return withSpan('spawnCommand', async (span) => {
+		const context = agentContext();
+		const containerId = context?.containerId;
 		const shell = getAvailableShell();
-		const cwd = workingDirectory ?? getFileSystem().getWorkingDirectory();
-		const options: SpawnOptionsWithoutStdio = { cwd, shell, env: process.env };
+		let commandToRun: string;
+		let hostCwd: string;
+
+		if (containerId && !command.startsWith('rg ')) {
+			commandToRun = buildDockerCommand(containerId, command, workingDirectory);
+			hostCwd = getFileSystem().getVcsRoot();
+		} else {
+			commandToRun = command;
+			hostCwd = workingDirectory ?? getFileSystem().getWorkingDirectory();
+		}
+
+		const options: SpawnOptionsWithoutStdio = { cwd: hostCwd, shell, env: process.env };
 		try {
-			logger.info(`${options.cwd} % ${command}`);
-			let { stdout, stderr, code } = await spawnAsync(command, options);
+			const logCwd = workingDirectory ?? getFileSystem().getWorkingDirectory();
+			logger.info(`${logCwd} % ${command}${containerId ? ` [container: ${containerId}]` : ''}`);
+			// Use the potentially wrapped command string here
+			let { stdout, stderr, code } = await spawnAsync(commandToRun, options);
 			stdout = formatAnsiWithMarkdownLinks(stdout);
 			stderr = formatAnsiWithMarkdownLinks(stderr);
 			span.setAttributes({
-				cwd,
-				command,
+				cwd: hostCwd,
+				command: commandToRun,
 				stdout,
 				stderr,
-				exitCode: 0,
+				exitCode: code,
 			});
-			span.setStatus({ code: SpanStatusCode.OK });
-			return { stdout, stderr, exitCode: 0, command };
+			span.setStatus({ code: code === 0 ? SpanStatusCode.OK : SpanStatusCode.ERROR });
+			return { stdout, stderr, exitCode: code, command };
 		} catch (error) {
 			span.setAttributes({
-				cwd,
-				command,
+				cwd: hostCwd,
+				command: commandToRun,
 				stdout: formatAnsiWithMarkdownLinks(error.stdout),
 				stderr: formatAnsiWithMarkdownLinks(error.stderr),
 				exitCode: error.code,
@@ -292,6 +387,16 @@ function spawnAsync(command: string, options: SpawnOptionsWithoutStdio): Promise
  * @param opts
  */
 export async function runShellCommand(cmd: string, opts?: ExecCmdOptions): Promise<ExecResult> {
+	const context = agentContext();
+	const containerId = context?.containerId;
+
+	// If in a container, delegate to execCommand, which handles non-interactive docker exec well.
+	// This avoids the complexity of managing a persistent shell over docker exec.
+	if (containerId) {
+		logger.info(`Running shell command in container by delegating to execCommand: ${cmd}`);
+		return execCommand(cmd, opts);
+	}
+
 	const shell: string = process.platform === 'win32' ? 'cmd.exe' : os.platform() === 'darwin' ? '/bin/zsh' : '/bin/bash';
 	const env: Record<string, string> = opts?.envVars ? { ...process.env, ...opts.envVars } : { ...process.env };
 	const cwd: string = opts?.workingDirectory ?? getFileSystem().getWorkingDirectory();

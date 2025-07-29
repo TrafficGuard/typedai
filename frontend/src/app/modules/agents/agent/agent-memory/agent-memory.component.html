@@ -10,8 +10,15 @@
           {{ entry.key }}
         </mat-panel-title>
       </mat-expansion-panel-header>
-      <!-- Use [innerHTML] to render <br/> tags and remove white-space style -->
-      <div [innerHTML]="convertMemoryValue(entry.value)"></div>
+      <!-- Use [innerHTML] to render <br/> tags and remove white-space style 
+      <div [innerHTML]="convertMemoryValue(entry.value)"></div>-->
+
+      <markdown
+          mermaid
+          clipboard
+          [clipboardButtonComponent]="clipboardButton"
+          [data]="entry.value"
+      ></markdown>
     </mat-expansion-panel>
   }
 }

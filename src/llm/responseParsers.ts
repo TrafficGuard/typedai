@@ -188,11 +188,16 @@ export function extractReasoningAndJson<T>(rawText: string): { reasoning: string
 	}
 
 	if (jsonString !== undefined && reasoning !== undefined) {
+		// Add closing bracket if missing - happens occasionally with qwen3
+		if (jsonString.startsWith('{') && !jsonString.endsWith('}')) jsonString += '}';
+
 		try {
 			const object = JSON.parse(jsonString) as T;
 			return { reasoning, object, jsonString };
 		} catch (e: any) {
 			// logger.error(e, `Failed to parse extracted JSON string. Reasoning: "${reasoning}", JSON String: "${jsonString}"`);
+			console.log(`\nRaw Text:\n${rawText}\n`);
+			console.log(`\nJSON String:\n${jsonString}\n`);
 			throw new SyntaxError(`Failed to parse JSON content: ${e.message}. Extracted JSON string: "${jsonString}"`);
 		}
 	}

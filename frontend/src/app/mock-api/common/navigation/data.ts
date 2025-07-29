@@ -51,6 +51,14 @@ const codeReviewNav: FuseNavigationItem =     {
     link: '/ui/code-reviews',
 }
 
+const codeEditNav: FuseNavigationItem = {
+    id: 'code-edit',
+    title: 'Code Edit',
+    type: 'basic',
+    icon: 'heroicons_outline:pencil-square',
+    link: '/ui/code-edit',
+};
+
 export const defaultNavigation: FuseNavigationItem[] = [
     chatNav,
     agentsNav,
@@ -58,6 +66,7 @@ export const defaultNavigation: FuseNavigationItem[] = [
     codeTaskNav,
     promptsNav,
     codeReviewNav,
+    codeEditNav,
 ];
 
 if (environment.modules?.trim().length) {
@@ -70,6 +79,7 @@ if (environment.modules?.trim().length) {
     if(modules.includes('codeTask')) defaultNavigation.push(codeTaskNav);
     if(modules.includes('prompts')) defaultNavigation.push(promptsNav);
     if(modules.includes('codeReview')) defaultNavigation.push(codeReviewNav);
+    // if(modules.includes('codeEdit')) defaultNavigation.push(codeEditNav);
 }
 
 export const compactNavigation: FuseNavigationItem[] = defaultNavigation;

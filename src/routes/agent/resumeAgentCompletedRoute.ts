@@ -7,7 +7,7 @@ import { AGENT_API } from '#shared/agent/agent.api';
 import { NotAllowed, NotFound } from '#shared/errors';
 import { registerApiRoute } from '../routeUtils';
 
-export async function resumeAgentCompletedRoute(fastify: AppFastifyInstance) {
+export async function resumeAgentCompletedRoute(fastify: AppFastifyInstance): Promise<void> {
 	/** Resumes an agent in the completed state */
 	registerApiRoute(fastify, AGENT_API.resumeCompleted, async (req, reply) => {
 		const { agentId, executionId, instructions } = req.body;

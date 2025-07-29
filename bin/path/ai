@@ -1,11 +1,17 @@
 #!/bin/bash
 
-# Shortcut to running `npm run <script> <arg>` from the TypedAI installation
+# Shortcut for users to run `npm run <script> <arg>` from the TypedAI installation
 # Usage: `ai <script> <args>`
 
 if [ -z "$TYPEDAI_HOME" ]; then
   echo "Error: TYPEDAI_HOME is not set."
   exit 1
+fi
+
+# If there arg is "b" then run ../find_chrome_tab
+if [ "$1" = "b" ]; then
+  $TYPEDAI_HOME/bin/find_chrome_tab
+  exit 0
 fi
 
 # Check if at least one argument is passed

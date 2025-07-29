@@ -8,7 +8,7 @@ import { reviewPythonCode } from '#agent/autonomous/codegen/codeGenAgentCodeRevi
 import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/autonomous/codegen/pythonCodeGenUtils';
 import { AGENT_REQUEST_FEEDBACK } from '#agent/autonomous/functions/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/autonomous/functions/agentFunctions';
-import { humanInTheLoop, notifySupervisor } from '#agent/autonomous/humanInTheLoop';
+import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
 import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
@@ -137,7 +137,7 @@ export async function runCachingCodegenAgent(agent: AgentContext): Promise<Agent
 					agent.messages[1] = { role: 'user', content: userRequestXml, cache: 'ephemeral' };
 
 					// Memory output
-					agent.messages[2] = { role: 'assistant', content: `This is my current memory items:\n${buildMemoryPrompt()}`, cache: 'ephemeral' };
+					agent.messages[2] = { role: 'assistant', content: `This is my current memory items:\n${await buildMemoryPrompt()}`, cache: 'ephemeral' };
 
 					// Function history and tool state
 					const toolStatePrompt = await buildToolStatePrompt();

@@ -4,9 +4,11 @@ import { systemDir } from '#app/appDirs';
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
 import { MAD_Balanced, MAD_Fast, MAD_SOTA } from '#llm/multi-agent/reasoning-debate';
 import { Claude4_Opus_Vertex } from '#llm/services/anthropic-vertex';
+import { cerebrasQwen3_235b } from '#llm/services/cerebras';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { openAIo3 } from '#llm/services/openai';
 import { perplexityDeepResearchLLM, perplexityLLM, perplexityReasoningProLLM } from '#llm/services/perplexity-llm';
+import { xai_Grok4 } from '#llm/services/xai';
 import { logger } from '#o11y/logger';
 import { LLM } from '#shared/llm/llm.model';
 
@@ -16,6 +18,8 @@ export const LLM_CLI_ALIAS: Record<string, () => LLM> = {
 	h: () => defaultLLMs().hard,
 	xh: () => defaultLLMs().xhard,
 	fm: () => new FastMediumLLM(),
+	f: cerebrasQwen3_235b,
+	x: xai_Grok4,
 	o3: openAIo3,
 	madb: MAD_Balanced,
 	mads: MAD_SOTA,
@@ -52,7 +56,31 @@ export function parseProcessArgs(): CliOptions {
 	let scriptName = scriptPath.split(path.sep).at(-1);
 	scriptName = scriptName.substring(0, scriptName.length - 3);
 	console.log(`Script name: ${scriptName}`);
-	return parseUserCliArgs(scriptName, process.argv.slice(2)); // slice shallow copies as we may want to modify the slice later
+
+	// Grab the CLI args that were actually delivered to the Node process
+	const scriptArgs = process.argv.slice(2);
+
+	// If the command was executed through `npm run script …` *without* a `--` separator
+	// then npm strips out the extra arguments.  We can recover them from the
+	// npm_config_argv environment variable which contains the original command line.
+	try {
+		if (process.env.npm_config_argv) {
+			const npmArgv = JSON.parse(process.env.npm_config_argv) as { original?: string[] };
+			const original = npmArgv.original ?? [];
+			// Find the position of the script name (e.g. "gen") and take everything after it
+			const idx = original.lastIndexOf(scriptName);
+			if (idx > -1) {
+				const recovered = original.slice(idx + 1);
+				for (const arg of recovered) {
+					if (!scriptArgs.includes(arg)) scriptArgs.push(arg);
+				}
+			}
+		}
+	} catch {
+		/* ignore JSON parse errors or unexpected structures */
+	}
+
+	return parseUserCliArgs(scriptName, scriptArgs); // slice shallow copies as we may want to modify the slice later
 }
 
 /**
@@ -118,18 +146,29 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 		scriptArgs.splice(fsArgIndex, 1);
 	}
 
-	// Detect and read any prompt text piped or redirected into stdin.
+	// Remove the -i flag from prompt arguments
+	const iArgIndex = scriptArgs.findIndex((arg) => arg === '-i');
+	if (iArgIndex > -1) {
+		scriptArgs.splice(iArgIndex, 1);
+	}
+
+	// Detect and read any prompt text piped, redirected, or interactively provided via stdin.
 	// This uses fstatSync so it works even when the script is launched through `npm run …`
-	let pipedPrompt = '';
+	let stdinPrompt = '';
 	try {
 		// Do not read from stdin during tests, as it may be polluted by test runners or git hooks.
 		if (process.env.NODE_ENV !== 'test') {
-			const stats = fstatSync(0); // fd 0 = stdin
-			// Is data coming from a pipe (FIFO) or a redirected file?
-			if (stats.isFIFO() || stats.isFile()) {
-				pipedPrompt = readFileSync(0, 'utf-8').trim();
+			// If -i flag is present, assume interactive input and read from stdin.
+			if (flags.i) {
+				console.log('Enter prompt (send EOF to finish; e.g. Ctrl+D on a new line):');
+				stdinPrompt = readFileSync(0, 'utf-8').trim();
+			} else {
+				const stats = fstatSync(0); // fd 0 = stdin
+				// Is data coming from a pipe (FIFO) or a redirected file?
+				if (stats.isFIFO() || stats.isFile()) {
+					stdinPrompt = readFileSync(0, 'utf-8').trim();
+				}
 			}
-			// When stdin is a TTY (interactive), leave pipedPrompt = ''
 		}
 	} catch {
 		/* ignore – fall back to CLI args or file */
@@ -159,7 +198,7 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 	}
 
 	let useSharedRepos = true;
-	const privateRepoArgIndex = scriptArgs.findIndex((arg) => arg === '--private' || arg === '-p');
+	const privateRepoArgIndex = scriptArgs.findIndex((arg) => arg === '--private');
 	if (privateRepoArgIndex > -1) {
 		useSharedRepos = false;
 		scriptArgs.splice(privateRepoArgIndex, 1); // Remove the flag after processing
@@ -189,16 +228,16 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 	let initialPrompt = '';
 
 	// Precedence:
-	//   1) piped input (if any) + append CLI args (if any)
+	//   1) piped/stdin input (if any) + append CLI args (if any)
 	//   2) CLI args only
 	//   3) fallback file
-	if (pipedPrompt) {
-		initialPrompt = argsPrompt ? `${pipedPrompt}\n\n${argsPrompt}` : pipedPrompt;
+	if (stdinPrompt) {
+		initialPrompt = argsPrompt ? `${stdinPrompt}\n\n${argsPrompt}` : stdinPrompt;
 	} else {
 		initialPrompt = argsPrompt;
 	}
 
-	if (!pipedPrompt && (initialPrompt.startsWith('-f') || initialPrompt.startsWith('-t') || initialPrompt.startsWith('--fs') || initialPrompt.startsWith('-r')))
+	if (!stdinPrompt && (initialPrompt.startsWith('-f') || initialPrompt.startsWith('-t') || initialPrompt.startsWith('--fs') || initialPrompt.startsWith('-r')))
 		throw new Error(
 			'If running a `npm run` command, the program arguments need to be seperated by "--". e.g. "npm run agent -- -f=code,web,jira". Alternatively use the `ai` script as an alias for `npm run` which doesnt required the -- seperator, and can be run from any directory.',
 		);

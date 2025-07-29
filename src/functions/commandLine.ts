@@ -26,11 +26,12 @@ Git repo folder: ${fss.getVcsRoot() ?? '<none>'}
 				`The command which is being requested to execute is:\n${command}\n\n\n Think through the dangers of running this command and response with only a single word, either SAFE, UNSURE or DANGEROUS`,
 			),
 		]);
-		// if (response !== 'SAFE')
-		await humanInTheLoop(
-			agentContext(),
-			`Requesting to execute the shell command: ${command}\nCWD: ${getFileSystem().getWorkingDirectory()}\nSafety analysis: ${response}`,
-		);
+		if (!response.includes('SAFE')) {
+			await humanInTheLoop(
+				agentContext(),
+				`Requesting to execute the shell command: ${command}\nCWD: ${getFileSystem().getWorkingDirectory()}\nSafety analysis: ${response}`,
+			);
+		}
 
 		const result = await execCommand(command);
 		if (result.exitCode !== 0) throw new Error(`Error executing command ${command}. Return code ${result.exitCode}. Err: ${result.stderr}`);

@@ -28,17 +28,19 @@ export function serializeContext(context: AgentContext): AgentContextApi {
 		executionId: context.executionId ?? 'unknown-execution-id-default',
 		typedAiRepoDir: context.typedAiRepoDir ?? (typeof process !== 'undefined' ? process.cwd() : 'unknown-repo-dir-default'),
 		traceId: context.traceId ?? 'unknown-trace-id-default',
+		containerId: context.containerId,
 		name: context.name ?? 'Unnamed Agent (Default)',
 		parentAgentId: context.parentAgentId,
 		codeTaskId: context.codeTaskId,
 		state: context.state ?? 'error',
 		callStack: context.callStack ?? [],
-		error: context.error ?? null, // Ensure error is explicitly null if undefined
+		error: context.error ?? undefined,
 		output: context.output,
 		hilBudget: context.hilBudget ?? 0,
 		cost: context.cost ?? 0,
 		budgetRemaining: context.budgetRemaining ?? context.hilBudget ?? 0,
 		lastUpdate: context.lastUpdate ?? Date.now(),
+		createdAt: context.createdAt ?? Date.now(),
 		metadata: context.metadata ?? {},
 		iterations: context.iterations ?? 0,
 		pendingMessages: context.pendingMessages ?? [],
@@ -115,12 +117,13 @@ export function deserializeContext(data: AgentContextApi): AgentContext {
 		typeof data.functionCallHistory === 'string' ? JSON.parse(data.functionCallHistory) : (data.functionCallHistory ?? [])
 	) as FunctionCallResult[];
 
-	return {
+	const agentContext: AgentContext = {
 		agentId: data.agentId,
 		type: data.type,
 		subtype: data.subtype,
 		childAgents: data.childAgents ?? [],
 		executionId: data.executionId,
+		containerId: data.containerId,
 		typedAiRepoDir: data.typedAiRepoDir ?? process.cwd(),
 		traceId: data.traceId ?? '',
 		name: data.name,
@@ -129,7 +132,7 @@ export function deserializeContext(data: AgentContextApi): AgentContext {
 		user: userImpl, // Assign the created User object
 		state: data.state as AgentRunningState,
 		callStack: data.callStack ?? [],
-		error: data.error,
+		error: typeof data.error === 'string' ? data.error : undefined,
 		output: data.output,
 		hilBudget: data.hilBudget ?? 2,
 		cost: (Number.isNaN(data.cost) ? 0 : data.cost) ?? 0,
@@ -139,6 +142,7 @@ export function deserializeContext(data: AgentContextApi): AgentContext {
 		useSharedRepos: data.useSharedRepos ?? true,
 		memory: data.memory ?? {},
 		lastUpdate: data.lastUpdate ?? Date.now(),
+		createdAt: Number.isInteger(data.createdAt) ? data.createdAt : Date.now(),
 		metadata: data.metadata ?? {},
 		functions: functionsImpl,
 		completedHandler: completedHandlerImpl,
@@ -154,6 +158,7 @@ export function deserializeContext(data: AgentContextApi): AgentContext {
 		hilRequested: data.hilRequested ?? false,
 		toolState: toolStateImpl,
 	};
+	return agentContext;
 	/*
 	}
 	// handle array or string

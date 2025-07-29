@@ -82,6 +82,15 @@ export const RegenerateMessageSchema = Type.Object(
 );
 export type RegenerateMessagePayload = Static<typeof RegenerateMessageSchema>;
 
+// Schema for the request body of POST /api/chat/from-llm-call
+export const CreateChatFromLlmCallSchema = Type.Object(
+	{
+		llmCallId: Type.String(),
+	},
+	{ $id: 'CreateChatFromLlmCall' },
+);
+export type CreateChatFromLlmCallPayload = Static<typeof CreateChatFromLlmCallSchema>;
+
 // DeleteChatSuccessResponseSchema is not strictly needed if using 204 with ApiNullResponseSchema
 // Export Static types for use in frontend/backend
 export type ChatListSchemaModel = Static<typeof ChatListSchema>;

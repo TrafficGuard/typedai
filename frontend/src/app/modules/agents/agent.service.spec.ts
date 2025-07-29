@@ -30,6 +30,8 @@ xdescribe('AgentService', () => {
 		callStack: [],
 		hilBudget: 100,
 		cost: 50,
+		createdAt: Date.now(),
+		metadata: {},
 		budgetRemaining: 50,
 		llms: {
 			// LLMs are string IDs in AgentContextApi
@@ -46,7 +48,6 @@ xdescribe('AgentService', () => {
 		useSharedRepos: true,
 		memory: {},
 		lastUpdate: Date.now(),
-		metadata: {},
 		functions: {
 			// functions is an object with functionClasses array
 			functionClasses: ['TestFunctionClass1', 'TestFunctionClass2'],
@@ -81,7 +82,10 @@ xdescribe('AgentService', () => {
 		inputPrompt: `Initial input for ${id}`,
 		error: undefined,
 		type: 'autonomous',
-		subtype: ''
+		subtype: '',
+		createdAt: Date.now(),
+		metadata: {},
+		user: `user-${id}`,
 	});
 
 	const mockFullAgent1: AgentContextApi = createMockAgentContext('agent1');

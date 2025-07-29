@@ -364,4 +364,7 @@ if [ $? -ne 0 ]; then
 fi
 echo "✅ 'npm install' completed successfully."
 
+# If this file was sourced, return; if executed directly, exit.
+(return 0 2>/dev/null) && return 0 || exit 0
+
 # The rest of the script (Angular setup, etc.) will use the Node.js version set by fnm.

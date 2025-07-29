@@ -1,9 +1,10 @@
 import type { ToolType } from '#shared/agent/functions';
 import { CHAT_PREVIEW_KEYS } from '#shared/chat/chat.model';
 import type { IFileSystemService as ImportedFileSystemService } from '#shared/files/fileSystemService';
+import type { FunctionCall, FunctionCallResult, GenerationStats, ImagePartExt, LLM, LlmMessage } from '#shared/llm/llm.model';
 import { ChangePropertyType } from '#shared/typeUtils';
-import type { FunctionCall, FunctionCallResult, GenerationStats, ImagePartExt, LLM, LlmMessage } from '../llm/llm.model';
 import type { User } from '../user/user.model';
+import { AgentContextApi } from './agent.schema';
 
 //#region == Property types ====
 
@@ -83,7 +84,7 @@ export function isExecuting(agent: AgentContext): boolean {
 
 /**
  * The state of an agent.
- * Ensure any new fields are handled in agentSerialization.ts
+ * Ensure any new fields are handled in agentSerialization.ts, postgresAgentStateService.ts, postgres schemaUtils.ts, firestoreAgentStateService.ts, agent.schema.ts
  */
 export interface AgentContext {
 	/** Primary Key - Agent instance id. Allocated when the agent is first starts */
@@ -95,6 +96,8 @@ export interface AgentContext {
 	childAgents?: string[];
 	/** Id of the running execution. This changes after the agent restarts due to an error, pausing, human in loop, completion etc */
 	executionId: string;
+	/** Docker container ID this agent is interacting with */
+	containerId?: string;
 	/** The path to the TypedAI repo. i.e. TYPEDAI_HOME env variable or process.cwd() of the most recent execution. If the agent re-starts on a machine with a different value then the file system working directory can be updated. */
 	typedAiRepoDir: string;
 	/** Current OpenTelemetry traceId */
@@ -112,7 +115,7 @@ export interface AgentContext {
 	/** Tracks what functions/spans we've called into */
 	callStack: string[];
 	/** Error message & stack */
-	error?: string | null;
+	error?: string;
 	output?: string;
 	/** Budget spend in $USD until a human-in-the-loop is required */
 	hilBudget: number;
@@ -130,6 +133,8 @@ export interface AgentContext {
 	memory: Record<string, string>;
 	/** Time of the last database write of the state */
 	lastUpdate: number;
+	/** Time when the agent was created */
+	createdAt: number;
 	/** Agent custom fields. Always present, can be an empty object. */
 	metadata: Record<string, any>;
 
@@ -168,7 +173,7 @@ export interface AgentContext {
 
 // Re-exporting types that were declared locally but used by other modules
 export type { ToolType } from '#shared/agent/functions';
-export type { FunctionCall, LLM } from '#shared/llm/llm.model';
+export type { LLM, FunctionCall, FunctionCallResult } from '#shared/llm/llm.model';
 
 /**
  * For autonomous agents we save details of each control loop iteration
@@ -178,6 +183,8 @@ export interface AutonomousIteration {
 	agentId: string;
 	/** Starts from 1 */
 	iteration: number;
+	/** Time when the iteration was created */
+	createdAt?: number;
 	/** The LLM and other costs for this iteration */
 	cost: number;
 	/** A summary of what was done/attempted */
@@ -186,6 +193,8 @@ export interface AutonomousIteration {
 	functions: string[];
 	/** The input prompt */
 	prompt: string;
+	/** The response from the LLM */
+	response: string;
 	/** Images included with the input prompt */
 	images: ImagePartExt[];
 	/** Extracted from <expanded_user_request></expanded_user_request>*/
@@ -197,9 +206,9 @@ export interface AutonomousIteration {
 	/** Extracted from <next_step_details></next_step_details> */
 	nextStepDetails: string;
 	/** Initial generated code */
-	draftCode: string;
+	draftCode?: string;
 	/** Self review of the code */
-	codeReview: string;
+	codeReview?: string;
 	/** Generated code, after review (for code gen agents extracted from <python-code></python-code>) */
 	code: string;
 	/** The full script which was executed */
@@ -207,9 +216,9 @@ export interface AutonomousIteration {
 	/** Function calls executed this iteration */
 	functionCalls: FunctionCallResult[];
 	/** The memory contents at the end of the iteration */
-	memory: Record<string, string>; // Changed from Map<string, string>
+	memory: Record<string, string>;
 	/** Tool state, LiveFile's, FileStore etc. Class name as the key */
-	toolState: Record<string, any>; // Changed from Map<string, any>
+	toolState?: Record<string, any>;
 	/** Any error */
 	error?: string;
 	/** Plan generation stats */
@@ -233,18 +242,29 @@ export const AGENT_PREVIEW_KEYS = [
 	'inputPrompt',
 	'type',
 	'subtype',
+	'parentAgentId',
+	'createdAt',
+	'user',
+	'metadata',
 ] as const satisfies readonly (keyof AgentContext)[];
 
 /**
  * A summarized version of AgentContext for list views.
  */
-export type AgentContextPreview = Pick<AgentContext, (typeof AGENT_PREVIEW_KEYS)[number]>;
+export type AgentContextPreview = Pick<AgentContextApi, (typeof AGENT_PREVIEW_KEYS)[number]>;
 
-//#endregion AgentContextPreview
+//#endregion
 
 //#region == AutonomousIterationSummary ====
 
-export const AUTONOMOUS_ITERATION_SUMMARY_KEYS = ['agentId', 'iteration', 'cost', 'error', 'summary'] as const satisfies readonly (keyof AutonomousIteration)[];
+export const AUTONOMOUS_ITERATION_SUMMARY_KEYS = [
+	'agentId',
+	'iteration',
+	'createdAt',
+	'cost',
+	'summary',
+	'error',
+] as const satisfies readonly (keyof AutonomousIteration)[];
 
 export type AutonomousIterationSummary = Pick<AutonomousIteration, (typeof AUTONOMOUS_ITERATION_SUMMARY_KEYS)[number]>;
 

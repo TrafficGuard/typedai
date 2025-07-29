@@ -9,6 +9,7 @@ import { getAgentIterationsRoute } from './getAgentIterationsRoute';
 import { getAvailableFunctionsRoute } from './getAvailableFunctionsRoute';
 import { listAgentsRoute } from './listAgentsRoute';
 import { listHumanInLoopAgentsRoute } from './listHumanInLoopAgentsRoute';
+import { listRunningAgentsRoute } from './listRunningAgentsRoute';
 import { listenAgentEventsRoute } from './listenAgentEventsRoute';
 import { provideFeedbackRoute } from './provideFeedbackRoute';
 import { requestAgentHilRoute } from './requestAgentHilRoute';
@@ -18,8 +19,9 @@ import { resumeAgentHilRoute } from './resumeAgentHilRoute';
 import { startAgentRoute } from './startAgentRoute';
 import { updateAgentFunctionsRoute } from './updateAgentFunctionsRoute';
 
-export async function agentRoutes(fastify: AppFastifyInstance) {
+export async function agentRoutes(fastify: AppFastifyInstance): Promise<void> {
 	await listAgentsRoute(fastify);
+	await listRunningAgentsRoute(fastify);
 	await getAvailableFunctionsRoute(fastify);
 	await listHumanInLoopAgentsRoute(fastify);
 	await getAgentDetailsRoute(fastify);
@@ -27,7 +29,7 @@ export async function agentRoutes(fastify: AppFastifyInstance) {
 	await getAgentIterationSummariesRoute(fastify);
 	await getAgentIterationDetailRoute(fastify);
 	await deleteAgentsRoute(fastify);
-	await listenAgentEventsRoute(fastify); // This function internally calls fastify.get, so it's awaited for consistency.
+	await listenAgentEventsRoute(fastify);
 
 	// Execution routes
 	await forceStopAgentRoute(fastify);

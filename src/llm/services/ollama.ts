@@ -100,19 +100,19 @@ export class OllamaLLM extends BaseLLM {
 
 // https://ollama.com/library/qwen3
 
-export function Ollama_Qwen2_7b() {
+export function Ollama_Qwen2_7b(): LLM {
 	return new OllamaLLM('Qwen2 7B', 'qwen2:7b', 8192);
 }
 
-export function Ollama_Llama3_7b() {
+export function Ollama_Llama3_7b(): LLM {
 	return new OllamaLLM('Llama3 7B', 'llama3:7b', 4096);
 }
 
-export function Ollama_CodeGemma_7b() {
+export function Ollama_CodeGemma_7b(): LLM {
 	return new OllamaLLM('CodeGemma 7B', 'codegemma:7b', 8192);
 }
 
-export function Ollama_Phi3() {
+export function Ollama_Phi3(): LLM {
 	return new OllamaLLM('Phi3', 'phi3:latest', 2048);
 }
 

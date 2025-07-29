@@ -161,7 +161,7 @@ describe('codegenAgentRunner', () => {
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
 			expect(agent).to.exist;
-			expect(agent!.error).to.be.null;
+			expect(agent!.error).to.be.undefined;
 			expect(agent!.state).to.equal('completed');
 		});
 
@@ -175,7 +175,7 @@ describe('codegenAgentRunner', () => {
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
 			expect(agent).to.exist;
-			expect(agent!.error).to.be.null;
+			expect(agent!.error).to.be.undefined;
 			expect(agent!.state).to.equal('completed');
 		});
 	});
@@ -243,7 +243,7 @@ describe('codegenAgentRunner', () => {
 			await startAgent(runConfig({ functions }));
 			const agent = await waitForAgent();
 			expect(agent).to.exist;
-			expect(agent!.error).to.be.null;
+			expect(agent!.error).to.be.undefined;
 			expect(agent!.state).to.equal('completed');
 		});
 	});

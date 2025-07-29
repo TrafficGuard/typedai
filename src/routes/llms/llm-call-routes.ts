@@ -9,7 +9,7 @@ const basePath = '/api/llms'; // This might be '/api/agent/v1' if all agent rela
 // However, AGENT_API.getLlmCallsByAgentId uses /api/llms path.
 // New routes for summaries/details are defined under AGENT_BASE_V1 in AGENT_API.
 
-export async function llmCallRoutes(fastify: AppFastifyInstance) {
+export async function llmCallRoutes(fastify: AppFastifyInstance): Promise<void> {
 	fastify.get(
 		`${basePath}/calls/agent/:agentId`,
 		{

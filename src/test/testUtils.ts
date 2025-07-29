@@ -7,7 +7,7 @@ import { logger } from '#o11y/logger';
  *
  * Call this function once within the top-level describe block of your test suite.
  */
-export function setupConditionalLoggerOutput() {
+export function setupConditionalLoggerOutput(): void {
 	let capturedLogs: { level: string; args: any[] }[] = [];
 	let loggerStubs: sinon.SinonStub[] = [];
 

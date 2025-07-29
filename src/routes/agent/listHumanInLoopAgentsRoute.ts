@@ -6,7 +6,7 @@ import { AGENT_API } from '#shared/agent/agent.api';
 import type { AgentContext, AgentContextPreview } from '#shared/agent/agent.model';
 import { registerApiRoute } from '../routeUtils';
 
-export async function listHumanInLoopAgentsRoute(fastify: AppFastifyInstance) {
+export async function listHumanInLoopAgentsRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, AGENT_API.listHumanInLoopAgents, async (req, reply) => {
 		try {
 			const agentPreviews: AgentContextPreview[] = await fastify.agentStateService.listRunning();

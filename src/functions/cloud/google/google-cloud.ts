@@ -58,9 +58,9 @@ export class GoogleCloud {
 	 */
 	@func()
 	async executeGcloudCommandModification(gcloudModifyCommand: string): Promise<string> {
-		await humanInTheLoop(agentContext(), `Agent "${agentContext().name}" is requesting to run the command ${gcloudModifyCommand}`);
 		if (!gcloudModifyCommand.includes('--project='))
 			throw new Error('When calling executeGcloudCommandQuery the gcloudQueryCommand parameter must include the --project=<projectId> argument');
+		await humanInTheLoop(agentContext(), `Agent "${agentContext().name}" is requesting to run the command ${gcloudModifyCommand}`);
 
 		const result = await execCommand(gcloudModifyCommand);
 		failOnError('Error running gcloudModifyCommand', result);

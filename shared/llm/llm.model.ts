@@ -1,4 +1,5 @@
 // https://github.com/AgentOps-AI/tokencost/blob/main/tokencost/model_prices.json
+import { LanguageModelV1Source } from '@ai-sdk/provider';
 import type {
 	FilePart as AiFilePart, // Renamed to avoid conflict if we define our own FilePart
 	ImagePart as AiImagePart, // Renamed
@@ -162,7 +163,7 @@ interface TextPartUI {
 	text: string;
 }
 
-export type TextPartExt = TextPartUI & { providerOptions?: Record<string, any> };
+export type TextPartExt = TextPartUI & { providerOptions?: Record<string, any>; sources?: Array<LanguageModelV1Source> };
 export type ImagePartExt = ImagePartUI & AttachmentInfo & { providerOptions?: Record<string, any> | undefined };
 export type FilePartExt = FilePartUI & AttachmentInfo & { providerOptions?: Record<string, any> | undefined };
 export type ToolCallPartExt = ModelToolCallPart;
@@ -261,13 +262,20 @@ export function contentText(content: CoreContent): string {
 
 	let text = '';
 	for (const part of content) {
-		const type = part.type;
-		if (type === 'text') text += part.text;
-		else if (type === 'reasoning') text += `${(part as ReasoningPart).text}\n`;
-		else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
-		else if (type === 'tool-call')
-			text += `Tool Call (${(part as ModelToolCallPart).toolCallId} ${(part as ModelToolCallPart).toolName} Args:${JSON.stringify((part as ModelToolCallPart).args)})`;
-		// Note: ImagePart and FilePart do not contribute to text content in this function
+		switch (part.type) {
+			case 'text':
+				text += part.text;
+				break;
+			case 'tool-call':
+				text += `Tool Call (${(part as ModelToolCallPart).toolCallId} ${(part as ModelToolCallPart).toolName} Args:${JSON.stringify(
+					(part as ModelToolCallPart).args,
+				)})`;
+				break;
+			case 'tool-result':
+				text += JSON.stringify(part.result);
+				break;
+			// image/file parts contribute no text
+		}
 	}
 	return text;
 }

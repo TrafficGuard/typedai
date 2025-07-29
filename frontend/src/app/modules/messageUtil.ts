@@ -1,5 +1,6 @@
 import { Attachment } from 'app/modules/message.types';
-import { AssistantContentExt, FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
+import { AssistantContentExt, FilePartExt, ImagePartExt, TextPart, UserContentExt, TextPartExt } from '#shared/llm/llm.model';
+import type { LanguageModelV1Source } from '@ai-sdk/provider';
 
 // Helper function to convert File to base64 string (extracting only the data part)
 async function fileToBase64(file: File): Promise<string> {
@@ -105,32 +106,37 @@ export async function attachmentsAndTextToUserContentExt(attachments: Attachment
 /**
  * Converts UserContentExt format back into an array of Attachments and a text string.
  * @param content The UserContentExt data.
- * @returns An object containing an array of Attachments and a text string.
+ * @returns An object containing an array of Attachments, a text string, reasoning, and sources.
  */
-export function userContentExtToAttachmentsAndText(content: UserContentExt | AssistantContentExt | undefined): { attachments: Attachment[]; text: string; reasoning: string } {
+export function userContentExtToAttachmentsAndText(
+	content: UserContentExt | AssistantContentExt | undefined, sources: LanguageModelV1Source[] = []
+): { attachments: Attachment[]; text: string; reasoning: string } {
 	let text = '';
 	let reasoning = '';
 	const attachments: Attachment[] = [];
-	
+	let totalSourcesCount = 0;
+
 	if (!content) {
 		return { attachments, text, reasoning };
 	}
 
 	if (typeof content === 'string') {
-		text = content;
+		text = linkCitations(content, sources);
 		return { attachments, text, reasoning };
 	}
 
 	if (Array.isArray(content)) {
 		for (const part of content) {
 			if (part.type === 'text') {
+				const textPart = part as TextPartExt;
+				let currentText = textPart.text;
 				if (text !== '') {
 					text += '\n'; // Add newline if concatenating multiple text parts
 				}
-				text += (part as TextPart).text;
+				text += linkCitations(currentText, sources);
 			} else if (part.type === 'reasoning') {
 				reasoning = part.text;
-			}else if (part.type === 'image') {
+			} else if (part.type === 'image') {
 				const imagePart = part as ImagePartExt;
 				const attachment: Attachment = {
 					type: 'image',
@@ -162,4 +168,21 @@ export function userContentExtToAttachmentsAndText(content: UserContentExt | Ass
 	}
 
 	return { attachments, text, reasoning };
+}
+
+
+function linkCitations(text: string, sources: LanguageModelV1Source[]): string {
+	if (sources?.length > 0) {
+		// Replace citations in the text, using a running total for numbering
+		sources.forEach((source, index) => {	
+			const originalCitationNumber = index + 1;
+			// Regex to find the original citation tag, e.g., [1]
+			const originalCitationTagRegex = new RegExp(`\\\[${originalCitationNumber}\\\]`, 'g');
+			// The new markdown link with the re-numbered citation
+			const newCitationLink = `[[${index + 1}]](${source.url})`;
+			console.log('updating citation', originalCitationTagRegex, newCitationLink);
+			text = text.replace(originalCitationTagRegex, newCitationLink);
+		});
+	}
+	return text;
 }

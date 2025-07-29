@@ -31,7 +31,7 @@ export interface FunctionParameter {
  * @param ctor the function class constructor function
  * @param schemas
  */
-export function setFunctionSchemas(ctor: new (...args: any[]) => any, schemas: Record<string, FunctionSchema>) {
+export function setFunctionSchemas(ctor: new (...args: any[]) => any, schemas: Record<string, FunctionSchema>): void {
 	ctor.prototype.__functions = schemas;
 }
 

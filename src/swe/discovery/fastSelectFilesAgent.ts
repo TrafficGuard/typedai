@@ -16,7 +16,7 @@ import { text, user } from '#shared/llm/llm.model';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
-import { type ProjectInfo, detectProjectInfo } from '#swe/projectDetection';
+import { type ProjectInfo, getProjectInfos } from '#swe/projectDetection';
 import { FAST_TARGET_CHARS, normalizePath as norm, readFileContents, searchFileSystem, splitFileSystemTreeByFolder } from './fastSelectFilesAgent.utils';
 
 /*
@@ -347,7 +347,7 @@ async function selectFilesCore(
 }
 
 async function initializeFileSelectionAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<LlmMessage[]> {
-	projectInfo ??= (await detectProjectInfo())[0];
+	projectInfo ??= (await getProjectInfos())[0];
 
 	const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
 	const repositoryOverview: string = await getRepositoryOverview();

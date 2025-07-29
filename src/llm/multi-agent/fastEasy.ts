@@ -1,29 +1,30 @@
 import { cerebrasQwen3_32b } from '#llm/services/cerebras';
-import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
+import { groqLlama4_Scout } from '#llm/services/groq';
+import { vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { type GenerateTextOptions, type LLM, type LlmMessage, messageContentIfTextOnly, messageText } from '#shared/llm/llm.model';
 import { BaseLLM } from '../base-llm';
 
-// https://artificialanalysis.ai/?models=gemini-2-0-flash-lite-001%2Cgroq_llama-4-scout-instruct%2Cgroq_llama-3-1-instruct-8b%2Ccerebras_llama-3-1-instruct-8b%2Csambanova_llama-3-2-instruct-3b&endpoints=groq_llama-4-scout-instruct%2Cgroq_llama-3-1-instruct-8b%2Ccerebras_llama-3-1-instruct-8b%2Csambanova_llama-3-2-instruct-3b
+// https://artificialanalysis.ai/?models_selected=o1-mini%2Cgpt-4o%2Cgpt-4o-mini%2Cllama-3-1-instruct-405b%2Cllama-3-1-instruct-70b%2Cgemini-1-5-pro%2Cgemini-1-5-flash%2Cclaude-35-sonnet%2Cclaude-3-5-haiku%2Cdeepseek-v2-5%2Cqwen2-5-72b-instruct%2Cqwen2-5-coder-32b-instruct&models=groq_llama-4-maverick%2Cgroq_llama-4-scout-instruct%2Cgroq_qwen3-32b-instruct%2Ccerebras_llama-4-scout%2Ccerebras_qwen3-32b-instruct%2Cgemini-2-5-flash%2Cgemini-2-5-flash-lite&endpoints=groq_llama-4-maverick%2Cgroq_llama-4-scout-instruct%2Cgroq_qwen3-32b-instruct%2Ccerebras_llama-4-scout%2Ccerebras_qwen3-32b-instruct
 
 /**
  * LLM implementation for easy level LLM using a fast provider if available and applicable, else falling back to the standard medium LLM
  */
 export class FastEasyLLM extends BaseLLM {
 	private readonly providers: LLM[];
-	private readonly cerebras: LLM;
+	private readonly groqScout: LLM;
 	private readonly gemini: LLM;
 
 	constructor() {
-		super('Fast Easy (Groq Llama Scout - Gemini 2.0 Flash lite)', 'multi', 'fast-easy', 0, () => ({
+		super('Fast Easy (Groq Llama Scout - Gemini 2.5 Flash)', 'multi', 'fast-easy', 0, () => ({
 			inputCost: 0,
 			outputCost: 0,
 			totalCost: 0,
 		}));
 		// Define the providers and their priorities. Lower number = higher priority
-		this.providers = [cerebrasQwen3_32b(), vertexGemini_2_5_Flash()];
-		this.cerebras = this.providers[0];
+		this.providers = [groqLlama4_Scout(), vertexGemini_2_5_Flash()]; // , vertexGemini_2_5_Flash_Lite()
+		this.groqScout = this.providers[0];
 		this.gemini = this.providers[1];
 
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
@@ -42,9 +43,9 @@ export class FastEasyLLM extends BaseLLM {
 		return messageText(message);
 	}
 
-	async useCerebras(messages: ReadonlyArray<LlmMessage>): Promise<boolean> {
+	async useGroqScout(messages: ReadonlyArray<LlmMessage>): Promise<boolean> {
 		// if(console.log) return false;
-		if (!this.cerebras.isConfigured()) return false;
+		if (!this.groqScout.isConfigured()) return false;
 		let text = '';
 		for (const msg of messages) {
 			const msgText: string | null = messageContentIfTextOnly(msg);
@@ -52,15 +53,14 @@ export class FastEasyLLM extends BaseLLM {
 			text += `${msgText}\n`;
 		}
 		const tokens = await countTokens(text);
-		logger.info(`====== Cerebras tokens: ${tokens}`);
-		return tokens < this.cerebras.getMaxInputTokens() * 0.5;
+		return tokens < this.groqScout.getMaxInputTokens();
 	}
 
 	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
 		try {
-			if (await this.useCerebras(messages)) return await this.cerebras.generateMessage(messages, opts);
+			if (await this.useGroqScout(messages)) return await this.groqScout.generateMessage(messages, opts);
 		} catch (e) {
-			logger.warn(e, `Error calling ${this.cerebras.getId()}`);
+			logger.warn(e, `Error calling ${this.groqScout.getId()}`);
 		}
 		return await this.gemini.generateMessage(messages, opts);
 

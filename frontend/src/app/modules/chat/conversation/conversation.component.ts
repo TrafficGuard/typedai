@@ -1,5 +1,5 @@
 import { ClipboardModule } from '@angular/cdk/clipboard';
-import { TextFieldModule } from '@angular/cdk/text-field';
+import { CdkTextareaAutosize, TextFieldModule } from '@angular/cdk/text-field';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import {
 	AfterViewInit,
@@ -16,12 +16,15 @@ import {
 	ViewEncapsulation,
 	WritableSignal,
 	computed,
+	effect,
 	inject,
 	signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -33,10 +36,10 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterLink, RouterModule } from '@angular/router';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
-import { SafeHtmlPipe } from 'app/core/pipes/safe-html.pipe';
 import { LocalStorageService } from 'app/core/services/local-storage.service';
 import { UserService } from 'app/core/user/user.service';
 import { ChatInfoComponent } from 'app/modules/chat/chat-info/chat-info.component';
+import { MarkdownFormatDialogComponent } from './markdown-format-dialog/markdown-format-dialog.component';
 import { Chat, ChatMessage, NEW_CHAT_ID } from 'app/modules/chat/chat.types';
 import { Attachment } from 'app/modules/message.types';
 import { MarkdownModule, MarkdownService, MarkedRenderer, provideMarkdown } from 'ngx-markdown';
@@ -44,13 +47,16 @@ import { EMPTY, Observable, Subject, catchError, combineLatest, distinctUntilCha
 import { debounceTime } from 'rxjs/operators';
 import { v4 as uuidv4 } from 'uuid';
 import { LlmInfo, UserContentExt } from '#shared/llm/llm.model';
+import type { LanguageModelV1Source } from '@ai-sdk/provider';
 import { UserProfile } from '#shared/user/user.model';
 import { FuseConfirmationService } from '../../../../@fuse/services/confirmation';
 import { LlmService } from '../../llm.service';
 import { attachmentsAndTextToUserContentExt, fileToAttachment, userContentExtToAttachmentsAndText } from '../../messageUtil';
 import { ChatServiceClient } from '../chat.service';
 import { ClipboardButtonComponent } from './clipboard-button.component';
-import { MatExpansionModule } from '@angular/material/expansion';
+
+/** How long to wait for CdkTextareaAutosize to finish (ms) */
+const CARET_SCROLL_DELAY = 50;
 
 @Component({
 	selector: 'chat-conversation',
@@ -64,6 +70,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 		MatSidenavModule,
 		ChatInfoComponent,
 		MatButtonModule,
+		MatDialogModule,
 		MatExpansionModule,
 		MatIconModule,
 		MatMenuModule,
@@ -84,6 +91,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 })
 export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	@ViewChild('messageInput') messageInput: ElementRef;
+	@ViewChild('messageInput', { static: false, read: CdkTextareaAutosize }) private _autosize: CdkTextareaAutosize;
 	@ViewChild('llmSelect') llmSelect: MatSelect;
 	@ViewChild('fileInput') fileInput: ElementRef;
 
@@ -94,20 +102,31 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	drawerMode: WritableSignal<'over' | 'side'> = signal('side');
 	drawerOpened: WritableSignal<boolean> = signal(false);
 
+	sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane')
+
 	llmsSignal: Signal<LlmInfo[]>;
 	llmId: WritableSignal<string | undefined> = signal(undefined);
-	defaultChatLlmId = computed(() => (this.userService.userProfile() as UserProfile)?.chat?.defaultLLM); // Added UserProfile type
-
-	sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane');
+	defaultChatLlmId = computed(() => (this.userService.userProfile()?.chat?.defaultLLM));
 
 	llmHasThinkingLevels = computed(() => {
-		const currentLlmId = this.llmId();
-		if (!currentLlmId) return false;
-		return (
-			currentLlmId.startsWith('openai:o') || currentLlmId.includes('claude-3-7') || currentLlmId.includes('sonnet-4') || (currentLlmId.includes('gemini') && currentLlmId.includes('2.5'))
+		const id = this.llmId();
+		return !!id && (
+			   id.startsWith('openai:o')          ||
+			   id.includes('claude-3-7')          ||
+			   id.includes('sonnet-4')            ||
+			   id.includes('opus-4')              ||
+			  (id.includes('gemini') && id.includes('2.5'))
 		);
-	});
-	thinkingIcon: WritableSignal<string> = signal('heroicons_outline:minus-small');
+	  });
+
+	thinkingIcon = computed(() => {
+		switch (this.thinkingLevel()) {
+		  case 'low'   : return 'heroicons_outline:bars-2';
+		  case 'medium': return 'heroicons_outline:bars-3';
+		  case 'high'  : return 'heroicons_outline:bars-4';
+		  default      : return 'heroicons_outline:minus-small';
+		}
+	  });
 	thinkingLevel: WritableSignal<'off' | 'low' | 'medium' | 'high'> = signal('off');
 
 	autoReformatEnabled: WritableSignal<boolean> = signal(false);
@@ -144,7 +163,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		}
 
 		return messagesToProcess.map((msg) => {
-			const { attachments, text } = userContentExtToAttachmentsAndText(msg.content);
+			const { attachments, text } = userContentExtToAttachmentsAndText(msg.content, msg.sources);
 			const uiImageAttachments = attachments.filter((a) => a.type === 'image');
 			const uiFileAttachments = attachments.filter((a) => a.type === 'file');
 
@@ -153,6 +172,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 				textContentForDisplay: text,
 				uiImageAttachments: uiImageAttachments.length > 0 ? uiImageAttachments : undefined,
 				uiFileAttachments: uiFileAttachments.length > 0 ? uiFileAttachments : undefined,
+				sources: msg.sources,
 				textChunks: parseMessageContent(text),
 			};
 		});
@@ -175,6 +195,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	private _snackBar = inject(MatSnackBar);
 	private destroyRef = inject(DestroyRef);
 	private _localStorageService = inject(LocalStorageService);
+	private dialog = inject(MatDialog);
 	private routeParamsSignal: Signal<any>;
 
 	constructor() {
@@ -237,18 +258,27 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
 				// Load draft message for the current chat
 				if (currentChat && this.messageInput && this.messageInput.nativeElement) {
-					const chatIdToUse = currentChat.id === NEW_CHAT_ID ? 'new' : currentChat.id;
-					const draft = this._localStorageService.getDraftMessage(chatIdToUse);
+					// Only load the draft if we are NOT currently generating a response.
+					// If we are generating, the input should remain cleared by sendMessage().
+					if (!this.generating()) {
+						const chatIdToUse = currentChat.id === NEW_CHAT_ID ? 'new' : currentChat.id;
+						const draft = this._localStorageService.getDraftMessage(chatIdToUse);
 
-					if (draft !== null) {
-						this.messageInput.nativeElement.value = draft;
-						this._resizeMessageInput();
-					} else {
-						// If we switched from a different chat and there's no draft for the new chat, clear the input field.
-						if (this.previousChatId !== undefined && this.previousChatId !== null && this.previousChatId !== currentChat.id) {
-							this.messageInput.nativeElement.value = '';
-							this._resizeMessageInput();
+						if (draft !== null) {
+							this.messageInput.nativeElement.value = draft;
+							this._triggerResizeAndScroll();
+						} else {
+							// If we switched from a different chat and there's no draft for the new chat, clear the input field.
+							if (this.previousChatId !== undefined && this.previousChatId !== null && this.previousChatId !== currentChat.id) {
+								this.messageInput.nativeElement.value = '';
+								this._triggerResizeAndScroll();
+							}
 						}
+					} else {
+						// If we are generating, ensure the input stays cleared,
+						// even if the chat signal updates during the generation phase.
+						this.messageInput.nativeElement.value = '';
+						this._triggerResizeAndScroll();
 					}
 				}
 
@@ -303,6 +333,18 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 				}),
 			)
 			.subscribe();
+
+			/* Any time llmId changes, make sure the level is valid */
+			effect(() => {
+				const supportsThinking = this.llmHasThinkingLevels();
+				const currentLevel     = this.thinkingLevel();
+
+				/* LLM supports thinking ➜ default to HIGH (if user hasn’t already chosen another value). */
+				if (supportsThinking && currentLevel === 'off') this.thinkingLevel.set('high');
+
+				/* LLM does *not* support thinking ➜ force OFF */
+				if (!supportsThinking && currentLevel !== 'off') this.thinkingLevel.set('off');
+			});
 	}
 
 	// -----------------------------------------------------------------------------------------------------
@@ -310,51 +352,20 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	// -----------------------------------------------------------------------------------------------------
 
 	/**
-	 * Handle 'input' events to save draft.
-	 * Visual resizing is handled by the cdkTextareaAutosize directive.
-	 *
+	 * Handles user typing, saves a draft, and ensures the caret remains visible.
+	 * Relies on cdkTextareaAutosize for visual resizing.
 	 * @private
 	 */
 	@HostListener('input')
-	private _resizeMessageInput(): void {
-		// Push current input value to the subject for debounced saving
+	private _onUserInput(): void
+	{
+		/* save draft – unchanged */
 		if (this.messageInput?.nativeElement) {
-			const currentMessage = this.messageInput.nativeElement.value;
-			this.messageInputChanged.next(currentMessage);
+			this.messageInputChanged.next(this.messageInput.nativeElement.value);
 		}
-
-		// Existing resize logic
-		// This doesn't need to trigger Angular's change detection by itself
-		this._ngZone.runOutsideAngular(() => {
-			setTimeout(() => {
-				// Ensure messageInput and nativeElement exist before manipulating style
-				if (this.messageInput?.nativeElement) {
-					// Set the height to 'auto' so we can correctly read the scrollHeight
-					this.messageInput.nativeElement.style.height = 'auto';
-					// Get the scrollHeight and subtract the vertical padding
-					this.messageInput.nativeElement.style.height = `${this.messageInput.nativeElement.scrollHeight}px`;
-
-					// --- Keep caret line visible without jumping to the bottom ---
-					const textarea = this.messageInput?.nativeElement as HTMLTextAreaElement | undefined;
-					if (textarea) {
-						const pos = textarea.selectionStart ?? 0;
-
-						// Estimate caret’s vertical position
-						const beforeCaret = textarea.value.substring(0, pos);
-						const lineCount = (beforeCaret.match(/\n/g)?.length ?? 0); // zero-based
-						const lineHeight = parseInt(getComputedStyle(textarea).lineHeight, 10) || 16;
-						const caretTopPx = lineCount * lineHeight;
-
-						// If caret is above/ below the visible viewport, scroll just enough
-						if (caretTopPx < textarea.scrollTop) {
-							textarea.scrollTop = caretTopPx;
-						} else if (caretTopPx + lineHeight > textarea.scrollTop + textarea.clientHeight) {
-							textarea.scrollTop = caretTopPx + lineHeight - textarea.clientHeight;
-						}
-					}
-				}
-			}, 100);
-		});
+	
+		/* keep the cursor in view */
+		this._scrollToCaret();
 	}
 
 	// -----------------------------------------------------------------------------------------------------
@@ -464,25 +475,18 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		} else {
 			console.log('updateLlmSelector: Keeping current LLM ID:', currentLlmId);
 		}
-		// this.updateThinkingIcon();
 	}
-
-	// updateThinkingIcon is replaced by computed llmHasThinkingLevels
 
 	toggleThinking(): void {
 		const currentLevel = this.thinkingLevel();
 		if (currentLevel === 'off') {
 			this.thinkingLevel.set('low');
-			this.thinkingIcon.set('heroicons_outline:bars-2');
 		} else if (currentLevel === 'low') {
 			this.thinkingLevel.set('medium');
-			this.thinkingIcon.set('heroicons_outline:bars-3');
 		} else if (currentLevel === 'medium') {
 			this.thinkingLevel.set('high');
-			this.thinkingIcon.set('heroicons_outline:bars-4');
 		} else if (currentLevel === 'high') {
 			this.thinkingLevel.set('off');
-			this.thinkingIcon.set('heroicons_outline:minus-small');
 		}
 	}
 
@@ -580,9 +584,12 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		this.sendIcon.set('heroicons_outline:stop-circle');
 
 		// Clear input and selected attachments IMMEDIATELY
+		console.log('clearing input')
 		this.messageInput.nativeElement.value = '';
 		this.selectedAttachments.set([]);
-		this._resizeMessageInput(); // Resize after clearing
+		this._triggerResizeAndScroll(); // Resize after clearing
+		// Focus the textarea to ensure UI updates
+		this.messageInput.nativeElement.focus();
 
 		try {
 			// Prepare payload
@@ -621,11 +628,26 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 				error: (error) => {
 					console.error('Error sending message via API:', error);
 					this._snackBar.open('Failed to send message. Please try again.', 'Close', { duration: 5000, panelClass: ['error-snackbar'] });
-					
+
+					// --- New logic to update the failed message's status ---
+					const currentChat = this.chat(); // Get the current chat state which includes the optimistic message
+					if (currentChat) {
+						// Find the last message sent by the user that is still marked as 'sending'.
+						// We search from the end of the array for performance and correctness.
+						const optimisticMessage = [...(currentChat.messages || [])].reverse().find(m => m.isMine && m.status === 'sending');
+
+						if (optimisticMessage) {
+							// Call the new service method to update the status locally.
+							// The currentChat.id will correctly be NEW_CHAT_ID for new chats.
+							this._chatService.updateMessageStatus(currentChat.id, optimisticMessage.id, 'failed_to_send');
+						}
+					}
+					// --- End of new logic ---
+
 					// Restore input and attachments
 					this.messageInput.nativeElement.value = originalMessageText;
 					this.selectedAttachments.set(originalAttachments);
-					this._resizeMessageInput(); // Resize after restoring
+					this._triggerResizeAndScroll(); // Resize after restoring
 
 					// Reset generating states
 					this.generating.set(false);
@@ -654,7 +676,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			// Restore input and attachments (since they were cleared optimistically)
             this.messageInput.nativeElement.value = originalMessageText;
             this.selectedAttachments.set(originalAttachments);
-            this._resizeMessageInput(); // Resize after restoring
+            this._triggerResizeAndScroll(); // Resize after restoring
 
 			// Reset generating states
 			this.generating.set(false);
@@ -678,6 +700,9 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		});
 	}
 
+	/**
+	 * Scrolls the main conversation view to the bottom.
+	 */
 	private _scrollToBottom(): void {
 		this._ngZone.runOutsideAngular(() => {
 			setTimeout(() => {
@@ -689,7 +714,69 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		});
 	}
 
-	// _getUserPreferences is implicitly handled by currentUserSignal reacting to userService.user$
+	/**
+	 * Manually triggers the CdkTextareaAutosize directive to resize and then
+	 * scrolls the caret into view. Used after programmatic value changes.
+	 */
+	private _triggerResizeAndScroll(): void {
+		if (this._autosize) {
+		  this._ngZone.runOutsideAngular(() => {
+			setTimeout(() => {
+			  this._autosize.resizeToFitContent(true);
+			  // Delay scroll slightly to ensure resize completes
+			  setTimeout(() => this._scrollToCaret(), 50);
+			}, 0);
+		  });
+		} else {
+		  this._scrollToCaret();
+		}
+	}
+
+	/**
+	 * Scroll so that the caret is visible (bottom-align if needed).
+	 * This method is designed to be called after the textarea has potentially resized.
+	 */
+	private _scrollToCaret(): void {
+		// Run outside Angular's zone to prevent unnecessary change detection cycles.
+		this._ngZone.runOutsideAngular(() => {
+			// A minimal delay is used to ensure this logic runs after the browser has
+			// processed the resize from CdkTextareaAutosize.
+			setTimeout(() => {
+				const ta = this.messageInput?.nativeElement as HTMLTextAreaElement;
+				if (!ta) {
+					return;
+				}
+
+				// The 'selectionEnd' property gives us the position of the caret.
+				// We create a temporary 'span' element to measure its exact coordinates.
+				const span = document.createElement('span');
+				// The span is positioned absolutely within the textarea's parent.
+				span.style.position = 'absolute';
+				// We copy relevant font styles to ensure accurate measurement.
+				span.style.font = getComputedStyle(ta).font;
+				span.style.whiteSpace = 'pre-wrap'; // Match textarea wrapping
+				span.style.visibility = 'hidden';
+
+				// We insert the text content up to the caret position into the span.
+				// A non-breaking space ensures the span has height even on a new line.
+				span.textContent = ta.value.substring(0, ta.selectionEnd) + '\u00A0';
+				document.body.appendChild(span);
+
+				// Now we get the height of the text leading up to the caret.
+				const caretTopPosition = span.offsetHeight;
+				document.body.removeChild(span); // Clean up the temporary element.
+
+				// The ideal scroll position is where the caret is just visible at the bottom.
+				const desiredScrollTop = caretTopPosition - ta.clientHeight;
+
+				// If the current scroll position is less than the ideal (e.g., caret is hidden above),
+				// we adjust the scroll position to bring it into view.
+				if (ta.scrollTop < desiredScrollTop) {
+					ta.scrollTop = desiredScrollTop;
+				}
+			}, 50); // A 50ms delay is typically sufficient for the DOM to update.
+		});
+	}
 
 	handleLlmKeydown(event: KeyboardEvent): void {
 		if (event.key === 'Enter') {
@@ -705,6 +792,12 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
 			event.preventDefault();
 			this.sendMessage();
+		}
+
+		// Open dialog to add a markdown code block
+		if (event.key === '`' && (event.ctrlKey || event.metaKey || event.altKey)) {
+			event.preventDefault();
+			this.openMarkdownFormatDialog();
 		}
 
 		if (event.key === 'm' && event.ctrlKey) {
@@ -738,7 +831,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 					.subscribe({
 						next: (formattedText: string) => {
 							this.messageInput.nativeElement.value = formattedText;
-							this._resizeMessageInput();
+							this._triggerResizeAndScroll();
 						},
 						error: (err) => {
 							console.error('Error formatting message:', err);
@@ -747,6 +840,49 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 					});
 			}
 		}
+	}
+
+	/**
+	 * Opens a dialog to select a markdown language for a code block.
+	 */
+	private openMarkdownFormatDialog(): void {
+		const dialogRef = this.dialog.open(MarkdownFormatDialogComponent, {
+			width: '300px',
+			autoFocus: 'input',
+		});
+
+		dialogRef.afterClosed().subscribe((language: string | undefined) => {
+			if (language) {
+				this.insertCodeBlock(language);
+			}
+		});
+	}
+
+	/**
+	 * Inserts a markdown code block into the message input at the current caret position.
+	 * @param language The selected language identifier for the code block.
+	 */
+	private insertCodeBlock(language: string): void {
+		const textarea = this.messageInput.nativeElement as HTMLTextAreaElement;
+		const textToInsert = `\`\`\`${language}\n\n\`\`\``;
+		const startPos = textarea.selectionStart;
+		const endPos = textarea.selectionEnd;
+		const currentValue = textarea.value;
+
+		// Insert the code block template
+		textarea.value = currentValue.substring(0, startPos) + textToInsert + currentValue.substring(endPos);
+
+		// Set the caret position to the empty line inside the block
+		const newCaretPosition = startPos + language.length + 4; // Position after ```lang\n
+		textarea.selectionStart = newCaretPosition;
+		textarea.selectionEnd = newCaretPosition;
+
+		// Focus the textarea and trigger a resize to accommodate the new content
+		textarea.focus();
+		this._triggerResizeAndScroll();
+
+		// Update the draft message
+		this.messageInputChanged.next(textarea.value);
 	}
 
 	startRecording(): void {
@@ -914,7 +1050,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		this.addFiles(files);
 	}
 
-	private addFiles(files: File[]): void {
+private addFiles(files: File[]): void {
 		const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit per file
 
 		files.forEach(async (file) => {

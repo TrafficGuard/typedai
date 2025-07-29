@@ -79,7 +79,11 @@ export abstract class AbstractSCM implements SourceControlManagement {
 
 				// Pull updates for the current branch
 				const pullResult = await execCommand('git pull', { workingDirectory: targetPath });
-				failOnError('Failed to pull updates', pullResult);
+				if (pullResult.stderr?.includes('There is no tracking information for the current branch')) {
+					logger.info(pullResult.stderr);
+				} else {
+					failOnError('Failed to pull updates', pullResult);
+				}
 			} finally {
 				fss.setWorkingDirectory(currentWorkingDir);
 			}

@@ -162,6 +162,20 @@
                                         }
                                     </div> <!-- End of Message Content div -->
 
+                                    <!-- Display sources -->
+                                    @if (message.sources?.length > 0) {
+                                        <div class="mt-2 border-t border-gray-300 dark:border-gray-600 pt-2">
+                                            <h4 class="text-sm font-semibold mb-1 text-gray-800 dark:text-gray-200">Sources</h4>
+                                            <ol class="list-decimal list-inside text-sm space-y-1">
+                                                @for (source of message.sources; track $index) {
+                                                    <li class="text-gray-600 dark:text-gray-400">
+                                                        <a [href]="source.url" target="_blank" rel="noopener noreferrer" class="text-primary-600 dark:text-primary-400 hover:underline break-all">{{ source.url }}</a>
+                                                    </li>
+                                                }
+                                            </ol>
+                                        </div>
+                                    }
+
                                     <!-- Buttons container: shown for all non-generating messages -->
                                     @if (!message.generating) {
                                         <div class="absolute bottom-1 right-1 flex items-center space-x-1" style="line-height: 1;">
@@ -170,7 +184,7 @@
                                                 @let stats = message.stats;
                                                 <button mat-icon-button
                                                         class="mat-primary p-0 m-0"
-                                                        [matTooltip]="'Duration: ' + (stats.totalTime / 1000).toFixed(0) + 's Input tokens: ' + stats.inputTokens + ' Output tokens: ' + stats.outputTokens + (stats.cachedInputTokens ? ' Cached input tokens: ' + stats.cachedInputTokens : '')+ ' Cost: $' + (stats.cost | number:'1.4-4')"
+                                                        [matTooltip]="message.llmId + '\n' + (stats.totalTime / 1000).toFixed(0) + 's - $' + (stats.cost | number:'1.4-4')+ '\nIn: ' + stats.inputTokens + ' Out: ' + stats.outputTokens + (stats.cachedInputTokens ? ' Cached: ' + stats.cachedInputTokens : '')"
                                                         aria-label="Message generation stats">
                                                     <mat-icon [svgIcon]="'info'" class="icon-size-3 p-0 m-0"></mat-icon>
                                                 </button>
@@ -196,18 +210,14 @@
                                 <!-- Status Indicator for user's messages -->
                                 @if (message.isMine) {
                                     <div class="flex justify-end items-center text-xs mt-1 space-x-1 mr-2"> <!-- Added mr-2 for slight offset from edge -->
+                                        <!--
                                         @if (message.status === 'sending') {
                                             <span class="text-gray-500 dark:text-gray-400 italic flex items-center">
                                                 Sending...
                                                 <mat-spinner [diameter]="14" color="primary" style="display: inline-block; vertical-align: middle; margin-left: 4px;"></mat-spinner>
                                             </span>
                                         }
-                                        @if (message.status === 'failed_to_send') {
-                                            <span class="text-red-500 italic flex items-center">
-                                                <mat-icon svgIcon="heroicons_outline:exclamation-circle" class="icon-size-4 mr-1"></mat-icon>
-                                                Failed
-                                            </span>
-                                        }
+                                            -->
                                         <!-- Optionally, add a 'Sent' indicator or checkmark if message.status === 'sent' -->
                                         <!-- For example:
                                         @if (message.status === 'sent') {

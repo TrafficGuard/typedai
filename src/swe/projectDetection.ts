@@ -1,5 +1,5 @@
 import path, { join, dirname, resolve } from 'node:path';
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { IFileSystemService } from '#shared/files/fileSystemService';
 import { TypescriptTools } from '#swe/lang/nodejs/typescriptTools';
@@ -102,7 +102,7 @@ export function normalizeScriptCommandToFileFormat(commands: string[]): ScriptCo
 export function parseProjectInfo(fileContents: string): ProjectInfo[] | null {
 	try {
 		const projectInfosFromFile = JSON.parse(fileContents) as Partial<ProjectInfoFileFormat>[];
-		logger.info(projectInfosFromFile, `Parsed ${AI_INFO_FILENAME} content`);
+		logger.debug(projectInfosFromFile, `Parsed ${AI_INFO_FILENAME} content`);
 
 		if (!Array.isArray(projectInfosFromFile)) throw new Error(`${AI_INFO_FILENAME} root should be a JSON array`);
 
@@ -145,7 +145,7 @@ export function parseProjectInfo(fileContents: string): ProjectInfo[] | null {
  */
 async function tryLoadAndParse(filePath: string, fss: IFileSystemService, locationName: string): Promise<ProjectInfo[] | null> {
 	if (await fss.fileExists(filePath)) {
-		logger.info(`Attempting to load ${AI_INFO_FILENAME} from ${locationName} at ${filePath}`);
+		logger.debug(`Attempting to load ${AI_INFO_FILENAME} from ${locationName} at ${filePath}`);
 		const fileContents = await fss.readFile(filePath);
 		const parsedInfos = parseProjectInfo(fileContents);
 
@@ -163,7 +163,7 @@ async function tryLoadAndParse(filePath: string, fss: IFileSystemService, locati
 			}
 			return null; // Signifies an invalid file was handled
 		}
-		logger.info(`Successfully parsed ${AI_INFO_FILENAME} from ${locationName}. Projects: ${parsedInfos.length}`);
+		logger.debug(`Successfully parsed ${AI_INFO_FILENAME} from ${locationName}. Projects: ${parsedInfos.length}`);
 		return parsedInfos; // Valid ProjectInfo[] (could be empty)
 	}
 	logger.info(`${AI_INFO_FILENAME} not found in ${locationName} at ${filePath}`);
@@ -175,6 +175,13 @@ async function findUpwards(startDir: string, file: string, fss: IFileSystemServi
 	while (true) {
 		const candidate = path.join(dir, file);
 		if (await fss.fileExists(candidate)) return candidate;
+
+		// Don't search above the VCS root
+		const gitDir = path.join(dir, '.git');
+		if (await fss.directoryExists(gitDir)) {
+			return null;
+		}
+
 		const parent = path.dirname(dir);
 		if (parent === dir) return null;
 		dir = parent;
@@ -182,13 +189,13 @@ async function findUpwards(startDir: string, file: string, fss: IFileSystemServi
 }
 
 /**
- * Determines the language/runtime, base folder and key commands for projects.
+ * Gets the preconfigured language/runtime, base folder and key commands for projects.
  * It prioritizes loading from .typedai.json in CWD, then VCS root.
  * If no valid file is found, it runs detection via projectDetectionAgent and saves the result to CWD.
  * Invalid files are renamed to avoid re-parsing them in a loop.
  */
-export async function detectProjectInfo(): Promise<ProjectInfo[]> {
-	logger.info('detectProjectInfo: Starting project detection process.');
+export async function getProjectInfos(autoDetect = true): Promise<ProjectInfo[]> {
+	logger.debug('Starting project detection process.');
 	const fss = getFileSystem();
 	// Always access the file relative to the current working directory
 	const cwdInfoPath = AI_INFO_FILENAME;
@@ -205,51 +212,55 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 	// 1. Try CWD
 	loadedInfos = await tryLoadAndParse(cwdInfoPath, fss, 'CWD');
 
-	// 2. If not found in CWD, try VCS root (by temporarily changing WD)
-	if (loadedInfos === null && vcsRoot && vcsRoot !== fss.getWorkingDirectory()) {
-		const originalWd = fss.getWorkingDirectory();
-		fss.setWorkingDirectory(vcsRoot);
-		try {
-			loadedInfos = await tryLoadAndParse(AI_INFO_FILENAME, fss, 'VCS root');
-			if (loadedInfos !== null && Array.isArray(loadedInfos)) {
-				// Successfully loaded from VCS root
-				logger.info(`Using valid project info from VCS root. Writing to CWD for consistency: ${cwdInfoPath}`);
-				const infosToSaveToFileFormat = loadedInfos.map(mapProjectInfoToFileFormat);
-				// Switch back to original WD before writing
-				fss.setWorkingDirectory(originalWd);
-				await fss.writeFile(join(fss.getWorkingDirectory(), cwdInfoPath), JSON.stringify(infosToSaveToFileFormat, null, 2));
-			}
-		} finally {
-			// Ensure working directory is restored
-			fss.setWorkingDirectory(originalWd);
-		}
-	}
-
-	// 3. If still no valid file, search upwards from CWD
-	if (loadedInfos === null) {
-		const found = await findUpwards(fss.getWorkingDirectory(), AI_INFO_FILENAME, fss);
-		if (found) {
+	if (!agentContext()?.containerId) {
+		// 2. If not found in CWD, try VCS root (by temporarily changing WD)
+		if (loadedInfos === null && vcsRoot && vcsRoot !== fss.getWorkingDirectory()) {
 			const originalWd = fss.getWorkingDirectory();
-			fss.setWorkingDirectory(path.dirname(found));
+			fss.setWorkingDirectory(vcsRoot);
 			try {
-				loadedInfos = await tryLoadAndParse(AI_INFO_FILENAME, fss, 'parent directory');
+				loadedInfos = await tryLoadAndParse(AI_INFO_FILENAME, fss, 'VCS root');
 				if (loadedInfos !== null && Array.isArray(loadedInfos)) {
-					// Successfully loaded from a parent directory
-					logger.info(`Using valid project info from parent directory: ${found}. Writing to CWD for consistency: ${cwdInfoPath}`);
-					const infosToSave = loadedInfos.map(mapProjectInfoToFileFormat);
+					// Successfully loaded from VCS root
+					logger.info(`Using valid project info from VCS root. Writing to CWD for consistency: ${cwdInfoPath}`);
+					const infosToSaveToFileFormat = loadedInfos.map(mapProjectInfoToFileFormat);
 					// Switch back to original WD before writing
 					fss.setWorkingDirectory(originalWd);
-					await fss.writeFile(join(fss.getWorkingDirectory(), cwdInfoPath), JSON.stringify(infosToSave, null, 2));
+					await fss.writeFile(join(fss.getWorkingDirectory(), cwdInfoPath), JSON.stringify(infosToSaveToFileFormat, null, 2));
 				}
 			} finally {
 				// Ensure working directory is restored
 				fss.setWorkingDirectory(originalWd);
 			}
 		}
+
+		// 3. If still no valid file, search upwards from CWD
+		if (loadedInfos === null) {
+			const found = await findUpwards(fss.getWorkingDirectory(), AI_INFO_FILENAME, fss);
+			if (found) {
+				const originalWd = fss.getWorkingDirectory();
+				fss.setWorkingDirectory(path.dirname(found));
+				try {
+					loadedInfos = await tryLoadAndParse(AI_INFO_FILENAME, fss, 'parent directory');
+					if (loadedInfos !== null && Array.isArray(loadedInfos)) {
+						// Successfully loaded from a parent directory
+						logger.info(`Using valid project info from parent directory: ${found}. Writing to CWD for consistency: ${cwdInfoPath}`);
+						const infosToSave = loadedInfos.map(mapProjectInfoToFileFormat);
+						// Switch back to original WD before writing
+						fss.setWorkingDirectory(originalWd);
+						await fss.writeFile(join(fss.getWorkingDirectory(), cwdInfoPath), JSON.stringify(infosToSave, null, 2));
+					}
+				} finally {
+					// Ensure working directory is restored
+					fss.setWorkingDirectory(originalWd);
+				}
+			}
+		}
 	}
 
+	if (loadedInfos) return loadedInfos;
+
 	// 4. If no valid file loaded from CWD, VCS root, or parent directories, run detection agent
-	if (loadedInfos === null) {
+	if (autoDetect) {
 		const detectedProjectInfos = await _projectDetectionAgent();
 
 		// Save detected info to CWD
@@ -259,13 +270,11 @@ export async function detectProjectInfo(): Promise<ProjectInfo[]> {
 		return detectedProjectInfos;
 	}
 
-	// Valid infos were loaded from a file
-	logger.info(`Using existing valid project information from file. Project count: ${loadedInfos.length}`);
-	return loadedInfos;
+	return null;
 }
 
-export async function getProjectInfo(): Promise<ProjectInfo | null> {
-	const infos = await detectProjectInfo(); // This is now the robust version
+export async function getProjectInfo(autoDetect = false): Promise<ProjectInfo | null> {
+	const infos = await getProjectInfos(autoDetect); // This is now the robust version
 
 	if (!infos || infos.length === 0) {
 		logger.info('getProjectInfo: No projects detected or loaded.');
@@ -273,15 +282,15 @@ export async function getProjectInfo(): Promise<ProjectInfo | null> {
 	}
 
 	if (infos.length === 1) {
-		logger.info(`getProjectInfo: Exactly one project found: ${infos[0].baseDir}`);
+		logger.debug(`getProjectInfo: Exactly one project found: ${infos[0].baseDir}`);
 		return infos[0];
 	}
 
 	// Multiple projects
-	logger.info(`getProjectInfo: Multiple projects (${infos.length}) found. Looking for a primary project.`);
+	logger.debug(`getProjectInfo: Multiple projects (${infos.length}) found. Looking for a primary project.`);
 	const primaryProject = infos.find((project) => project.primary);
 	if (primaryProject) {
-		logger.info(`getProjectInfo: Selecting primary project: ${primaryProject.baseDir}`);
+		logger.debug(`getProjectInfo: Selecting primary project: ${primaryProject.baseDir}`);
 		return primaryProject;
 	}
 
@@ -290,7 +299,7 @@ export async function getProjectInfo(): Promise<ProjectInfo | null> {
 }
 
 export function getLanguageTools(type: LanguageRuntime | ''): LanguageTools | null {
-	logger.info(`getLanguageTools: ${type}`);
+	logger.debug(`getLanguageTools: ${type}`);
 	if (!type) return null;
 	switch (type) {
 		case 'nodejs':

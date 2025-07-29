@@ -13,6 +13,7 @@ import {
 	ChatMessagePayload,
 	ChatUpdateDetailsPayload,
 	RegenerateMessagePayload,
+	CreateChatFromLlmCallPayload,
 } from '#shared/chat/chat.schema';
 import { LlmMessage as ApiLlmMessage, AssistantContentExt, ReasoningPart } from '#shared/llm/llm.model';
 import { CallSettings, FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
@@ -26,6 +27,7 @@ import {
 	// ServerChat is effectively ApiChatModel now
 } from 'app/modules/chat/chat.types';
 import { Attachment, TextContent } from 'app/modules/message.types';
+import { LanguageModelV1Source } from '@ai-sdk/provider';
 
 // Helper function to convert File to base64 string (extracting only the data part)
 async function fileToBase64(file: File): Promise<string> {
@@ -683,6 +685,52 @@ export class ChatServiceClient {
 		);
 	}
 
+	createChatFromLlmCall(llmCallId: string): Observable<Chat> {
+        const payload: CreateChatFromLlmCallPayload = {llmCallId};
+        return callApiRoute(this._httpClient, CHAT_API.createChatFromLlmCall, {body: payload}).pipe(
+            map((newApiChat: ApiChatModel) => {
+                const uiChat: Chat = {
+                    ...newApiChat,
+                    messages: newApiChat.messages.map((msg) => convertMessage(msg as ApiLlmMessage)),
+                };
+                // Optimistically add to cache
+                if (this._cachedChats) {
+                    this._cachedChats = [uiChat, ...this._cachedChats];
+                }
+                const currentChatsState = this._chatsState();
+                if (currentChatsState.status === 'success') {
+                    this._chatsState.set({
+                        status: 'success',
+                        data: [uiChat, ...currentChatsState.data],
+                    });
+                }
+                return uiChat;
+            })
+        );
+    }
+
+	public updateMessageStatus(chatId: string, messageId: string, status: 'failed_to_send'): void {
+		const currentChatState = this._chatState();
+
+		// Ensure we are updating the correct, currently loaded chat.
+		if (currentChatState.status !== 'success' || currentChatState.data.id !== chatId) {
+			return;
+		}
+
+		const messages = currentChatState.data.messages || [];
+		const updatedMessages = messages.map(m =>
+			m.id === messageId ? { ...m, status } : m,
+		);
+
+		this._chatState.set({
+			status: 'success',
+			data: {
+				...currentChatState.data,
+				messages: updatedMessages,
+			},
+		});
+	}
+
 	forceReloadChats(): Observable<void> {
 		this._cachedChats = null;
 		this._cachePopulated.set(false);
@@ -730,9 +778,11 @@ export class ChatServiceClient {
  * Convert the server LlmMessage (API model) to the UI ChatMessage type
  * @param apiLlmMessage This is effectively Static<typeof LlmMessageSchema>
  */
-function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
+export function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 	const sourceApiContent = apiLlmMessage.content; // This is CoreContent from 'ai' (via shared/model/llm.model LlmMessage type)
 	let chatMessageSpecificContent: UserContentExt | AssistantContentExt; // Target type for ChatMessage.content
+
+	let sources: LanguageModelV1Source[] | undefined;
 
 	if (typeof sourceApiContent === 'string') {
 		chatMessageSpecificContent = sourceApiContent;
@@ -741,6 +791,7 @@ function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 		const extendedParts: Array<TextPart | ImagePartExt | FilePartExt | ReasoningPart> = sourceApiContent
 			.map((part) => {
 				if (part.type === 'text') {
+					sources = part.sources;
 					return part as TextPart; // TextPart is directly compatible
 				}
 				if (part.type === 'reasoning') {
@@ -839,6 +890,7 @@ function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 		stats: apiLlmMessage.stats,
 		createdAt: apiLlmMessage.stats?.requestTime ? new Date(apiLlmMessage.stats.requestTime).toISOString() : new Date().toISOString(),
 		llmId: apiLlmMessage.stats?.llmId,
+		sources,
 		// textChunks is populated by displayedMessages in the ConversationComponent
 	};
 

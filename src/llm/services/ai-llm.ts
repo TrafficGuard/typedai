@@ -180,8 +180,13 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				description,
 			});
 
-			if (!combinedOpts.id) console.log(new Error('No generateMessage id provided'));
-			logger.info(`LLM call ${combinedOpts.id} using ${this.getId()}`);
+			if (!combinedOpts.id) {
+				const lastMessage = llmMessages[llmMessages.length - 1];
+				const lastMessageText = messageText(lastMessage);
+				const promptPreview = lastMessageText.length > 50 ? `${lastMessageText.slice(0, 50)}...` : lastMessageText;
+				console.log(new Error(`No generateMessage id provided. (${promptPreview})`));
+			}
+			// logger.info(`LLM call ${combinedOpts.id} using ${this.getId()}`);
 
 			const createLlmCallRequest: CreateLlmRequest = {
 				messages: cloneAndTruncateBuffers(llmMessages),
@@ -246,8 +251,9 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					temperature: combinedOpts.temperature,
 					topP: combinedOpts.topP,
 					topK: combinedOpts.topK,
-					frequencyPenalty: combinedOpts.frequencyPenalty,
-					presencePenalty: combinedOpts.presencePenalty,
+					// Not supported by Grok4
+					// frequencyPenalty: combinedOpts.frequencyPenalty,
+					// presencePenalty: combinedOpts.presencePenalty,
 					stopSequences: combinedOpts.stopSequences,
 					maxRetries: combinedOpts.maxRetries,
 					maxTokens: combinedOpts.maxOutputTokens,
@@ -266,7 +272,13 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				);
 				const cost = Number.isNaN(totalCost) ? 0 : totalCost;
 
-				logger.info(`LLM response ${combinedOpts.id}`);
+				if (result.finishReason === 'length') {
+					logger.info(
+						`LLM finished due to length. ${this.getId()} Output tokens: ${result.usage.completionTokens}. Opts Max Output Tokens: ${combinedOpts.maxOutputTokens}. LLM CallId ${llmCall.id}`,
+					);
+				}
+
+				// logger.info(`LLM response ${combinedOpts.id}`);
 
 				// Add the response as an assistant message
 
@@ -297,6 +309,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 							assistantContent.push({
 								type: 'text',
 								text: content.text.trim(),
+								sources: result.sources,
 							});
 						} else if (content.type === 'reasoning') {
 							assistantContent.push({

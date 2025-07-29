@@ -86,6 +86,7 @@ export async function ensureAgentIterationsTableExists(dbInstance: Kysely<Databa
 		.addColumn('iteration_number', 'integer', (col) => col.notNull())
 		.addColumn('functions_serialized', 'jsonb') // For string[] | null
 		.addColumn('prompt', 'text')
+		.addColumn('response', 'text')
 		.addColumn('summary', 'text')
 		.addColumn('expanded_user_request', 'text')
 		.addColumn('observations_reasoning', 'text')

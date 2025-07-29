@@ -3,7 +3,7 @@ import type { ChatService } from '#chat/chatService';
 import { SINGLE_USER_ID } from '#modules/memory/inMemoryUserService';
 import type { Chat } from '#shared/chat/chat.model';
 import type { User } from '#shared/user/user.model';
-import { runWithUser } from '#user/userContext';
+import { runAsUser } from '#user/userContext';
 
 export const SINGLE_USER: User = {
 	enabled: false,
@@ -56,7 +56,7 @@ export const USER_B: User = {
 	createdAt: new Date(),
 };
 
-export function runChatServiceTests(createService: () => ChatService, beforeEachHook: () => Promise<void> | void = () => {}) {
+export function runChatServiceTests(createService: () => ChatService, beforeEachHook: () => Promise<void> | void = () => {}): void {
 	let service: ChatService;
 
 	async function expectError(promise: Promise<any>, partialMessage?: string) {
@@ -75,7 +75,7 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 	const runWithTestUser = (testFn: () => Promise<void>) => {
 		// Ensure the function returned to Mocha/test runner is not async
 		// The async work happens inside userContext.run
-		return () => runWithUser(SINGLE_USER, testFn);
+		return () => runAsUser(SINGLE_USER, testFn);
 	};
 
 	beforeEach(async () => {
@@ -248,7 +248,7 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 	describe('Multi-User Isolation Tests', () => {
 		it("should prevent User B from loading User A's private chat", async () => {
 			const chatAId = `chat-a-private-${Date.now()}`; // Unique ID for test
-			await runWithUser(USER_A, async () => {
+			await runAsUser(USER_A, async () => {
 				const chatA_Data: Chat = {
 					id: chatAId,
 					userId: USER_A.id,
@@ -262,7 +262,7 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 				await service.saveChat(chatA_Data);
 			});
 
-			await runWithUser(USER_B, async () => {
+			await runAsUser(USER_B, async () => {
 				await expectError(service.loadChat(chatAId), 'Chat not visible');
 			});
 		});
@@ -271,7 +271,7 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 			const chatA_Id = `chat-a-tosave-${Date.now()}`;
 			let chatA_InitialData: Chat | null = null;
 
-			await runWithUser(USER_A, async () => {
+			await runAsUser(USER_A, async () => {
 				chatA_InitialData = {
 					id: chatA_Id,
 					userId: USER_A.id,
@@ -285,7 +285,7 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 				await service.saveChat(chatA_InitialData);
 			});
 
-			await runWithUser(USER_B, async () => {
+			await runAsUser(USER_B, async () => {
 				const chatToAttemptUpdate: Chat = {
 					...chatA_InitialData!,
 					title: 'Attempted Update by B',
@@ -297,7 +297,7 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 
 		it("should prevent User B from deleting User A's chat", async () => {
 			const chatAId = `chat-a-todelete-${Date.now()}`;
-			await runWithUser(USER_A, async () => {
+			await runAsUser(USER_A, async () => {
 				const chatA_Data: Chat = {
 					id: chatAId,
 					userId: USER_A.id,
@@ -311,7 +311,7 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 				await service.saveChat(chatA_Data);
 			});
 
-			await runWithUser(USER_B, async () => {
+			await runAsUser(USER_B, async () => {
 				await expectError(service.deleteChat(chatAId), 'Not authorized');
 			});
 		});
@@ -321,7 +321,7 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 			const chatA2_id = `chatA2-${Date.now()}`;
 			const chatB1_id = `chatB1-${Date.now()}`;
 
-			await runWithUser(USER_A, async () => {
+			await runAsUser(USER_A, async () => {
 				await service.saveChat({
 					id: chatA1_id,
 					userId: USER_A.id,
@@ -344,7 +344,7 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 				});
 			});
 
-			await runWithUser(USER_B, async () => {
+			await runAsUser(USER_B, async () => {
 				await service.saveChat({
 					id: chatB1_id,
 					userId: USER_B.id,
@@ -357,14 +357,14 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 				});
 			});
 
-			await runWithUser(USER_A, async () => {
+			await runAsUser(USER_A, async () => {
 				const { chats } = await service.listChats();
 				const chatIds = chats.map((c) => c.id);
 				expect(chatIds).to.include.members([chatA1_id, chatA2_id]);
 				expect(chatIds).to.not.include.members([chatB1_id]);
 			});
 
-			await runWithUser(USER_B, async () => {
+			await runAsUser(USER_B, async () => {
 				const { chats } = await service.listChats();
 				const chatIds = chats.map((c) => c.id);
 				expect(chatIds).to.include.members([chatB1_id]);

@@ -15,7 +15,7 @@ import { parsePromptWithImages } from './promptParser';
 async function main() {
 	await initInMemoryApplicationContext();
 
-	const { initialPrompt: rawPrompt, llmId } = parseProcessArgs();
+	const { initialPrompt: rawPrompt, llmId, flags } = parseProcessArgs();
 	const { textPrompt, userContent } = parsePromptWithImages(rawPrompt);
 
 	let llm: LLM = defaultLLMs().medium;
@@ -43,6 +43,17 @@ async function main() {
 	const duration = Date.now() - start;
 
 	writeFileSync('src/cli/gen-out', text);
+
+	if (flags.p) {
+		try {
+			const clipboardy = (await import('clipboardy')).default;
+			await clipboardy.write(text);
+			console.log('\nCopied output to clipboard.');
+		} catch (error) {
+			console.error('\nFailed to copy to clipboard. Is `clipboardy` installed? `npm i clipboardy`');
+			console.error(error);
+		}
+	}
 
 	console.log(`\nGenerated ${await countTokens(text)} tokens by ${llm.getId()} in ${(duration / 1000).toFixed(1)} seconds`);
 	console.log('Wrote output to src/cli/gen-out');

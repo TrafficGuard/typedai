@@ -232,11 +232,15 @@ export class FirestoreAgentStateService implements AgentContextService {
 				type: data.type,
 				subtype: data.subType ?? '',
 				state: data.state,
-				cost: (Number.isNaN(data.cost) ? 0 : data.cost) ?? 0, // Default cost to 0 if undefined/null
-				error: data.error,
+				parentAgentId: data.parentAgentId,
+				cost: (Number.isNaN(data.cost) ? 0 : data.cost) ?? 0,
+				error: typeof data.error === 'string' ? data.error : undefined,
 				lastUpdate: data.lastUpdate,
 				userPrompt: data.userPrompt,
 				inputPrompt: data.inputPrompt,
+				user: data.user,
+				createdAt: Number.isInteger(data.createdAt) ? data.createdAt : Date.now(),
+				metadata: data.metadata,
 			};
 			previews.push(preview);
 		}
@@ -266,7 +270,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 					const data = docSnap.data();
 					return {
 						agentId: id,
-						user: { id: data.user }, // Assuming user is stored as ID string
+						user: data.user,
 						state: data.state,
 						parentAgentId: data.parentAgentId,
 						childAgents: data.childAgents,
@@ -280,7 +284,10 @@ export class FirestoreAgentStateService implements AgentContextService {
 
 		agents = agents
 			.filter((agent): agent is Partial<AgentContext> => !!agent) // Filter out nulls (non-existent ids)
-			.filter((agent) => agent.user?.id === userId) // Can only delete your own agents
+			.filter((agent) => {
+				const ownerId = typeof agent.user === 'string' ? agent.user : agent.user?.id;
+				return ownerId === userId;
+			})
 			.filter((agent) => !agent.state || !isExecuting(agent as AgentContext)) // Can only delete non-executing agents (handle potentially missing state)
 			.filter((agent) => !agent.parentAgentId); // Only delete parent agents. Child agents are deleted with the parent agent.
 
@@ -424,6 +431,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 				data.prompt = data.prompt || undefined;
 				data.functionCalls = data.functionCalls || [];
 				data.functions = data.functions || [];
+				data.createdAt = data.createdAt || Date.now();
 				// expandedUserRequest, observationsReasoning, nextStepDetails might also need default handling if optional
 				data.expandedUserRequest = data.expandedUserRequest || undefined;
 				data.observationsReasoning = data.observationsReasoning || undefined;
@@ -455,7 +463,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 		// It's often simpler to fetch minimal fields and construct the ID from the doc.id.
 		// Here, 'iteration' is a field, so we can select it directly.
 		const querySnapshot = await iterationsColRef
-			.select('iteration', 'cost', 'summary', 'error') // Select only necessary fields
+			.select('iteration', 'createdAt', 'cost', 'summary', 'error') // Select only necessary fields
 			.orderBy('iteration', 'asc') // Order by iteration number
 			.get();
 
@@ -466,6 +474,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 				summaries.push({
 					agentId: agentId,
 					iteration: data.iteration,
+					createdAt: data.createdAt ?? 0,
 					cost: data.cost ?? 0,
 					summary: data.summary ?? '',
 					error: data.error,

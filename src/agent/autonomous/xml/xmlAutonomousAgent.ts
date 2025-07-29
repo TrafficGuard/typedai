@@ -83,7 +83,7 @@ export async function runXmlAgent(agent: AgentContext): Promise<AgentExecution> 
 					const filePrompt = await buildToolStatePrompt();
 
 					if (!currentPrompt.includes('<function_call_history>')) {
-						currentPrompt = buildFunctionCallHistoryPrompt('history') + buildMemoryPrompt() + filePrompt + currentPrompt;
+						currentPrompt = buildFunctionCallHistoryPrompt('history') + (await buildMemoryPrompt()) + filePrompt + currentPrompt;
 					}
 
 					if (agent.error) {
@@ -114,7 +114,7 @@ export async function runXmlAgent(agent: AgentContext): Promise<AgentExecution> 
 							functions: parseFunctionCallsXml(llmResponse),
 						};
 					}
-					currentPrompt = buildFunctionCallHistoryPrompt('history') + buildMemoryPrompt() + filePrompt + userRequestXml + functionResponse.textResponse;
+					currentPrompt = buildFunctionCallHistoryPrompt('history') + (await buildMemoryPrompt()) + filePrompt + userRequestXml + functionResponse.textResponse;
 					const functionCalls = functionResponse.functions.functionCalls;
 
 					if (!functionCalls.length) {
@@ -133,7 +133,8 @@ export async function runXmlAgent(agent: AgentContext): Promise<AgentExecution> 
 							functions: parseFunctionCallsXml(llmResponse),
 						};
 						// retrying
-						currentPrompt = buildFunctionCallHistoryPrompt('history') + buildMemoryPrompt() + filePrompt + userRequestXml + functionCallResponse.textResponse;
+						currentPrompt =
+							buildFunctionCallHistoryPrompt('history') + (await buildMemoryPrompt()) + filePrompt + userRequestXml + functionCallResponse.textResponse;
 						const functionCalls = functionCallResponse.functions.functionCalls;
 						if (!functionCalls.length) {
 							throw new Error('Found no function invocations');

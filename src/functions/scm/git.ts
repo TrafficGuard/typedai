@@ -2,7 +2,7 @@ import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { execCmd, execCommand, failOnError } from '#utils/exec';
+import { arg, execCmd, execCommand, failOnError } from '#utils/exec';
 
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { Commit, VersionControlSystem } from '#shared/scm/versionControlSystem';
@@ -13,6 +13,16 @@ export class Git implements VersionControlSystem {
 	previousBranch: string | undefined;
 
 	constructor(private fileSystem: IFileSystemService = getFileSystem()) {}
+
+	/**
+	 * Executes the 'git remote get-url origin' command to find the remote URL.
+	 * @returns The git origin URL.
+	 */
+	async getGitOriginUrl(): Promise<string> {
+		const statusResult = await execCommand('git remote get-url origin');
+		failOnError('Failed to get git origin URL.', statusResult);
+		return statusResult.stdout.trim();
+	}
 
 	/**
 	 * Adds all files which are already tracked by version control to the index and commits.
@@ -62,8 +72,19 @@ export class Git implements VersionControlSystem {
 		const addResult = await execCommand(`git add ${filesToAdd}`);
 		failOnError(`Failed to add files for commit: ${files.join(', ')}`, addResult);
 
-		// this.commit will handle the commit operation. It throws if the commit fails.
-		await this.commit(commitMessage);
+		// The fix is to execute a specific commit command that targets only the added files.
+		const commitResult = await execCommand(`git commit -m ${arg(commitMessage)} -- ${filesToAdd}`);
+		failOnError(`Failed to commit changes for files: ${files.join(', ')}`, commitResult);
+	}
+
+	async addNote(note: string): Promise<void> {
+		try {
+			const result = await execCommand(`git notes add -m ${arg(note)} ${await this.getHeadSha()}`);
+			failOnError(`Failed to add note: ${note}`, result);
+		} catch (error) {
+			logger.error(error);
+			throw error;
+		}
 	}
 
 	/**
@@ -127,6 +148,34 @@ export class Git implements VersionControlSystem {
 	}
 
 	/**
+	 * Gets the diff of all currently staged files against the HEAD commit.
+	 * @returns The git diff for staged changes. This could be a large string.
+	 */
+	@func()
+	async getStagedDiff(): Promise<string> {
+		const result = await execCommand('git diff --staged');
+		failOnError('Failed to get staged diff.', result);
+		return result.stdout;
+	}
+
+	/**
+	 * Gets the list of file paths for all currently staged files.
+	 * @returns An array of file paths that are staged for the next commit.
+	 */
+	@func()
+	async getStagedFiles(): Promise<string[]> {
+		const result = await execCommand('git diff --staged --name-only');
+		failOnError('Failed to get list of staged files.', result);
+
+		// The output is a newline-separated list of files.
+		// We split it into an array and filter out any empty lines.
+		return result.stdout
+			.trim()
+			.split('\n')
+			.filter((line) => line.length > 0);
+	}
+
+	/**
 	 * Creates a new branch, or if it already exists then switches to it
 	 * @param branchName
 	 * @return if the branch was created, or false if switched to an existing one
@@ -183,8 +232,7 @@ export class Git implements VersionControlSystem {
 	async commit(commitMessage: string): Promise<void> {
 		const cwd = this.fileSystem.getWorkingDirectory();
 		try {
-			const sanitizedMessage = commitMessage.replace(/"/g, '\\"');
-			const result = await execCommand(`git commit -m "${sanitizedMessage}"`);
+			const result = await execCommand(`git commit -m ${arg(commitMessage)}`);
 			failOnError('Error committing changes to Git', result);
 		} catch (error) {
 			logger.error(error);

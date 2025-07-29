@@ -13,7 +13,7 @@ import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs, saveAgentId } from './cli';
 import { resolveFunctionClasses } from './functionResolver';
 
-export async function main() {
+export async function main(): Promise<void> {
 	registerErrorHandlers();
 	await initApplicationContext();
 	const llms = defaultLLMs();
@@ -51,7 +51,7 @@ export async function main() {
 		resumeAgentId,
 		humanInLoop: {
 			count: 30,
-			budget: 30,
+			budget: 5,
 		},
 	});
 	saveAgentId('agent', execution.agentId);

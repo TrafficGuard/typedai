@@ -303,7 +303,7 @@ Use descriptive variable and function names instead of commenting on generic nam
 # Example - Minimise unnecessary line count
 
 ## Original
-This code was repeated multiple times through the tests
+This code was repeated multiple times through the tests. Extract it into a helper function.
 ```typescript
 			expect(
     await fsAsync
@@ -326,3 +326,175 @@ it('should test foo', async () => {
     expect(await fileExists(orphanedSummaryFullPath)).to.be.true;
 })
 ```
+
+## Original
+
+```typescript
+logger.info(
+			`Indexing pipeline completed. Successfully prepared ${successfullyProcessedAndEmbeddedChunks} chunks from ${
+				codeFiles.length - failedFilesCount.count
+			} files for indexing.`,
+		);
+```
+
+# Updated
+```typescript
+const successCount = codeFiles.length - failedFilesCount.count
+logger.info(`Indexing completed. Prepared ${successfullyProcessedAndEmbeddedChunks} chunks from ${successCount} files.`);
+```
+
+## Notes
+Extracting the successCount calculation into a variable and shortening the wording so the statement can be on a single line reduces the line count from 5 down to 2.
+
+## Example
+## Before
+```typescript
+async indexRepository(dir = './'): Promise<void> {
+    const codeFiles = await readFilesToIndex(dir);
+    logger.info(`Loaded ${codeFiles.length} code files.`);
+
+    if (codeFiles.length === 0) {
+        logger.info('No files to index.');
+        return;
+    }
+    // ...
+}
+```
+Review - Its already logged that 0 files were loaded. The additional logging is redundant
+
+### After
+
+```typescript
+async indexRepository(dir = './'): Promise<void> {
+    const codeFiles = await readFilesToIndex(dir);
+    logger.info(`Loaded ${codeFiles.length} code files.`);
+
+    if (codeFiles.length === 0) return;
+    // ...
+}
+```
+
+# Unnecassary seperate function
+
+## Before
+```typescript
+async importDocuments(documents: google.cloud.discoveryengine.v1beta.IDocument[], file: CodeFile): Promise<void> {
+    if (documents.length === 0) return;
+    await this.ensureDataStoreExists();
+
+    const request: google.cloud.discoveryengine.v1beta.IImportDocumentsRequest = {
+        parent: `${this.dataStorePath}/branches/default_branch`,
+        inlineSource: { documents },
+        reconciliationMode: google.cloud.discoveryengine.v1beta.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL,
+    };
+
+    await this._importDocumentsRequest(request);
+}
+
+@cacheRetry({ retries: 3, backOffMs: 1000 })
+@quotaRetry()
+private async _importDocumentsRequest(request: google.cloud.discoveryengine.v1beta.IImportDocumentsRequest): Promise<void> {
+    const [operation] = await this.documentClient.importDocuments(request);
+    logger.info(`ImportDocuments operation started: ${operation.name}`);
+    await operation.promise(); // wait until the indexing finishes
+}
+```
+
+## After
+```typescript
+@cacheRetry({ retries: 3, backOffMs: 1000 })
+@quotaRetry()
+async importDocuments(documents: google.cloud.discoveryengine.v1beta.IDocument[], file: CodeFile): Promise<void> {
+    if (documents.length === 0) return;
+
+    const request: google.cloud.discoveryengine.v1beta.IImportDocumentsRequest = {
+        parent: `${this.dataStorePath}/branches/default_branch`,
+        inlineSource: { documents },
+        reconciliationMode: google.cloud.discoveryengine.v1beta.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL,
+    };
+
+    const [operation] = await this.documentClient.importDocuments(request);
+    logger.info(`ImportDocuments operation started: ${operation.name}`);
+    await operation.promise(); // wait until the indexing finishes
+}
+```
+    
+## Conversion of database data to domain objects
+
+### Example
+
+#### Before
+
+```typescript
+const querySnapshot = await iterationsColRef.orderBy('__name__').get(); // Order by document ID (iteration number)
+
+const iterations: AutonomousIteration[] = [];
+querySnapshot.forEach((doc) => {
+    const data = doc.data();
+    if (data && typeof data.iteration === 'number') {
+        // Ensure memory is a Record, defaulting to {} if missing or not a valid object.
+        data.memory = data.memory && typeof data.memory === 'object' && !Array.isArray(data.memory) ? data.memory : {};
+
+        // Ensure toolState is a Record, defaulting to {} if missing or not a valid object.
+        data.toolState = data.toolState && typeof data.toolState === 'object' && !Array.isArray(data.toolState) ? data.toolState : {};
+
+        // Ensure optional fields are correctly handled (set to undefined if missing/null)
+        data.error = data.error || undefined;
+        data.agentPlan = data.agentPlan || undefined;
+        data.code = data.code || undefined;
+        data.prompt = data.prompt || undefined;
+        data.functionCalls = data.functionCalls || [];
+        data.functions = data.functions || [];
+        data.createdAt = data.createdAt || Date.now();
+        // expandedUserRequest, observationsReasoning, nextStepDetails might also need default handling if optional
+        data.expandedUserRequest = data.expandedUserRequest || undefined;
+        data.observationsReasoning = data.observationsReasoning || undefined;
+        data.nextStepDetails = data.nextStepDetails || undefined;
+        // Ensure optional fields potentially missing from Firestore are set
+        data.draftCode = data.draftCode || undefined;
+        data.codeReview = data.codeReview || undefined;
+
+        iterations.push(data as AutonomousIteration);
+    } else {
+        logger.warn({ agentId, iterationId: doc.id }, 'Skipping invalid iteration data during load (missing or invalid iteration number)');
+    }
+});
+```
+
+#### After
+
+```typescript
+const iterations: AutonomousIteration[] = [];
+querySnapshot.forEach((doc) => {
+    const data = doc.data();
+    
+    if (data && typeof data.iteration === 'number') {
+        const iter: AutonomousIteration = {
+            // Ensure memory is a Record, defaulting to {} if missing or not a valid object.
+            memory: data.memory && typeof data.memory === 'object' && !Array.isArray(data.memory) ? data.memory : {},
+            // Ensure toolState is a Record, defaulting to {} if missing or not a valid object.
+            toolState: data.toolState && typeof data.toolState === 'object' && !Array.isArray(data.toolState) ? data.toolState : {},
+            // Handle optional fields using safe defaults
+            error: data.error || undefined,
+            agentPlan: data.agentPlan || undefined,
+            code: data.code || undefined,
+            prompt: data.prompt || undefined,
+            functionCalls: data.functionCalls || [],
+            functions: data.functions || [],
+            createdAt: data.createdAt || Date.now(),
+            expandedUserRequest: data.expandedUserRequest || undefined,
+            observationsReasoning: data.observationsReasoning || undefined,
+            nextStepDetails: data.nextStepDetails || undefined,
+            draftCode: data.draftCode || undefined,
+            codeReview: data.codeReview || undefined,
+            // Required field
+            iteration: data.iteration
+        };
+        iterations.push(iter);
+    } else {
+        logger.warn({ agentId, iterationId: doc.id },'Skipping invalid iteration data during load (missing or invalid iteration number)');
+    }
+});
+```
+### Notes
+Assign to the typed AutonomousIteration object to ensure type safety.

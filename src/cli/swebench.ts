@@ -1,69 +1,109 @@
-import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
+import '#fastify/trace-init/trace-init';
 
-import { promises as fs, readFileSync } from 'node:fs';
-import { type RunAgentConfig, type RunWorkflowConfig, runAgentAndWait, startAgent } from '#agent/autonomous/autonomousAgentRunner';
-import { AGENT_COMPLETED_PARAM_NAME } from '#agent/autonomous/functions/agentFunctions';
-import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
-import { initApplicationContext, initFirestoreApplicationContext } from '#app/applicationContext';
-import { shutdownTrace } from '#fastify/trace-init/trace-init';
-import { LlmTools } from '#functions/llmTools';
-import { GitLab } from '#functions/scm/gitlab';
-import { FileSystemService } from '#functions/storage/fileSystemService';
-import { Perplexity } from '#functions/web/perplexity';
-import { PublicWeb } from '#functions/web/web';
-import { ClaudeLLMs } from '#llm/services/anthropic';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import { v4 as uuidv4 } from 'uuid';
+import { startAgentAndWaitForCompletion } from '#agent/autonomous/autonomousAgentRunner';
+import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
+import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
+import { initApplicationContext } from '#app/applicationContext';
+import { FileSystemList } from '#functions/storage/fileSystemList';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
-import type { AgentLLMs } from '#shared/agent/agent.model';
-import { LlmCall } from '#shared/llmCall/llmCall.model';
-import { SWEBenchAgent, type SWEInstance } from '#swe/SWEBenchAgent';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
-import { sleep } from '#utils/async-utils';
+import { CodeFunctions } from '#swe/codeFunctions';
+import { type SWEInstance, startContainer, stopContainer } from '../benchmarks/swebench/swe-bench-runner';
 import { registerErrorHandlers } from '../errorHandlers';
-import { parseProcessArgs, saveAgentId } from './cli';
+import { parseProcessArgs } from './cli';
+
+async function loadDataset(datasetName: string, split: string): Promise<SWEInstance[]> {
+	// const url = `https://huggingface.co/datasets/${datasetName}/resolve/main/swe-bench.json`;
+	// logger.info(`Loading dataset from ${url}`);
+	// const response = await fetch(url);
+	// if (!response.ok) {
+	// 	throw new Error(`Failed to fetch dataset: ${response.statusText}`);
+	// }
+	// const data = await response.json();
+	// return data as SWEInstance[];
+	return JSON.parse((await fs.readFile('bench/datasets/SWE-bench_Verified/dataset.json', 'utf-8')).toString()) as SWEInstance[];
+}
 
 async function main() {
 	registerErrorHandlers();
-	const instance = JSON.parse(readFileSync('instance.json').toString()) as SWEInstance;
-
-	await new SWEBenchAgent().runInference(instance);
-
-	// if (!process.env.ASDF) return;
-	// let args = process.argv.toSpliced(2);
-	//
-	// args = args.filter(arg => !arg.startsWith('-'))
-	// if(!args.length) throw new Error('instanceId is required')
-
 	await initApplicationContext();
-	const agentLlms = defaultLLMs();
+	const llms = defaultLLMs();
 
-	const { initialPrompt, resumeAgentId } = parseProcessArgs();
-
-	console.log(`Prompt: ${initialPrompt}`);
-
-	const config: RunWorkflowConfig = {
-		agentName: `SWE-Bench ${instance.instance_id}`,
-		subtype: 'code',
-		llms: agentLlms,
-		initialPrompt,
-		resumeAgentId,
-		humanInLoop: {
-			budget: 4,
-		},
-	};
-
-	const agentId = await runWorkflowAgent(config, async () => {
-		await new CodeEditingAgent().implementUserRequirements(config.initialPrompt);
-	});
-
-	if (agentId) {
-		saveAgentId('swebench', agentId);
+	const { flags } = parseProcessArgs();
+	// Test instance ID
+	const instanceId = flags['instance-id'] as string;
+	if (!instanceId) {
+		throw new Error('An --instance-id must be provided.');
 	}
 
-	await shutdownTrace();
+	const fullDataset = await loadDataset('princeton-nlp/SWE-bench_Verified', 'test');
+	const problem = fullDataset.find((p) => p.instance_id === instanceId);
+	if (!problem) {
+		logger.error(`Instance with ID "${instanceId}" not found.`);
+		process.exit(1);
+	}
+	logger.info('Found problem instance', { problemId: problem.instance_id });
+
+	const workspacePath = path.resolve(`/tmp/workspace/${uuidv4().slice(0, 8)}`);
+	await fs.mkdir(workspacePath, { recursive: true });
+
+	let containerId: string;
+	let repoPathOnHost: string;
+
+	const cleanup = async () => {
+		if (containerId) {
+			await stopContainer(containerId);
+		}
+	};
+
+	process.on('SIGINT', async () => {
+		logger.info('Caught interrupt signal, cleaning up...');
+		await cleanup();
+		process.exit();
+	});
+	process.on('SIGTERM', async () => {
+		logger.info('Caught terminate signal, cleaning up...');
+		await cleanup();
+		process.exit();
+	});
+
+	try {
+		logger.info('Starting container...');
+		({ containerId, repoPathOnHost } = await startContainer(workspacePath, problem.instance_id));
+		logger.info('Container started successfully', { containerId, repoPathOnHost });
+
+		const functions = [CodeEditingAgent, CodeFunctions, LiveFiles, FileSystemTree, FileSystemList];
+
+		logger.info(`Available functions ${functions.map((f) => f.name).join(', ')}`);
+
+		const requirements = `Please fix the following issue:\n${problem.problem_statement}`;
+
+		const agentName = `SWE-bench agent: ${problem.problem_statement.slice(0, 50)}...`;
+
+		logger.info('Starting new swebench agent');
+		logger.info('Starting agent...');
+		const result = await startAgentAndWaitForCompletion({
+			agentName,
+			initialPrompt: requirements,
+			functions: functions,
+			llms,
+			type: 'autonomous',
+			subtype: 'codegen',
+			containerId,
+			fileSystemPath: repoPathOnHost,
+		});
+
+		// The orchestrator will generate the patch via `git diff`.
+		// This output can be used for debugging or if the agent directly produces a patch.
+		console.log(result);
+	} finally {
+		logger.info('Entering finally block for cleanup...');
+		await cleanup();
+	}
 }
 
-main().then(
-	() => console.log('done'),
-	(e) => console.error(e),
-);
+main().catch(console.error);

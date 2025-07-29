@@ -16,7 +16,7 @@ interface ScmProjectResponseItem extends GitProject {
  * Defines routes related to Source Control Management (SCM) operations.
  * @param fastify - The Fastify instance.
  */
-export async function scmRoutes(fastify: AppFastifyInstance) {
+export async function scmRoutes(fastify: AppFastifyInstance): Promise<void> {
 	// Define the response schema for /api/scm/projects
 	const GetProjectsResponseSchema = Type.Array(
 		Type.Object({

@@ -5,9 +5,9 @@ import { getTracer, setFunctionSpanAttributes, withActiveSpan } from '#o11y/trac
 import { functionSchemaParser } from './functionSchemaParser';
 import { FUNC_SEP, type FunctionSchema, getFunctionSchemas, setFunctionSchemas } from './functions';
 
-let _functionFactory = {};
+let _functionFactory: Record<string, any> = {};
 
-export function functionFactory() {
+export function functionFactory(): Record<string, any> {
 	if (_functionFactory === undefined) _functionFactory = {};
 	return _functionFactory;
 }
@@ -109,7 +109,7 @@ export function func() {
  * @param filename Must be __filename
  */
 export function funcClass(filename: string) {
-	return function ClassDecorator<C extends new (...args: any[]) => any>(target: C, _ctx: ClassDecoratorContext) {
+	return function ClassDecorator<C extends new (...args: any[]) => any>(target: C, _ctx: ClassDecoratorContext): C {
 		functionFactory()[target.name] = target;
 		setFunctionSchemas(target, functionSchemaParser(filename));
 		return target;

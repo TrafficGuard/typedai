@@ -4,15 +4,14 @@ import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
-import { PromptBuilder } from './PromptBuilder';
-import { CoderConfig, SearchReplaceOrchestrator } from './SearchReplaceOrchestrator';
-import type { RequestedFileEntry, RequestedPackageInstallEntry, RequestedQueryEntry } from './coderTypes';
-import { EditApplier } from './editApplier';
+import type { ExecCmdOptions, ExecResult } from '#utils/exec';
+import { execCommand } from '#utils/exec';
+import type { EditBlock } from './coderTypes';
+import { PromptBuilder } from './promptBuilder';
+import { CoderConfig, SearchReplaceOrchestrator } from './searchReplaceOrchestrator';
 import { EDIT_BLOCK_PROMPTS } from './searchReplacePrompts';
-import { EditPreparer } from './services/EditPreparer';
-import { ReflectionGenerator } from './services/ReflectionGenerator';
-import { ResponseProcessor } from './services/ResponseProcessor';
-import { EditSession } from './state/EditSession';
+import { EditPreparer } from './services/editPreparer';
+import { EditSession } from './state/editSession';
 import { ModuleAliasRule } from './validators/moduleAliasRule';
 import { PathExistsRule } from './validators/pathExistsRule';
 import type { ValidationRule } from './validators/validationRule';
@@ -22,93 +21,17 @@ const DEFAULT_FENCE_OPEN = '````';
 const DEFAULT_FENCE_CLOSE = '````';
 const DEFAULT_LENIENT_WHITESPACE = true;
 
-// Helper function to parse file requests from LLM response
-export function parseAddFilesRequest(responseText: string): RequestedFileEntry[] | null {
-	if (!responseText) return null;
-	const match = responseText.match(/<add-files-json>([\s\S]*?)<\/add-files-json>/);
-	if (!match || !match[1]) {
-		return null;
-	}
-
-	const jsonString = match[1];
-	try {
-		const parsed = JSON.parse(jsonString);
-		if (parsed && Array.isArray(parsed.files)) {
-			const requestedFiles: RequestedFileEntry[] = [];
-			for (const item of parsed.files) {
-				if (typeof item.filePath === 'string' && typeof item.reason === 'string') {
-					requestedFiles.push({ filePath: item.filePath, reason: item.reason });
-				} else {
-					logger.warn('Invalid item in files array for add-files-json', { item });
-					return null; // Strict parsing: if one item is bad, reject all
-				}
-			}
-			return requestedFiles.length > 0 ? requestedFiles : null;
-		}
-		logger.warn('Invalid structure for add-files-json content', { jsonString });
-		return null;
-	} catch (error) {
-		logger.error({ err: error }, 'Failed to parse JSON from add-files-json block');
-		return null;
-	}
-}
-
-// New helper function to parse query requests
-export function parseAskQueryRequest(responseText: string): RequestedQueryEntry[] | null {
-	if (!responseText) return null;
-	const matches = Array.from(responseText.matchAll(/<ask-query>([\s\S]*?)<\/ask-query>/g));
-	if (!matches.length) return null;
-
-	const requestedQueries: RequestedQueryEntry[] = [];
-	for (const match of matches) {
-		if (match[1]) {
-			requestedQueries.push({ query: match[1].trim() });
-		}
-	}
-	return requestedQueries.length > 0 ? requestedQueries : null;
-}
-
-// New helper function to parse package install requests
-export function parseInstallPackageRequest(responseText: string): RequestedPackageInstallEntry[] | null {
-	if (!responseText) return null;
-	const match = responseText.match(/<install-packages-json>([\s\S]*?)<\/install-packages-json>/);
-	if (!match || !match[1]) {
-		return null;
-	}
-
-	const jsonString = match[1];
-	try {
-		const parsed = JSON.parse(jsonString);
-		if (parsed && Array.isArray(parsed.packages)) {
-			const requestedPackages: RequestedPackageInstallEntry[] = [];
-			for (const item of parsed.packages) {
-				if (typeof item.packageName === 'string' && typeof item.reason === 'string') {
-					requestedPackages.push({ packageName: item.packageName, reason: item.reason });
-				} else {
-					logger.warn('Invalid item in packages array for install-packages-json', { item });
-					return null; // Strict parsing
-				}
-			}
-			return requestedPackages.length > 0 ? requestedPackages : null;
-		}
-		logger.warn('Invalid structure for install-packages-json content', { jsonString });
-		return null;
-	} catch (error) {
-		logger.error({ err: error }, 'Failed to parse JSON from install-packages-json block');
-		return null;
-	}
-}
-
 @funcClass(__filename)
 export class SearchReplaceCoder {
 	private vcs: VersionControlSystem | null;
-	private orchestrator: SearchReplaceOrchestrator;
+	public orchestrator: SearchReplaceOrchestrator;
 	private promptBuilder: PromptBuilder;
 	private rules: ValidationRule[];
 
 	constructor(
 		private llms: AgentLLMs,
 		private fs: IFileSystemService,
+		private execCommandFn: (command: string, opts?: ExecCmdOptions) => Promise<ExecResult> = execCommand,
 	) {
 		this.rules = [new PathExistsRule(), new ModuleAliasRule()];
 		this.vcs = this.fs.getVcsRoot() ? this.fs.getVcs() : null;
@@ -132,23 +55,29 @@ export class SearchReplaceCoder {
 		}));
 
 		this.promptBuilder = new PromptBuilder(this.fs, fence, precomputedSystemMessage, precomputedExampleMessages, systemReminderContentForPrompt);
-		const responseProcessor = new ResponseProcessor(fence, 'diff');
 		const editPreparer = new EditPreparer(this.fs, this.vcs, fence);
-		const reflectionGenerator = new ReflectionGenerator();
-		const editApplier = new EditApplier(this.fs, this.vcs, DEFAULT_LENIENT_WHITESPACE, fence);
 		const config: CoderConfig = { maxAttempts: MAX_ATTEMPTS };
 
 		this.orchestrator = new SearchReplaceOrchestrator(
 			config,
 			this.llms,
 			this.fs,
-			responseProcessor,
 			editPreparer,
-			reflectionGenerator,
 			this.promptBuilder,
-			editApplier,
 			this.rules,
+			fence,
+			this.execCommandFn,
+			DEFAULT_LENIENT_WHITESPACE,
 		);
+	}
+
+	/**
+	 * FOR TESTING PURPOSES. This method likely supports a legacy test suite.
+	 * It diagnoses failures and is expected by tests to return only the externally changed files.
+	 */
+	public async diagnoseFailures(failedEdits: EditBlock[], session: EditSession): Promise<string[]> {
+		const { externallyChangedFiles } = await this.orchestrator._diagnoseFailures(failedEdits, session);
+		return externallyChangedFiles;
 	}
 
 	private getRepoFilePath(rootPath: string, relativePath: string): string {
@@ -203,7 +132,6 @@ export class SearchReplaceCoder {
 		await this._initializeSessionContext(session, filesToEdit);
 
 		const initialMessages = await this.promptBuilder.build(session, requirements, readOnlyFiles);
-		session.markPromptBuilt();
 
 		await this.orchestrator.execute(session, initialMessages, requirements, readOnlyFiles);
 	}

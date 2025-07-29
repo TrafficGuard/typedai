@@ -34,7 +34,7 @@ export function buildPrompt(args: {
 	return `${basePrompt}\n${args.information}\n\nThe requirements of the task are as follows:\n<requirements>\n${args.requirements}\n</requirements>\n\nThe action to be performed is as follows:\n<action>\n${args.action}\n</action>\n`;
 }
 
-const useAider = true;
+const useAider = false;
 
 @funcClass(__filename)
 export class CodeEditingAgent {
@@ -185,7 +185,7 @@ export class CodeEditingAgent {
 	private async editCompileLoop(
 		projectInfo: ProjectInfo,
 		initialSelectedFiles: string[],
-		implementationRequirements: string,
+		implementationPlan: string,
 	): Promise<CompileErrorAnalysisDetails | null> {
 		let compileErrorAnalysis: CompileErrorAnalysisDetails | null = null;
 		let compileErrorSearchResults: string[] = [];
@@ -265,12 +265,12 @@ export class CodeEditingAgent {
 					codeEditorFiles.push(...(compileErrorAnalysis.additionalFiles ?? []));
 				} else {
 					// project is compiling, lets implement the requirements
-					codeEditorRequirements += implementationRequirements;
+					codeEditorRequirements += implementationPlan;
 					codeEditorRequirements += '\nOnly make changes directly related to these requirements.';
 				}
 
 				const ruleFiles: Set<string> = await includeAlternativeAiToolFiles(codeEditorFiles);
-				// Remove any duplicates in codeEditorFiles
+				// Remove any duplicates fron ruleFiles found in codeEditorFiles
 				for (const editingFile of codeEditorFiles) if (ruleFiles.has(editingFile)) ruleFiles.delete(editingFile);
 
 				if (useAider) {
@@ -279,6 +279,8 @@ export class CodeEditingAgent {
 					const coder = new SearchReplaceCoder(llms(), getFileSystem());
 					await coder.editFilesToMeetRequirements(codeEditorRequirements, codeEditorFiles, Array.from(ruleFiles), true, true);
 				}
+				// https://docs.morphllm.com/api-reference/introduction
+				// https://news.ycombinator.com/item?id=44490863
 
 				// The code editor may add new files, so we want to add them to the initial file set
 				const addedFiles: string[] = await git.getAddedFiles(compiledCommitSha);
@@ -396,7 +398,7 @@ export class CodeEditingAgent {
 
 	@cacheRetry()
 	async selectFiles(requirements: string, projectInfo: ProjectInfo): Promise<SelectedFile[]> {
-		return await selectFilesAgent(requirements, projectInfo);
+		return await selectFilesAgent(requirements, { projectInfo });
 	}
 
 	async runStaticAnalysis(projectInfo: ProjectInfo): Promise<void> {
@@ -494,7 +496,11 @@ export class CodeEditingAgent {
 				'From the requirements consider which the files may be required to complete the task. Output your answer as JSON in the format of this example:\n' +
 				'<example>\n<json>\n{\n files: ["file1", "file2", "file3"]\n}\n</json>\n</example>',
 		});
-		const response: any = await llms().medium.generateTextWithJson(prompt, { id: 'Extract Filenames' });
-		return response.files;
+		const response = await llms().medium.generateTextWithJson(prompt, { id: 'Extract Filenames' });
+		if (!Array.isArray((response.object as any).files)) {
+			logger.info(response.message, 'Extract Filenames response is not an array');
+			return [];
+		}
+		return (response.object as any).files;
 	}
 }

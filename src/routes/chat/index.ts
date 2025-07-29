@@ -1,4 +1,5 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
+import { createChatFromLlmCallRoute } from './createChatFromLlmCall';
 import { createChatRoute } from './createChatRoute';
 import { deleteChatRoute } from './deleteChatRoute';
 import { formatAsMarkdownRoute } from './formatAsMarkdownRoute';
@@ -8,7 +9,7 @@ import { regenerateMessageRoute } from './regenerateMessageRoute';
 import { sendMessageRoute } from './sendMessageRoute';
 import { updateChatDetailsRoute } from './updateChatDetailsRoute';
 
-export async function chatRoutes(fastify: AppFastifyInstance) {
+export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 	await getChatByIdRoute(fastify);
 	await createChatRoute(fastify);
 	await sendMessageRoute(fastify);
@@ -17,4 +18,5 @@ export async function chatRoutes(fastify: AppFastifyInstance) {
 	await deleteChatRoute(fastify);
 	await updateChatDetailsRoute(fastify);
 	await formatAsMarkdownRoute(fastify);
+	await createChatFromLlmCallRoute(fastify);
 }

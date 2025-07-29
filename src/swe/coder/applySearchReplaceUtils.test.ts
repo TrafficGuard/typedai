@@ -7,7 +7,6 @@ describe('stripFilename', () => {
 
 	const FENCE = '```';
 
-	// Test cases based on original Python logic and common scenarios
 	const testCases: Array<[string, string | undefined, string?]> = [
 		// input, expected output, description
 		['myfile.py', 'myfile.py', 'Simple filename'],
@@ -32,26 +31,25 @@ describe('stripFilename', () => {
 		['    ', undefined, 'Whitespace string'],
 		[`${FENCE}javascript path/to/some/file.js`, 'path/to/some/file.js', 'JS file with path'],
 		[`  ${FENCE} path/to/another file.txt`, 'path/to/another file.txt', 'Text file with path and spaces'],
-		// Cases from aider's original tests for strip_filename
-		['foo.py', 'foo.py', 'aider: simple'],
-		['  foo.py', 'foo.py', 'aider: leading space'],
-		['foo.py  ', 'foo.py', 'aider: trailing space'],
-		['`foo.py`', 'foo.py', 'aider: backticks'],
-		['*foo.py*', 'foo.py', 'aider: asterisks'],
-		['foo.py:', 'foo.py', 'aider: colon'],
-		['# foo.py', 'foo.py', 'aider: hash'],
-		['#foo.py', 'foo.py', 'aider: hash no space'],
+		['foo.py', 'foo.py', 'simple'],
+		['  foo.py', 'foo.py', 'leading space'],
+		['foo.py  ', 'foo.py', 'trailing space'],
+		['`foo.py`', 'foo.py', 'backticks'],
+		['*foo.py*', 'foo.py', 'asterisks'],
+		['foo.py:', 'foo.py', 'colon'],
+		['# foo.py', 'foo.py', 'hash'],
+		['#foo.py', 'foo.py', 'hash no space'],
 		// The current JS code will produce 'foo.py' for '# `foo.py`' after stripping '#' then '`'.
-		['# `foo.py`', 'foo.py', 'aider: hash with backticks (JS behavior)'],
-		['```python foo.py', 'foo.py', 'aider: fenced python'],
-		['``` foo.py', 'foo.py', 'aider: fenced no lang'],
-		['```python # foo.py', '# foo.py', 'aider: fenced python with hash'],
-		['```python foo.py # comment', 'foo.py # comment', 'aider: fenced python with comment'],
-		['```python', undefined, 'aider: fenced python no file'],
-		['```', undefined, 'aider: fenced no lang no file'],
+		['# `foo.py`', 'foo.py', 'hash with backticks (JS behavior)'],
+		['```python foo.py', 'foo.py', 'fenced python'],
+		['``` foo.py', 'foo.py', 'fenced no lang'],
+		['```python # foo.py', '# foo.py', 'fenced python with hash'],
+		['```python foo.py # comment', 'foo.py # comment', 'fenced python with comment'],
+		['```python', undefined, 'fenced python no file'],
+		['```', undefined, 'fenced no lang no file'],
 		['foo_bar.py', 'foo_bar.py', 'Filename with underscore'],
 		['foo\\_bar.py', 'foo_bar.py', 'Filename with escaped underscore (literal backslash)'],
-		[`${FENCE}python\nfoo.py`, undefined, 'aider: Malformed fence with newline (should be undefined)'],
+		[`${FENCE}python\nfoo.py`, undefined, 'Malformed fence with newline (should be undefined)'],
 		[`${FENCE}cpp src/my_class.cpp`, 'src/my_class.cpp', 'C++ file with path'],
 		[`  ${FENCE}java com/example/Main.java  `, 'com/example/Main.java', 'Java file with path and spaces'],
 		['foo.bar.baz.txt', 'foo.bar.baz.txt', 'Filename with multiple dots'],

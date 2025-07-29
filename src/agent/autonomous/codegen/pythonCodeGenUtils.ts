@@ -86,28 +86,27 @@ export function isKeywordArgumentCall(argObj: unknown, expectedParamNames: strin
  * Accepts both camelCase and snake_case keyword names.
  */
 export function processFunctionArguments(args: any[], expectedParamNames: string[]): { finalArgs: any[]; parameters: Record<string, any> } {
-	// Unproxy already if caller hasn’t
-	args = args.map((a) => (typeof a?.toJs === 'function' ? a.toJs() : a));
+	// Unproxy the top-level arguments. A dict of kwargs will become a JS object
+	// but its values (e.g., lists) might still be proxies if toJs is not fully recursive on them.
+	// We use dict_converter to get plain objects instead of Maps.
+	args = args.map((a) => (typeof a?.toJs === 'function' ? a.toJs({ dict_converter: Object.fromEntries }) : a));
 
 	const potentialKwargs =
 		args.length === 1 && typeof args[0] === 'object' && args[0] !== null && !Array.isArray(args[0]) ? (args[0] as Record<string, unknown>) : null;
 
 	const isKeywordArgs = potentialKwargs ? isKeywordArgumentCall(potentialKwargs, expectedParamNames) : false;
 
-	const parameters: Record<string, any> = {};
 	let finalArgs: any[];
 
 	if (isKeywordArgs) {
 		logger.debug(`Detected keyword arguments: ${JSON.stringify(potentialKwargs)}`);
 		finalArgs = [];
-		// Reconstruct the arguments array in the order defined by the schema
+		// Reconstruct the arguments array in the order defined by the schema.
+		// The values may still be proxies if they were nested.
 		for (const paramName of expectedParamNames) {
 			const snakeName = camelToSnake(paramName);
 			const value = Object.hasOwn(potentialKwargs, paramName) ? potentialKwargs[paramName] : potentialKwargs[snakeName];
 			finalArgs.push(value);
-			if (Object.hasOwn(potentialKwargs, paramName) || Object.hasOwn(potentialKwargs, snakeName)) {
-				parameters[paramName] = value;
-			}
 		}
 	} else {
 		if (potentialKwargs)
@@ -115,16 +114,33 @@ export function processFunctionArguments(args: any[], expectedParamNames: string
 				`Keyword object did not match expected keys. Received ${JSON.stringify(Object.keys(potentialKwargs))}, expected ${JSON.stringify(expectedParamNames)}`,
 			);
 		finalArgs = args;
-		// Populate parameters for logging history based on position
-		for (let i = 0; i < finalArgs.length; i++) {
-			if (expectedParamNames[i]) parameters[expectedParamNames[i]] = finalArgs[i];
-			else parameters[`arg_${i}`] = finalArgs[i];
-		}
 	}
 
-	// Final un-proxy on parameters / finalArgs
-	for (const [k, v] of Object.entries(parameters)) if (v?.toJs) parameters[k] = v.toJs();
-	finalArgs = finalArgs.map((a) => (a?.toJs ? a.toJs() : a));
+	// Now, deep-convert any remaining proxies in finalArgs. This is the definitive conversion.
+	// This ensures that even if the initial toJs was shallow, everything is converted before use.
+	finalArgs = finalArgs.map((a) => (a?.toJs ? a.toJs({ dict_converter: Object.fromEntries }) : a));
+
+	// Finally, build the `parameters` object for logging from the fully converted `finalArgs`.
+	const parameters: Record<string, any> = {};
+	if (isKeywordArgs) {
+		// For keyword args, only include parameters that were actually passed.
+		for (let i = 0; i < expectedParamNames.length; i++) {
+			const paramName = expectedParamNames[i];
+			const snakeName = camelToSnake(paramName);
+			if (Object.hasOwn(potentialKwargs, paramName) || Object.hasOwn(potentialKwargs, snakeName)) {
+				parameters[paramName] = finalArgs[i];
+			}
+		}
+	} else {
+		// For positional args, map them directly.
+		for (let i = 0; i < finalArgs.length; i++) {
+			if (expectedParamNames[i]) {
+				parameters[expectedParamNames[i]] = finalArgs[i];
+			} else {
+				parameters[`arg_${i}`] = finalArgs[i];
+			}
+		}
+	}
 
 	return { finalArgs, parameters };
 }

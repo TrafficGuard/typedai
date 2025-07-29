@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# This script is for running a TypedAI script on a target repository (not the TypedAI repo) in a container.
+# This should be run from the target repository, and may modify the target repository depending on the script called.
+
 # Check if TYPEDAI_HOME is set
 if [ -z "$TYPEDAI_HOME" ]; then
   echo "Error: TYPEDAI_HOME is not set."

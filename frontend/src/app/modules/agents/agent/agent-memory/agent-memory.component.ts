@@ -3,14 +3,16 @@ import { Component, input, signal } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { AgentContextApi } from '#shared/agent/agent.schema';
+import { MarkdownModule, provideMarkdown } from 'ngx-markdown';
 
 @Component({
 	selector: 'agent-memory',
 	templateUrl: './agent-memory.component.html',
-	standalone: true,
+	providers: [provideMarkdown()],
 	imports: [
 		CommonModule, // Includes NgForOf, NgIf
 		MatCardModule,
+		MarkdownModule,
 		MatExpansionModule,
 		KeyValuePipe,
 	],

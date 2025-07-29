@@ -1,7 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
 import { type PyodideInterface, loadPyodide } from 'pyodide';
-import { buildMemoryPrompt, buildToolStateMap, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
+import {
+	buildFileSystemTreePrompt,
+	buildFunctionCallHistoryPrompt,
+	buildMemoryPrompt,
+	buildToolStateMap,
+	buildToolStatePrompt,
+	updateFunctionSchemas,
+} from '#agent/agentPromptUtils';
 import { FUNCTION_OUTPUT_THRESHOLD, summarizeFunctionOutput } from '#agent/agentUtils';
 import { runAgentCompleteHandler } from '#agent/autonomous/agentCompletion';
 import type { AgentExecution } from '#agent/autonomous/autonomousAgentRunner';
@@ -40,7 +47,7 @@ import {
 	removePythonMarkdownWrapper,
 } from './pythonCodeGenUtils';
 
-const stopSequences = ['</response>'];
+const stopSequences = undefined; //['</response>']; grok4 does not support stop sequences
 
 // Thresholds for content size (in bytes)
 const LARGE_OUTPUT_THRESHOLD_BYTES = 50 * 1024; // 50KB
@@ -141,6 +148,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				// Might need to reload the agent for dynamic updating of the tools
 				const functionsXml = convertJsonToPythonDeclaration(getAllFunctionSchemas(agent.functions.getFunctionInstances()));
 				const systemPromptWithFunctions = updateFunctionSchemas(codegenSystemPrompt, functionsXml);
+				const fileSystemTreePrompt = await buildFileSystemTreePrompt();
 				const toolStatePrompt = await buildToolStatePrompt();
 
 				// Add function call history (handle potential requestFeedback at the end)
@@ -157,7 +165,9 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 
 				// Build the main control loop prompt message content
 				const agentUserMessageContent: UserContentExt = [];
-				agentUserMessageContent.push(text(buildMemoryPrompt()));
+				if (fileSystemTreePrompt) agentUserMessageContent.push(text(fileSystemTreePrompt));
+				agentUserMessageContent.push(text(buildFunctionCallHistoryPrompt('history', 20000, 0, historyEndIndex)));
+				agentUserMessageContent.push(text(await buildMemoryPrompt()));
 				if (toolStatePrompt) agentUserMessageContent.push(text(toolStatePrompt));
 				agentUserMessageContent.push(text(userRequestXml));
 
@@ -211,6 +221,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					agentPlanResponse = messageText(agentPlanResponseMessage);
 					pythonMainFnCode = extractPythonCode(agentPlanResponse);
 				}
+				iterationData.response = agentPlanResponse;
 				iterationData.stats = agentPlanResponseMessage.stats;
 				iterationData.expandedUserRequest = extractExpandedUserRequest(agentPlanResponse);
 				iterationData.observationsReasoning = extractObservationsReasoning(agentPlanResponse);
@@ -256,7 +267,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					pythonScriptResult = result?.toJs ? result.toJs({ dict_converter: Object.fromEntries }) : result;
 					if (result?.destroy) result.destroy();
 
-					logger.info(`pythonScriptResult type ${typeof pythonScriptResult}`);
+					// logger.debug(`pythonScriptResult type ${typeof pythonScriptResult}`);
 					if (pythonScriptResult && typeof pythonScriptResult === 'object') {
 						for (const [k, v] of Object.entries(pythonScriptResult)) {
 							logger.info(`${k} type ${typeof v}`);
@@ -485,6 +496,9 @@ function setupPyodideFunctionProxies(
 
 			const { finalArgs, parameters } = processFunctionArguments(args, expectedParamNames);
 
+			// The `parameters` object returned from processFunctionArguments is already fully converted,
+			// so the conversion block below is no longer needed and has been removed.
+
 			try {
 				const functionResponse = await functionInstances[className][method](...finalArgs);
 				// Don't need to duplicate the content in the function call history
@@ -591,7 +605,7 @@ async def ${originalName}(*args, **kwargs):
 
 async function initPyodide(): Promise<PyodideInterface> {
 	pyodide = await loadPyodide();
-	// pyodide.setDebug(true); // This can be very verbose, enable if needed for Pyodide internal debugging
+	pyodide.setDebug(true); // This can be very verbose, enable if needed for Pyodide internal debugging
 
 	pyodide.setStdout({
 		batched: (outputLine: string) => {

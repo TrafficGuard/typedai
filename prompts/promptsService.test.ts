@@ -15,7 +15,7 @@ export function runPromptsServiceTests(
 	createService: () => PromptsService,
 	beforeEachHook: () => Promise<void> | void = () => {},
 	afterEachHook: () => Promise<void> | void = () => {},
-) {
+): void {
 	let service: PromptsService;
 
 	beforeEach(async () => {

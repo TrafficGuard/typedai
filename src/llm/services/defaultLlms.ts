@@ -1,15 +1,21 @@
-import { openai } from '@ai-sdk/openai';
+import { FastEasyLLM } from '#llm/multi-agent/fastEasy';
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
-import { MAD_Balanced } from '#llm/multi-agent/reasoning-debate';
-import { MultiLLM } from '#llm/multi-llm';
-import { Claude3_5_Haiku, anthropicClaude4_Opus, anthropicClaude4_Sonnet } from '#llm/services/anthropic';
-import { vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Flash, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
+import { MAD_Anthropic, MAD_Balanced, MAD_Fast, MAD_Grok, MAD_OpenAI, MAD_Vertex } from '#llm/multi-agent/reasoning-debate';
+// import { MAD_Balanced, MAD_Vertex, MAD_Anthropic, MAD_OpenAI, MAD_Grok, MAD_Fast } from '#llm/multi-agent/reasoning-debate';
+import { Claude3_5_Haiku, anthropicClaude4_Sonnet } from '#llm/services/anthropic';
+import { vertexGemini_2_5_Flash, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
+import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { LLM } from '#shared/llm/llm.model';
+import { cerebrasQwen3_235b } from './cerebras';
+import { Gemini_2_5_Flash, Gemini_2_5_Pro } from './gemini';
+import { groqLlama4_Scout } from './groq';
 import { Ollama_LLMs } from './ollama';
-import { openAIo3, openAIo4mini, openaiGPT41, openaiGPT41mini } from './openai';
+import { openAIo3, openaiGPT41, openaiGPT41mini } from './openai';
+import { xai_Grok4 } from './xai';
 
 let _summaryLLM: LLM;
+let _defaultLLMs: AgentLLMs;
 
 export function summaryLLM(): LLM {
 	_summaryLLM ??= defaultLLMs().easy;
@@ -17,47 +23,38 @@ export function summaryLLM(): LLM {
 }
 
 export function defaultLLMs(): AgentLLMs {
-	const o3 = openAIo3();
-	const gemini25Pro = vertexGemini_2_5_Pro();
-	const sonnet4 = anthropicClaude4_Sonnet();
+	if (_defaultLLMs) return _defaultLLMs;
 
-	if (gemini25Pro.isConfigured()) {
-		const flashLite = vertexGemini_2_0_Flash_Lite();
-		const flash = vertexGemini_2_5_Flash();
+	// if (process.env.OLLAMA_API_URL) {
+	// 	logger.info('Using Ollama LLMs')
+	// 	_defaultLLMs = Ollama_LLMs();
+	// 	return _defaultLLMs;
+	// }
 
-		_summaryLLM = flashLite;
-		return {
-			easy: flashLite,
-			medium: new FastMediumLLM(),
-			hard: gemini25Pro,
-			xhard: null,
-		};
-	}
+	const easyLLMs = [new FastEasyLLM(), vertexGemini_2_5_Flash(), Gemini_2_5_Flash(), groqLlama4_Scout(), openaiGPT41mini(), Claude3_5_Haiku()];
+	const easy: LLM | undefined = easyLLMs.find((llm) => llm.isConfigured());
+	if (!easy) throw new Error('No default easy LLM configured');
 
-	if (sonnet4.isConfigured()) {
-		_summaryLLM = Claude3_5_Haiku();
-		const opus = anthropicClaude4_Opus();
-		return {
-			easy: _summaryLLM,
-			medium: sonnet4,
-			hard: opus,
-			xhard: new MultiLLM([opus], 3),
-		};
-	}
+	const mediumLLMs = [new FastMediumLLM(), vertexGemini_2_5_Flash(), Gemini_2_5_Flash(), cerebrasQwen3_235b(), openaiGPT41(), Claude3_5_Haiku()];
+	const medium: LLM | undefined = mediumLLMs.find((llm) => llm.isConfigured());
+	if (!medium) throw new Error('No default medium LLM configured');
 
-	if (o3.isConfigured()) {
-		_summaryLLM = openaiGPT41mini();
-		return {
-			easy: _summaryLLM,
-			medium: openaiGPT41(),
-			hard: o3,
-			xhard: new MultiLLM([o3], 3),
-		};
-	}
+	const hardLLMs = [vertexGemini_2_5_Pro(), Gemini_2_5_Pro(), xai_Grok4(), openAIo3(), anthropicClaude4_Sonnet()];
+	const hard: LLM | undefined = hardLLMs.find((llm) => llm.isConfigured());
+	if (!hard) throw new Error('No default hard LLM configured');
 
-	if (process.env.OLLAMA_API_URL) {
-		return Ollama_LLMs();
-	}
+	const xhardLLMs = [MAD_Balanced(), MAD_Vertex(), MAD_Anthropic(), MAD_OpenAI(), MAD_Grok(), MAD_Fast()];
+	const xhard = xhardLLMs.find((llm) => llm.isConfigured()) ?? hard;
 
-	throw new Error('No default LLMs configured');
+	_summaryLLM = easy;
+	_defaultLLMs = {
+		easy,
+		medium,
+		hard,
+		xhard,
+	};
+
+	logger.info(`Configured default LLMs: easy=${easy.getId()}, medium=${medium.getId()}, hard=${hard.getId()}, xhard=${xhard?.getId()}`);
+
+	return _defaultLLMs;
 }

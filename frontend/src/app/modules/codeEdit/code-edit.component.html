@@ -1,0 +1,123 @@
+<div class="code-edit-container">
+    <as-split direction="horizontal" unit="percent">
+        <as-split-area *ngIf="showFilePanels()" [size]="25" [minSize]="20" [maxSize]="50">
+            <div class="panel-content">
+                <h3 class="text-lg font-semibold mb-2">File Tree</h3>
+                @switch (treeState().status) {
+                    @case ('loading') {
+                        <div class="flex items-center justify-center h-full">
+                            <mat-spinner diameter="40" data-testid="file-tree-spinner"></mat-spinner>
+                        </div>
+                    }
+                    @case ('error') {
+                        <div class="text-red-500 p-4" data-testid="file-tree-error">
+                            <p>Error loading file tree:</p>
+                            <p class="text-sm">{{ treeState().error?.message }}</p>
+                            <button mat-button color="warn" (click)="codeEditService.getFileSystemTree()" data-testid="file-tree-retry-button">Retry</button>
+                        </div>
+                    }
+                    @case ('success') {
+                        <mat-tree [dataSource]="dataSource" [treeControl]="treeControl" class="file-tree">
+                            <!-- Node with children -->
+                            <mat-nested-tree-node *matTreeNodeDef="let node; when: hasChild">
+                                <div class="mat-tree-node">
+                                    <button mat-icon-button matTreeNodeToggle [attr.aria-label]="'Toggle ' + node.name">
+                                        <mat-icon class="mat-icon-rtl-mirror">
+                                            {{treeControl.isExpanded(node) ? 'expand_more' : 'chevron_right'}}
+                                        </mat-icon>
+                                    </button>
+                                    <mat-checkbox
+                                        class="mr-2"
+                                        [checked]="descendantsAllSelected(node)"
+                                        [indeterminate]="descendantsPartiallySelected(node)"
+                                        (change)="toggleNodeSelection(node)"
+                                        [attr.data-testid]="'node-checkbox-' + node.path"></mat-checkbox>
+                                    <mat-icon>folder</mat-icon>
+                                    <span class="node-name">{{node.name}}</span>
+                                </div>
+                                <div [class.tree-node-container-invisible]="!treeControl.isExpanded(node)">
+                                    <ng-container matTreeNodeOutlet></ng-container>
+                                </div>
+                            </mat-nested-tree-node>
+                            <!-- Leaf node -->
+                            <mat-tree-node *matTreeNodeDef="let node">
+                                <div class="mat-tree-node leaf-node">
+                                    <div class="mat-tree-node-toggle-placeholder"></div>
+                                    <mat-checkbox
+                                        class="mr-2"
+                                        [checked]="selectedFiles().includes(node.path)"
+                                        (change)="toggleNodeSelection(node)"
+                                        [attr.data-testid]="'node-checkbox-' + node.path"></mat-checkbox>
+                                    <mat-icon>insert_drive_file</mat-icon>
+                                    <span class="node-name">{{node.name}}</span>
+                                </div>
+                            </mat-tree-node>
+                        </mat-tree>
+                    }
+                    @case ('not_found') {
+                        <p class="p-4 text-gray-500">File tree could not be found.</p>
+                    }
+                    @case ('idle') {
+                        <!-- Initial state before loading begins -->
+                    }
+                }
+            </div>
+        </as-split-area>
+        <as-split-area>
+            <as-split direction="vertical" unit="percent">
+                <as-split-area [size]="60">
+                     <div class="panel-content">
+                        <h3 class="text-lg font-semibold mb-2">Selected Files <span *ngIf="selectedFiles().length > 0" data-testid="selection-count">({{selectedFiles().length}})</span></h3>
+                        @if (selectedFiles().length > 0) {
+                            <div class="overflow-y-auto h-full">
+                                <table class="w-full text-left">
+                                    <tbody>
+                                        @for (filePath of selectedFiles(); track filePath) {
+                                            <tr [attr.data-testid]="'selection-row-' + filePath">
+                                                <td class="py-1 pr-2">{{ filePath }}</td>
+                                                <td class="w-px">
+                                                    <button mat-icon-button (click)="removeFileFromSelection(filePath)" [attr.data-testid]="'remove-file-button-' + filePath" aria-label="Remove file">
+                                                        <mat-icon>close</mat-icon>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        } @else {
+                            <p class="text-gray-500">No files selected.</p>
+                        }
+                    </div>
+                </as-split-area>
+                <as-split-area [size]="40">
+                    <div class="panel-content">
+                        <h3 class="text-lg font-semibold mb-2">Instructions</h3>
+                        <form [formGroup]="instructionForm" (ngSubmit)="onSubmit()" class="flex flex-col h-full">
+                            <textarea
+                                matInput
+                                formControlName="instructions"
+                                class="w-full flex-grow border rounded-md p-2"
+                                placeholder="Enter your code editing instructions here..."
+                                data-testid="instructions-textarea"></textarea>
+                            @if (submissionError()) {
+                                <p class="text-red-500 text-sm mt-2" data-testid="submission-error">{{ submissionError() }}</p>
+                            }
+                            <button
+                                type="submit"
+                                class="mt-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark disabled:opacity-50"
+                                [disabled]="instructionForm.invalid || submitting()"
+                                data-testid="submit-button">
+                                @if (submitting()) {
+                                    <mat-spinner diameter="20" class="inline-block" data-testid="submit-spinner"></mat-spinner>
+                                } @else {
+                                    <span>Submit</span>
+                                }
+                            </button>
+                        </form>
+                    </div>
+                </as-split-area>
+            </as-split>
+        </as-split-area>
+    </as-split>
+</div>

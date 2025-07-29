@@ -11,14 +11,16 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { distinctUntilChanged, filter } from 'rxjs/operators';
-import { LlmCallMessageSummaryPart, LlmMessage } from '#shared/llm/llm.model';
+import { contentText, LlmCallMessageSummaryPart, LlmMessage } from '#shared/llm/llm.model';
 import { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
 import { Prompt as AppPrompt } from '#shared/prompts/prompts.model';
 import { AgentLinks, GoogleCloudLinks } from '../../agent-links';
 import { AgentService } from '../../agent.service';
-import {ClipboardButtonComponent} from "../../../chat/conversation/clipboard-button.component";
-import {MarkdownModule, MarkdownService, MarkedRenderer, provideMarkdown} from "ngx-markdown";
-import {CdkCopyToClipboard} from "@angular/cdk/clipboard";
+import { ClipboardButtonComponent } from '../../../chat/conversation/clipboard-button.component';
+import { MarkdownModule, MarkdownService, MarkedRenderer, provideMarkdown } from 'ngx-markdown';
+import { CdkCopyToClipboard } from '@angular/cdk/clipboard';
+import { Chat, NEW_CHAT_ID } from '../../../chat/chat.types';
+import { ChatServiceClient, convertMessage } from '../../../chat/chat.service';
 
 @Component({
 	selector: 'agent-llm-calls',
@@ -52,7 +54,8 @@ export class AgentLlmCallsComponent {
 	private agentService = inject(AgentService);
 	private router = inject(Router);
 	private destroyRef = inject(DestroyRef);
-    private markdown = inject(MarkdownService);
+	private markdown = inject(MarkdownService);
+	private chatService = inject(ChatServiceClient);
 
 	// Expose the state signal for the template
 	readonly llmCallsStateForTemplate = this.agentService.llmCallsState;
@@ -112,11 +115,11 @@ export class AgentLlmCallsComponent {
 				}
 			});
 
-        this.markdown.options = {
-            renderer: new MarkedRenderer(),
-            gfm: true,
-            breaks: true,
-        };
+		this.markdown.options = {
+			renderer: new MarkedRenderer(),
+			gfm: true,
+			breaks: true,
+		};
 	}
 
 	loadLlmCalls(agentId: string): void {
@@ -142,6 +145,10 @@ export class AgentLlmCallsComponent {
 		}
 		this.expandedLlmCallData.update((s) => ({ ...s, [callId]: { status: 'loading' } }));
 		this.agentService.loadLlmCallDetail(currentAgentId, callId);
+	}
+
+	toContentText(content): string {
+		return contentText(content);
 	}
 
 	isStringContent(content: any): content is string {
@@ -238,5 +245,19 @@ export class AgentLlmCallsComponent {
 			.catch((err) => console.error('Failed to navigate to Prompt Studio:', err));
 	}
 
-    protected readonly clipboardButton = ClipboardButtonComponent;
+	createChatFromLlmCall(llmCallId: string): void {
+		this.chatService.createChatFromLlmCall(llmCallId)
+			.pipe(takeUntilDestroyed(this.destroyRef))
+			.subscribe({
+				next: (newChat) => {
+					this.router.navigate(['/ui/chat', newChat.id]).catch((err) => console.error('Failed to navigate to chat:', err));
+				},
+				error: (err) => {
+					console.error('Failed to create chat from LLM call:', err);
+					this.snackBar.open('Failed to create chat.', 'Close', { duration: 3000 });
+				}
+			});
+	}
+
+	protected readonly clipboardButton = ClipboardButtonComponent;
 }

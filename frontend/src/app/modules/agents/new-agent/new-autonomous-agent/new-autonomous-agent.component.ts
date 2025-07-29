@@ -139,13 +139,13 @@ export class NewAutonomousAgentComponent implements OnInit {
 		const presets = {
 			'claude-vertex': {
 				easy: 'anthropic-vertex:claude-3-5-haiku',
-				medium: 'anthropic-vertex:claude-3-7-sonnet',
-				hard: 'anthropic-vertex:claude-3-7-sonnet',
+				medium: 'anthropic-vertex:claude-sonnet-4',
+				hard: 'anthropic-vertex:claude-opus-4',
 			},
 			claude: {
 				easy: 'anthropic:claude-3-5-haiku',
-				medium: 'anthropic:claude-3-7-sonnet',
-				hard: 'anthropic:claude-3-7-sonnet',
+				medium: 'anthropic:claude-sonnet-4',
+				hard: 'anthropic:claude-opus-4',
 			},
 			gemini: { easy: 'vertex:gemini-2.0-flash-lite', medium: 'vertex:gemini-2.5-flash', hard: 'vertex:gemini-2.5-pro' },
 			openai: { easy: 'openai:gpt-4o-mini', medium: 'openai:o4-mini', hard: 'openai:o3' },
@@ -153,9 +153,9 @@ export class NewAutonomousAgentComponent implements OnInit {
 		const selection = presets[preset];
 		if (selection) {
 			const ids = this.llms().map((llm) => llm.id);
-			this.runAgentForm.controls.llmEasy.setValue(ids.find((id) => id.startsWith(selection.easy)));
-			this.runAgentForm.controls.llmMedium.setValue(ids.find((id) => id.startsWith(selection.medium)));
-			this.runAgentForm.controls.llmHard.setValue(ids.find((id) => id.startsWith(selection.hard)));
+			this.runAgentForm.controls.llmEasy.setValue(ids.find((id) => id === selection.easy) || ids.find((id) => id.startsWith(selection.easy)));
+			this.runAgentForm.controls.llmMedium.setValue(ids.find((id) => id === selection.medium) || ids.find((id) => id.startsWith(selection.medium)));
+			this.runAgentForm.controls.llmHard.setValue(ids.find((id) => id === selection.hard) || ids.find((id) => id.startsWith(selection.hard)));
 		}
 		return false;
 	}

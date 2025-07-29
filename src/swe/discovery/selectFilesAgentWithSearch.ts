@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { ReasonerDebateLLM } from '#llm/multi-agent/reasoning-debate';
 import { extractTag } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
 import type { SelectedFile } from '#shared/files/files.model';
@@ -7,6 +8,7 @@ import {
 	type GenerateTextWithJsonResponse,
 	type LLM,
 	type LlmMessage,
+	ThinkingLevel,
 	type UserContentExt,
 	assistant,
 	contentText,
@@ -17,7 +19,7 @@ import { text, user } from '#shared/llm/llm.model';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
-import { type ProjectInfo, detectProjectInfo } from '#swe/projectDetection';
+import { type ProjectInfo, getProjectInfos } from '#swe/projectDetection';
 
 /*
 Agent which iteratively loads files to find the file set required for a task/query.
@@ -67,12 +69,14 @@ interface IterationResponse {
 	search?: string; // Regex string for searching file contents
 }
 
-/**
- * When a user wants to continue on previous file selection, this provides the original file selection and the instructions on what needs to change in the file selection.
- */
-export interface FileSelectionUpdate {
-	currentFiles?: SelectedFile[];
-	updatePrompt?: string;
+export interface QueryOptions {
+	/** Use the xtra hard LLM for the final answer if available */
+	useXtraHardLLM?: boolean;
+	projectInfo?: ProjectInfo;
+	/** File paths which will be used as the initial file selection */
+	initialFilePaths?: string[];
+	/** Previously selected files which will be used as the initial file selection */
+	initialFiles?: SelectedFile[];
 }
 
 export interface FileExtract {
@@ -82,20 +86,20 @@ export interface FileExtract {
 	extract: string;
 }
 
-export async function selectFilesAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<SelectedFile[]> {
+export async function selectFilesAgent(requirements: UserContentExt, options: QueryOptions = {}): Promise<SelectedFile[]> {
 	if (!requirements) throw new Error('Requirements must be provided');
-	const { selectedFiles } = await selectFilesCore(requirements, projectInfo, options);
+	const { selectedFiles } = await selectFilesCore(requirements, options);
 	return selectedFiles;
 }
 
-export async function queryWorkflowWithSearch(query: UserContentExt, projectInfo?: ProjectInfo): Promise<string> {
+export async function queryWorkflowWithSearch(query: UserContentExt, opts: QueryOptions = {}): Promise<string> {
 	if (!query) throw new Error('query must be provided');
-	const { files, answer } = await queryWithFileSelection2(query, projectInfo);
+	const { files, answer } = await queryWithFileSelection2(query, opts);
 	return answer;
 }
 
-export async function queryWithFileSelection2(query: UserContentExt, projectInfo?: ProjectInfo): Promise<{ files: SelectedFile[]; answer: string }> {
-	const { messages, selectedFiles } = await selectFilesCore(query, projectInfo);
+export async function queryWithFileSelection2(query: UserContentExt, opts: QueryOptions = {}): Promise<{ files: SelectedFile[]; answer: string }> {
+	const { messages, selectedFiles } = await selectFilesCore(query, opts);
 
 	// Construct the final prompt for answering the query
 	const finalPrompt = `<query>
@@ -103,17 +107,16 @@ ${contentText(query)}
 </query>
 
 Please provide a detailed answer to the query using the information from the available file contents, and including citations to the files where the relevant information was found.
-Respond in the following structure, with the answer in Markdown format inside the result tags  (Note only the contents of the result tag will be returned to the user):
-
-<think></think>
-<reflection></reflection>
-<result></result>                                                                                                                                                                                                                                                                                 
- `;
+Think systematically and methodically through the query, considering multiple options, then output your final reasoning and answer wrapped in <result></result> tags.`;
 
 	messages.push({ role: 'user', content: finalPrompt });
 
 	// Perform the additional LLM call to get the answer
-	let answer = await llms().hard.generateText(messages, { id: 'Select Files query', thinking: 'high' });
+	const xhard = llms().xhard;
+	const llm: LLM = opts.useXtraHardLLM && xhard ? xhard : llms().hard;
+	const thinking: ThinkingLevel = llm instanceof ReasonerDebateLLM ? 'none' : 'high';
+
+	let answer = await llm.generateText(messages, { id: 'Select Files query Answer', thinking });
 	try {
 		answer = extractTag(answer, 'result');
 	} catch {}
@@ -185,13 +188,12 @@ Respond in the following structure, with the answer in Markdown format inside th
  */
 async function selectFilesCore(
 	requirements: UserContentExt,
-	projectInfo?: ProjectInfo,
-	options?: FileSelectionUpdate,
+	opts: QueryOptions,
 ): Promise<{
 	messages: LlmMessage[];
 	selectedFiles: SelectedFile[];
 }> {
-	const messages: LlmMessage[] = await initializeFileSelectionAgent(requirements, projectInfo, options);
+	const messages: LlmMessage[] = await initializeFileSelectionAgent(requirements, opts);
 
 	const maxIterations = 10;
 	let iterationCount = 0;
@@ -399,8 +401,9 @@ Respond with a valid JSON object that follows the required schema.`,
 	return { messages, selectedFiles };
 }
 
-async function initializeFileSelectionAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<LlmMessage[]> {
-	projectInfo ??= (await detectProjectInfo())[0];
+async function initializeFileSelectionAgent(requirements: UserContentExt, opts: QueryOptions): Promise<LlmMessage[]> {
+	let projectInfo = opts.projectInfo;
+	projectInfo ??= (await getProjectInfos())[0];
 
 	const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
 	const repositoryOverview: string = await getRepositoryOverview();
@@ -443,13 +446,22 @@ For this initial file selection step, identify the files you need to **inspect**
 	// Construct the initial prompt based on whether it's an initial selection or an update
 	// Work in progress, may need to do this differently
 	// Need to write unit tests for it
-	if (options?.currentFiles) {
-		const filePaths = options.currentFiles.map((selection) => selection.filePath);
-		const fileContents = (await readFileContents(filePaths)).contents;
-		messages.push(assistant(fileContents));
+
+	if (opts?.initialFiles?.length || opts.initialFilePaths?.length) {
+		let fileContents = '';
 		const keepAll: IterationResponse = {
-			keepFiles: options.currentFiles,
+			keepFiles: [],
 		};
+		if (opts.initialFiles) {
+			const filePaths = opts.initialFiles.map((selection) => selection.filePath);
+			fileContents = (await readFileContents(filePaths)).contents;
+			keepAll.keepFiles.push(...opts.initialFiles);
+		}
+		if (opts.initialFilePaths) {
+			fileContents += (await readFileContents(opts.initialFilePaths)).contents;
+			keepAll.keepFiles.push(...opts.initialFilePaths.map((path) => ({ filePath: path, reason: 'previously selected' })));
+		}
+		messages.push(assistant(fileContents));
 		messages.push(user(JSON.stringify(keepAll)));
 	}
 
@@ -527,10 +539,12 @@ The final part of the response must be a JSON object in the following format:
   "ignoreFiles": [
     { "reason": "Explains why this file is not needed.", "filePath": "path/to/nonessential/file2" }
   ],
-  "inspectFiles": [], // Optional: new files to inspect.
-  "search": "" // Optional: regex to search file contents.
+  "inspectFiles": ["path/to/new/file1", "path/to/new/file2"],
+  "search": "regex search pattern if needed (optional)"
 }
 </json>
+Only inspect files which are in the provided list.
+You MUST responsd with a valid JSON object that follows the required schema inside <json></json> tags. Be carefuly to have the correct closing braces.
 `;
 
 	const iterationMessages: LlmMessage[] = [...messages, { role: 'user', content: prompt }];

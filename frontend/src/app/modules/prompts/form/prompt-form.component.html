@@ -234,12 +234,11 @@
                                                 {{ promptForm.get('options.temperature')?.value | number:'1.1-1' }}
                                             </span>
                                         </div>
-                                        <mat-slider min="0" max="2" step="0.1" discrete="true"
-                                                    formControlName="temperature"
-                                                    aria-labelledby="temperature-label"
-                                                    class="parameter-slider w-full">
-                                            <input matSliderThumb>
-                                        </mat-slider>
+                                       <mat-slider min="0" max="2" step="0.1" discrete="true"
+                                                   aria-labelledby="temperature-label"
+                                                   class="parameter-slider w-full">
+                                           <input matSliderThumb formControlName="temperature">
+                                       </mat-slider>
                                     </div>
 
                                     <div class="parameter-item flex-1">
@@ -249,12 +248,11 @@
                                                 {{ promptForm.get('options.maxOutputTokens')?.value }}
                                             </span>
                                         </div>
-                                        <mat-slider min="1" max="64000" step="1" discrete="true"
-                                                    formControlName="maxOutputTokens"
-                                                    aria-labelledby="maxOutputTokens-label"
-                                                    class="parameter-slider w-full">
-                                            <input matSliderThumb>
-                                        </mat-slider>
+                                       <mat-slider min="1" max="64000" step="1" discrete="true"
+                                                   aria-labelledby="maxOutputTokens-label"
+                                                   class="parameter-slider w-full">
+                                           <input matSliderThumb formControlName="maxOutputTokens">
+                                       </mat-slider>
                                     </div>
                                 </div>
                             </div>
@@ -319,7 +317,18 @@
 
                 <!-- Response Content -->
                 <div *ngIf="generationResponse() && !isGenerating()" class="prose max-w-none">
-                    <pre class="whitespace-pre-wrap">{{ generationResponse() }}</pre>
+                    <!-- Handle string response for backward compatibility and text-only responses -->
+                    <ng-container *ngIf="isString(generationResponse())">
+                        <pre class="whitespace-pre-wrap">{{ generationResponse() }}</pre>
+                    </ng-container>
+                    <!-- Handle complex array response (with text, images, etc.) -->
+                    <ng-container *ngIf="isArray(generationResponse())">
+                        <div *ngFor="let part of generationResponse()">
+                            <pre *ngIf="part.type === 'text'" class="whitespace-pre-wrap">{{ part.text }}</pre>
+                            <img *ngIf="part.type === 'image'" [src]="getImageUrl(part)" alt="Generated Image" class="max-w-full h-auto rounded-md my-2">
+                            <!-- NOTE: Other part types like 'file', 'tool-call' are not visually rendered here but could be added. -->
+                        </div>
+                    </ng-container>
                 </div>
 
                 <!-- Placeholder -->

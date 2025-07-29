@@ -3,7 +3,7 @@ import { send } from '#fastify/responses';
 import { logger } from '#o11y/logger';
 import { CODE_REVIEW_API } from '#shared/codeReview/codeReview.api';
 
-export async function codeReviewRoutes(fastify: AppFastifyInstance) {
+export async function codeReviewRoutes(fastify: AppFastifyInstance): Promise<void> {
 	fastify.get(CODE_REVIEW_API.list.pathTemplate, { schema: CODE_REVIEW_API.list.schema }, async (request, reply) => {
 		try {
 			const configs = await fastify.codeReviewService.listCodeReviewConfigs();

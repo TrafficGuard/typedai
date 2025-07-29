@@ -1,10 +1,12 @@
 import { BaseLLM } from '#llm/base-llm';
 import { getLLM } from '#llm/llmFactory';
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
+import { anthropicClaude4_Sonnet } from '#llm/services/anthropic';
 import { Claude4_Opus_Vertex, Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { deepinfraDeepSeekR1 } from '#llm/services/deepinfra';
-import { openAIo3, openAIo4mini } from '#llm/services/openai';
+import { openAIo3 } from '#llm/services/openai';
 import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
+import { xai_Grok4 } from '#llm/services/xai';
 import { logger } from '#o11y/logger';
 import {
 	type AssistantContentExt,
@@ -51,7 +53,9 @@ export function MoA_reasoningLLMRegistry(): Record<string, () => LLM> {
 		'MAD:Cost': MAD_Cost,
 		'MAD:Fast': MAD_Fast,
 		'MAD:SOTA': MAD_SOTA,
+		'MAD:Vertex': MAD_Vertex,
 		'MAD:Balanced': MAD_Balanced,
+		'MAD:Balanced4': MAD_Balanced4,
 	};
 }
 
@@ -79,19 +83,60 @@ export function MAD_Balanced(): LLM {
 	return new ReasonerDebateLLM(
 		'Balanced',
 		vertexGemini_2_5_Pro,
-		[vertexGemini_2_5_Pro, Claude4_Sonnet_Vertex, openAIo3],
-		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Sonnet 4, o3)',
+		[vertexGemini_2_5_Pro, xai_Grok4, openAIo3],
+		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Grok 4, o3)',
 	);
+}
+
+export function MAD_Balanced4(): LLM {
+	return new ReasonerDebateLLM(
+		'Balanced4',
+		vertexGemini_2_5_Pro,
+		[vertexGemini_2_5_Pro, xai_Grok4, openAIo3, Claude4_Sonnet_Vertex],
+		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Grok 4, o3, Sonnet 4)',
+	);
+}
+
+export function MAD_Vertex(): LLM {
+	return new ReasonerDebateLLM(
+		'Vertex',
+		vertexGemini_2_5_Pro,
+		[vertexGemini_2_5_Pro, vertexGemini_2_5_Pro, Claude4_Sonnet_Vertex],
+		'MAD:Vertex multi-agent debate (Gemini 2.5 Pro x2, Sonnet 4)',
+	);
+}
+
+export function MAD_Anthropic(): LLM {
+	return new ReasonerDebateLLM(
+		'Anthropic',
+		anthropicClaude4_Sonnet,
+		[anthropicClaude4_Sonnet, anthropicClaude4_Sonnet, anthropicClaude4_Sonnet],
+		'MAD:Anthropic multi-agent debate (Sonnet 4 x3)',
+	);
+}
+
+export function MAD_OpenAI(): LLM {
+	return new ReasonerDebateLLM('OpenAI', openAIo3, [openAIo3, openAIo3, openAIo3], 'MAD:OpenAI multi-agent debate (o3 x3)');
+}
+
+export function MAD_Grok(): LLM {
+	return new ReasonerDebateLLM('Grok', xai_Grok4, [xai_Grok4, xai_Grok4, xai_Grok4], 'MAD:Grok multi-agent debate (Grok 4 x3)');
 }
 
 export function MAD_SOTA(): LLM {
 	return new ReasonerDebateLLM(
 		'SOTA',
-		openAIo3,
-		[openAIo3, Claude4_Opus_Vertex, vertexGemini_2_5_Pro],
-		'MAD:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro)',
+		xai_Grok4,
+		[openAIo3, Claude4_Opus_Vertex, vertexGemini_2_5_Pro, xai_Grok4],
+		'MAD:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro, Grok 4)',
 	);
 }
+
+// export function MAD_Hard(): LLM {
+// 	const hardLLM = llms().hard; // cant have a dependancy to agentContextLocalStorage
+// 	const hardFactory = () => hardLLM;
+// 	return new ReasonerDebateLLM('Hard', hardFactory, [hardFactory, hardFactory, hardFactory], `MAD:Hard multi-agent debate (${hardLLM.getDisplayName} x3)`);
+// }
 
 const INITIAL_TEMP = 0.7;
 const DEBATE_TEMP = 0.5;
@@ -156,9 +201,10 @@ export class ReasonerDebateLLM extends BaseLLM {
 	protected async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
 		opts ??= {};
 		// Use 'thinking' as the number of debate rounds
-		let rounds = 1;
+		let rounds = 0;
 		if (opts.thinking === 'high') rounds = 3;
 		else if (opts.thinking === 'medium') rounds = 2;
+		else if (opts.thinking === 'low') rounds = 1;
 
 		// We want the actuall LLM calls to use high thinking
 		opts.thinking = 'high';
@@ -185,8 +231,10 @@ export class ReasonerDebateLLM extends BaseLLM {
 		};
 	}
 
-	private async generateInitialResponses(llmMessages: ReadonlyArray<Readonly<LlmMessage>>, opts?: GenerateTextOptions): Promise<LlmMessage[]> {
-		return Promise.all(this.llms.map((llm) => llm.generateMessage(llmMessages, { ...opts, temperature: INITIAL_TEMP, thinking: 'high' })));
+	private async generateInitialResponses(llmMessages: ReadonlyArray<Readonly<LlmMessage>>, opts: GenerateTextOptions): Promise<LlmMessage[]> {
+		return Promise.all(
+			this.llms.map((llm) => llm.generateMessage(llmMessages, { ...opts, id: `${opts.id} - initial`, temperature: INITIAL_TEMP, thinking: 'high' })),
+		);
 	}
 
 	private async multiAgentDebate(
@@ -215,7 +263,7 @@ Ensure any relevant response formatting instructions from the original user mess
 
 				const debateMessages: LlmMessage[] = [...llmMessages]; // Copy of original messages
 				debateMessages[debateMessages.length - 1] = { role: 'user', content: newUserPrompt }; // Replace last user message
-				return llm.generateMessage(debateMessages, effectiveOpts);
+				return llm.generateMessage(debateMessages, { ...effectiveOpts, id: `${opts.id} - debate round ${round}` });
 			});
 			currentRoundMessages = await Promise.all(nextRoundMessagePromises);
 		}
@@ -225,7 +273,7 @@ Ensure any relevant response formatting instructions from the original user mess
 	private async mergeBestResponses(
 		llmMessages: ReadonlyArray<Readonly<LlmMessage>>,
 		debatedMessages: ReadonlyArray<LlmMessage>, // Changed from responses: string[]
-		opts?: GenerateTextOptions,
+		opts: GenerateTextOptions,
 	): Promise<LlmMessage> {
 		const originalUserMessageContent = lastText(llmMessages);
 		const mergePrompt = `<user-message>\n${originalUserMessageContent}\n</user-message>
@@ -241,6 +289,6 @@ Answer directly to the original user message and ensure any relevant response fo
 		mergedMessages[mergedMessages.length - 1] = { role: 'user', content: mergePrompt }; // Replace last user message
 
 		logger.info('Merging best response with mediator...');
-		return this.mediator.generateMessage(mergedMessages, { ...opts, temperature: FINAL_TEMP, thinking: 'high' });
+		return this.mediator.generateMessage(mergedMessages, { ...opts, id: `${opts.id} - final`, temperature: FINAL_TEMP });
 	}
 }

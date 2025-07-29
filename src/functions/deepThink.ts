@@ -1,8 +1,10 @@
-import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext, llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { MAD_Balanced, MAD_SOTA } from '#llm/multi-agent/reasoning-debate';
-import type { AgentContext } from '#shared/agent/agent.model';
+import { MAD_Anthropic, MAD_Balanced, MAD_Grok, MAD_OpenAI, MAD_Vertex } from '#llm/multi-agent/reasoning-debate';
+// import { MAD_Balanced, MAD_Cost, MAD_Fast, MAD_SOTA, MAD_Vertex } from '#llm/multi-agent/reasoning-debate';
+import type { AgentContext, LLM } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
+import { ThinkingLevel } from '#shared/llm/llm.model';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
 
 @funcClass(__filename)
@@ -49,6 +51,13 @@ export class DeepThink {
 		prompt += `Request:\n${queryOrRequirements}\n\n`;
 
 		// Use 'low' thinking to limit the number of debate rounds
-		return await MAD_Balanced().generateText(prompt, { id: 'DeepThink', thinking: 'low' });
+		let thinking: ThinkingLevel = 'low';
+		const madLlms: LLM[] = [MAD_Balanced(), MAD_Vertex(), MAD_Anthropic(), MAD_Grok(), MAD_OpenAI()];
+		let llm: LLM | undefined = madLlms.find((llm) => llm.isConfigured());
+		if (!llm) {
+			llm = llms().hard;
+			thinking = 'high';
+		}
+		return await llm.generateText(prompt, { id: 'DeepThink', thinking });
 	}
 }

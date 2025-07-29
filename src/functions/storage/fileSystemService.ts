@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { access, existsSync, lstat, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs';
 import path, { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -13,7 +14,7 @@ import { getActiveSpan } from '#o11y/trace';
 import { FileNotFound } from '#shared/errors';
 import type { FileSystemNode, IFileSystemService } from '#shared/files/fileSystemService';
 import type { VersionControlSystem } from '#shared/scm/versionControlSystem';
-import { arg, execCmdSync, spawnCommand } from '#utils/exec';
+import { arg, spawnCommand } from '#utils/exec';
 import { formatXmlContent } from '#utils/xml-utils';
 
 const fs = {
@@ -34,7 +35,6 @@ const fs = {
 type FileFilter = (filename: string) => boolean;
 
 // Cache paths to Git repositories and .gitignore files
-const gitRoots = new Set<string>();
 /** Maps a directory to a git root */
 const gitRootMapping = new Map<string, string>();
 const gitIgnorePaths = new Set<string>();
@@ -56,6 +56,7 @@ const gitIgnorePaths = new Set<string>();
 export class FileSystemService implements IFileSystemService {
 	/** The filesystem path */
 	private workingDirectory = '';
+	private basePath?: string;
 	private vcs: VersionControlSystem | null = null;
 	log: Pino.Logger;
 
@@ -70,13 +71,13 @@ export class FileSystemService implements IFileSystemService {
 	 * @param basePath The root folder allowed to be accessed by this file system instance. This should only be accessed by system level
 	 * functions. Generally getWorkingDirectory() should be used
 	 */
-	constructor(public basePath?: string) {
-		this.basePath ??= process.cwd();
+	constructor(readonly basePathArg?: string) {
+		this.basePath = basePathArg ?? process.cwd();
 
 		const args = process.argv;
 		const fsArg = args.find((arg) => arg.startsWith('--fs='));
 		const fsEnvVar = process.env[TYPEDAI_FS];
-		if (fsArg) {
+		if (!basePathArg && fsArg) {
 			const fsPath = fsArg.slice(5);
 			if (existsSync(fsPath)) {
 				this.basePath = fsPath;
@@ -84,7 +85,7 @@ export class FileSystemService implements IFileSystemService {
 			} else {
 				throw new Error(`Invalid -fs arg value. ${fsPath} does not exist`);
 			}
-		} else if (fsEnvVar) {
+		} else if (!basePathArg && fsEnvVar) {
 			if (existsSync(fsEnvVar)) {
 				this.basePath = fsEnvVar;
 			} else {
@@ -152,7 +153,7 @@ export class FileSystemService implements IFileSystemService {
 		}
 
 		// After setting the working directory, update the vcs (version control system) property
-		logger.info(`setWorkingDirectory ${this.workingDirectory}`);
+		logger.debug(`setWorkingDirectory ${this.workingDirectory}`);
 		this.vcs = null; // lazy loaded in getVcs()
 	}
 
@@ -228,6 +229,9 @@ export class FileSystemService implements IFileSystemService {
 		if (results.stderr.includes('command not found: rg')) {
 			throw new Error('Command not found: rg. Install ripgrep');
 		}
+		// ripgrep returns 1 if no matches are found, and doesn't return any output
+		if (!results.stdout && !results.stderr) return '';
+
 		if (results.exitCode > 0) throw new Error(results.stderr);
 		return results.stdout;
 	}
@@ -356,14 +360,24 @@ export class FileSystemService implements IFileSystemService {
 
 		const dirents = await fs.readdir(dirPath, { withFileTypes: true });
 		for (const dirent of dirents) {
-			const relativePath = path.relative(rootPath, path.join(dirPath, dirent.name));
-			if (dirent.isDirectory()) {
-				if (!useGitIgnore || (!mergedIg.ignores(relativePath) && !mergedIg.ignores(`${relativePath}/`))) {
-					files.push(...(await this.listFilesRecurse(rootPath, path.join(dirPath, dirent.name), mergedIg, useGitIgnore, gitRoot, filter)));
-				}
-			} else {
-				if (!useGitIgnore || !mergedIg.ignores(relativePath)) {
-					files.push(path.join(dirPath, dirent.name));
+			const fullPath = path.join(dirPath, dirent.name);
+			const relativePath = path.relative(rootPath, fullPath);
+
+			// A path is invalid for the `ignore` library if it's absolute or starts with `../`.
+			// This happens when `fullPath` is not inside `rootPath`. In this case,
+			// .gitignore rules from within `rootPath` should not apply, so we don't ignore it.
+			const isInvalidForIgnore = relativePath.startsWith('..') || path.isAbsolute(relativePath);
+
+			let shouldIgnore = false;
+			if (useGitIgnore && !isInvalidForIgnore) {
+				shouldIgnore = dirent.isDirectory() ? mergedIg.ignores(relativePath) || mergedIg.ignores(`${relativePath}/`) : mergedIg.ignores(relativePath);
+			}
+
+			if (!shouldIgnore) {
+				if (dirent.isDirectory()) {
+					files.push(...(await this.listFilesRecurse(rootPath, fullPath, mergedIg, useGitIgnore, gitRoot, filter)));
+				} else {
+					files.push(fullPath);
 				}
 			}
 		}
@@ -957,8 +971,6 @@ export class FileSystemService implements IFileSystemService {
 	 * Gets the version control service (Git) repository root folder, if the current working directory is in a Git repo, else null.
 	 */
 	getVcsRoot(): string | null {
-		// First, check if workingDirectory is under any known Git roots
-		if (gitRoots.has(this.workingDirectory)) return this.workingDirectory;
 		// Do we need gitRoots now that we have gitRootMapping?
 		const cachedRoot = gitRootMapping.get(this.workingDirectory);
 		if (cachedRoot) return cachedRoot;
@@ -972,22 +984,25 @@ export class FileSystemService implements IFileSystemService {
 
 		// If not found in cache, execute Git command
 		try {
-			// Use execCmdSync to get the Git root directory synchronously
-			// Need to pass the workingDirectory to avoid recursion with the default workingDirectory arg
-			const result = execCmdSync('git rev-parse --show-toplevel', this.workingDirectory);
-			if (result.error) {
-				logger.warn(result.stderr || result.error, `Git command failed in ${this.workingDirectory}. Not a git repository or git not found.`);
-				return null;
-			}
-			const gitRoot = result.stdout.trim();
+			// Use execSync directly from node:child_process to break the recursive dependency on execCmdSync.
+			// execSync throws an error if the command fails (e.g., not a git repo), which is handled by the catch block.
+			const gitRoot = execSync('git rev-parse --show-toplevel', {
+				cwd: this.workingDirectory,
+				encoding: 'utf8',
+				stdio: 'pipe', // Prevent command output from polluting the console
+				env: { ...process.env, PATH: `${process.env.PATH}:/bin:/usr/bin` }, // Ensure git is in PATH
+			}).trim();
+
+			if (!gitRoot) return null; // Handle case where command succeeds but output is empty
+
 			logger.debug(`Adding git root ${gitRoot} for working dir ${this.workingDirectory}`);
-			gitRoots.add(gitRoot);
 			gitRootMapping.set(this.workingDirectory, gitRoot);
 
 			return gitRoot;
 		} catch (e) {
-			logger.error(e, `Error checking if ${this.workingDirectory} is in a Git repo`);
-			// Any unexpected errors also result in null
+			// This is an expected failure case when not in a git repository.
+			// Log at debug level to avoid cluttering logs with non-error information.
+			logger.debug(`'git rev-parse' failed in '${this.workingDirectory}', indicating it's not a git repository or git is not installed.`);
 			return null;
 		}
 	}

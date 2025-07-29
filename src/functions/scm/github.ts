@@ -448,6 +448,46 @@ export class GitHub extends AbstractSCM implements SourceControlManagement {
 	}
 
 	/**
+	 * Lists all jobs for a specific workflow run.
+	 * @param projectPath The path to the project, e.g., 'owner/repo'.
+	 * @param runId The ID of the workflow run.
+	 * @returns A promise that resolves to an array of workflow job objects.
+	 */
+	@func()
+	async listJobsForWorkflowRun(projectPath: string, runId: number): Promise<GitHubWorkflowJob[]> {
+		try {
+			const [owner, repo] = extractOwnerProject(projectPath);
+			const allJobs: GitHubWorkflowJob[] = [];
+			let page = 1;
+			let response: any;
+
+			do {
+				response = await this.request()('GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs', {
+					owner,
+					repo,
+					run_id: runId,
+					per_page: 100,
+					page,
+					headers: {
+						'X-GitHub-Api-Version': '2022-11-28',
+					},
+				});
+
+				allJobs.push(...(response.data.jobs as GitHubWorkflowJob[]));
+				page++;
+			} while (response.headers.link?.includes('rel="next"'));
+
+			return allJobs;
+		} catch (error) {
+			logger.error(error, `Failed to list jobs for workflow run ${runId} in project ${projectPath}`);
+			if (error.status === 404) {
+				throw new Error(`Workflow run ${runId} not found in project ${projectPath}.`);
+			}
+			throw new Error(`Failed to list jobs for workflow run ${runId}: ${error.message}`);
+		}
+	}
+
+	/**
 	 * Runs an E2E test for creating an issue in a GitHub repository.
 	 * This method will attempt to create a real issue in a pre-defined test repository.
 	 * @returns A promise that resolves to the created GitHubIssue object.
@@ -533,6 +573,20 @@ interface GitHubRepository {
 	clone_url: string;
 	default_branch: string;
 	archived: boolean;
+}
+
+interface GitHubWorkflowJob {
+	id: number;
+	run_id: number;
+	name: string;
+	status: 'queued' | 'in_progress' | 'completed';
+	conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null;
+	steps: {
+		name: string;
+		status: 'queued' | 'in_progress' | 'completed';
+		conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | null;
+		number: number;
+	}[];
 }
 
 function convertGitHubToGitProject(repo: GitHubRepository): GitProject {

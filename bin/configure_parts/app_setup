@@ -1,8 +1,5 @@
 #!/bin/bash
-# Source the helper function
 source ./bin/configure_parts/shell_helpers.sh
-# Application Configuration and Frontend Setup ---------------------------------
-echo "--- Starting Application Configuration and Frontend Setup ---"
 
 # Function to update or add a variable in an .env file (local to this script for now)
 # This function is duplicated in configure for robustness, but kept here for standalone testing/clarity.
@@ -97,4 +94,6 @@ content="export TYPEDAI_HOME=$(pwd)\nexport PATH=\$TYPEDAI_HOME/bin/path:\$PATH"
 update_shell_profiles "$comment" "$content"
 
 echo "Application Configuration and Frontend Setup complete."
-exit 0
+
+# If we were sourced, return; if executed directly, exit.                                                                                                     
+(return 0 2>/dev/null) && return 0 || exit 0

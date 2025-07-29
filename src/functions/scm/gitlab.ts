@@ -1,4 +1,4 @@
-import type { JobSchema, UserSchema } from '@gitbeaker/core';
+import type { EventSchema, Gitlab, JobSchema, UserSchema } from '@gitbeaker/core';
 import {
 	type CommitDiffSchema,
 	type CreateMergeRequestOptions,
@@ -47,13 +47,15 @@ export type GitLabProject = Pick<
 	| 'ci_config_path'
 >;
 
+type PipelinePreview = Pick<PipelineSchema, 'id' | 'sha' | 'ref' | 'status'>;
+
 type PartialJobSchema = DeepPartial<JobSchema>;
 
-type PipelineWithJobs = PipelineSchema & { jobs: PartialJobSchema[] };
+type PipelineWithJobs = PipelinePreview & { jobs: PartialJobSchema[] };
 
 @funcClass(__filename)
 export class GitLab extends AbstractSCM implements SourceControlManagement {
-	_gitlab;
+	_gitlab: Gitlab<false>;
 	_config: GitLabConfig;
 
 	/**
@@ -71,7 +73,6 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 	}
 
 	toJSON() {
-		this.api();
 		return {
 			host: this.config().host,
 		};
@@ -90,7 +91,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 		return this._config;
 	}
 
-	private api(): any {
+	private api() {
 		this._gitlab ??= new GitlabApi({
 			host: `https://${this.config().host}`,
 			token: this.config().token,
@@ -281,11 +282,10 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 	@func()
 	async getLatestMergeRequestPipeline(gitlabProjectId: string | number, mergeRequestIId: number): Promise<PipelineWithJobs> {
 		// allPipelines<E extends boolean = false>(projectId: string | number, mergerequestIId: number, options?: Sudo & ShowExpanded<E>): Promise<GitlabAPIResponse<Pick<PipelineSchema, 'id' | 'sha' | 'ref' | 'status'>[], C, E, void>>;
-		const pipelines: PipelineSchema[] = await this.api().MergeRequests.allPipelines(gitlabProjectId, mergeRequestIId);
-
+		const pipelines = await this.api().MergeRequests.allPipelines(gitlabProjectId, mergeRequestIId);
 		if (pipelines.length === 0) return null;
 
-		pipelines.sort((a, b) => (Date.parse(a.created_at) < Date.parse(b.created_at) ? 1 : -1));
+		// pipelines.sort((a, b) => (Date.parse(a.created_at) < Date.parse(b.created_at) ? 1 : -1));
 
 		const latestPipeline = pipelines.at(0);
 
@@ -321,17 +321,17 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 	}
 
 	/**
-	 * Gets the logs from the jobs which have failed in a pipeline Returns a Map with the job name as the key and the logs as the value.
-	 * If the request has provided a URL to the merge request then the projectId and mergeRequestIId can be extracted from the URL
+	 * Gets the logs from the jobs which have failed in a pipeline
 	 * @param gitlabProjectId Either the full path or the numeric id
 	 * @param mergeRequestIId The merge request IID. Can get this from the URL of the merge request.
+	 * @returns A Record with the job name as the key and the logs as the value.
 	 */
 	@func()
 	async getFailedJobLogs(gitlabProjectId: string | number, mergeRequestIId: number): Promise<Record<string, string>> {
-		const pipelines: PipelineSchema[] = await this.api().MergeRequests.allPipelines(gitlabProjectId, mergeRequestIId);
+		const pipelines = await this.api().MergeRequests.allPipelines(gitlabProjectId, mergeRequestIId);
 		if (pipelines.length === 0) throw new Error('No pipelines for the merge request');
 
-		pipelines.sort((a, b) => (Date.parse(a.created_at) < Date.parse(b.created_at) ? 1 : -1));
+		// pipelines.sort((a, b) => (Date.parse(a.created_at) < Date.parse(b.created_at) ? 1 : -1));
 		const latestPipeline = pipelines.at(0);
 
 		if (latestPipeline.status !== 'failed' && latestPipeline.status !== 'blocked') throw new Error('Pipeline is not failed or blocked');
@@ -375,12 +375,12 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 	 * @param jobId the job id
 	 */
 	@func()
-	async getJobCommitDiff(projectPath: string, jobId: string): Promise<string> {
+	async getJobCommitDiff(projectPath: string, jobId: string | number): Promise<string> {
 		if (!projectPath) throw new Error('Parameter "projectPath" must be truthy');
 		if (!jobId) throw new Error('Parameter "jobId" must be truthy');
 
 		const project = await this.api().Projects.show(projectPath);
-		const job = await this.api().Jobs.show(project.id, jobId);
+		const job = await this.api().Jobs.show(project.id, Number(jobId));
 
 		const commitDetails: CommitDiffSchema[] = await this.api().Commits.showDiff(projectPath, job.commit.id);
 		return commitDetails.map((commitDiff) => commitDiff.diff).join('\n');
@@ -392,12 +392,12 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 	 * @param jobId the job id
 	 */
 	@func()
-	async getJobLogs(projectIdOrProjectPath: string | number, jobId: string): Promise<string> {
+	async getJobLogs(projectIdOrProjectPath: string | number, jobId: string | number): Promise<string> {
 		if (!projectIdOrProjectPath) throw new Error('Parameter "projectPath" must be truthy');
 		if (!jobId) throw new Error('Parameter "jobId" must be truthy');
 
 		const project = await this.api().Projects.show(projectIdOrProjectPath);
-		const job = await this.api().Jobs.show(project.id, jobId);
+		const job = await this.api().Jobs.show(project.id, Number(jobId));
 
 		return await this.api().Jobs.showLog(project.id, job.id);
 	}
@@ -411,7 +411,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 	async getBranches(projectId: string | number): Promise<string[]> {
 		try {
 			// The Gitbeaker library handles pagination internally for `all()` methods
-			const branches: BranchSchema[] = await this.api().RepositoryBranches.all(projectId);
+			const branches: BranchSchema[] = await this.api().Branches.all(projectId);
 			return branches.map((branch) => branch.name);
 		} catch (error) {
 			logger.error(error, `Failed to get branches for GitLab project ${projectId}`);
@@ -419,6 +419,26 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 		}
 	}
 
+	/**
+	 *
+	 * @param date The day to get activity for.
+	 * @returns the activity for the user on the given day
+	 */
+	async getUserActivity(date: Date): Promise<EventSchema[]> {
+		date.setDate(date.getDate() + 1);
+		// Get the start and end times of the day for after/from to before/to
+		const startOfDay = new Date(date);
+		startOfDay.setHours(0, 0, 0, 0);
+		startOfDay.setDate(date.getDate() - 1);
+		const endOfDay = new Date(date);
+		endOfDay.setHours(23, 59, 59, 999);
+
+
+		const user = await this.api().Users.showCurrentUser();
+
+		const activity = await this.api().Users.allEvents(user.id, { after: startOfDay.toISOString(), before: endOfDay.toISOString() });
+		return activity;
+	}
 	/**
 	 * Returns the type of this SCM provider.
 	 */

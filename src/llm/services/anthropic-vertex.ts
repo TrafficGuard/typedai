@@ -19,15 +19,15 @@ export function anthropicVertexLLMRegistry(): Record<string, () => LLM> {
 }
 
 // Supported image types image/jpeg', 'image/png', 'image/gif' or 'image/webp'
-export function Claude4_Opus_Vertex() {
+export function Claude4_Opus_Vertex(): LLM {
 	return new AnthropicVertexLLM('Claude 4 Opus (Vertex)', 'claude-opus-4', 200_000, anthropicCostFunction(15, 75));
 }
 
-export function Claude4_Sonnet_Vertex() {
+export function Claude4_Sonnet_Vertex(): LLM {
 	return new AnthropicVertexLLM('Claude 4 Sonnet (Vertex)', 'claude-sonnet-4', 200_000, anthropicCostFunction(3, 15));
 }
 
-export function Claude3_5_Haiku_Vertex() {
+export function Claude3_5_Haiku_Vertex(): LLM {
 	return new AnthropicVertexLLM('Claude 3.5 Haiku (Vertex)', 'claude-3-5-haiku@20241022', 200_000, anthropicCostFunction(1, 5));
 }
 

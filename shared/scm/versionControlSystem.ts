@@ -22,6 +22,12 @@ export interface VersionControlSystem {
 	getDiff(baseRef?: string): Promise<string>;
 
 	/**
+	 * Executes the 'git remote get-url origin' command to find the remote URL.
+	 * @returns The git origin URL.
+	 */
+	getGitOriginUrl(): Promise<string>;
+
+	/**
 	 * Creates a new branch, or if it already exists then switches to it
 	 * @param branchName
 	 * @return if the branch was created, or false if switched to an existing one
@@ -47,6 +53,9 @@ export interface VersionControlSystem {
 
 	/** Add and commit a specific list of files. */
 	addAndCommitFiles(files: string[], commitMessage: string): Promise<void>;
+
+	/** Add a note to the head commit */
+	addNote(note: string): Promise<void>;
 
 	/**
 	 * Merges the changes in specific files into the latest commit.

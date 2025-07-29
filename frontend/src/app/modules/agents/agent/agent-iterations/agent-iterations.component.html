@@ -14,8 +14,8 @@
                             <mat-panel-title>
                                 Iteration #{{ iteration.iteration }}
                             </mat-panel-title>
-                            <span *ngIf="!expansionPanel.expanded" [@summaryFade]>
-                                @if (iteration.error) { <!-- This error is from AutonomousIterationSummary -->
+                            <span>
+                                @if (iteration.error) {
                                     <mat-panel-description class="text-red-600 font-semibold flex items-center">
                                         <mat-icon color="warn" class="mr-1 icon-size-5">error_outline</mat-icon>
                                         Ended with error
@@ -32,6 +32,8 @@
                                             <mat-spinner [diameter]="32"></mat-spinner> <span class="ml-2">Loading details...</span>
                                         </div>
                                     } @else if (detailState?.status === 'success' && detailState?.data) {
+                                        {{ iteration.summary }}
+                                        <br/>
                                         <!-- Functions -->
                                         <div class="mb-3">
                                             <h4 class="font-medium text-lg mb-1">Functions Available:</h4>

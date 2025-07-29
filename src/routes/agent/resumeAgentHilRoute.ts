@@ -7,7 +7,7 @@ import { AGENT_API } from '#shared/agent/agent.api';
 import { NotAllowed, NotFound } from '#shared/errors';
 import { registerApiRoute } from '../routeUtils';
 
-export async function resumeAgentHilRoute(fastify: AppFastifyInstance) {
+export async function resumeAgentHilRoute(fastify: AppFastifyInstance): Promise<void> {
 	/** Resumes an agent in the hil (human in the loop) state */
 	registerApiRoute(fastify, AGENT_API.resumeHil, async (req, reply) => {
 		const { agentId, executionId, feedback } = req.body;

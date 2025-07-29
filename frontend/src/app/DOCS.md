@@ -57,122 +57,219 @@
 
 
 
-# How I Learned To Stop Writing Brittle Tests and Love Expressive APIs
 
-A valuable but challenging property for tests is “resilience,” meaning a test should only fail when something important has gone wrong. However, an opposite property may be easier to see: A “brittle” test is one that fails not for real problems that would break in production, but because the test itself is fragile for innocuous reasons. Error messages, changing the order of metadata headers in a web request, or the order of calls to a heavily-mocked dependency can often cause a brittle test to fail.
+# ANGULAR PAGE-OBJECT & SPEC GUIDELINES
 
-Expressive test APIs are a powerful tool in the fight against brittle, implementation-detail heavy tests. A test written with IsSquare(output) is more expressive (and less brittle) than a test written with details such as JsonEquals(.width = 42, .length = 42), in cases where the size of the square is irrelevant. Similar expressive designs might include unordered element matching for hash containers, metadata comparisons for photos, and activity logs in processing objects, just to name a few.
+## FILES & NAMING
 
-As an example, consider this C++ test code:
-```
-absl::flat_hash_set<int> GetValuesFromConfig(const Config&);
+1. The component lives in `src/app/…/foo.component.{ts,html,scss}`.  
+   Its PO lives right next to it as `foo.component.po.ts`.  
+   The spec lives next to the component as `foo.component.spec.ts`.
 
+2. In tests always import the *stand-alone* component, never its module:
+   ```ts
+   imports: [FooComponent, NoopAnimationsModule]
+   ```
 
-TEST(ConfigValues, DefaultConfigsArePrime) {
+3. Use the same “selector-like” name for PO and spec –  
+   `FooComponent`, `FooPo`, `FooComponentSpec`.
 
-// Note the strange order of these values. BAD CODE, DON’T DO THIS!
+## PAGE-OBJECT CONVENTIONS
 
-EXPECT_THAT(GetValuesFromConfig(Config()), ElementsAre(29, 17, 31));
+1. **Inheritance**  
+   Every PO extends `BaseSpecPo<TComponent>`; no 3-rd level hierarchy.
 
+2. **Static factory**  
+   Provide exactly one factory:
+   ```ts
+   static async create(fix: ComponentFixture<T>): Promise<FooPo> {
+       const po = new FooPo(fix);
+       await po.detectAndWait();
+       return po;
+   }
+   ```
+   Additional factories are forbidden.
+
+3. **IDs & locators**  
+   • Components expose **only data-testids** (`data-testid="send-btn"`).  
+   • The PO keeps them in a single `private readonly ids = { … }` map.  
+   • NO deep CSS selectors, NO `By.css('*')`, NO positional selectors
+     (`:nth-child`).  
+   • If the template needs a new locator → add a test-id in the component first.
+
+4. **Harness first**  
+   Prefer Angular-Material Harnesses; fallback to DebugElement only when the
+   target element has no harness.
+
+5. **API structure**
+   ```
+   // 5 lines max comment, written in “business language”
+   class FooPo {
+       /* ── state (getters with NO side-effects) ─────────────────── */
+       isLoading(): boolean { … }
+       commentCount(): number { … }
+
+       /* ── user actions (return Promise<void>) ───────────────────── */
+       async typeMessage(txt: string): Promise<void> { … }
+       async send(): Promise<void> { … }
+   }
+   ```
+
+6. **Self-synchronising**  
+   Every action internally calls `await this.detectAndWait();` after it clicks,
+   types or selects something.  Specs never call `fixture.detectChanges()`.
+
+7. **NO assertions**  
+   The PO *exposes* behaviour; the spec *asserts* on it.
+
+8. **No test-double knowledge**  
+   The PO never references spies or fake services – that belongs to the spec.
+
+## SPEC CONVENTIONS
+
+1. **Given / When / Then**  
+   Group phases with blank lines:
+   ```ts
+   // Given
+   chat.setChat(emptyChat());
+   await po.waitUntilReady();
+
+   // When
+   await po.typeMessage('hello');
+   await po.send();
+
+   // Then
+   expect(po.inputValue()).toBe('');
+   expect(chat.sendMessage).toHaveBeenCalled();
+   ```
+
+2. **Avoid fakeAsync unless you test timers** – harnesses wait automatically.
+
+3. Each `it()` covers **one observable user-story**; never mix scenarios.
+
+4. Use `spyOn(svc, 'method').and.callThrough()` to keep behaviour + verify calls.
+
+## ASYNC & WAITING RULES
+
+1. All PO actions are `await`-ed in specs; never ignore returned Promises.
+
+2. Harness queries use `await TestbedHarnessEnvironment.loader(fix).getHarness(...)` – they already wait for Angular stabilisation & animations.
+
+3. For custom polling use:
+   ```ts
+   await waitFor(() => expect(po.isLoading()).toBeFalse());
+   ```
+   (`waitFor` = our small wrapper around `fakeAsync`+`tick`).
+
+## MAINTENANCE & STYLE
+
+1. **Single-responsibility**  
+   If a PO exceeds ≈250 LOC or the component splits, create smaller POs.
+
+2. **Strict Type-Script** (`"strict": true`) – no implicit `any`, no `as unknown`.
+
+3. **No global test state** – each `beforeEach` creates new fakes & fixtures.
+
+4. **Readable failure messages** – always assert with an explicit message when
+   failure can be ambiguous:
+   ```ts
+   expect(po.commentCount())
+       .withContext('Comment not rendered after Send')
+       .toBe(1);
+   ```
+
+5. **Keep it deterministic** – no `setTimeout` in specs; use harness or zone
+   helpers.
+
+## COMMON PATTERNS
+
+1. ***Typing & send in one helper***  
+   ```ts
+   async sendMessage(txt: string) {
+       await this.typeMessage(txt);
+       await this.clickSend();
+   }
+   ```
+   Use this across specs to reduce duplication.
+
+2. ***Counting items*** – add a test-id on the repeated element and query
+   directly:
+   ```html
+   <li data-testid="msg" …></li>
+   ```
+   ```ts
+   messageCount() {
+       return this.fix.debugElement.queryAll(By.css('[data-testid="msg"]')).length;
+   }
+   ```
+
+3. ***Drawer / Overlay***  
+   Query by role or `aria-label`, then check `classList.contains('mat-drawer-opened')`.
+
+## EXAMPLE SKELETON
+
+```ts
+// foo.component.po.ts
+export class FooPo extends BaseSpecPo<FooComponent> {
+    private ids = {
+        input : 'msg-input',
+        send  : 'send-btn',
+        msg   : 'msg',
+        spin  : 'spinner',
+    } as const;
+
+    /* ---------- state ---------- */
+    inputValue()         { return this.value(this.ids.input); }
+    messageCount()       { return this.count(this.ids.msg);  }
+    isGenerating()       { return this.has(this.ids.spin);   }
+
+    /* ---------- actions -------- */
+    async typeMessage(t: string) {
+        await this.setValue(this.ids.input, t);
+    }
+    async clickSend()    { await this.click(this.ids.send);  }
+    async send(t: string){ await this.typeMessage(t); await this.clickSend(); }
 }
 ```
 
-The reliance on hash ordering makes this test brittle, preventing improvements to the API being tested. A critical part of the fix to the above code was to provide better test APIs that allowed engineers to more effectively express the properties that mattered. Thus we added UnorderedElementsAre to the GoogleTest test framework and refactored brittle tests to use that:
-```
-TEST(ConfigValues, DefaultConfigsArePrimeAndOrderDoesNotMatter) {
+```ts
+// foo.component.spec.ts
+describe('FooComponent', () => {
+  let po: FooPo;
+  let chat: FakeChatSvc;
 
-EXPECT_THAT(GetValuesFromConfig(Config()), UnorderedElementsAre(17, 29, 31));
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports  : [FooComponent, NoopAnimationsModule],
+      providers: [{ provide: ChatServiceClient, useClass: FakeChatSvc }]
+    }).compileComponents();
 
-}
-```
-It’s easy to see brittle tests and think, “Whoever wrote this did the wrong thing! Why are these tests so bad?” But it’s far better to see that these brittle failures are a signal indicating where the available testing APIs are missing, under-advertised, or need attention.
+    chat = TestBed.inject(ChatServiceClient) as any;
+    spyOn(chat, 'sendMessage').and.callThrough();
 
-Brittleness may indicate that the original test author didn’t have access to (or didn’t know about) test APIs that could more effectively identify the salient properties that the test meant to enforce. Without the right tools, it’s too easy to write tests that depend on irrelevant details, making those tests brittle. 
+    po = await FooPo.create(TestBed.createComponent(FooComponent));
+  });
 
+  it('clears input and shows generating after send', async () => {
+    chat.setChat(emptyChat());
+    await po.send('hello');
 
-# Test failures should be actionable
-
-There are a lot of rules and best practices around unit testing. There are many posts on this blog; there is deeper material in the Software Engineering at Google book; there is specific guidance for every major language; there is guidance on test frameworks, test naming, and dozens of other test-related topics. Isn’t this excessive?
-
-Good unit tests contain several important properties, but you could focus on a key principle: Test failures should be actionable.
-
-When a test fails, you should be able to begin investigation with nothing more than the test’s name and its failure messages—no need to add more information and rerun the test.
-
-Effective use of unit test frameworks and assertion libraries (JUnit, Truth, pytest, GoogleTest, etc.) serves two important purposes. Firstly, the more precisely we express the invariants we are testing, the more informative and less brittle our tests will be. Secondly, when those invariants don’t hold and the tests fail, the failure info should be immediately actionable. This meshes well with Site Reliability Engineering guidance on alerting.
-
-Consider this example of a C++ unit test of a function returning an `absl::Status` (an Abseil type that returns either an “OK” status or one of a number of different error codes):
-
-## Bad example
-```
-EXPECT_TRUE(LoadMetadata().ok());
-
-// Failure output
-load_metadata_test.cc:42: Failure
-Value of: LoadMetadata().ok()
-Expected: true
-Actual: false
+    expect(po.inputValue()).toBe('');
+    expect(po.messageCount()).toBe(1);
+    expect(po.isGenerating()).toBeTrue();
+  });
+});
 ```
 
-## Good example
+## FOLLOW THE CHECK-LIST BEFORE EVERY PR
 
-```
-EXPECT_OK(LoadMetadata());
+☐ File names & location ok   ☐ All locators = test-ids  
+☐ PO contains **only** queries + actions   ☐ No `detectChanges` in spec  
+☐ No deep CSS selectors   ☐ Harness preferred   ☐ Type-strict  
+☐ Each test covers one scenario   ☐ No left-over console.logs/xtests
 
-// Failure output
-load_metadata_test.cc:42: Failure
-Value of: LoadMetadata()
-Expected: is OK
-Actual: NOT_FOUND: /path/to/metadata.bin
-```
+If something forces you to deviate, highlight it in the PR description with a short rationale.
 
-If the first bad example test fails, you have to investigate why the test failed; 
-The second good test immediately gives you all the available detail, in this case because of a more precise GoogleTest matcher.
+# Icons
 
-
-# Prefer Narrow Assertions in Unit Tests
-
-Your project is adding a loyalty promotion feature, so you add a new column CREATION_DATE to the ACCOUNT table. Suddenly the test below starts failing. Can you spot the problem?
-```
-TEST_F(AccountTest, UpdatesBalanceAfterWithdrawal) {
-
-ASSERT_OK_AND_ASSIGN(Account account,
-
-                       database.CreateNewAccount(/*initial_balance=*/5000));
-
-ASSERT_OK(account.Withdraw(3000));
-
-const Account kExpected = { .balance = 2000, /* a handful of other fields */ };
-
-EXPECT_EQ(account, kExpected);
-
-}
-```
-
-You forgot to update the test for the newly added column; but the test also has an underlying problem:
-
-It checks for full equality of a potentially complex object, and thus implicitly tests unrelated behaviors. Changing anything in Account, such as adding or removing a field, will cause all the tests with a similar pattern to fail. Broad assertions are an easy way to accidentally create brittle tests  - tests that fail when anything about the system changes, and need frequent fixing even though they aren't finding real bugs.
-
-Instead, the test should use narrow assertions that only check the relevant behavior. The example test should be updated to only check the relevant field account.balance:
-```
-TEST_F(AccountTest, UpdatesBalanceAfterWithdrawal) {
-
-ASSERT_OK_AND_ASSIGN(Account account,
-
-                       database.CreateNewAccount(/*initial_balance=*/5000));
-
-ASSERT_OK(account.Withdraw(3000));
-
-EXPECT_EQ(account.balance, 2000);
-
-}
-```
-Broad assertions should only be used for unit tests that care about all of the implicitly tested behaviors, which should be a small minority of unit tests. Prefer to have at most one such test that checks for full equality of a complex object for the common case, and use narrow assertions for all other cases.
-
-Similarly, when writing frontend unit tests, use one screenshot diff test to verify the layout of your UI, but test individual behaviors with narrow DOM assertions.
-
-For testing large protocol buffers, some languages provide libraries for verifying a subset of proto fields in a single assertion, such as:
-
-`.comparingExpectedFieldsOnly()` in Java (Truth Protobuf Extension)
-
-`protocmp.FilterField` in Go (protocmp)
-
+In tests use MatIconTestingModule

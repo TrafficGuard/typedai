@@ -14,8 +14,12 @@ describe('PostgresAgentStateService', () => {
 	const userService = appContext().userService;
 
 	const beforeEachHook = async () => {
-		// Ensure all necessary tables exist before each test run.
-		// This makes tests more robust, especially if run in different environments or sequences.
+		// Drop tables to ensure schema is recreated with latest definitions
+		await db.schema.dropTable('agent_iterations').ifExists().execute();
+		await db.schema.dropTable('agent_contexts').ifExists().execute();
+		await db.schema.dropTable('users').ifExists().execute();
+
+		// Ensure all necessary tables exist with latest schema
 		await ensureUsersTableExists(db);
 		await ensureAgentContextsTableExists(db);
 		await ensureAgentIterationsTableExists(db);

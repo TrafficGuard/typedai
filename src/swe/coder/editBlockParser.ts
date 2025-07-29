@@ -99,7 +99,6 @@ export function parseEditResponse(
 /**
  * Parses LLM response content to extract edit blocks where the filename is expected
  * on a line *preceding* the SEARCH/REPLACE block, which may or may not be fenced.
- * Corresponds to find_original_update_blocks from aider's editblock_coder.py.
  * @param llmResponseContent The raw response from the LLM.
  * @param fenceOpen The opening fence string (e.g., "```") used by stripFilename.
  */
@@ -224,7 +223,6 @@ function parsePathPrecedingSearchReplaceBlocks(llmResponseContent: string, fence
 
 /**
  * Finds a filename from the last few lines of the preceding text content.
- * Corresponds to find_filename from aider's editblock_coder.py.
  * Uses the stripFilename utility.
  */
 function findFilenameFromPrecedingLines(precedingContent: string, fenceOpen: string): string | undefined {

@@ -4,7 +4,7 @@ import { signUpRoute } from './signUp';
 
 const basePath = '/api/auth';
 
-export async function authRoutes(fastify: AppFastifyInstance) {
+export async function authRoutes(fastify: AppFastifyInstance): Promise<void> {
 	await signInRoute(fastify);
 	await signUpRoute(fastify);
 }

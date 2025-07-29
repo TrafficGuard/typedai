@@ -1,5 +1,5 @@
 import { BaseLLM } from '#llm/base-llm';
-import { cerebrasLlama3_3_70b, cerebrasQwen3_32b } from '#llm/services/cerebras';
+import { cerebrasQwen3_32b, cerebrasQwen3_235b } from '#llm/services/cerebras';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, lastText, user } from '#shared/llm/llm.model';
@@ -73,7 +73,7 @@ const sotaConfig: CePOConfig = {
 
 //  https://github.com/codelion/optillm/blob/main/optillm/cepo/README.md
 
-export function CePO_FastMedium(llmProvider: () => LLM = () => cerebrasLlama3_3_70b(), name?: string): LLM {
+export function CePO_FastMedium(llmProvider: () => LLM = () => cerebrasQwen3_235b(), name?: string): LLM {
 	return new CePO_LLM(() => new FastMediumLLM(), 'CePO (FastMedium)', limitedConfig);
 }
 

@@ -1,4 +1,5 @@
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { extractFilenames } from './extractFilenames';
 
 export interface CompileErrorAnalysis {
 	compilerOutput: string;
@@ -29,7 +30,7 @@ export async function analyzeCompileErrors(
 	// Maybe want to prune the file system tree from the agents FileSystemTree collapsed folders on the agent context
 	const fileSystemTree = `<file_system_tree>\n${await getFileSystem().getFileSystemTree()}\n</file_system_tree>`;
 
-	const fileContents = `<file_contents>\n${await getFileSystem().readFilesAsXml(initialFileSelection)}\n</file_contents>`;
+	let fileContents = `<file_contents>\n${await getFileSystem().readFilesAsXml(initialFileSelection)}\n</file_contents>`;
 
 	// TODO need to add ts-imports info to resolve imports to file paths
 	// languageTools.getAliasMappings()
@@ -44,6 +45,15 @@ export async function analyzeCompileErrors(
 
 	const currentFileList = `<current-files>\n${initialFileSelection.join('\n')}\n</current-files>`;
 
+	// First check if we need to include additional files referenced in the compiler errors.
+	const additionalFiles: string[] = await extractFilenames(
+		`${compilerOutput}\n${currentFileList}\nExtract the filenames from the compile errors, not in the current files list, where the file contents would be needed to provided an accurate analysis and solution proposal of the compiler errors.`,
+	);
+	// Could add something about it if looks like a change an invadvertanly broken many files, then just return a selection of the files that look most relevant.
+
+	const fileSelection: string[] = Array.from(new Set([...initialFileSelection, ...additionalFiles]));
+	fileContents = `<file_contents>\n${await getFileSystem().readFilesAsXml(fileSelection)}\n</file_contents>`;
+
 	const instructions =
 		'The compile errors above need to be analyzed to determine next steps fixing them. You will respond with a JSON object in the format of the example.\n' +
 		'- Include a brief summary of the compile issues in the "compileIssuesSummary" property.\n' +
@@ -51,6 +61,7 @@ export async function analyzeCompileErrors(
 		'- If you need to perform research to fix a compile issue (e.g. how to use a library/API, or fix an obscure compiler error) then set a natural language query to search on the "researchQuery" property.\n' +
 		'- If the compile errors indicate one or more missing packages/modules, then set an array with the missing packages, e.g. ["package1", "package2"], on the "installPackages" property.\n' +
 		'- If there appears to be an fatal error which can\'t be fixed (e.g. configuration issue, or stuck on the same error multiple times, or a dependant project needs to be updated) that requires human intervention, then set a message describing the problem in the "fatalError" property.\n' +
+		'- Check closely for any comments in the code or any Code Guidelines that would indicate how this code/requirements should be implemented.\n' +
 		`Respond with your resoning following by the JSON object that MUST be in the format of this example:
 <response_example>
 - Analysis of the compile issues
@@ -67,8 +78,7 @@ export async function analyzeCompileErrors(
 }
 </json>
 </response_example>`;
-
-	// ${fileList}\n
+	// Would creating a helper function simplify fixing the compile errors?
 	const prompt = `${fileSystemTree}\n${fileContents}\n${compileErrorHistory}\n${compileOutputXml}\n${currentFileList}\n${instructions}`;
 	const analysis: CompileErrorAnalysis = await llms().hard.generateJson(prompt, {
 		id: 'Analyze compile errors',

@@ -1,3 +1,4 @@
+import { LanguageModelV1Source } from '@ai-sdk/provider';
 import { type Static, Type } from '@sinclair/typebox';
 import type {
 	AssistantContent,
@@ -27,11 +28,21 @@ export const AttachmentInfoSchema = Type.Object({
 
 const ProviderOptionsOptionalSchema = Type.Optional(Type.Record(Type.String(), Type.Any()));
 
+const LanguageModelV1SourceSchema = Type.Object({
+	sourceType: Type.Literal('url'),
+	id: Type.String(),
+	url: Type.String(),
+	title: Type.Optional(Type.String()),
+	providerMetadata: Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.Any()))),
+});
+const _LanguageModelV1SourceCheck: AreTypesFullyCompatible<LanguageModelV1Source, Static<typeof LanguageModelV1SourceSchema>> = true;
+
 // Basic Part Schemas
 export const TextPartSchema = Type.Object({
 	type: Type.Literal('text'),
 	text: Type.String(),
 	providerOptions: ProviderOptionsOptionalSchema,
+	sources: Type.Optional(Type.Array(LanguageModelV1SourceSchema)),
 });
 const _TextPartCheck: AreTypesFullyCompatible<TextPartExt, Static<typeof TextPartSchema>> = true;
 

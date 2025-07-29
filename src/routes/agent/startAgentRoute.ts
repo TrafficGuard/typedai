@@ -12,7 +12,7 @@ import type { AgentType } from '#shared/agent/agent.model';
 import { currentUser } from '#user/userContext';
 import { registerApiRoute } from '../routeUtils';
 
-export async function startAgentRoute(fastify: AppFastifyInstance) {
+export async function startAgentRoute(fastify: AppFastifyInstance): Promise<void> {
 	/** Starts a new agent */
 	registerApiRoute(fastify, AGENT_API.start, async (req, reply) => {
 		const { agentName, initialPrompt, functions, type, subtype, humanInLoop, llms, useSharedRepos, metadata, resumeAgentId, parentAgentId, codeTaskId } =
