@@ -420,7 +420,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 	}
 
 	/**
-	 *
+	 * @see https://docs.gitlab.com/api/events/#get-contribution-events-for-a-user
 	 * @param date The day to get activity for.
 	 * @returns the activity for the user on the given day
 	 */
@@ -432,7 +432,6 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 		startOfDay.setDate(date.getDate() - 1);
 		const endOfDay = new Date(date);
 		endOfDay.setHours(23, 59, 59, 999);
-
 
 		const user = await this.api().Users.showCurrentUser();
 
