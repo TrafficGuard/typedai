@@ -13,10 +13,21 @@ import { logger } from '#o11y/logger';
 import { type AgentCompleted, type AgentContext, isExecuting } from '#shared/agent/agent.model';
 import { sleep } from '#utils/async-utils';
 import type { ChatBotService } from '../../chatBot/chatBotService';
+import { SlackAPI } from './slackApi';
 
 let slackApp: App<StringIndexed> | undefined;
 
 const CHATBOT_FUNCTIONS: Array<new () => any> = [GitLab, GoogleCloud, Perplexity, LlmTools, Jira];
+
+/*
+There's a few steps involved with spotting a thread and then understanding the context of a message within it. Let's unspool them:
+
+1. Detect a threaded message by looking for a thread_ts value in the message object. The existence of such a value indicates that the message is part of a thread.
+2. Identify parent messages by comparing the thread_ts and ts values. If they are equal, the message is a parent message.
+3. Threaded replies are also identified by comparing the thread_ts and ts values. If they are different, the message is a reply.
+
+One quirk of threaded messages is that a parent message object will retain a thread_ts value, even if all its replies have been deleted.
+*/
 
 /**
  * Slack implementation of ChatBotService
@@ -24,6 +35,8 @@ const CHATBOT_FUNCTIONS: Array<new () => any> = [GitLab, GoogleCloud, Perplexity
  */
 export class SlackChatBotService implements ChatBotService, AgentCompleted {
 	channels: Set<string> = new Set();
+	appChannel = '';
+	slackApi: SlackAPI;
 
 	threadId(agent: AgentContext): string {
 		return agent.agentId.replace('Slack-', '');
@@ -62,19 +75,23 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 	async sendMessage(agent: AgentContext, message: string): Promise<void> {
 		if (!slackApp) throw new Error('Slack app is not initialized. Call initSlack() first.');
 
-		logger.info(`Sending slack message:  ${message}`);
-		const threadId = this.threadId(agent);
+		const params: any = {
+			channel: agent.metadata.channel,
+			text: message,
+			thread_ts: agent.metadata.thread_ts,
+		};
+
+		/* Only add thread_ts if we’re in a real thread.
+			 - In a channel: event.thread_ts is set for replies
+			 - In the App DM: event.thread_ts is undefined  */
+		// if (agent.metadata.thread_ts) {
+		// 	params.thread_ts = agent.metadata.thread_ts;
+		// }
 
 		try {
-			const result = await slackApp.client.chat.postMessage({
-				text: message,
-				thread_ts: threadId,
-				channel: agent.metadata.channel,
-			});
+			const result = await slackApp.client.chat.postMessage(params);
 
-			if (!result.ok) {
-				throw new Error(`Failed to send message to Slack: ${result.error}`);
-			}
+			if (!result.ok) throw new Error(`Failed to send message to Slack: ${result.error}`);
 		} catch (error) {
 			logger.error(error, 'Error sending message to Slack');
 			throw error;
@@ -86,12 +103,15 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 
 		const botToken = process.env.SLACK_BOT_TOKEN;
 		const signingSecret = process.env.SLACK_SIGNING_SECRET;
+		this.appChannel = process.env.SLACK_APP_CHANNEL;
 		const channels = process.env.SLACK_CHANNELS;
 		const appToken = process.env.SLACK_APP_TOKEN;
 
 		if (!botToken || !signingSecret || !channels || !appToken) {
 			logger.error('Slack chatbot requires environment variables SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_APP_TOKEN and SLACK_CHANNELS');
 		}
+
+		this.slackApi = new SlackAPI();
 
 		// Initializes your app with your bot token and signing secret
 		slackApp = new App({
@@ -101,7 +121,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			appToken: appToken,
 		});
 
-		this.channels = new Set(channels.split(',').map((s) => s.trim()));
+		this.channels = new Set([this.appChannel, ...channels.split(',').map((s) => s.trim())]);
 
 		// Listen for messages in channels
 		slackApp.event('message', async ({ event, say }) => {
@@ -125,26 +145,74 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 		// biomejs formatter changes event['property'] to event.property which doesn't compile
 		const _event: any = event;
 		console.log('Event received for message');
-		logger.info(event);
+		console.log('== BEGIN EVENT ==');
+		console.log(JSON.stringify(event));
+		console.log('== END EVENT ==');
 		logger.info(`channel_type: ${event.channel_type}`);
 		// logger.info(await (say['message']))
 		const _say: SayFn = say;
 
 		// if (event.channel_type === 'im')
 		if (event.subtype === 'message_deleted') return;
+		if (event.subtype === 'message_changed') return;
 		if (event.subtype === 'channel_join') return;
+		if (event.subtype) console.log(`Event subtype: ${event.subtype}`);
 
 		// Check if the message is in the desired channel
-		if (!this.channels.has(event.channel)) {
+		if (!this.channels.has(event.channel) && event.channel_type !== 'im') {
 			logger.info(`Channel ${event.channel} not configured`);
 			return;
 		}
+
 		console.log(`Message received in channel: ${_event.text}`);
 
 		const agentService = appContext().agentStateService;
 
-		// Messages with the app under the Apps section has different properties than messages from a regular channel
-		if (event.channel === 'D08HGB1HF61') {
+		// Messages with the app under the Apps section has different properties than messages from a regular channel?
+		if (event.channel === this.appChannel) {
+			const threadTs = (event as any).thread_ts;
+			const newThread = event.ts === threadTs;
+			let conversationHistory = '';
+
+			if (!newThread) {
+				const threadMessages = await new SlackAPI().getConversationReplies(event.channel, threadTs);
+				conversationHistory = `You are the bot and will be responding to the user.\n<conversation-history>${threadMessages.map((message) => {
+					const tagName = message.bot_profile ? 'bot' : 'user';
+					return `<${tagName}>\n${message.text}\n</${tagName}>\n`;
+				})}</conversation-history>\n\n`;
+			}
+
+			try {
+				const agentExec = await startAgent({
+					type: 'autonomous',
+					subtype: 'codegen',
+					resumeAgentId: 'Slack-app',
+					initialPrompt: conversationHistory + _event.text,
+					llms: defaultLLMs(),
+					functions: CHATBOT_FUNCTIONS,
+					agentName: 'Slack-app',
+					systemPrompt:
+						'You are an AI support agent.  You are responding to support requests on the company Slack account. Respond in a helpful, concise manner. If you encounter an error responding to the request do not provide details of the error to the user, only respond with "Sorry, I\'m having difficulties providing a response to your request"',
+					metadata: { channel: event.channel, thread_ts: event.ts },
+					completedHandler: this,
+					humanInLoop: {
+						budget: 0.5,
+						count: 5,
+					},
+				});
+				await agentExec.execution;
+				const agent: AgentContext = await appContext().agentStateService.load(agentExec.agentId);
+				if (agent.state !== 'completed' && agent.state !== 'hitl_feedback') {
+					logger.error(`Agent did not complete. State was ${agent.state}`);
+
+					await this.slackApi.addReaction(event.channel, event.ts, 'robot_face::boom');
+
+					return;
+				}
+			} catch (e) {
+				logger.error(e, 'Error handling new Slack app thread');
+			}
+			return;
 		}
 
 		// In regular channels if the message is not a reply in a thread, then we will start a new agent to handle the first message in the thread
@@ -177,7 +245,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 					functions: CHATBOT_FUNCTIONS,
 					agentName: `Slack-${threadId}`,
 					systemPrompt:
-						'You are an AI support agent called TypedAI.  You are responding to support requests on the company Slack account. Respond in a helpful, concise manner. If you encounter an error responding to the request do not provide details of the error to the user, only respond with "Sorry, I\'m having difficulties providing a response to your request"',
+						'You are an AI support agent.  You are responding to support requests on the company Slack account. Respond in a helpful, concise manner. If you encounter an error responding to the request do not provide details of the error to the user, only respond with "Sorry, I\'m having difficulties providing a response to your request"',
 					metadata: { channel: event.channel },
 					completedHandler: this,
 					humanInLoop: {
@@ -191,6 +259,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 					logger.error(`Agent did not complete. State was ${agent.state}`);
 					return;
 				}
+				return;
 				// Agent completionHandler sends the message
 				// const response = agent.functionCallHistory.at(-1).parameters[agent.state === 'completed' ? AGENT_COMPLETED_PARAM_NAME : REQUEST_FEEDBACK_PARAM_NAME];
 				// const sayResult = await say({
@@ -208,10 +277,10 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			// Otherwise this is a reply to a thread
 			const agentId = `Slack-${_event.thread_ts}`;
 			const agent: AgentContext | null = await agentService.load(agentId);
-			// Getting a null agent when a conversation is started in the TG AI channel
-			if (isExecuting(agent)) {
+			// Getting a null agent when a conversation is started in the App channel - handle in the app specific code
+			if (agent && isExecuting(agent)) {
 				// TODO make this transactional, and implement
-				agent.pendingMessages.push();
+				agent.pendingMessages.push(_event.text);
 				await agentService.save(agent);
 				return;
 			}

@@ -127,12 +127,11 @@ export class FirestoreAgentStateService implements AgentContextService {
 	}
 
 	@span({ agentId: 0 })
-	async load(agentId: string): Promise<AgentContext> {
+	async load(agentId: string): Promise<AgentContext | null> {
 		const docRef = this.db.doc(`AgentContext/${agentId}`);
 		const docSnap: DocumentSnapshot = await docRef.get();
-		if (!docSnap.exists) {
-			throw new NotFound(`Agent with ID ${agentId} not found.`);
-		}
+		if (!docSnap.exists) return null;
+
 		const firestoreData = docSnap.data();
 		if (!firestoreData) {
 			logger.warn({ agentId }, 'Firestore document exists but data is undefined during agent context load.');

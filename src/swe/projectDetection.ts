@@ -194,7 +194,7 @@ async function findUpwards(startDir: string, file: string, fss: IFileSystemServi
  * If no valid file is found, it runs detection via projectDetectionAgent and saves the result to CWD.
  * Invalid files are renamed to avoid re-parsing them in a loop.
  */
-export async function getProjectInfos(autoDetect = true): Promise<ProjectInfo[]> {
+export async function getProjectInfos(autoDetect = true): Promise<ProjectInfo[] | null> {
 	logger.debug('Starting project detection process.');
 	const fss = getFileSystem();
 	// Always access the file relative to the current working directory

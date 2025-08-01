@@ -7,7 +7,7 @@ import { BaseLLM } from '../base-llm';
 
 /**
  * LLM implementation for medium level LLM using a fast provider if available and applicable, else falling back to the standard medium LLM
- * https://artificialanalysis.ai/?models=gemini-2-5-flash%2Cgemini-2-5-flash-reasoning%2Cgroq_qwen3-32b-instruct-reasoning%2Cgroq_qwen3-32b-instruct%2Ccerebras_qwen3-32b-instruct-reasoning&endpoints=groq_qwen3-32b-instruct%2Cgroq_qwen3-32b-instruct-reasoning%2Ccerebras_qwen3-235b-a22b-instruct%2Ccerebras_qwen3-32b-instruct-reasoning%2Ccerebras_qwen3-235b-a22b-instruct-reasoning
+ * https://artificialanalysis.ai/?models=gemini-2-5-flash%2Cgemini-2-5-flash-reasoning%2Cgroq_qwen3-32b-instruct-reasoning%2Cgroq_qwen3-32b-instruct%2Ccerebras_qwen3-32b-instruct-reasoning&endpoints=groq_qwen3-32b-instruct-reasoning%2Ccerebras_qwen3-235b-a22b-instruct-2507%2Ccerebras_qwen3-235b-a22b-instruct-2507-reasoning%2Ccerebras_qwen3-32b-instruct-reasoning
  */
 export class FastMediumLLM extends BaseLLM {
 	private readonly providers: LLM[];
@@ -62,7 +62,7 @@ export class FastMediumLLM extends BaseLLM {
 			if (tokens && this.cerebras.isConfigured() && tokens < this.cerebras.getMaxInputTokens() * 0.4)
 				return await this.cerebras.generateMessage(messages, opts);
 		} catch (e) {
-			logger.warn(`Error calling fast medium LLM with ${tokens} tokens: ${e.message}`);
+			logger.warn(e, `Error calling fast medium LLM with ${tokens} tokens: ${e.message}`);
 		}
 		return await this.gemini.generateMessage(messages, opts);
 	}

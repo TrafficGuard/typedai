@@ -6,6 +6,7 @@ import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { CommandLineInterface } from '#functions/commandLine';
 import { CustomFunctions } from '#functions/customFunctions';
 import { DeepThink } from '#functions/deepThink';
+import { GoogleCalendar } from '#functions/googleCalendar';
 import { ImageGen } from '#functions/image';
 import { Jira } from '#functions/jira';
 import { LlmTools } from '#functions/llmTools';
@@ -18,6 +19,7 @@ import { FileSystemWrite } from '#functions/storage/fileSystemWrite';
 import { LocalFileStore } from '#functions/storage/localFileStore';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
+import { SlackAPI } from '#modules/slack/slackApi';
 import { type ToolType, hasGetToolType } from '#shared/agent/functions';
 import { Slack } from '#slack/slack';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
@@ -56,6 +58,9 @@ const FUNCTIONS = [
 	TypescriptTools,
 	BigQuery,
 	CustomFunctions,
+	GoogleCalendar,
+	SlackAPI,
+
 	// Add your own classes below this line
 ];
 

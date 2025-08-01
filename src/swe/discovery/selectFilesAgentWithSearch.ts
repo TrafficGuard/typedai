@@ -402,10 +402,11 @@ Respond with a valid JSON object that follows the required schema.`,
 }
 
 async function initializeFileSelectionAgent(requirements: UserContentExt, opts: QueryOptions): Promise<LlmMessage[]> {
-	let projectInfo = opts.projectInfo;
-	projectInfo ??= (await getProjectInfos())[0];
+	const projectInfo: ProjectInfo | null = opts.projectInfo;
+	const projectInfos: ProjectInfo[] | null = await getProjectInfos(false);
+	const generateArg: ProjectInfo[] = projectInfo ? [projectInfo] : projectInfos || [];
 
-	const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
+	const projectMaps: RepositoryMaps = await generateRepositoryMaps(generateArg);
 	const repositoryOverview: string = await getRepositoryOverview();
 	const fileSystemWithSummaries: string = `<project_files>\n${projectMaps.fileSystemTreeWithFileSummaries.text}\n</project_files>\n`;
 	const repoOutlineUserPrompt = `${repositoryOverview}${fileSystemWithSummaries}`;
