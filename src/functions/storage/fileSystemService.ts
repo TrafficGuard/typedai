@@ -9,6 +9,7 @@ import { TYPEDAI_FS } from '#app/appDirs';
 import { parseArrayParameterValue } from '#functionSchema/functionUtils';
 import { LlmTools } from '#functions/llmTools';
 import { Git } from '#functions/scm/git';
+import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';
 import { FileNotFound } from '#shared/errors';
@@ -479,23 +480,24 @@ export class FileSystemService implements IFileSystemService {
 
 	/**
 	 * Gets the contents of a list of files, returning a formatted XML string of all file contents
-	 * @param {Array<string>} filePaths The files paths to read the contents of
+	 * @param {Array<string | string[]>} filePaths The files paths to read the contents of
 	 * @returns {Promise<string>} the contents of the file(s) in format <file_contents path="dir/file1">file1 contents</file_contents><file_contents path="dir/file2">file2 contents</file_contents>
 	 */
-	async readFilesAsXml(filePaths: string | string[]): Promise<string> {
+	async readFilesAsXml(filePaths: string | string[], includeTokenCount = false): Promise<string> {
 		if (!Array.isArray(filePaths)) {
 			filePaths = parseArrayParameterValue(filePaths);
 		}
 		const fileContents: Map<string, string> = await this.readFiles(filePaths);
-		return this.formatFileContentsAsXml(fileContents);
+		return this.formatFileContentsAsXml(fileContents, includeTokenCount);
 	}
 
-	formatFileContentsAsXml(fileContents: Map<string, string>): string {
+	async formatFileContentsAsXml(fileContents: Map<string, string>, includeTokenCount = false): Promise<string> {
 		let result = '';
 
-		fileContents.forEach((contents, path) => {
-			result += `<file_content file_path="${path}">${formatXmlContent(contents)}</file_content>\n`;
-		});
+		for (const [path, contents] of fileContents) {
+			const tokens = includeTokenCount ? ` tokens="${await countTokens(contents)}"` : '';
+			result += `<file_content file_path="${path}"${tokens}>${formatXmlContent(contents)}</file_content>\n`;
+		}
 		return result;
 	}
 

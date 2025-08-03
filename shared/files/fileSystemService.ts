@@ -125,11 +125,12 @@ export interface IFileSystemService {
 	/**
 	 * Gets the contents of a list of files, returning a formatted XML string of all file contents
 	 * @param {Array<string>} filePaths The files paths to read the contents of
+	 * @param {boolean} includeTokenCount Include the token count as an attribute
 	 * @returns {Promise<string>} the contents of the file(s) in format <file_contents path="dir/file1">file1 contents</file_contents><file_contents path="dir/file2">file2 contents</file_contents>
 	 */
-	readFilesAsXml(filePaths: string | string[]): Promise<string>;
+	readFilesAsXml(filePaths: string | string[], includeTokenCount?: boolean): Promise<string>;
 
-	formatFileContentsAsXml(fileContents: Map<string, string>): string;
+	formatFileContentsAsXml(fileContents: Map<string, string>, includeTokenCount?: boolean): Promise<string>;
 
 	/**
 	 * Check if a file exists. A filePath starts with / is it relative to FileSystem.basePath, otherwise its relative to FileSystem.workingDirectory

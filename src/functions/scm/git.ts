@@ -2,7 +2,7 @@ import { getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import { arg, execCmd, execCommand, failOnError } from '#utils/exec';
+import { arg, execCmd, execCommand, failOnError, formatAnsiWithMarkdownLinks } from '#utils/exec';
 
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { Commit, VersionControlSystem } from '#shared/scm/versionControlSystem';
@@ -74,6 +74,8 @@ export class Git implements VersionControlSystem {
 
 		// The fix is to execute a specific commit command that targets only the added files.
 		const commitResult = await execCommand(`git commit -m ${arg(commitMessage)} -- ${filesToAdd}`);
+		// Pre-commit hooks make call lint/commit commands with
+		commitResult.stdout = formatAnsiWithMarkdownLinks(commitResult.stdout);
 		failOnError(`Failed to commit changes for files: ${files.join(', ')}`, commitResult);
 	}
 

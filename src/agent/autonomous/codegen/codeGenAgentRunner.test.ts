@@ -11,7 +11,7 @@ import {
 } from '#agent/autonomous/autonomousAgentRunner';
 import { convertTypeScriptToPython } from '#agent/autonomous/codegen/pythonCodeGenUtils';
 import { AGENT_REQUEST_FEEDBACK, AgentFeedback } from '#agent/autonomous/functions/agentFeedback';
-import { AGENT_COMPLETED_NAME, AGENT_SAVE_MEMORY } from '#agent/autonomous/functions/agentFunctions';
+import { AGENT_COMPLETED_NAME, AGENT_MEMORY } from '#agent/autonomous/functions/agentFunctions';
 import { appContext, initInMemoryApplicationContext } from '#app/applicationContext';
 import { TEST_FUNC_NOOP, TEST_FUNC_SKY_COLOUR, TEST_FUNC_SUM, TEST_FUNC_THROW_ERROR, TestFunctions } from '#functions/testFunctions';
 import { MockLLM, mockLLM, mockLLMs } from '#llm/services/mock-llm';
@@ -30,7 +30,7 @@ const PY_TEST_FUNC_NOOP = `await ${TEST_FUNC_NOOP}()`;
 const PY_TEST_FUNC_SKY_COLOUR = `await ${TEST_FUNC_SKY_COLOUR}()`;
 const PY_TEST_FUNC_SUM = (num1, num2) => `await ${TEST_FUNC_SUM}(${num1}, ${num2})`;
 const PY_TEST_FUNC_THROW_ERROR = `await ${TEST_FUNC_THROW_ERROR}()`;
-const PY_SET_MEMORY = (key, content) => `await ${AGENT_SAVE_MEMORY}("${key}", "${content}")`;
+const PY_SET_MEMORY = (key, content) => `await ${AGENT_MEMORY}("SAVE", "${key}", "${content}")`;
 
 const PYTHON_CODE_PLAN = (pythonCode: string) => `<response>\n<plan>Run some code</plan>\n<python-code>${pythonCode}</python-code>\n</response>`;
 const REQUEST_FEEDBACK_FUNCTION_CALL_PLAN = (feedback) =>

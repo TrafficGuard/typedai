@@ -53,11 +53,11 @@ export async function buildFileSystemTreePrompt(): Promise<string> {
 		// focusing on folder structure and collapsed state.
 		const treeString = await generateFileSystemTreeWithSummaries(summaries, false, collapsedFolders);
 
-		if (!treeString.trim()) {
-			return '\n<file_system_tree>\n<!-- File system is empty or all folders are collapsed at the root. -->\n</file_system_tree>\n';
-		}
+		if (!treeString.trim()) return '\n<file_system_tree>\n<!-- File system is empty or all folders are collapsed at the root. -->\n</file_system_tree>\n';
 
-		return `\n<file_system_tree>
+		const tokens = await countTokens(treeString);
+
+		return `\n<file_system_tree tokens="${tokens}">
 ${treeString}
 </file_system_tree>\n<file_system_tree_collapsed_folders>\n${collapsedFolders.join('\n')}\n</file_system_tree_collapsed_folders>`;
 	} catch (error) {
@@ -119,7 +119,7 @@ async function buildLiveFilesPrompt(): Promise<string> {
 	}
 
 	return `\n${rulesFilesPrompt}<live_files>
-${await getFileSystem().readFilesAsXml(liveFiles)}
+${await getFileSystem().readFilesAsXml(liveFiles, true)}
 </live_files>
 `;
 }

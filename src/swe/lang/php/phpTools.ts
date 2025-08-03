@@ -8,7 +8,7 @@ export class PhpTools implements LanguageTools {
 	 */
 	@func()
 	async generateProjectMap(): Promise<string> {
-		throw new Error('Not implemented');
+		return '';
 	}
 
 	async installPackage(packageName: string): Promise<void> {}
