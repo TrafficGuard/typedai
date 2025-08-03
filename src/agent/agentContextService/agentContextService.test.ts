@@ -346,13 +346,11 @@ export function runAgentStateServiceTests(
 			expect(loadedContext.lastUpdate).to.be.greaterThan(savedTime1);
 		});
 
-		// Modified test to expect NotFound error
-		it('should throw NotFound when loading a non-existent agent', async () => {
+		it('should return null when loading a non-existent agent', async () => {
 			const id = agentId();
-			await expect(service.load(id)).to.be.rejectedWith(NotFound);
+			expect(await service.load(id)).to.be.null;
 		});
 
-		// Added test for NotAllowed error
 		it('should throw NotAllowed when trying to load an agent belonging to another user', async () => {
 			const idForOtherUser = agentId();
 			setCurrentUser(otherUser);
@@ -394,8 +392,8 @@ export function runAgentStateServiceTests(
 
 			// Expect the save operation to be rejected
 			await expect(service.save(childContext)).to.be.rejected;
-			// Verify the child was not saved due to the rejection (load should throw NotFound)
-			await expect(service.load(childId)).to.be.rejectedWith(NotFound);
+			// Verify the child was not saved due to the rejection
+			expect(await service.load(childId)).to.be.null;
 		});
 	});
 
@@ -607,17 +605,17 @@ export function runAgentStateServiceTests(
 			setCurrentUser(testUser); // Ensure correct user context
 			await service.delete([agentIdCompleted, agentIdError]);
 
-			// Verify the specified agents are deleted (load should now throw NotFound)
-			await expect(service.load(agentIdCompleted)).to.be.rejectedWith(NotFound);
-			await expect(service.load(agentIdError)).to.be.rejectedWith(NotFound);
+			// Verify the specified agents are deleted
+			expect(await service.load(agentIdCompleted)).to.be.null;
+			expect(await service.load(agentIdError)).to.be.null;
 		});
 
 		it('should NOT delete agents belonging to other users', async () => {
 			setCurrentUser(testUser); // Ensure correct user context
 			await service.delete([agentIdCompleted, otherUserAgentId]);
 
-			// Verify testUser's agent is deleted (load should now throw NotFound)
-			await expect(service.load(agentIdCompleted)).to.be.rejectedWith(NotFound);
+			// Verify testUser's agent is deleted
+			expect(await service.load(agentIdCompleted)).to.be.null;
 			// Verify otherUser's agent is NOT deleted (load should now throw NotAllowed)
 			await expect(service.load(otherUserAgentId)).to.be.rejectedWith(NotAllowed);
 		});
@@ -626,8 +624,8 @@ export function runAgentStateServiceTests(
 			setCurrentUser(testUser); // Ensure correct user context
 			await service.delete([agentIdCompleted, executingAgentId]);
 
-			// Verify the non-executing agent is deleted (load should now throw NotFound)
-			await expect(service.load(agentIdCompleted)).to.be.rejectedWith(NotFound);
+			// Verify the non-executing agent is deleted
+			expect(await service.load(agentIdCompleted)).to.be.null;
 			// Verify the executing agent is NOT deleted (load should NOT throw NotFound, but should return the agent)
 			// Note: The delete logic filters out executing agents *before* attempting deletion.
 			// So, loading the executing agent after the delete call should still succeed.
@@ -636,15 +634,15 @@ export function runAgentStateServiceTests(
 			expect(executingAgentAfterDelete.agentId).to.equal(executingAgentId);
 		});
 
-		it('should delete a parent agent AND its children when parent ID is provided (if parent is deletable)', async () => {
+		it('should delete a parent agent and its children when parent ID is provided (if parent is deletable)', async () => {
 			setCurrentUser(testUser); // Ensure correct user context
 			// Delete the parent (which is in 'completed' state)
 			await service.delete([parentIdCompleted]);
 
-			// Verify parent and all children are deleted (load should now throw NotFound)
-			await expect(service.load(parentIdCompleted)).to.be.rejectedWith(NotFound);
-			await expect(service.load(childId1)).to.be.rejectedWith(NotFound);
-			await expect(service.load(childId2)).to.be.rejectedWith(NotFound);
+			// Verify parent and all children are deleted
+			expect(await service.load(parentIdCompleted)).to.be.null;
+			expect(await service.load(childId1)).to.be.null;
+			expect(await service.load(childId2)).to.be.null;
 		});
 
 		it('should NOT delete child agents if only child ID is provided (due to implementation filter)', async () => {
@@ -670,15 +668,15 @@ export function runAgentStateServiceTests(
 
 		it('should handle non-existent IDs gracefully without error', async () => {
 			const nonExistentId = agentId();
-			setCurrentUser(testUser); // Ensure correct user context
+			setCurrentUser(testUser);
 
 			// Attempt to delete an existing deletable agent and a non-existent one
 			await expect(service.delete([agentIdCompleted, nonExistentId])).to.not.be.rejected;
 
-			// Verify the existing deletable agent was actually deleted (load should now throw NotFound)
-			await expect(service.load(agentIdCompleted)).to.be.rejectedWith(NotFound);
+			// Verify the existing deletable agent was actually deleted
+			expect(await service.load(agentIdCompleted)).to.be.null;
 			// Verify the non-existent ID still results in NotFound on load
-			await expect(service.load(nonExistentId)).to.be.rejectedWith(NotFound);
+			expect(await service.load(nonExistentId)).to.be.null;
 		});
 	});
 

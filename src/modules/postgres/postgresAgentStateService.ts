@@ -331,11 +331,9 @@ export class PostgresAgentStateService implements AgentContextService {
 		ctx.lastUpdate = now.getTime();
 	}
 
-	async load(agentId: string): Promise<AgentContext> {
+	async load(agentId: string): Promise<AgentContext | null> {
 		const row = await this.db.selectFrom('agent_contexts').selectAll().where('agent_id', '=', agentId).executeTakeFirst();
-		if (!row) {
-			throw new NotFound(`Agent with ID ${agentId} not found.`);
-		}
+		if (!row) return null;
 
 		if (row.user_id !== currentUser().id) {
 			logger.warn({ agentId, currentUserId: currentUser().id, ownerId: row.user_id }, 'Attempt to load agent not owned by current user.');
@@ -360,9 +358,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			.where(sql`metadata_serialized->>${key}`, '=', value)
 			.executeTakeFirst();
 
-		if (!row) {
-			return null;
-		}
+		if (!row) return null;
 
 		// Ownership is already checked by `where('user_id', '=', currentUserId)`
 		return this._deserializeDbRowToAgentContext(row);
@@ -482,8 +478,8 @@ export class PostgresAgentStateService implements AgentContextService {
 
 	async updateFunctions(agentId: string, functions: string[]): Promise<void> {
 		// Load the agent first to check existence and ownership
-		const agent = await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
-
+		const agent = await this.load(agentId); // This will throw NotAllowed if necessary
+		if (!agent) throw new NotFound(`Agent with ID ${agentId} not found.`);
 		// Agent is guaranteed to exist and be owned by the current user here
 
 		const newLlmFunctions = new LlmFunctionsImpl();
@@ -509,9 +505,12 @@ export class PostgresAgentStateService implements AgentContextService {
 	}
 
 	async saveIteration(iterationData: AutonomousIteration): Promise<void> {
-		if (!Number.isInteger(iterationData.iteration) || iterationData.iteration <= 0) {
-			throw new Error('Iteration number must be a positive integer.');
-		}
+		if (!Number.isInteger(iterationData.iteration) || iterationData.iteration <= 0) throw new Error('Iteration number must be a positive integer.');
+		if (!iterationData.agentId) throw new Error('Agent ID is required for iteration data.');
+
+		const agent = await this.load(iterationData.agentId); // This will throw NotAllowed if necessary
+		if (!agent) throw new NotFound(`Agent with ID ${iterationData.agentId} not found.`);
+
 		const dbData = this._serializeIterationForDb(iterationData);
 
 		const valuesToInsert: Insertable<AgentIterationsTable> = {
@@ -548,7 +547,8 @@ export class PostgresAgentStateService implements AgentContextService {
 
 	async getAgentIterationSummaries(agentId: string): Promise<AutonomousIterationSummary[]> {
 		// Load the agent first to check existence and ownership
-		await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
+		const agent = await this.load(agentId); // This will throw NotAllowed if necessary
+		if (!agent) throw new NotFound(`Agent with ID ${agentId} not found.`);
 
 		const rows = await this.db
 			.selectFrom('agent_iterations')

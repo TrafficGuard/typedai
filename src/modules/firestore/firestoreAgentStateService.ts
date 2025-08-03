@@ -308,7 +308,8 @@ export class FirestoreAgentStateService implements AgentContextService {
 
 	async updateFunctions(agentId: string, functions: string[]): Promise<void> {
 		// Load the agent first to check existence and ownership
-		const agent = await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
+		const agent = await this.load(agentId); // This will throw NotAllowed if necessary
+		if (!agent) throw new NotFound(`Agent with ID ${agentId} not found.`);
 
 		// Agent is guaranteed to exist and be owned by the current user here
 
@@ -403,7 +404,8 @@ export class FirestoreAgentStateService implements AgentContextService {
 	@span()
 	async loadIterations(agentId: string): Promise<AutonomousIteration[]> {
 		// Load the agent first to check existence and ownership
-		await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
+		const agent = await this.load(agentId); // This will throw NotAllowed if necessary
+		if (!agent) throw new NotFound(`Agent with ID ${agentId} not found.`);
 
 		const iterationsColRef = this.db.collection('AgentContext').doc(agentId).collection('iterations');
 		// Order by the document ID (which is the iteration number as a string)
@@ -454,7 +456,8 @@ export class FirestoreAgentStateService implements AgentContextService {
 	@span()
 	async getAgentIterationSummaries(agentId: string): Promise<AutonomousIterationSummary[]> {
 		// Load the agent first to check existence and ownership
-		await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
+		const agent = await this.load(agentId); // This will throw NotAllowed if necessary
+		if (!agent) throw new NotFound(`Agent with ID ${agentId} not found.`);
 
 		const iterationsColRef = this.db.collection('AgentContext').doc(agentId).collection('iterations');
 		// Select only the fields needed for the summary.
@@ -488,7 +491,8 @@ export class FirestoreAgentStateService implements AgentContextService {
 	@span()
 	async getAgentIterationDetail(agentId: string, iterationNumber: number): Promise<AutonomousIteration> {
 		// Load the agent first to check existence and ownership
-		await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
+		const agent = await this.load(agentId); // This will throw NotAllowed if necessary
+		if (!agent) throw new NotFound(`Agent with ID ${agentId} not found.`);
 
 		const iterationDocRef = this.db.collection('AgentContext').doc(agentId).collection('iterations').doc(String(iterationNumber));
 		const docSnap = await iterationDocRef.get();
