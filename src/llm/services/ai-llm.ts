@@ -117,45 +117,40 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 			if (typeof content === 'string') {
 				processedContent = content;
 			} else {
-				processedContent = content.map((part) => {
-					// Strip extra properties not present in CoreMessage parts
-					if (part.type === 'image') {
-						const extPart = part as ImagePartExt;
-						return {
-							type: 'image',
-							image: extPart.image, // string (URL or base64) is compatible with DataContent
-							mimeType: extPart.mimeType,
-						} as AiImagePart;
-					}
-					if (part.type === 'file') {
-						const extPart = part as FilePartExt;
-						return {
-							type: 'file',
-							data: extPart.data, // AiFilePart (from 'ai') expects 'data'
-							mimeType: extPart.mimeType,
-						} as AiFilePart; // Use AiFilePart (alias for 'ai'.FilePart)
-					}
-					if (part.type === 'text') {
-						const extPart = part as TextPartExt;
-						return {
-							type: 'text',
-							text: extPart.text,
-						} as AiTextPart;
-					}
-					if (part.type === 'tool-call') {
-						return part as AiToolCallPart;
-					}
-					if (part.type === 'reasoning') {
-						// Assuming local ReasoningPart is compatible with ai's internal one
-						return part as ReasoningPart;
-					}
-					if (part.type === 'redacted-reasoning') {
-						// Assuming local RedactedReasoningPart (now with data) is compatible
-						return part as RedactedReasoningPart;
-					}
-					// Fallback for unknown parts, though ideally all are handled
-					return part as any;
-				}) as Exclude<CoreContent, string>;
+				processedContent = content
+					// Remove reasoning and redacted-reasoning parts
+					.filter((part) => part.type !== 'reasoning' && part.type !== 'redacted-reasoning')
+					.map((part) => {
+						// Strip extra properties not present in CoreMessage parts
+						if (part.type === 'image') {
+							const extPart = part as ImagePartExt;
+							return {
+								type: 'image',
+								image: extPart.image, // string (URL or base64) is compatible with DataContent
+								mimeType: extPart.mimeType,
+							} as AiImagePart;
+						}
+						if (part.type === 'file') {
+							const extPart = part as FilePartExt;
+							return {
+								type: 'file',
+								data: extPart.data, // AiFilePart (from 'ai') expects 'data'
+								mimeType: extPart.mimeType,
+							} as AiFilePart; // Use AiFilePart (alias for 'ai'.FilePart)
+						}
+						if (part.type === 'text') {
+							const extPart = part as TextPartExt;
+							return {
+								type: 'text',
+								text: extPart.text,
+							} as AiTextPart;
+						}
+						if (part.type === 'tool-call') {
+							return part as AiToolCallPart;
+						}
+						// Fallback for unknown parts, though ideally all are handled
+						return part as any;
+					}) as Exclude<CoreContent, string>;
 			}
 			return { ...restOfMsg, content: processedContent } as CoreMessage;
 		});
@@ -165,7 +160,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 		const combinedOpts = { ...this.defaultOptions, ...opts };
 		const description = combinedOpts.id ?? '';
 		return await withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
-			// The processMessages method now correctly returns CoreMessage[]
+			// The processMessages method now correctly returns CoreMessage[] and strips out reasoning parts
 			const messages: CoreMessage[] = this.processMessages(llmMessages);
 
 			// Gemini Flash 2.0 thinking max is about 42
