@@ -538,7 +538,8 @@ export class PostgresAgentStateService implements AgentContextService {
 
 	async loadIterations(agentId: string): Promise<AutonomousIteration[]> {
 		// Load the agent first to check existence and ownership
-		await this.load(agentId); // This will throw NotFound or NotAllowed if necessary
+		const agent = await this.load(agentId); // This will throw NotAllowed if necessary
+		if (!agent) throw new NotFound(`Agent with ID ${agentId} not found.`);
 
 		const rows = await this.db.selectFrom('agent_iterations').selectAll().where('agent_id', '=', agentId).orderBy('iteration_number', 'asc').execute();
 
