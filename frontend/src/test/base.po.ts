@@ -1,11 +1,4 @@
-import {
-	type BaseHarnessFilters,
-	type ComponentHarness,
-	type ComponentHarnessConstructor,
-	type HarnessLoader,
-	type HarnessPredicate,
-	TestElement,
-} from '@angular/cdk/testing';
+import { BaseHarnessFilters, type ComponentHarness, type ComponentHarnessConstructor, type HarnessLoader, type HarnessPredicate } from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -69,7 +62,6 @@ export abstract class BaseSpecPo<T> {
 		await this.detectAndWait();
 	}
 
-
 	text(id: string): string {
 		return (this.el(id).nativeElement.textContent || '').trim();
 	}
@@ -101,14 +93,24 @@ export abstract class BaseSpecPo<T> {
 	 * @param options Optional filters to apply.
 	 * @returns A promise that resolves to the harness instance.
 	 */
+	harness<H extends ComponentHarness>(harnessType: ComponentHarnessConstructor<H>, options?: BaseHarnessFilters): Promise<H>;
+	harness<H extends ComponentHarness>(harnessType: HarnessPredicate<H>): Promise<H>;
 	harness<H extends ComponentHarness>(
-		harnessType: ComponentHarnessConstructor<H> & { with?: (options?: BaseHarnessFilters) => HarnessPredicate<H> },
+		harnessType: ComponentHarnessConstructor<H> | HarnessPredicate<H>,
 		options?: BaseHarnessFilters,
 	): Promise<H> {
-		if (options && harnessType.with) {
-			return this.loader.getHarness(harnessType.with(options));
+		if (typeof harnessType === 'function') {
+			// It's a constructor
+			const ctor = harnessType as ComponentHarnessConstructor<H> & {
+				with?: (options?: BaseHarnessFilters) => HarnessPredicate<H>;
+			};
+			if (options && ctor.with) {
+				return this.loader.getHarness(ctor.with(options));
+			}
+			return this.loader.getHarness(ctor);
 		}
-		return this.loader.getHarness(harnessType);
+		// It's a predicate
+		return this.loader.getHarness(harnessType as HarnessPredicate<H>);
 	}
 
 	/**
@@ -137,6 +139,7 @@ export abstract class BaseSpecPo<T> {
 		fix.detectChanges();
 		await fix.whenStable();
 		fix.detectChanges(); // Ensure UI is stable after async operations
+		// biome-ignore lint:correctness/useThisInStatic: dont change this
 		return new this(fix);
 	}
 }
