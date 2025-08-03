@@ -7,7 +7,7 @@ import { vertexGemini_2_5_Flash, vertexGemini_2_5_Pro } from '#llm/services/vert
 import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { LLM } from '#shared/llm/llm.model';
-import { cerebrasQwen3_235b } from './cerebras';
+import { cerebrasQwen3_235b_Thinking } from './cerebras';
 import { Gemini_2_5_Flash, Gemini_2_5_Pro } from './gemini';
 import { groqLlama4_Scout } from './groq';
 import { Ollama_LLMs } from './ollama';
@@ -35,7 +35,7 @@ export function defaultLLMs(): AgentLLMs {
 	const easy: LLM | undefined = easyLLMs.find((llm) => llm.isConfigured());
 	if (!easy) throw new Error('No default easy LLM configured');
 
-	const mediumLLMs = [new FastMediumLLM(), vertexGemini_2_5_Flash(), Gemini_2_5_Flash(), cerebrasQwen3_235b(), openaiGPT41(), Claude3_5_Haiku()];
+	const mediumLLMs = [new FastMediumLLM(), vertexGemini_2_5_Flash(), Gemini_2_5_Flash(), cerebrasQwen3_235b_Thinking(), openaiGPT41(), Claude3_5_Haiku()];
 	const medium: LLM | undefined = mediumLLMs.find((llm) => llm.isConfigured());
 	if (!medium) throw new Error('No default medium LLM configured');
 

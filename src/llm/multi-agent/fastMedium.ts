@@ -1,4 +1,4 @@
-import { cerebrasQwen3_235b } from '#llm/services/cerebras';
+import { cerebrasQwen3_235b_Thinking } from '#llm/services/cerebras';
 import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
@@ -20,7 +20,7 @@ export class FastMediumLLM extends BaseLLM {
 			outputCost: 0,
 			totalCost: 0,
 		}));
-		this.providers = [cerebrasQwen3_235b(), vertexGemini_2_5_Flash({ thinking: 'high' })];
+		this.providers = [cerebrasQwen3_235b_Thinking(), vertexGemini_2_5_Flash({ thinking: 'high' })];
 		this.cerebras = this.providers[0];
 		this.gemini = this.providers[1];
 

@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import { expect } from 'chai';
 import { Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
-import { cerebrasLlama3_8b } from '#llm/services/cerebras';
 import { deepinfraDeepSeekR1, deepinfraQwen3_235B_A22B } from '#llm/services/deepinfra';
 import { deepSeekV3 } from '#llm/services/deepseek';
 import { fireworksLlama3_70B } from '#llm/services/fireworks';
@@ -15,6 +14,7 @@ import { vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Flash, vertexGemini_2_5_F
 import type { LlmMessage } from '#shared/llm/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { anthropicClaude4_Sonnet } from './anthropic';
+import { cerebrasQwen3_235b_Instruct } from './cerebras';
 import { groqQwen3_32b } from './groq';
 
 const elephantBase64 = fs.readFileSync('test/llm/purple.jpg', 'base64');
@@ -129,7 +129,7 @@ describe('LLMs', () => {
 	});
 
 	describe('Cerebras', () => {
-		const llm = cerebrasLlama3_8b();
+		const llm = cerebrasQwen3_235b_Instruct();
 
 		it('should generateText', async () => {
 			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });

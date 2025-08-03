@@ -1,6 +1,6 @@
 import { BaseLLM } from '#llm/base-llm';
 import { getLLM } from '#llm/llmFactory';
-import { cerebrasQwen3_235b } from '#llm/services/cerebras';
+import { cerebrasQwen3_235b_Thinking } from '#llm/services/cerebras';
 import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import type { GenerateTextOptions, LLM } from '#shared/llm/llm.model';
@@ -101,7 +101,7 @@ export class Blueberry extends BaseLLM {
 			}
 		}
 		// if (!this.llms) this.llms = [Claude3_5_Sonnet_Vertex(), GPT4o(), Gemini_1_5_Pro(), Claude3_5_Sonnet_Vertex(), fireworksLlama3_405B()];
-		let llm = cerebrasQwen3_235b();
+		let llm = cerebrasQwen3_235b_Thinking();
 		// llm = groqLlama3_1_70B();
 		llm = vertexGemini_2_5_Flash();
 		if (!this.llms) this.llms = [llm, llm, llm, llm, llm];

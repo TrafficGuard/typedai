@@ -11,22 +11,36 @@ export const CEREBRAS_SERVICE = 'cerebras';
 export function cerebrasLLMRegistry(): Record<string, () => LLM> {
 	return {
 		'cerebras:qwen-3-32b': () => cerebrasQwen3_32b(),
-		'cerebras:qwen-3-235b-a22b': () => cerebrasQwen3_235b(),
-		'cerebras:llama3.1-8b': () => cerebrasLlama3_8b(),
+		'cerebras:qwen-3-235b-instruct-2507': () => cerebrasQwen3_235b_Instruct(),
+		'cerebras:qwen-3-235b-thinking-2507': () => cerebrasQwen3_235b_Thinking(),
+		'cerebras:qwen-3-coder-480b': () => cerebrasQwen3_Coder(),
+		'cerebras:llama-4-maverick-17b-128e-instruct': () => cerebrasLlamaMaverick(),
 	};
 }
 
+// https://inference-docs.cerebras.ai/models/qwen-3-32b
 export function cerebrasQwen3_32b(): LLM {
 	return new CerebrasLLM('Qwen3 32b (Cerebras)', 'qwen-3-32b', 16_382, fixedCostPerMilTokens(0.4, 0.8));
 }
 
-// https://inference-docs.cerebras.ai/models/qwen-3-235b
-export function cerebrasQwen3_235b(): LLM {
-	return new CerebrasLLM('Qwen3 235b (Cerebras)', 'qwen-3-235b-a22b', 131_000, fixedCostPerMilTokens(0.6, 1.2));
+// https://inference-docs.cerebras.ai/models/qwen-3-235b-2507
+export function cerebrasQwen3_235b_Instruct(): LLM {
+	return new CerebrasLLM('Qwen3 235b Instruct (Cerebras)', 'qwen-3-235b-a22b-instruct-2507', 131_000, fixedCostPerMilTokens(0.6, 1.2));
 }
 
-export function cerebrasLlama3_8b(): LLM {
-	return new CerebrasLLM('Llama 3.1 8b (Cerebras)', 'llama3.1-8b', 8_192, fixedCostPerMilTokens(0.1, 0.1));
+// https://inference-docs.cerebras.ai/models/qwen-3-235b-thinking
+export function cerebrasQwen3_235b_Thinking(): LLM {
+	return new CerebrasLLM('Qwen3 235b Thinking (Cerebras)', 'qwen-3-235b-a22b-thinking-2507', 131_000, fixedCostPerMilTokens(0.6, 1.2), ['qwen-3-235b-a22b']);
+}
+
+// https://inference-docs.cerebras.ai/models/qwen-3-480b
+export function cerebrasQwen3_Coder(): LLM {
+	return new CerebrasLLM('Qwen3 Coder (Cerebras)', 'qwen-3-coder-480b', 131_000, fixedCostPerMilTokens(2, 2), ['qwen-3-235b-a22b']);
+}
+
+// https://inference-docs.cerebras.ai/models/llama-4-maverick
+export function cerebrasLlamaMaverick(): LLM {
+	return new CerebrasLLM('Llama Maverick (Cerebras)', 'llama-4-maverick-17b-128e-instruct', 32_000, fixedCostPerMilTokens(0.2, 0.6), ['llama3.1-8b']);
 }
 
 const CEREBRAS_KEYS: string[] = [];
@@ -42,8 +56,8 @@ let cerebrasKeyIndex = 0;
  * https://inference-docs.cerebras.ai/introduction
  */
 export class CerebrasLLM extends AiLLM<OpenAIProvider> {
-	constructor(displayName: string, model: string, maxInputTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, CEREBRAS_SERVICE, model, maxInputTokens, calculateCosts);
+	constructor(displayName: string, model: string, maxInputTokens: number, calculateCosts: LlmCostFunction, oldModelIds?: string[]) {
+		super(displayName, CEREBRAS_SERVICE, model, maxInputTokens, calculateCosts, oldModelIds);
 	}
 
 	aiModel(): LanguageModelV1 {
