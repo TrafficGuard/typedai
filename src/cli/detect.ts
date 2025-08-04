@@ -1,6 +1,5 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import { detectProjectInfo } from 'dist/src/swe/projectDetection';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import type { RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
@@ -8,6 +7,7 @@ import { initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import type { AgentLLMs } from '#shared/agent/agent.model';
+import { getProjectInfo } from '#swe/projectDetection';
 
 async function main() {
 	await initApplicationContext();
@@ -29,7 +29,7 @@ async function main() {
 
 	await runWorkflowAgent(config, async () => {
 		const agent = agentContext();
-		const projectInfo = await detectProjectInfo();
+		const projectInfo = await getProjectInfo(true);
 		console.log(projectInfo);
 		console.log('Written to .typedai.json');
 	});
