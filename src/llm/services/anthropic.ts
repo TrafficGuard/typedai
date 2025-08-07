@@ -12,25 +12,17 @@ export function anthropicLLMRegistry(): Record<string, () => LLM> {
 	return {
 		[`${ANTHROPIC_SERVICE}:claude-3-5-haiku`]: Claude3_5_Haiku,
 		[`${ANTHROPIC_SERVICE}:claude-sonnet-4-0`]: anthropicClaude4_Sonnet,
-		[`${ANTHROPIC_SERVICE}:claude-opus-4-0`]: anthropicClaude4_Opus,
+		[`${ANTHROPIC_SERVICE}:claude-opus-4-1-20250805`]: anthropicClaude4_1_Opus,
 	};
 }
 
-export function anthropicClaude4_Opus(): LLM {
-	return new Anthropic('Claude 4 Opus (Anthropic)', 'claude-opus-4-0', anthropicCostFunction(15, 75));
+export function anthropicClaude4_1_Opus(): LLM {
+	return new Anthropic('Claude 4.1 Opus (Anthropic)', 'claude-opus-4-1-20250805', anthropicCostFunction(15, 75), ['claude-opus-4-0']);
 }
 
 export function anthropicClaude4_Sonnet(): LLM {
 	return new Anthropic('Claude 4 Sonnet (Anthropic)', 'claude-sonnet-4-0', anthropicCostFunction(3, 15));
 }
-
-// export function Claude3_5_Sonnet() {
-// 	return new Anthropic('Claude 3.5 Sonnet', 'claude-3-5-sonnet-20241022', 3, 15);
-// }
-
-// export function Claude3_7_Sonnet() {
-// 	return new Anthropic('Claude 3.7 Sonnet', 'claude-3-7-sonnet-latest', 3, 15);
-// }
 
 export function Claude3_5_Haiku(): LLM {
 	return new Anthropic('Claude 3.5 Haiku', 'claude-3-5-haiku-20241022', anthropicCostFunction(1, 5));
@@ -54,7 +46,7 @@ function anthropicCostFunction(inputMil: number, outputMil: number): LlmCostFunc
 
 export function ClaudeLLMs(): AgentLLMs {
 	const sonnet4 = anthropicClaude4_Sonnet();
-	const opus = anthropicClaude4_Opus();
+	const opus = anthropicClaude4_1_Opus();
 	return {
 		easy: Claude3_5_Haiku(),
 		medium: sonnet4,
@@ -64,8 +56,8 @@ export function ClaudeLLMs(): AgentLLMs {
 }
 
 export class Anthropic extends AiLLM<AnthropicProvider> {
-	constructor(displayName: string, model: string, calculateCosts: LlmCostFunction) {
-		super(displayName, ANTHROPIC_SERVICE, model, 200_000, calculateCosts);
+	constructor(displayName: string, model: string, calculateCosts: LlmCostFunction, oldIds?: string[]) {
+		super(displayName, ANTHROPIC_SERVICE, model, 200_000, calculateCosts, oldIds);
 	}
 
 	protected apiKey(): string {

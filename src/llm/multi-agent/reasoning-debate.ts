@@ -2,7 +2,7 @@ import { BaseLLM } from '#llm/base-llm';
 import { getLLM } from '#llm/llmFactory';
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
 import { anthropicClaude4_Sonnet } from '#llm/services/anthropic';
-import { Claude4_Opus_Vertex, Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude4_1_Opus_Vertex, Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { deepinfraDeepSeekR1 } from '#llm/services/deepinfra';
 import { openAIo3 } from '#llm/services/openai';
 import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
@@ -127,7 +127,7 @@ export function MAD_SOTA(): LLM {
 	return new ReasonerDebateLLM(
 		'SOTA',
 		xai_Grok4,
-		[openAIo3, Claude4_Opus_Vertex, vertexGemini_2_5_Pro, xai_Grok4],
+		[openAIo3, Claude4_1_Opus_Vertex, vertexGemini_2_5_Pro, xai_Grok4],
 		'MAD:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro, Grok 4)',
 	);
 }

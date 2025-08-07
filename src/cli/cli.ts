@@ -3,7 +3,7 @@ import path, { join } from 'node:path';
 import { systemDir } from '#app/appDirs';
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
 import { MAD_Balanced, MAD_Fast, MAD_SOTA } from '#llm/multi-agent/reasoning-debate';
-import { Claude4_Opus_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude4_1_Opus_Vertex } from '#llm/services/anthropic-vertex';
 import { cerebrasQwen3_235b_Thinking, cerebrasQwen3_Coder } from '#llm/services/cerebras';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { openAIo3 } from '#llm/services/openai';
@@ -25,7 +25,7 @@ export const LLM_CLI_ALIAS: Record<string, () => LLM> = {
 	madb: MAD_Balanced,
 	mads: MAD_SOTA,
 	madf: MAD_Fast,
-	opus: Claude4_Opus_Vertex,
+	opus: Claude4_1_Opus_Vertex,
 	pp1: perplexityLLM,
 	pp2: perplexityReasoningProLLM,
 	pp3: perplexityDeepResearchLLM,
