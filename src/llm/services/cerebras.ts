@@ -65,7 +65,7 @@ export class CerebrasLLM extends AiLLM<OpenAIProvider> {
 		if (this.getModel().includes('qwen-3')) {
 			return wrapLanguageModel({
 				model: aiModel,
-				middleware: extractReasoningMiddleware({ tagName: 'think' }),
+				middleware: extractReasoningMiddleware({ tagName: 'think', startWithReasoning: true }),
 			});
 		}
 		return aiModel;

@@ -1,7 +1,7 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
 import { writeFileSync } from 'node:fs';
-import { initInMemoryApplicationContext } from '#app/applicationContext';
+import { initApplicationContext, initInMemoryApplicationContext } from '#app/applicationContext';
 import { ReasonerDebateLLM } from '#llm/multi-agent/reasoning-debate';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { countTokens } from '#llm/tokens';
@@ -13,10 +13,12 @@ import { parsePromptWithImages } from './promptParser';
 // npm run gen
 
 async function main() {
-	await initInMemoryApplicationContext();
-
 	const { initialPrompt: rawPrompt, llmId, flags } = parseProcessArgs();
 	const { textPrompt, userContent } = parsePromptWithImages(rawPrompt);
+
+	// -s save to database
+	if (flags.s) await initApplicationContext();
+	else await initInMemoryApplicationContext();
 
 	let llm: LLM = defaultLLMs().medium;
 	if (llmId) {

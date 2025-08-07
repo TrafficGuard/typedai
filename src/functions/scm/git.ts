@@ -74,7 +74,7 @@ export class Git implements VersionControlSystem {
 
 		// The fix is to execute a specific commit command that targets only the added files.
 		const commitResult = await execCommand(`git commit -m ${arg(commitMessage)} -- ${filesToAdd}`);
-		// Pre-commit hooks make call lint/commit commands with
+		// Pre-commit hooks may make call lint/commit commands with characters for colours etc
 		commitResult.stdout = formatAnsiWithMarkdownLinks(commitResult.stdout);
 		failOnError(`Failed to commit changes for files: ${files.join(', ')}`, commitResult);
 	}

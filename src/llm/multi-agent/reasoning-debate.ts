@@ -4,7 +4,7 @@ import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
 import { anthropicClaude4_Sonnet } from '#llm/services/anthropic';
 import { Claude4_1_Opus_Vertex, Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { deepinfraDeepSeekR1 } from '#llm/services/deepinfra';
-import { openAIo3 } from '#llm/services/openai';
+import { openaiGPT5 } from '#llm/services/openai';
 import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { xai_Grok4 } from '#llm/services/xai';
 import { logger } from '#o11y/logger';
@@ -83,7 +83,7 @@ export function MAD_Balanced(): LLM {
 	return new ReasonerDebateLLM(
 		'Balanced',
 		vertexGemini_2_5_Pro,
-		[vertexGemini_2_5_Pro, xai_Grok4, openAIo3],
+		[vertexGemini_2_5_Pro, xai_Grok4, openaiGPT5],
 		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Grok 4, o3)',
 	);
 }
@@ -92,7 +92,7 @@ export function MAD_Balanced4(): LLM {
 	return new ReasonerDebateLLM(
 		'Balanced4',
 		vertexGemini_2_5_Pro,
-		[vertexGemini_2_5_Pro, xai_Grok4, openAIo3, Claude4_Sonnet_Vertex],
+		[vertexGemini_2_5_Pro, xai_Grok4, openaiGPT5, Claude4_Sonnet_Vertex],
 		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Grok 4, o3, Sonnet 4)',
 	);
 }
@@ -116,7 +116,7 @@ export function MAD_Anthropic(): LLM {
 }
 
 export function MAD_OpenAI(): LLM {
-	return new ReasonerDebateLLM('OpenAI', openAIo3, [openAIo3, openAIo3, openAIo3], 'MAD:OpenAI multi-agent debate (o3 x3)');
+	return new ReasonerDebateLLM('OpenAI', openaiGPT5, [openaiGPT5, openaiGPT5, openaiGPT5], 'MAD:OpenAI multi-agent debate (GPT5 x3)');
 }
 
 export function MAD_Grok(): LLM {
@@ -126,9 +126,9 @@ export function MAD_Grok(): LLM {
 export function MAD_SOTA(): LLM {
 	return new ReasonerDebateLLM(
 		'SOTA',
-		xai_Grok4,
-		[openAIo3, Claude4_1_Opus_Vertex, vertexGemini_2_5_Pro, xai_Grok4],
-		'MAD:SOTA multi-agent debate (Opus 4, o3, Gemini 2.5 Pro, Grok 4)',
+		openaiGPT5,
+		[openaiGPT5, Claude4_1_Opus_Vertex, vertexGemini_2_5_Pro, xai_Grok4],
+		'MAD:SOTA multi-agent debate (Opus 4, GPT5, Gemini 2.5 Pro, Grok 4)',
 	);
 }
 

@@ -383,10 +383,6 @@ async function checkRepoHomeAndWorkingDirectory(agent: AgentContext) {
 		agent.typedAiRepoDir = currentRepoDir;
 	}
 	const workingDir = fss.getWorkingDirectory();
-	logger.info({ workingDir }, 'Verifying working directory exists');
 	const workDirExists = await fss.directoryExists(workingDir);
-	if (!workDirExists) {
-		throw new Error(`Working directory ${workingDir} does not exist or is not a directory.`);
-	}
-	logger.info({ workingDir }, 'Working directory verified.');
+	if (!workDirExists) throw new Error(`Working directory ${workingDir} does not exist or is not a directory.`);
 }

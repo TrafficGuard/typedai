@@ -7,11 +7,10 @@ export const OPENAI_SERVICE = 'openai';
 
 export function openAiLLMRegistry(): Record<string, () => LLM> {
 	return {
-		'openai:gpt-4.1': () => openaiGPT41(),
-		'openai:gpt-4.1-mini': () => openaiGPT41mini(),
-		'openai:gpt-4.1-nano': () => openaiGPT41nano(),
-		'openai:o3': () => openAIo3(),
-		'openai:o4-mini': () => openAIo4mini(),
+		'openai:gpt-5': () => openaiGPT5(),
+		'openai:gpt-5-mini': () => openaiGPT5mini(),
+		'openai:gpt-5-nano': () => openaiGPT5nano(),
+		'openai:gpt-5-chat': () => openaiGPT5chat(),
 	};
 }
 
@@ -35,29 +34,44 @@ function openAICostFunction(inputMil: number, outputMil: number): LlmCostFunctio
 	};
 }
 
-export function openAIo3(): LLM {
-	return new OpenAI('OpenAI o3', 'o3', openAICostFunction(2, 8), 200_000);
+function gpt5CostFunction(inputMil: number, outputMil: number): LlmCostFunction {
+	return (inputTokens: number, outputTokens: number, usage: any) => {
+		const metadata = usage as { openai?: { cachedPromptTokens?: number } };
+		const cachedPromptTokens = metadata?.openai?.cachedPromptTokens ?? 0;
+		let inputCost: number;
+		if (cachedPromptTokens > 0) {
+			inputCost = ((inputTokens - cachedPromptTokens) * inputMil) / 1_000_000 + (cachedPromptTokens * inputMil) / 10 / 1_000_000;
+		} else {
+			inputCost = (inputTokens * inputMil) / 1_000_000;
+		}
+		const outputCost = (outputTokens * outputMil) / 1_000_000;
+		return {
+			inputCost,
+			outputCost,
+			totalCost: inputCost + outputCost,
+		};
+	};
 }
 
-export function openAIo4mini(): LLM {
-	return new OpenAI('OpenAI o4-mini', 'o4-mini', openAICostFunction(1.1, 4.4), 200_000);
+export function openaiGPT5(): LLM {
+	return new OpenAI('GPT5', 'gpt-5', gpt5CostFunction(1.25, 10), 200_000, ['o3', 'gpt-4.1']);
 }
 
-export function openaiGPT41(): LLM {
-	return new OpenAI('GPT4.1', 'gpt-4.1', openAICostFunction(2, 8), 1_047_576);
+export function openaiGPT5mini(): LLM {
+	return new OpenAI('GPT5 mini', 'gpt-5-mini', gpt5CostFunction(0.25, 2), 200_000, ['gpt-4.1-mini', 'o3-mini', 'o4-mini']);
 }
 
-export function openaiGPT41mini(): LLM {
-	return new OpenAI('GPT4.1 mini', 'gpt-4.1-mini', openAICostFunction(0.4, 1.6), 1_047_576);
+export function openaiGPT5nano(): LLM {
+	return new OpenAI('GPT5 nano', 'gpt-5-nano', gpt5CostFunction(0.05, 0.4), 200_000, ['gpt-4.1-nano', 'o3-nano', 'o4-mini']);
 }
 
-export function openaiGPT41nano(): LLM {
-	return new OpenAI('GPT4.1 nano', 'gpt-4.1-nano', openAICostFunction(0.1, 0.4), 1_047_576);
+export function openaiGPT5chat(): LLM {
+	return new OpenAI('GPT5 chat', 'gpt-5-chat', gpt5CostFunction(1.25, 10), 200_000, ['gpt-4']);
 }
 
 export class OpenAI extends AiLLM<OpenAIProvider> {
-	constructor(displayName: string, model: string, calculateCosts: LlmCostFunction, maxContext: number) {
-		super(displayName, OPENAI_SERVICE, model, maxContext, calculateCosts);
+	constructor(displayName: string, model: string, calculateCosts: LlmCostFunction, maxContext: number, oldIds?: string[]) {
+		super(displayName, OPENAI_SERVICE, model, maxContext, calculateCosts, oldIds);
 	}
 
 	protected apiKey(): string {

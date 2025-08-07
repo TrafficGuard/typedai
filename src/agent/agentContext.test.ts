@@ -6,7 +6,7 @@ import { deserializeContext, serializeContext } from '#agent/agentSerialization'
 import type { RunAgentConfig } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { LlmTools } from '#functions/llmTools';
-import { openaiGPT41 } from '#llm/services/openai';
+import { openaiGPT5 } from '#llm/services/openai';
 import type { AgentContext } from '#shared/agent/agent.model';
 import { functionRegistry } from '../functionRegistry';
 
@@ -19,10 +19,10 @@ describe('agentContext', () => {
 	describe('serialisation', () => {
 		it('should be be identical after serialisation and deserialization', async () => {
 			const llms = {
-				easy: openaiGPT41(),
-				medium: openaiGPT41(),
-				hard: openaiGPT41(),
-				xhard: openaiGPT41(),
+				easy: openaiGPT5(),
+				medium: openaiGPT5(),
+				hard: openaiGPT5(),
+				xhard: openaiGPT5(),
 			};
 			// We want to check that the FileSystem gets re-added by the resetFileSystemFunction function
 			const functions = new LlmFunctionsImpl(LlmTools); // FileSystemRead

@@ -4,15 +4,14 @@ import type { FunctionCallResult } from '#shared/llm/llm.model';
 import { envVar } from '#utils/env-var';
 
 /**
- * Runs the completionHandler on an agent
- * @param agent
+ * Executes the completion handler for a given agent. If the handler throws an error, it logs an error.
+ * @param agent - The agent context containing the completion handler to be invoked.
  */
 export async function runAgentCompleteHandler(agent: AgentContext): Promise<void> {
 	try {
 		await agent.completedHandler?.notifyCompleted(agent);
 	} catch (e) {
-		logger.warn(e, `Completion handler error for agent ${agent.agentId}`);
-		throw e;
+		logger.error(e, `Completion handler error for agent ${agent.agentId}`);
 	}
 }
 

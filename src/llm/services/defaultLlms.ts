@@ -11,7 +11,7 @@ import { cerebrasQwen3_235b_Thinking } from './cerebras';
 import { Gemini_2_5_Flash, Gemini_2_5_Pro } from './gemini';
 import { groqLlama4_Scout } from './groq';
 import { Ollama_LLMs } from './ollama';
-import { openAIo3, openaiGPT41, openaiGPT41mini } from './openai';
+import { openaiGPT5, openaiGPT5mini } from './openai';
 import { xai_Grok4 } from './xai';
 
 let _summaryLLM: LLM;
@@ -31,15 +31,15 @@ export function defaultLLMs(): AgentLLMs {
 	// 	return _defaultLLMs;
 	// }
 
-	const easyLLMs = [new FastEasyLLM(), vertexGemini_2_5_Flash(), Gemini_2_5_Flash(), groqLlama4_Scout(), openaiGPT41mini(), Claude3_5_Haiku()];
+	const easyLLMs = [new FastEasyLLM(), vertexGemini_2_5_Flash(), Gemini_2_5_Flash(), groqLlama4_Scout(), openaiGPT5mini(), Claude3_5_Haiku()];
 	const easy: LLM | undefined = easyLLMs.find((llm) => llm.isConfigured());
 	if (!easy) throw new Error('No default easy LLM configured');
 
-	const mediumLLMs = [new FastMediumLLM(), vertexGemini_2_5_Flash(), Gemini_2_5_Flash(), cerebrasQwen3_235b_Thinking(), openaiGPT41(), Claude3_5_Haiku()];
+	const mediumLLMs = [new FastMediumLLM(), vertexGemini_2_5_Flash(), Gemini_2_5_Flash(), cerebrasQwen3_235b_Thinking(), openaiGPT5(), Claude3_5_Haiku()];
 	const medium: LLM | undefined = mediumLLMs.find((llm) => llm.isConfigured());
 	if (!medium) throw new Error('No default medium LLM configured');
 
-	const hardLLMs = [vertexGemini_2_5_Pro(), Gemini_2_5_Pro(), xai_Grok4(), openAIo3(), anthropicClaude4_Sonnet()];
+	const hardLLMs = [vertexGemini_2_5_Pro(), Gemini_2_5_Pro(), xai_Grok4(), openaiGPT5(), anthropicClaude4_Sonnet()];
 	const hard: LLM | undefined = hardLLMs.find((llm) => llm.isConfigured());
 	if (!hard) throw new Error('No default hard LLM configured');
 

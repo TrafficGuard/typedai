@@ -97,7 +97,7 @@ export class CodeEditingAgent {
 			throw new Error(`If fileSelection is provided it must be an array. Was type ${typeof fileSelection}`);
 		}
 		let projectInfo: ProjectInfo = altOptions?.projectInfo;
-		projectInfo ??= await getProjectInfo();
+		projectInfo ??= await getProjectInfo(true);
 
 		const fss: IFileSystemService = getFileSystem();
 		if (altOptions?.workingDirectory) fss.setWorkingDirectory(altOptions.workingDirectory);

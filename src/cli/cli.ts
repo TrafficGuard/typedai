@@ -6,7 +6,7 @@ import { MAD_Balanced, MAD_Fast, MAD_SOTA } from '#llm/multi-agent/reasoning-deb
 import { Claude4_1_Opus_Vertex } from '#llm/services/anthropic-vertex';
 import { cerebrasQwen3_235b_Thinking, cerebrasQwen3_Coder } from '#llm/services/cerebras';
 import { defaultLLMs } from '#llm/services/defaultLlms';
-import { openAIo3 } from '#llm/services/openai';
+import { openaiGPT5, openaiGPT5mini, openaiGPT5nano } from '#llm/services/openai';
 import { perplexityDeepResearchLLM, perplexityLLM, perplexityReasoningProLLM } from '#llm/services/perplexity-llm';
 import { xai_Grok4 } from '#llm/services/xai';
 import { logger } from '#o11y/logger';
@@ -21,7 +21,9 @@ export const LLM_CLI_ALIAS: Record<string, () => LLM> = {
 	f: cerebrasQwen3_235b_Thinking,
 	cc: cerebrasQwen3_Coder,
 	x: xai_Grok4,
-	o3: openAIo3,
+	g5: openaiGPT5,
+	g5m: openaiGPT5mini,
+	g5n: openaiGPT5nano,
 	madb: MAD_Balanced,
 	mads: MAD_SOTA,
 	madf: MAD_Fast,

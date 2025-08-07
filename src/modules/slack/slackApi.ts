@@ -34,6 +34,7 @@ export class SlackAPI {
 		} while (cursor);
 		return allMessages;
 	}
+
 	/**
 	 * Fetch all messages in a user's App (Direct Message) channel.
 	 * @param {string} channelId - The channel ID (like 'DXXX' for a Direct Message).
@@ -67,23 +68,37 @@ export class SlackAPI {
 	 * Adds a reaction to a Slack message (e.g., 🤖💥 for "bot broken")
 	 * @param channel Slack channel ID (e.g., "C1234567890")
 	 * @param messageTimestamp Message timestamp (e.g., "1629378123.000200" from event.message.ts)
-	 * @param reaction Emoji combo name (e.g., "robot_face::boom")
+	 * @param reaction Emoji name e.g., "robot_face::boom" (seperate mutliple with ::). Default is 🤖
 	 */
-	async addReaction(
-		channel: string,
-		messageTimestamp: string,
-		reaction = 'robot_face', // Default to 🤖
-	): Promise<void> {
+	async addReaction(channel: string, messageTimestamp: string, reaction = 'robot_face'): Promise<void> {
 		try {
 			await this.client.reactions.add({
 				channel,
 				timestamp: messageTimestamp,
-				name: reaction, // Use "::" for combo emojis (NOT spaces)
+				name: reaction,
 			});
-			logger.debug(`Reaction added: ${reaction} to ${channel} @ ${messageTimestamp}`);
+			logger.info(`Reaction added: ${reaction} to ${channel} @ ${messageTimestamp}`);
 		} catch (error) {
 			logger.error(error, `Error adding Slack reaction to ${channel} @ ${messageTimestamp}`);
-			// Don't throw error, just log it
+		}
+	}
+
+	/**
+	 * Removes a reaction from a Slack message (e.g., 🤖💥 for "bot broken")
+	 * @param channel Slack channel ID (e.g., "C1234567890")
+	 * @param messageTimestamp Message timestamp (e.g., "1629378123.000200" from event.message.ts)
+	 * @param reaction Emoji combo name (e.g., "robot_face::boom")
+	 */
+	async removeReaction(channel: string, messageTimestamp: string, reaction = 'robot_face'): Promise<void> {
+		try {
+			await this.client.reactions.remove({
+				channel,
+				timestamp: messageTimestamp,
+				name: reaction,
+			});
+			logger.info(`Reaction removed: ${reaction} from ${channel} @ ${messageTimestamp}`);
+		} catch (error) {
+			logger.error(error, `Error removing Slack reaction from ${channel} @ ${messageTimestamp}`);
 		}
 	}
 
