@@ -1,2 +1,2 @@
 #!/usr/bin/bash
-npm run lint:ci && npm test
+pnpm run lint:ci && pnpm run test

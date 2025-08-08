@@ -26,20 +26,21 @@ jobs:
             echo "PR is not ready to merge"
             echo "ready_to_merge=false" >> $GITHUB_OUTPUT
           fi
-
+      - uses: pnpm/action-setup@v2
       - name: Use Node.js
         if: steps.check_pr.outputs.ready_to_merge == 'true'
         uses: actions/setup-node@v3
         with:
           node-version: '20.x'
+          cache: 'pnpm'
 
       - name: Install dependencies (server)
         if: steps.check_pr.outputs.ready_to_merge == 'true'
-        run: npm install
+        run: pnpm install
 
       - name: Run integration tests (server)
         if: steps.check_pr.outputs.ready_to_merge == 'true'
-        run: npm run test:integration
+        run: pnpm run test:integration
 
 #      - name: Install dependencies (frontend)
 #        if: steps.check_pr.outputs.ready_to_merge == 'true'
