@@ -40,7 +40,7 @@ describe('Message Utilities', () => {
 			expect(attachment.type).toBe('image');
 			expect(attachment.filename).toBe('test-image.png');
 			expect(attachment.size).toBe(1024); // Check the size property
-			expect(attachment.mimeType).toBe('image/png');
+			expect(attachment.mediaType).toBe('image/png');
 			expect(attachment.data).toBe(mockImageFile);
 			expect(attachment.previewUrl).toBeDefined();
 			expect(attachment.previewUrl).toContain('data:image/png;base64,');
@@ -60,7 +60,7 @@ describe('Message Utilities', () => {
 			expect(attachment.type).toBe('file');
 			expect(attachment.filename).toBe('test-document.txt');
 			expect(attachment.size).toBe(512); // Check the size property
-			expect(attachment.mimeType).toBe('text/plain');
+			expect(attachment.mediaType).toBe('text/plain');
 			expect(attachment.data).toBe(mockTextFile);
 			expect(attachment.previewUrl).toBeUndefined(); // Or check based on specific logic if non-images can have preview
 		});
@@ -69,7 +69,7 @@ describe('Message Utilities', () => {
 			const mockFileNoType = createMockFile('unknown', '', 123); // Empty string for type
 			const attachment = await fileToAttachment(mockFileNoType);
 			expect(attachment.type).toBe('file'); // Default to 'file'
-			expect(attachment.mimeType).toBe('');
+			expect(attachment.mediaType).toBe('');
 			expect(attachment.size).toBe(123); // Check the size property
 		});
 	});
@@ -91,7 +91,7 @@ describe('Message Utilities', () => {
 			expect(parts.length).toBe(1);
 			expect(parts[0].type).toBe('image');
 			expect((parts[0] as ImagePartExt).filename).toBe('img.jpg');
-			expect((parts[0] as ImagePartExt).mimeType).toBe('image/jpeg');
+			expect((parts[0] as ImagePartExt).mediaType).toBe('image/jpeg');
 			expect((parts[0] as ImagePartExt).image).toBeDefined(); // base64 data
 			expect((parts[0] as ImagePartExt).image.length).toBeGreaterThan(0); // Ensure base64 is not empty
 		});
@@ -122,7 +122,7 @@ describe('Message Utilities', () => {
 				type: 'image',
 				filename: 'external.png',
 				size: 12345,
-				mimeType: 'image/png',
+				mediaType: 'image/png',
 				data: null, // No local file data
 				previewUrl: 'https://example.com/image.png',
 			};
@@ -147,9 +147,9 @@ describe('Message Utilities', () => {
 		it('should convert an array of LlmMessageContentPart to attachments and text', () => {
 			const content: UserContentExt = [
 				{ type: 'text', text: 'Hello ' },
-				{ type: 'image', image: 'base64imagedata', mimeType: 'image/jpeg', filename: 'photo.jpg', size: 3000 },
+				{ type: 'image', image: 'base64imagedata', mediaType: 'image/jpeg', filename: 'photo.jpg', size: 3000 },
 				{ type: 'text', text: 'world' },
-				{ type: 'file', data: 'base64filedata', mimeType: 'application/pdf', filename: 'report.pdf', size: 5000 },
+				{ type: 'file', data: 'base64filedata', mediaType: 'application/pdf', filename: 'report.pdf', size: 5000 },
 			];
 			const { attachments, text } = userContentExtToAttachmentsAndText(content);
 
@@ -159,20 +159,20 @@ describe('Message Utilities', () => {
 			const imageAtt = attachments.find((a) => a.type === 'image');
 			expect(imageAtt).toBeDefined();
 			expect(imageAtt?.filename).toBe('photo.jpg');
-			expect(imageAtt?.mimeType).toBe('image/jpeg');
+			expect(imageAtt?.mediaType).toBe('image/jpeg');
 			expect(imageAtt?.previewUrl).toContain('data:image/jpeg;base64,base64imagedata');
 
 			const fileAtt = attachments.find((a) => a.type === 'file');
 			expect(fileAtt).toBeDefined();
 			expect(fileAtt?.filename).toBe('report.pdf');
-			expect(fileAtt?.mimeType).toBe('application/pdf');
+			expect(fileAtt?.mediaType).toBe('application/pdf');
 			// For files, previewUrl is typically from externalURL if present, or undefined
 			expect(fileAtt?.previewUrl).toBeUndefined();
 		});
 
 		it('should handle UserContentExt with only attachments', () => {
 			const content: UserContentExt = [
-				{ type: 'image', image: '', externalURL: 'http://example.com/img.png', filename: 'remote.png', mimeType: 'image/png', size: 100 },
+				{ type: 'image', image: '', externalURL: 'http://example.com/img.png', filename: 'remote.png', mediaType: 'image/png', size: 100 },
 			];
 			const { attachments, text } = userContentExtToAttachmentsAndText(content);
 			expect(text).toBe('');
@@ -184,7 +184,7 @@ describe('Message Utilities', () => {
 
 		it('should handle FilePartExt with externalURL for preview', () => {
 			const content: UserContentExt = [
-				{ type: 'file', data: '', externalURL: 'http://example.com/doc.pdf', filename: 'remote.pdf', mimeType: 'application/pdf', size: 200 },
+				{ type: 'file', data: '', externalURL: 'http://example.com/doc.pdf', filename: 'remote.pdf', mediaType: 'application/pdf', size: 200 },
 			];
 			const { attachments, text } = userContentExtToAttachmentsAndText(content);
 			expect(text).toBe('');

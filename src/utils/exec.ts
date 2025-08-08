@@ -6,10 +6,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { CONTAINER_PATH } from 'src/benchmarks/swebench/swe-bench-runner';
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { withSpan } from '#o11y/trace';
+import { CONTAINER_PATH } from '../../src/benchmarks/swebench/swe-bench-runner';
 
 const execAsync = promisify(exec);
 /**

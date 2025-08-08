@@ -3,6 +3,6 @@ export interface Attachment {
 	filename: string;
 	size: number;
 	data: File | null;
-	mimeType: string;
+	mediaType: string;
 	previewUrl?: string;
 }

@@ -82,8 +82,8 @@
                                                     <div style="white-space: pre-wrap; word-wrap: break-word;" [innerHTML]="convertNewlinesToHtml(part.text)"></div>
                                                 }
                                             </div>
-                                            <div *ngSwitchCase="'image'">[Image Part: {{ part.mimeType || 'type unknown' }}]</div>
-                                            <div *ngSwitchCase="'file'">[File Part: {{ part.mimeType || 'type unknown' }}]</div>
+                                            <div *ngSwitchCase="'image'">[Image Part: {{ part.mediaType || 'type unknown' }}]</div>
+                                            <div *ngSwitchCase="'file'">[File Part: {{ part.mediaType || 'type unknown' }}]</div>
                                             <div *ngSwitchCase="'tool-call'">[Tool Call: {{part.toolName}} ID: {{part.toolCallId}}]</div>
                                             <div *ngSwitchCase="'tool-result'">[Tool Result for {{part.toolName}} ID: {{part.toolCallId}}] <div style="white-space: pre-wrap; word-wrap: break-word;" [innerHTML]="convertNewlinesToHtml(part.result)"></div></div>
                                             <ng-container *ngSwitchDefault>
@@ -93,7 +93,6 @@
                                     }
                                 } @else {
                                     @if (message.role === 'assistant') {
-                                        MARKDOWN
                                         <markdown
                                             mermaid
                                             clipboard

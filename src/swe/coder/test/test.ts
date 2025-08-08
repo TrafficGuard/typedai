@@ -253,7 +253,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 						filename: att.filename,
 						size: att.size,
 						data: att.data, // The actual File object
-						mimeType: att.mimeType,
+						mediaType: att.mediaType,
 					}));
 
 					// If this is a new chat, create it with latest user preferences

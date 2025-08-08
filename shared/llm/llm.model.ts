@@ -1,5 +1,5 @@
 // https://github.com/AgentOps-AI/tokencost/blob/main/tokencost/model_prices.json
-import { LanguageModelV1Source } from '@ai-sdk/provider';
+import { LanguageModelV2Source } from '@ai-sdk/provider';
 import type {
 	FilePart as AiFilePart, // Renamed to avoid conflict if we define our own FilePart
 	ImagePart as AiImagePart, // Renamed
@@ -14,9 +14,8 @@ import type {
 	// ReasoningPart and RedactedReasoningPart are not exported from 'ai'.
 	// We will define them locally below.
 } from 'ai';
-export type { AssistantContent } from 'ai'; // Re-export AssistantContent
-export type ToolContent = ModelToolContent; // Re-export ToolContent
-
+export type { AssistantContent } from 'ai';
+export type ToolContent = ModelToolContent;
 // Local definitions for unexported types from 'ai'
 export interface ReasoningPart {
 	type: 'reasoning';
@@ -118,7 +117,7 @@ interface ImagePart {
   	// - URL: a URL that points to the image
 	image: DataContent | URL;
 	// Optional mime type of the image.
-	mimeType?: string;
+	mediaType?: string;
 }
 
 interface FilePart {
@@ -128,7 +127,7 @@ interface FilePart {
   	// - URL: a URL that points to the image
 	data: DataContent | URL;
 	// Mime type of the file.
-	mimeType: string;
+	mediaType: string;
 }
 */
 
@@ -148,13 +147,13 @@ export interface AttachmentInfo {
 export interface ImagePartUI {
 	type: 'image';
 	image: string; // Base64 string or URL
-	mimeType?: string;
+	mediaType?: string;
 }
 
 export interface FilePartUI {
 	type: 'file';
 	data: string; // Base64 string or URL
-	mimeType: string;
+	mediaType: string;
 }
 
 interface TextPartUI {
@@ -163,7 +162,7 @@ interface TextPartUI {
 	text: string;
 }
 
-export type TextPartExt = TextPartUI & { providerOptions?: Record<string, any>; sources?: Array<LanguageModelV1Source> };
+export type TextPartExt = TextPartUI & { providerOptions?: Record<string, any>; sources?: Array<LanguageModelV2Source> };
 export type ImagePartExt = ImagePartUI & AttachmentInfo & { providerOptions?: Record<string, any> | undefined };
 export type FilePartExt = FilePartUI & AttachmentInfo & { providerOptions?: Record<string, any> | undefined };
 export type ToolCallPartExt = ModelToolCallPart;
@@ -248,7 +247,7 @@ export function messageContentIfTextOnly(message: LlmMessage): string | null {
 		if (type === 'text') text += part.text;
 		else if (type === 'reasoning') text += `${(part as ReasoningPart).text}\n`;
 		else if (type === 'redacted-reasoning') text += '<redacted-reasoning>\n';
-		else if (type === 'tool-call') text += `Tool Call (${part.toolCallId} ${part.toolName} Args:${JSON.stringify(part.args)})`;
+		else if (type === 'tool-call') text += `Tool Call (${part.toolCallId} ${part.toolName} Args:${JSON.stringify(part.input)})`;
 	}
 	return text;
 }
@@ -268,11 +267,11 @@ export function contentText(content: CoreContent): string {
 				break;
 			case 'tool-call':
 				text += `Tool Call (${(part as ModelToolCallPart).toolCallId} ${(part as ModelToolCallPart).toolName} Args:${JSON.stringify(
-					(part as ModelToolCallPart).args,
+					(part as ModelToolCallPart).input,
 				)})`;
 				break;
 			case 'tool-result':
-				text += JSON.stringify(part.result);
+				text += JSON.stringify(part.output);
 				break;
 			// image/file parts contribute no text
 		}
@@ -456,15 +455,15 @@ export interface LlmCallMessageSummaryPart {
 
 /**
  * Function signature for calculating LLM costs.
- * @param inputTokens - The number of input tokens used.
- * @param outputTokens - The number of output tokens generated.
+ * @param promptTokens - The number of input tokens used.
+ * @param completionTokens - The number of output tokens generated.
  * @param usage - Optional provider-specific usage metadata (e.g., cache info, search queries).
  * @param completionTime - Optional timestamp when the LLM call completed.
  * @returns An object containing the calculated inputCost, outputCost, and totalCost.
  */
 export type LlmCostFunction = (
-	inputTokens: number,
-	outputTokens: number,
+	promptTokens: number,
+	completionTokens: number,
 	usage?: any,
 	completionTime?: Date,
 	result?: GenerateTextResult<any, any>,

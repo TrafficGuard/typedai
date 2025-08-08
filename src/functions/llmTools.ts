@@ -46,11 +46,11 @@ export class LlmTools {
 		}
 
 		if (filePath.endsWith('.pdf') || filePath.endsWith('.docx') || filePath.endsWith('.doc') || filePath.endsWith('.txt') || filePath.endsWith('.md')) {
-			const mimeType = mime.lookup(filePath);
+			const mediaType = mime.lookup(filePath);
 			const msg: LlmMessage = {
 				role: 'user',
 				content: [
-					{ type: 'file', data: base64, mimeType },
+					{ type: 'file', data: base64, mediaType },
 					{ type: 'text', text: query },
 				],
 			};

@@ -3,9 +3,12 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 import type { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { provideFeedback, resumeCompleted, resumeError, resumeHil, startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import { AgentFeedback } from '#agent/autonomous/functions/agentFeedback';
+import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
+import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { appContext, initApplicationContext } from '#app/applicationContext';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
+import { FileSystemWrite } from '#functions/storage/fileSystemWrite';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import type { AgentContext } from '#shared/agent/agent.model';
@@ -17,6 +20,8 @@ export async function main(): Promise<void> {
 	registerErrorHandlers();
 	await initApplicationContext();
 	const llms = defaultLLMs();
+
+	// llms.hard = llms.medium;
 
 	const { initialPrompt, resumeAgentId, functionClasses } = parseProcessArgs();
 
@@ -35,7 +40,7 @@ export async function main(): Promise<void> {
 		functions = await resolveFunctionClasses(functionClasses);
 	} else {
 		// Default to FileSystemRead if no functions specified
-		functions = [FileSystemRead];
+		functions = [FileSystemTree, LiveFiles];
 	}
 	functions.push(AgentFeedback);
 	logger.info(`Available tools ${functions.map((f) => f.name).join(', ')}`);

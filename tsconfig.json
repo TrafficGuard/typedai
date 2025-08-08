@@ -35,7 +35,7 @@
       "#functions/*": ["./src/functions/*"],
       "#llm/*": ["./src/llm/*"],
       "#model/*": ["./src/model/*"],
-      "#mongo/*": ["src/modules/mongo/*"],
+      "#mongo/*": ["./src/modules/mongo/*"],
       "#cache/*": ["./src/cache/*"],
       "#modules/*": ["./src/modules/*"],
       "#o11y/*": ["./src/o11y/*"],

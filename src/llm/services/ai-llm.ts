@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { LanguageModelV1, ProviderV1 } from '@ai-sdk/provider';
+import type { LanguageModelV2, ProviderV2 } from '@ai-sdk/provider';
 import {
 	type FilePart as AiFilePart,
 	type ImagePart as AiImagePart,
@@ -78,7 +78,7 @@ function convertDataContentToString(content: string | URL | Uint8Array | ArrayBu
 /**
  * Base class for LLM implementations using the Vercel ai package
  */
-export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
+export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 	protected aiProvider: Provider | undefined;
 
 	constructor(
@@ -101,7 +101,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 		return Boolean(this.apiKey());
 	}
 
-	aiModel(): LanguageModelV1 {
+	aiModel(): LanguageModelV2 {
 		return this.provider().languageModel(this.getModel());
 	}
 
@@ -127,7 +127,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 							return {
 								type: 'image',
 								image: extPart.image, // string (URL or base64) is compatible with DataContent
-								mimeType: extPart.mimeType,
+								mediaType: extPart.mediaType,
 							} as AiImagePart;
 						}
 						if (part.type === 'file') {
@@ -135,7 +135,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 							return {
 								type: 'file',
 								data: extPart.data, // AiFilePart (from 'ai') expects 'data'
-								mimeType: extPart.mimeType,
+								mediaType: extPart.mediaType,
 							} as AiFilePart; // Use AiFilePart (alias for 'ai'.FilePart)
 						}
 						if (part.type === 'text') {
@@ -251,7 +251,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 					// presencePenalty: combinedOpts.presencePenalty,
 					stopSequences: combinedOpts.stopSequences,
 					maxRetries: combinedOpts.maxRetries,
-					maxTokens: combinedOpts.maxOutputTokens,
+					maxOutputTokens: combinedOpts.maxOutputTokens,
 					providerOptions,
 				});
 
@@ -259,8 +259,8 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				const finishTime = Date.now();
 
 				const { inputCost, outputCost, totalCost } = this.calculateCosts(
-					result.usage.promptTokens,
-					result.usage.completionTokens,
+					result.usage.inputTokens,
+					result.usage.outputTokens,
 					result.providerMetadata,
 					result.response.timestamp,
 					result,
@@ -269,7 +269,8 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 
 				if (result.finishReason === 'length') {
 					logger.info(
-						`LLM finished due to length. ${this.getId()} Output tokens: ${result.usage.completionTokens}. Opts Max Output Tokens: ${combinedOpts.maxOutputTokens}. LLM CallId ${llmCall.id}`,
+						{ opts: combinedOpts },
+						`LLM finished due to length. ${this.getId()} Output tokens: ${result.usage.outputTokens}. Opts Max Output Tokens: ${combinedOpts.maxOutputTokens}. LLM CallId ${llmCall.id}`,
 					);
 				}
 
@@ -280,16 +281,16 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 				llmCall.timeToFirstToken = finishTime - requestTime;
 				llmCall.totalTime = finishTime - requestTime;
 				llmCall.cost = cost;
-				llmCall.inputTokens = result.usage.promptTokens;
-				llmCall.outputTokens = result.usage.completionTokens;
+				llmCall.inputTokens = result.usage.inputTokens;
+				llmCall.outputTokens = result.usage.outputTokens;
 
 				addCost(cost);
 
 				const stats: GenerationStats = {
 					llmId: this.getId(),
 					cost,
-					inputTokens: result.usage.promptTokens,
-					outputTokens: result.usage.completionTokens,
+					inputTokens: result.usage.inputTokens,
+					outputTokens: result.usage.outputTokens,
 					requestTime,
 					timeToFirstToken: llmCall.timeToFirstToken,
 					totalTime: llmCall.totalTime,
@@ -316,7 +317,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 								type: 'tool-call',
 								toolCallId: content.toolCallId,
 								toolName: content.toolName,
-								args: content.args,
+								input: content.input,
 							});
 						}
 						// else if(content.type === 'file') {
@@ -413,7 +414,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 
 			const [usage, finishReason, metadata, response] = await Promise.all([result.usage, result.finishReason, result.providerMetadata, result.response]);
 			const finish = Date.now();
-			const { inputCost, outputCost, totalCost } = this.calculateCosts(usage.promptTokens, usage.completionTokens, metadata, new Date(finish));
+			const { inputCost, outputCost, totalCost } = this.calculateCosts(usage.inputTokens, usage.outputTokens, metadata, new Date(finish));
 
 			addCost(totalCost);
 
@@ -422,8 +423,8 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 			const stats: GenerationStats = {
 				llmId: this.getId(),
 				cost: totalCost,
-				inputTokens: usage.promptTokens,
-				outputTokens: usage.completionTokens,
+				inputTokens: usage.inputTokens,
+				outputTokens: usage.outputTokens,
 				totalTime: finish - requestTime,
 				timeToFirstToken: firstTokenTime - requestTime,
 				requestTime,
@@ -448,7 +449,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 						return {
 							type: 'image',
 							image: convertDataContentToString(aiImagePart.image),
-							mimeType: aiImagePart.mimeType,
+							mediaType: aiImagePart.mediaType,
 						} as ImagePartExt;
 					}
 					if (part.type === 'file') {
@@ -456,7 +457,7 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 						return {
 							type: 'file',
 							data: convertDataContentToString(aiFilePart.data), // Our FilePartExt uses 'data', ai.FilePart has 'data'
-							mimeType: aiFilePart.mimeType,
+							mediaType: aiFilePart.mediaType,
 						} as FilePartExt;
 					}
 					if (part.type === 'tool-call') {
@@ -487,8 +488,8 @@ export abstract class AiLLM<Provider extends ProviderV1> extends BaseLLM {
 			llmCall.messages = [...llmCall.messages, cloneAndTruncateBuffers(message)];
 
 			span.setAttributes({
-				inputTokens: usage.promptTokens,
-				outputTokens: usage.completionTokens,
+				inputTokens: usage.inputTokens,
+				outputTokens: usage.outputTokens,
 				inputCost,
 				outputCost,
 				totalCost,

@@ -47,7 +47,7 @@ describe('LLMs', () => {
 			role: 'user',
 			content: [
 				{ type: 'text', text: 'What type of animal is in this image?' },
-				{ type: 'image', image: elephantBase64, mimeType: 'image/jpeg' },
+				{ type: 'image', image: elephantBase64, mediaType: 'image/jpeg' },
 			],
 		},
 	];
@@ -57,7 +57,7 @@ describe('LLMs', () => {
 			role: 'user',
 			content: [
 				{ type: 'text', text: 'What is the content of this PDF file?' },
-				{ type: 'file', data: pdfBase64, mimeType: 'application/pdf' },
+				{ type: 'file', data: pdfBase64, mediaType: 'application/pdf' },
 			],
 		},
 	];

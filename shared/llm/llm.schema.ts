@@ -1,4 +1,4 @@
-import { LanguageModelV1Source } from '@ai-sdk/provider';
+import { LanguageModelV2Source } from '@ai-sdk/provider';
 import { type Static, Type } from '@sinclair/typebox';
 import type {
 	AssistantContent,
@@ -28,21 +28,34 @@ export const AttachmentInfoSchema = Type.Object({
 
 const ProviderOptionsOptionalSchema = Type.Optional(Type.Record(Type.String(), Type.Any()));
 
-const LanguageModelV1SourceSchema = Type.Object({
+const LanguageModelV2UrlSource = Type.Object({
+	type: Type.Literal('source'),
 	sourceType: Type.Literal('url'),
 	id: Type.String(),
 	url: Type.String(),
 	title: Type.Optional(Type.String()),
 	providerMetadata: Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.Any()))),
 });
-const _LanguageModelV1SourceCheck: AreTypesFullyCompatible<LanguageModelV1Source, Static<typeof LanguageModelV1SourceSchema>> = true;
+
+const LanguageModelV2DocumentSource = Type.Object({
+	type: Type.Literal('source'),
+	sourceType: Type.Literal('document'),
+	id: Type.String(),
+	mediaType: Type.String(),
+	title: Type.String(),
+	filename: Type.Optional(Type.String()),
+	providerMetadata: Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.Any()))),
+});
+
+const LanguageModelV2SourceSchema = Type.Union([LanguageModelV2UrlSource, LanguageModelV2DocumentSource]);
+const _LanguageModelV2SourceCheck: AreTypesFullyCompatible<LanguageModelV2Source, Static<typeof LanguageModelV2SourceSchema>> = true;
 
 // Basic Part Schemas
 export const TextPartSchema = Type.Object({
 	type: Type.Literal('text'),
 	text: Type.String(),
 	providerOptions: ProviderOptionsOptionalSchema,
-	sources: Type.Optional(Type.Array(LanguageModelV1SourceSchema)),
+	sources: Type.Optional(Type.Array(LanguageModelV2SourceSchema)),
 });
 const _TextPartCheck: AreTypesFullyCompatible<TextPartExt, Static<typeof TextPartSchema>> = true;
 
@@ -50,7 +63,7 @@ export const ImagePartExtSchema = Type.Intersect([
 	Type.Object({
 		type: Type.Literal('image'),
 		image: Type.String(),
-		mimeType: Type.Optional(Type.String()),
+		mediaType: Type.Optional(Type.String()),
 		providerOptions: ProviderOptionsOptionalSchema,
 	}),
 	AttachmentInfoSchema,
@@ -61,7 +74,7 @@ export const FilePartExtSchema = Type.Intersect([
 	Type.Object({
 		type: Type.Literal('file'),
 		data: Type.String(),
-		mimeType: Type.String(),
+		mediaType: Type.String(),
 		providerOptions: ProviderOptionsOptionalSchema,
 	}),
 	AttachmentInfoSchema,
@@ -73,7 +86,7 @@ export const ToolCallPartSchema = Type.Object(
 		type: Type.Literal('tool-call'),
 		toolCallId: Type.String(),
 		toolName: Type.String(),
-		args: Type.Unknown(),
+		input: Type.Unknown(),
 	},
 	{ $id: 'ToolCallPart' },
 );
@@ -106,14 +119,14 @@ export const ToolResultSchema = Type.Object(
 		type: Type.Literal('tool-result'),
 		toolCallId: Type.String(),
 		toolName: Type.String(),
-		result: Type.Any(),
+		output: Type.Any(),
 		isError: Type.Optional(Type.Boolean()),
 	},
 	{ $id: 'ToolResult' },
 );
 export const ToolContentSchema = Type.Array(ToolResultSchema, { $id: 'ToolContent' });
 // type ToolLlmContent = Extract<LlmMessage, { role: 'tool' }>['content'];
-// const _ToolContentCheck: AreTypesFullyCompatible<ToolContent, Static<typeof ToolContentSchema>> = true;
+const _ToolContentCheck: AreTypesFullyCompatible<ToolContent, Static<typeof ToolContentSchema>> = true;
 
 export const GenerationStatsSchema = Type.Object({
 	requestTime: Type.Number(),

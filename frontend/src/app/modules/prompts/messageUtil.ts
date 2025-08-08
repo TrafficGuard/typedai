@@ -15,7 +15,7 @@ export async function fileToAttachment(file: File): Promise<Attachment> {
 		filename: file.name,
 		size: file.size,
 		data: file,
-		mimeType: file.type,
+		mediaType: file.type,
 		previewUrl: undefined,
 	};
 
@@ -56,7 +56,7 @@ export function attachmentsAndTextToUserContentExt(attachments: Attachment[], te
 				type: 'image',
 				image: '', // Initialize required field
 				filename: attachment.filename,
-				mimeType: attachment.mimeType,
+				mediaType: attachment.mediaType,
 				size: attachment.size,
 				externalURL: undefined, // Initialize optional field
 			};
@@ -77,7 +77,7 @@ export function attachmentsAndTextToUserContentExt(attachments: Attachment[], te
 			const filePart: FilePartExt = {
 				type: 'file',
 				data: '', // Initialize required field (functionally problematic, but type-correct)
-				mimeType: attachment.mimeType || 'application/octet-stream', // Ensure required field is set
+				mediaType: attachment.mediaType || 'application/octet-stream', // Ensure required field is set
 				filename: attachment.filename,
 				size: attachment.size,
 				externalURL: undefined, // Initialize optional field
@@ -132,7 +132,7 @@ export function userContentExtToAttachmentsAndText(content: UserContentExt | und
 					type: 'image',
 					filename: imagePart.filename || 'image.png', // filename is optional in AttachmentInfo
 					size: imagePart.size || 0, // size is optional in AttachmentInfo
-					mimeType: imagePart.mimeType || 'image/png', // mimeType is optional in base ImagePart
+					mediaType: imagePart.mediaType || 'image/png', // mediaType is optional in base ImagePart
 					data: null,
 					previewUrl: undefined,
 				};
@@ -140,7 +140,7 @@ export function userContentExtToAttachmentsAndText(content: UserContentExt | und
 				// Prioritize imagePart.image for previewUrl if available
 				if (imagePart.image && imagePart.image.length > 0) {
 					// Check if not an empty string
-					attachment.previewUrl = `data:${imagePart.mimeType || 'image/png'};base64,${imagePart.image}`;
+					attachment.previewUrl = `data:${imagePart.mediaType || 'image/png'};base64,${imagePart.image}`;
 				} else if (imagePart.externalURL) {
 					attachment.previewUrl = imagePart.externalURL;
 				}
@@ -151,7 +151,7 @@ export function userContentExtToAttachmentsAndText(content: UserContentExt | und
 					type: 'file',
 					filename: filePart.filename || 'file', // filename is optional in AttachmentInfo
 					size: filePart.size || 0, // size is optional in AttachmentInfo
-					mimeType: filePart.mimeType, // mimeType is required in shared FilePartExt
+					mediaType: filePart.mediaType, // mediaType is required in shared FilePartExt
 					data: null,
 					previewUrl: filePart.externalURL, // externalURL is optional in AttachmentInfo
 				};

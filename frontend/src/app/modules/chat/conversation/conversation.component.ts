@@ -47,7 +47,6 @@ import { EMPTY, Observable, Subject, catchError, combineLatest, distinctUntilCha
 import { debounceTime } from 'rxjs/operators';
 import { v4 as uuidv4 } from 'uuid';
 import { LlmInfo, UserContentExt } from '#shared/llm/llm.model';
-import type { LanguageModelV1Source } from '@ai-sdk/provider';
 import { UserProfile } from '#shared/user/user.model';
 import { FuseConfirmationService } from '../../../../@fuse/services/confirmation';
 import { LlmService } from '../../llm.service';

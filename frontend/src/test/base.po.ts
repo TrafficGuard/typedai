@@ -95,10 +95,7 @@ export abstract class BaseSpecPo<T> {
 	 */
 	harness<H extends ComponentHarness>(harnessType: ComponentHarnessConstructor<H>, options?: BaseHarnessFilters): Promise<H>;
 	harness<H extends ComponentHarness>(harnessType: HarnessPredicate<H>): Promise<H>;
-	harness<H extends ComponentHarness>(
-		harnessType: ComponentHarnessConstructor<H> | HarnessPredicate<H>,
-		options?: BaseHarnessFilters,
-	): Promise<H> {
+	harness<H extends ComponentHarness>(harnessType: ComponentHarnessConstructor<H> | HarnessPredicate<H>, options?: BaseHarnessFilters): Promise<H> {
 		if (typeof harnessType === 'function') {
 			// It's a constructor
 			const ctor = harnessType as ComponentHarnessConstructor<H> & {

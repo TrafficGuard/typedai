@@ -1,10 +1,7 @@
 import { type GoogleVertexProvider, createVertex } from '@ai-sdk/google-vertex';
 import { HarmBlockThreshold, HarmCategory, type SafetySetting } from '@google-cloud/vertexai';
-import { type GenerateTextResult, LanguageModelResponseMetadata } from 'ai';
-import axios from 'axios';
 import { fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
-import { countTokens, countTokensSync } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { type GenerateTextOptions, type LLM, LlmCostFunction, combinePrompts } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
@@ -138,7 +135,7 @@ class VertexLLM extends AiLLM<GoogleVertexProvider> {
 			project = currentUser()?.llmConfig.vertexProjectId || project || envVar('GCLOUD_PROJECT');
 		}
 
-		console.log(`Configuring vertex provider with ${project}`);
+		// console.log(`Configuring vertex provider with ${project}`);
 		let location = currentUser()?.llmConfig.vertexRegion || envVar('GCLOUD_REGION');
 		// Currently a note at https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash-lite states that the model is only available in global location
 		if (this.getId().includes('gemini-2.5-flash-lite')) {
@@ -179,19 +176,19 @@ const SAFETY_SETTINGS: SafetySetting[] = [
 //       model: this.imageToTextModel,
 //     }) as GenerativeModel;
 //
-//     let filePart: { fileData?: { fileUri: string; mimeType: string }; inlineData?: { data: string; mimeType: string } };
+//     let filePart: { fileData?: { fileUri: string; mediaType: string }; inlineData?: { data: string; mediaType: string } };
 //     if (typeof urlOrBytes === 'string') {
 //       filePart = {
 //         fileData: {
 //           fileUri: urlOrBytes,
-//           mimeType: 'image/jpeg', // Adjust mime type if needed
+//           mediaType: 'image/jpeg', // Adjust mime type if needed
 //         },
 //       };
 //     } else if (Buffer.isBuffer(urlOrBytes)) {
 //       filePart = {
 //         inlineData: {
 //           data: urlOrBytes.toString('base64'),
-//           mimeType: 'image/jpeg', // Adjust mime type if needed
+//           mediaType: 'image/jpeg', // Adjust mime type if needed
 //         },
 //       };
 //     } else {

@@ -20,7 +20,7 @@ export interface ImageSource {
 	 */
 	value: string | Buffer | Uint8Array | object; // Type needs to be broad
 	filename?: string; // for filestore or buffer (optional)
-	mimeType?: string; // optional hint
+	mediaType?: string; // optional hint
 }
 
 /**
@@ -46,7 +46,7 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 			let base64: string;
 			let imageData: Buffer | undefined;
 			let filename: string | undefined;
-			let mimeType: string | undefined;
+			let mediaType: string | undefined;
 			let size: number | undefined;
 
 			logger.info(`Detected image request in script result key '${key}': source=${request.source}`);
@@ -131,20 +131,20 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 							logger.warn(`value for ${sourceDescription} is not a recognized format (Object, Buffer, Uint8Array, PyodideProxy). Type: ${typeof bufferData}`);
 						}
 
-						// 4. If imageData was successfully created (from any method above), process filename/mimeType
+						// 4. If imageData was successfully created (from any method above), process filename/mediaType
 						if (imageData) {
 							filename = typeof request.filename === 'string' ? request.filename : `screenshot_${Date.now()}.png`;
-							mimeType = typeof request.mimeType === 'string' ? request.mimeType : getMimeType(filename) || 'image/png'; // Default to png
+							mediaType = typeof request.mediaType === 'string' ? request.mediaType : getMimeType(filename) || 'image/png'; // Default to png
 							size = imageData.length;
 
 							imageParts.push({
 								type: 'image',
 								image: imageData.toString('base64'), // Convert Buffer to base64 string
-								mimeType: mimeType,
+								mediaType: mediaType,
 								filename: filename,
 								size: size,
 							});
-							logger.info(`Successfully processed image for key '${key}' (filename: ${filename}, size: ${size}, mime: ${mimeType})`);
+							logger.info(`Successfully processed image for key '${key}' (filename: ${filename}, size: ${size}, mime: ${mediaType})`);
 							// Remove the processed image request object from the result
 							delete result[key];
 						} else {
@@ -162,7 +162,7 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 							if (!fullPath.startsWith(agentStorageDir())) throw new Error(`Filesystem path "${request.value}" is outside the allowed agent directory.`);
 							imageData = await fsPromises.readFile(fullPath);
 							filename = path.basename(fullPath);
-							mimeType = getMimeType(filename);
+							mediaType = getMimeType(filename);
 							size = imageData.length;
 						} else {
 							logger.warn(`Filesystem image request for key '${key}' is missing or has invalid 'path'.`);
@@ -174,7 +174,7 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 							const fileContent = await fileStore.getFile(request.filename);
 							imageData = Buffer.isBuffer(fileContent) ? fileContent : Buffer.from(fileContent);
 							filename = request.filename;
-							mimeType = getMimeType(filename);
+							mediaType = getMimeType(filename);
 							size = imageData.length;
 						} else {
 							logger.warn(`FileStore image request for key '${key}' is missing 'filename' or FileStore instance is not available.`);
@@ -194,7 +194,7 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 					// 		// Use provided filename or generate one
 					// 		filename = typeof request.filename === 'string' ? request.filename : `buffer_image_${Date.now()}.bin`;
 					// 		// Try to infer mime type if provided, otherwise use filename, then default
-					// 		mimeType = typeof request.mimeType === 'string' ? request.mimeType : getMimeType(filename);
+					// 		mediaType = typeof request.mediaType === 'string' ? request.mediaType : getMimeType(filename);
 					// 		size = imageData.length;
 					// 	} else {
 					// 		logger.warn(`Buffer image request for key '${key}' is missing 'data' or data is not a Buffer/Uint8Array.`);
@@ -214,7 +214,7 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 							} catch {
 								filename = `web_image_${Date.now()}`; // Fallback filename if URL parsing fails
 							}
-							mimeType = response.headers.get('content-type') || getMimeType(filename);
+							mediaType = response.headers.get('content-type') || getMimeType(filename);
 							size = imageData.byteLength;
 						} else {
 							logger.warn(`Web image request for key '${key}' is missing or has invalid 'url'.`);
@@ -230,15 +230,15 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 						logger.warn(`Unknown image source '${(request as any).source}' for key '${key}'.`);
 				}
 
-				if (imageData && filename && mimeType && size !== undefined) {
+				if (imageData && filename && mediaType && size !== undefined) {
 					imageParts.push({
 						type: 'image',
 						image: base64 ?? imageData.toString('base64'), // Convert Buffer to base64 string
-						mimeType: mimeType,
+						mediaType: mediaType,
 						filename: filename,
 						size: size,
 					});
-					logger.info(`Successfully processed image for key '${key}' (filename: ${filename}, size: ${size}, mime: ${mimeType})`);
+					logger.info(`Successfully processed image for key '${key}' (filename: ${filename}, size: ${size}, mime: ${mediaType})`);
 					// Remove the processed image request object from the result
 					delete result[key];
 				}

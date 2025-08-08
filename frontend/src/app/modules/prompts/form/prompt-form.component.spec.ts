@@ -329,7 +329,7 @@ xdescribe('PromptFormComponent', () => {
 		});
 
 		it('should correctly populate message content with placeholder for ImagePartExt', async () => {
-			const contentArray: ImagePartExt[] = [{ type: 'image', image: 'base64data', mimeType: 'image/png', filename: 'test.png' }];
+			const contentArray: ImagePartExt[] = [{ type: 'image', image: 'base64data', mediaType: 'image/png', filename: 'test.png' }];
 			const testPrompt = createBasePrompt('ImagePart Filename Test', [{ role: 'user', content: contentArray as UserContentExt }]);
 			await setupWithPrompt(testPrompt);
 			const panel = await po.getMessagePanel(0);
@@ -337,7 +337,7 @@ xdescribe('PromptFormComponent', () => {
 		});
 
 		it('should correctly populate message content with placeholder for FilePartExt', async () => {
-			const contentArray: FilePartExt[] = [{ type: 'file', data: 'base64data', mimeType: 'application/pdf', filename: 'document.pdf' }];
+			const contentArray: FilePartExt[] = [{ type: 'file', data: 'base64data', mediaType: 'application/pdf', filename: 'document.pdf' }];
 			const testPrompt = createBasePrompt('FilePart Filename Test', [{ role: 'user', content: contentArray as UserContentExt }]);
 			await setupWithPrompt(testPrompt);
 			const panel = await po.getMessagePanel(0);
@@ -347,9 +347,9 @@ xdescribe('PromptFormComponent', () => {
 		it('should correctly populate message content with mixed parts (text, image, file)', async () => {
 			const mixedContent: UserContentExt = [
 				{ type: 'text', text: 'Here is an image:' },
-				{ type: 'image', image: 'img_data', mimeType: 'image/gif', filename: 'anim.gif' },
+				{ type: 'image', image: 'img_data', mediaType: 'image/gif', filename: 'anim.gif' },
 				{ type: 'text', text: 'And a file:' },
-				{ type: 'file', data: 'file_data', mimeType: 'application/zip', filename: 'archive.zip' },
+				{ type: 'file', data: 'file_data', mediaType: 'application/zip', filename: 'archive.zip' },
 			];
 			const testPrompt = createBasePrompt('Mixed Parts Test', [{ role: 'user', content: mixedContent }]);
 			await setupWithPrompt(testPrompt);

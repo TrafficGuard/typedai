@@ -27,7 +27,7 @@ import {
 	// ServerChat is effectively ApiChatModel now
 } from 'app/modules/chat/chat.types';
 import { Attachment, TextContent } from 'app/modules/message.types';
-import { LanguageModelV1Source } from '@ai-sdk/provider';
+import { LanguageModelV2Source } from '@ai-sdk/provider';
 
 // Helper function to convert File to base64 string (extracting only the data part)
 async function fileToBase64(file: File): Promise<string> {
@@ -66,7 +66,7 @@ async function prepareUserContentPayload(
 				contentParts.push({
 					type: 'image',
 					image: base64Data,
-					mimeType: attachment.mimeType,
+					mediaType: attachment.mediaType,
 					filename: attachment.filename,
 					size: attachment.size,
 				});
@@ -75,7 +75,7 @@ async function prepareUserContentPayload(
 				contentParts.push({
 					type: 'file',
 					data: base64Data,
-					mimeType: attachment.mimeType,
+					mediaType: attachment.mediaType,
 					filename: attachment.filename,
 					size: attachment.size,
 				});
@@ -94,7 +94,7 @@ async function prepareUserContentPayload(
 			// Represent audio as a generic file part
 			type: 'file',
 			data: base64Data,
-			mimeType: audioBlob.type,
+			mediaType: audioBlob.type,
 			filename: audioFileName,
 			size: audioBlob.size,
 		});
@@ -782,7 +782,7 @@ export function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 	const sourceApiContent = apiLlmMessage.content; // This is CoreContent from 'ai' (via shared/model/llm.model LlmMessage type)
 	let chatMessageSpecificContent: UserContentExt | AssistantContentExt; // Target type for ChatMessage.content
 
-	let sources: LanguageModelV1Source[] | undefined;
+	let sources: LanguageModelV2Source[] | undefined;
 
 	if (typeof sourceApiContent === 'string') {
 		chatMessageSpecificContent = sourceApiContent;
@@ -811,7 +811,7 @@ export function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 					const imgExtPart: ImagePartExt = {
 						type: 'image',
 						image: imageValue, // Use the processed value
-						mimeType: apiImgPart.mimeType,
+						mediaType: apiImgPart.mediaType,
 						filename: (apiImgPart as any).filename || 'image.png', // Backend should provide these if available
 						size: (apiImgPart as any).size || 0,
 						externalURL: (apiImgPart as any).externalURL,
@@ -832,7 +832,7 @@ export function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 					const fileExtPart: FilePartExt = {
 						type: 'file',
 						data: dataValue, // Use the processed value
-						mimeType: apiFilePart.mimeType,
+						mediaType: apiFilePart.mediaType,
 						filename: (apiFilePart as any).filename || 'file.bin', // Backend should provide these
 						size: (apiFilePart as any).size || 0,
 						externalURL: (apiFilePart as any).externalURL,

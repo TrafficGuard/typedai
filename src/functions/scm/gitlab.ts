@@ -1,4 +1,4 @@
-import type { EventSchema, Gitlab, JobSchema, UserSchema } from '@gitbeaker/core';
+import type { EventSchema, Gitlab, JobSchema, SimpleProjectSchema, SimpleUserSchema } from '@gitbeaker/core';
 import {
 	type CommitDiffSchema,
 	type CreateMergeRequestOptions,
@@ -123,7 +123,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 	@cacheRetry({ scope: 'user', ttlSeconds: 60 })
 	@func()
 	async getProjects(): Promise<GitProject[]> {
-		const allRawProjects: ProjectSchema[] = [];
+		const allRawProjects: SimpleProjectSchema[] = [];
 		const topLevelGroups = this.config().topLevelGroups;
 		logger.info(`Fetching projects for top-level groups: ${topLevelGroups.join(', ')}`);
 
@@ -134,7 +134,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 				this.api().Groups.allProjects(group, {
 					orderBy: 'name',
 					perPage: 500, // Keep original limit check logic
-				}) as Promise<ProjectSchema[]>,
+				}) as Promise<SimpleProjectSchema[]>,
 				this.api().Groups.allDescendantGroups(group, {}) as Promise<any[]>, // Use 'any' or a more specific type if available from Gitbeaker
 			]);
 
@@ -170,7 +170,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 		const pageSize = 100; // Keep original limit check logic
 		const descendantPromises = filteredDescendantGroups.map(async (descendantGroup) => {
 			logger.info(`Initiating fetch for descendant group: ${descendantGroup.full_path}`);
-			const projects: ProjectSchema[] = await this.api().Groups.allProjects(descendantGroup.id, {
+			const projects: SimpleProjectSchema[] = await this.api().Groups.allProjects(descendantGroup.id, {
 				orderBy: 'name',
 				perPage: pageSize,
 			});
@@ -208,7 +208,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 		return this.convertGitLabToGitProject(project);
 	}
 
-	private convertGitLabToGitProject(project: ProjectSchema): GitProject {
+	private convertGitLabToGitProject(project: SimpleProjectSchema): GitProject {
 		if (!project.default_branch) logger.warn(`Defaulting ${project.name} default branch to main`);
 		return {
 			id: project.id,
@@ -217,8 +217,8 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 			fullPath: `${project.namespace.full_path}/${project.path}`,
 			description: project.description,
 			defaultBranch: project.default_branch,
-			visibility: project.visibility,
-			archived: project.archived || false,
+			// visibility: project.visibility,
+			// archived: project.archived || false,
 			type: 'gitlab',
 			host: this.config().host,
 			extra: { ciConfigPath: project.ci_config_path },
@@ -258,12 +258,17 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 
 		// Get user details for assigning the MR
 		const email = currentUser().email;
-		const userResult: UserSchema | UserSchema[] = await this.api().Users.all({ search: email });
-		let user: UserSchema | undefined;
-		if (!Array.isArray(userResult)) user = userResult;
-		else if (Array.isArray(userResult) && userResult.length === 1) user = userResult[0];
+		const userResult: SimpleUserSchema[] = await this.api().Users.all({ search: email });
+		let user: SimpleUserSchema | undefined;
+		if (userResult.length === 1) user = userResult[0];
 
-		const options: CreateMergeRequestOptions = { description, squash: true, removeSourceBranch: true, assigneeId: user?.id, reviewerId: user?.id };
+		const options: CreateMergeRequestOptions = {
+			description,
+			squash: true,
+			removeSourceBranch: true,
+			assigneeId: user?.id,
+			reviewerIds: user ? [user.id] : [],
+		};
 		const mr: ExpandedMergeRequestSchema = await this.api().MergeRequests.create(projectId, sourceBranch, targetBranch, title, options);
 
 		return {
@@ -419,6 +424,38 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 		}
 	}
 
+	// 	/**
+	// 	 *
+	// 	 * @param from The start of the time range to get events for
+	// 	 * @param to The end of the time range to get events for
+	// 	 * @returns the activity for the user on the given day
+	// 	 */
+	// 	async getUserActivity(day: Date): Promise<EventSchema[]> {
+	// 		console.log(`getUserActivity ${day}`)
+	// 		const user = await this.api().Users.showCurrentUser();
+	// console.log(user)
+	// 		// midnight UTC of the requested local day
+	// 		const startUTC = new Date(Date.UTC(day.getFullYear(),
+	// 											day.getMonth(),
+	// 											day.getDate() - 1));          // 2025-07-22T00:00:00Z
+	// 		const endUTC   = new Date(startUTC.getTime() + 86_400_000);   // +1 day
+
+	// 		const after  = yyyymmddUTC(startUTC);   // 2025-07-22
+	// 		const before = yyyymmddUTC(endUTC);     // 2025-07-23
+
+	// 		console.log('gitlab', after, before);   // now prints 2025-07-22 2025-07-23
+	// 		console.log(startUTC.toISOString(), endUTC.toISOString());
+	// 		// const activity = await this.api().Users.allEvents(user.id, { after: startUTC.toISOString(), before: endUTC.toISOString() });
+	// 		// const aiAcitivity = await this.api().Users.allEvents(67, { after, before, scope: 'all' });
+	// 		const userAcitivity = await this.api().Users.allEvents(10, { after: '2025-02-01', before: '2025-02-30', scope: 'all' });
+	// 		// console.log(userAcitivity);
+
+	// 		// await this.api().Events.all({ after: '2024-07-01', before: '2024-07-30', scope: 'all' });
+	// 		// const activity = await this.api().Users.allEvents(user.id, { after: '2025-06-20', before: '2025-07-23' });
+
+	// 		return [...userAcitivity];
+	// 	}
+
 	/**
 	 * @see https://docs.gitlab.com/api/events/#get-contribution-events-for-a-user
 	 * @param date The day to get activity for.
@@ -438,10 +475,41 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 		const activity = await this.api().Users.allEvents(user.id, { after: startOfDay.toISOString(), before: endOfDay.toISOString() });
 		return activity;
 	}
+
+	/**
+	// async getUserActivity2(day: Date): Promise<EventSchema[]> {
+	// 	const user = await this.api().Users.showCurrentUser();
+
+	// 	// 00:00-24:00 UTC of the required calendar day
+	// 	const after = new Date(Date.UTC(day.getFullYear(), day.getMonth(), day.getDate())).toISOString(); // 2025-07-22T00:00:00Z
+	// 	const before = new Date(Date.UTC(day.getFullYear(), day.getMonth(), day.getDate() + 1)).toISOString(); // 2025-07-23T00:00:00Z
+
+	// 	console.log(day);
+	// 	console.log(after);
+	// 	console.log(before);
+	// 	return this.api().Users.allEvents(user.id, {
+	// 		after,
+	// 		before,
+	// 		scope: 'all', // <- include both “created” and “authored”
+	// 		perPage: 100, // optional, raises the page size
+	// 	});
+	// }
+
 	/**
 	 * Returns the type of this SCM provider.
 	 */
 	getScmType(): 'gitlab' {
 		return 'gitlab';
 	}
+}
+
+/**
+ * Convert any Date to a YYYY-MM-DD string representing the same day
+ * in UTC, regardless of the machine’s local time-zone.
+ */
+function yyyymmddUTC(date: Date): string {
+	const y = date.getUTCFullYear();
+	const m = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+	const d = date.getUTCDate().toString().padStart(2, '0');
+	return `${y}-${m}-${d}`;
 }

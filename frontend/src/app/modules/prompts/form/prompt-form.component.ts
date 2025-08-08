@@ -171,7 +171,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 			return part.image;
 		}
 		// Otherwise, construct a data URL from base64 data and mime type.
-		return `data:${part.mimeType || 'image/jpeg'};base64,${part.image}`;
+		return `data:${part.mediaType || 'image/jpeg'};base64,${part.image}`;
 	}
 
 	ngOnInit(): void {
@@ -430,11 +430,11 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 					}
 					if (part.type === 'image') {
 						const imagePart = part as ImagePartExt;
-						return `[Image: ${imagePart.filename || imagePart.mimeType || 'image'}]`;
+						return `[Image: ${imagePart.filename || imagePart.mediaType || 'image'}]`;
 					}
 					if (part.type === 'file') {
 						const filePart = part as FilePartExt;
-						return `[File: ${filePart.filename || filePart.mimeType || 'file'}]`;
+						return `[File: ${filePart.filename || filePart.mediaType || 'file'}]`;
 					}
 					// Fallback for any other part types that might appear in UserContentExt if extended
 					// Safely access .type, provide a default if it's not a known structure

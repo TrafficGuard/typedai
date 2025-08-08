@@ -1,12 +1,12 @@
 import { GenerationStats } from '#shared/llm/llm.model';
-import { LanguageModelV1Source } from '@ai-sdk/provider';
+import { LanguageModelV2Source } from '@ai-sdk/provider';
 
 export interface Attachment {
 	type: 'file' | 'image';
 	filename: string;
 	size: number;
 	data: File | null;
-	mimeType: string;
+	mediaType: string;
 	previewUrl?: string;
 }
 
@@ -26,5 +26,5 @@ export interface UIMessage {
 	imageAttachments?: Attachment[];
 	stats?: GenerationStats;
 	textChunks?: Array<{ type: 'text' | 'markdown'; value: string }>;
-	sources?: LanguageModelV1Source[];
+	sources?: LanguageModelV2Source[];
 }

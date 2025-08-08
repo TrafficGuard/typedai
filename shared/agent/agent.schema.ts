@@ -54,7 +54,7 @@ const FunctionCallResultSchema = Type.Intersect([
 const ImagePartExtSchema = Type.Object({
 	type: Type.Literal('image'),
 	image: Type.String(), // In ImagePartUI, 'image' is string
-	mimeType: Type.Optional(Type.String()),
+	mediaType: Type.Optional(Type.String()),
 	filename: Type.Optional(Type.String()),
 	size: Type.Optional(Type.Number()),
 	externalURL: Type.Optional(Type.String()),

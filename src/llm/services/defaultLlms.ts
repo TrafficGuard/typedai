@@ -39,7 +39,7 @@ export function defaultLLMs(): AgentLLMs {
 	const medium: LLM | undefined = mediumLLMs.find((llm) => llm.isConfigured());
 	if (!medium) throw new Error('No default medium LLM configured');
 
-	const hardLLMs = [vertexGemini_2_5_Pro(), Gemini_2_5_Pro(), xai_Grok4(), openaiGPT5(), anthropicClaude4_Sonnet()];
+	const hardLLMs = [openaiGPT5(), vertexGemini_2_5_Pro(), Gemini_2_5_Pro(), xai_Grok4(), anthropicClaude4_Sonnet()];
 	const hard: LLM | undefined = hardLLMs.find((llm) => llm.isConfigured());
 	if (!hard) throw new Error('No default hard LLM configured');
 

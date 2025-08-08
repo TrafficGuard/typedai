@@ -1,4 +1,5 @@
 ##!/usr/bin/bash
+npm run lint:ci && npm run build
 #
 #echo "🔍 Running pre-commit linting..."
 #

@@ -1,6 +1,6 @@
 import { Attachment } from 'app/modules/message.types';
 import { AssistantContentExt, FilePartExt, ImagePartExt, TextPart, UserContentExt, TextPartExt } from '#shared/llm/llm.model';
-import type { LanguageModelV1Source } from '@ai-sdk/provider';
+import type { LanguageModelV2Source } from '@ai-sdk/provider';
 
 // Helper function to convert File to base64 string (extracting only the data part)
 async function fileToBase64(file: File): Promise<string> {
@@ -31,7 +31,7 @@ export async function fileToAttachment(file: File): Promise<Attachment> {
 		filename: file.name,
 		size: file.size,
 		data: file,
-		mimeType: file.type,
+		mediaType: file.type,
 		previewUrl: undefined,
 	};
 
@@ -72,7 +72,7 @@ export async function attachmentsAndTextToUserContentExt(attachments: Attachment
 			const imagePart: ImagePartExt = {
 				type: 'image',
 				image: imageBase64, // Required: base64 string
-				mimeType: attachment.mimeType, // Optional in shared ImagePart, but good to provide
+				mediaType: attachment.mediaType, // Optional in shared ImagePart, but good to provide
 				filename: attachment.filename,
 				size: attachment.size,
 				externalURL: attachment.previewUrl && !attachment.previewUrl.startsWith('data:') ? attachment.previewUrl : undefined,
@@ -83,7 +83,7 @@ export async function attachmentsAndTextToUserContentExt(attachments: Attachment
 			const filePart: FilePartExt = {
 				type: 'file',
 				data: fileBase64, // Required: base64 string
-				mimeType: attachment.mimeType, // Required
+				mediaType: attachment.mediaType, // Required
 				filename: attachment.filename,
 				size: attachment.size,
 				externalURL: attachment.previewUrl && !attachment.previewUrl.startsWith('data:') ? attachment.previewUrl : undefined,
@@ -109,7 +109,7 @@ export async function attachmentsAndTextToUserContentExt(attachments: Attachment
  * @returns An object containing an array of Attachments, a text string, reasoning, and sources.
  */
 export function userContentExtToAttachmentsAndText(
-	content: UserContentExt | AssistantContentExt | undefined, sources: LanguageModelV1Source[] = []
+	content: UserContentExt | AssistantContentExt | undefined, sources: LanguageModelV2Source[] = []
 ): { attachments: Attachment[]; text: string; reasoning: string } {
 	let text = '';
 	let reasoning = '';
@@ -142,12 +142,12 @@ export function userContentExtToAttachmentsAndText(
 					type: 'image',
 					filename: imagePart.filename || 'image.png',
 					size: imagePart.size || 0,
-					mimeType: imagePart.mimeType || 'image/png',
+					mediaType: imagePart.mediaType || 'image/png',
 					data: null, // Data is not typically reconstructed from UserContentExt
 					previewUrl: undefined,
 				};
 				if (imagePart.image) {
-					attachment.previewUrl = `data:${imagePart.mimeType || 'image/png'};base64,${imagePart.image}`;
+					attachment.previewUrl = `data:${imagePart.mediaType || 'image/png'};base64,${imagePart.image}`;
 				} else if (imagePart.externalURL) {
 					attachment.previewUrl = imagePart.externalURL;
 				}
@@ -158,7 +158,7 @@ export function userContentExtToAttachmentsAndText(
 					type: 'file',
 					filename: filePart.filename || 'file',
 					size: filePart.size || 0,
-					mimeType: filePart.mimeType || 'application/octet-stream',
+					mediaType: filePart.mediaType || 'application/octet-stream',
 					data: null, // Data is not typically reconstructed from UserContentExt
 					previewUrl: filePart.externalURL,
 				};
@@ -171,7 +171,7 @@ export function userContentExtToAttachmentsAndText(
 }
 
 
-function linkCitations(text: string, sources: LanguageModelV1Source[]): string {
+function linkCitations(text: string, sources: LanguageModelV2Source[]): string {
 	if (sources?.length > 0) {
 		// Replace citations in the text, using a running total for numbering
 		sources.forEach((source, index) => {	
@@ -179,9 +179,11 @@ function linkCitations(text: string, sources: LanguageModelV1Source[]): string {
 			// Regex to find the original citation tag, e.g., [1]
 			const originalCitationTagRegex = new RegExp(`\\\[${originalCitationNumber}\\\]`, 'g');
 			// The new markdown link with the re-numbered citation
-			const newCitationLink = `[[${index + 1}]](${source.url})`;
-			console.log('updating citation', originalCitationTagRegex, newCitationLink);
-			text = text.replace(originalCitationTagRegex, newCitationLink);
+			if(source.sourceType === 'url') {
+				const newCitationLink = `[[${index + 1}]](${source.url})`;
+				console.log('updating citation', originalCitationTagRegex, newCitationLink);
+				text = text.replace(originalCitationTagRegex, newCitationLink);
+			}
 		});
 	}
 	return text;

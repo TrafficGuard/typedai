@@ -195,6 +195,7 @@ async function findUpwards(startDir: string, file: string, fss: IFileSystemServi
  * Invalid files are renamed to avoid re-parsing them in a loop.
  */
 export async function getProjectInfos(autoDetect = true): Promise<ProjectInfo[] | null> {
+	if (autoDetect) console.log(new Error('getProjectInfos autoDetect'));
 	logger.debug('Starting project detection process.');
 	const fss = getFileSystem();
 	// Always access the file relative to the current working directory
@@ -274,6 +275,7 @@ export async function getProjectInfos(autoDetect = true): Promise<ProjectInfo[] 
 }
 
 export async function getProjectInfo(autoDetect = false): Promise<ProjectInfo | null> {
+	console.log(new Error(`getProjectInfo ${autoDetect}`));
 	const infos = await getProjectInfos(autoDetect); // This is now the robust version
 
 	if (!infos || infos.length === 0) {

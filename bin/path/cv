@@ -1,0 +1,50 @@
+#!/bin/bash
+set -e
+
+# Claude Code using Vertex AI configured from your local TypedAI configuration
+
+# `source ./variables/local.env` relative to this script file location
+source $(dirname "$0")/../../variables/local.env
+
+if [ -z "$GCLOUD_PROJECT" ]; then
+	echo "Error: GCLOUD_PROJECT is not set in your $TYPEDAI_HOME/variables/local.env file."
+	exit 1
+fi
+if [ -z "$GCLOUD_REGION" ]; then
+	echo "Error: GCLOUD_REGION is not set in your $TYPEDAI_HOME/variables/local.env file."
+	exit 1
+fi
+
+export CLAUDE_CODE_USE_VERTEX=1
+export ANTHROPIC_VERTEX_PROJECT_ID=$GCLOUD_PROJECT
+export CLOUD_ML_REGION=global
+
+# If claude isn't installed, install it with npm install -g @anthropic-ai/claude-code
+if ! command -v claude &> /dev/null; then
+	# Ask the user to confirm to install with Y being the default answer
+	read -p "Claude is not installed. Do you want to install it? [Y/n] " -n 1 -r
+	if [[ $REPLY =~ ^[Yy]$ ]]; then
+		npm install -g @anthropic-ai/claude-code
+	else
+		echo "Claude is not installed. Please install it manually and try again."
+		exit 1
+	fi
+fi
+
+echo "Configured Claude Code with ANTHROPIC_VERTEX_PROJECT_ID: $GCLOUD_PROJECT and CLOUD_ML_REGION: $CLOUD_ML_REGION"
+
+
+# If PROXY_PORT is set then check if the proxy server is running, if not start it with `ai ccproxy`
+# if [ -n "$PROXY_PORT" ]; then
+# 	if ! lsof -i :$PROXY_PORT &> /dev/null; then
+# 		echo "Starting proxy server on port $PROXY_PORT"
+# 		ai ccproxy &
+# 	fi
+# 	echo "Configured proxy server with HTTPS_PROXY: https://localhost:$PROXY_PORT and HTTP_PROXY: http://localhost:$PROXY_PORT"
+# 	# HTTPS proxy (recommended)
+# 	export HTTPS_PROXY=https://localhost:$PROXY_PORT
+# 	# HTTP proxy (if HTTPS not available)
+# 	export HTTP_PROXY=http://localhost:$PROXY_PORT
+# fi
+
+claude

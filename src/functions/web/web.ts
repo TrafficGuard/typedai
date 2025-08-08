@@ -1,5 +1,5 @@
 import path, { join } from 'node:path';
-import { PuppeteerBlocker } from '@cliqz/adblocker-puppeteer';
+import { PuppeteerBlocker } from '@ghostery/adblocker-puppeteer';
 import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
 import { agentContextStorage, getFileSystem, llms } from '#agent/agentContextLocalStorage';

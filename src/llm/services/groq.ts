@@ -1,8 +1,9 @@
 import { type GroqProvider, createGroq } from '@ai-sdk/groq';
-import { LanguageModelV1, extractReasoningMiddleware, wrapLanguageModel } from 'ai';
+import { LanguageModelV2 } from '@ai-sdk/provider';
+import { extractReasoningMiddleware, wrapLanguageModel } from 'ai';
 import { fixedCostPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
-import type { GenerateTextOptions, LLM, LlmCostFunction, LlmMessage } from '#shared/llm/llm.model';
+import type { LLM, LlmCostFunction } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 
 export const GROQ_SERVICE = 'groq';
@@ -47,7 +48,7 @@ export class GroqLLM extends AiLLM<GroqProvider> {
 		super(displayName, GROQ_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
-	aiModel(): LanguageModelV1 {
+	aiModel(): LanguageModelV2 {
 		const aiModel = super.aiModel();
 		if (this.getModel().includes('qwen3-32b')) {
 			return wrapLanguageModel({

@@ -15,26 +15,8 @@ export function openAiLLMRegistry(): Record<string, () => LLM> {
 }
 
 // https://sdk.vercel.ai/providers/ai-sdk-providers/openai#prompt-caching
-function openAICostFunction(inputMil: number, outputMil: number): LlmCostFunction {
-	return (inputTokens: number, outputTokens: number, usage: any) => {
-		const metadata = usage as { openai?: { cachedPromptTokens?: number } };
-		const cachedPromptTokens = metadata?.openai?.cachedPromptTokens ?? 0;
-		let inputCost: number;
-		if (cachedPromptTokens > 0) {
-			inputCost = ((inputTokens - cachedPromptTokens) * inputMil) / 1_000_000 + (cachedPromptTokens * inputMil) / 4 / 1_000_000;
-		} else {
-			inputCost = (inputTokens * inputMil) / 1_000_000;
-		}
-		const outputCost = (outputTokens * outputMil) / 1_000_000;
-		return {
-			inputCost,
-			outputCost,
-			totalCost: inputCost + outputCost,
-		};
-	};
-}
 
-function gpt5CostFunction(inputMil: number, outputMil: number): LlmCostFunction {
+function openAICostFunction(inputMil: number, outputMil: number): LlmCostFunction {
 	return (inputTokens: number, outputTokens: number, usage: any) => {
 		const metadata = usage as { openai?: { cachedPromptTokens?: number } };
 		const cachedPromptTokens = metadata?.openai?.cachedPromptTokens ?? 0;
@@ -54,19 +36,19 @@ function gpt5CostFunction(inputMil: number, outputMil: number): LlmCostFunction 
 }
 
 export function openaiGPT5(): LLM {
-	return new OpenAI('GPT5', 'gpt-5', gpt5CostFunction(1.25, 10), 200_000, ['o3', 'gpt-4.1']);
+	return new OpenAI('GPT5', 'gpt-5', openAICostFunction(1.25, 10), 200_000, ['o3', 'gpt-4.1']);
 }
 
 export function openaiGPT5mini(): LLM {
-	return new OpenAI('GPT5 mini', 'gpt-5-mini', gpt5CostFunction(0.25, 2), 200_000, ['gpt-4.1-mini', 'o3-mini', 'o4-mini']);
+	return new OpenAI('GPT5 mini', 'gpt-5-mini', openAICostFunction(0.25, 2), 200_000, ['gpt-4.1-mini', 'o3-mini', 'o4-mini']);
 }
 
 export function openaiGPT5nano(): LLM {
-	return new OpenAI('GPT5 nano', 'gpt-5-nano', gpt5CostFunction(0.05, 0.4), 200_000, ['gpt-4.1-nano', 'o3-nano', 'o4-mini']);
+	return new OpenAI('GPT5 nano', 'gpt-5-nano', openAICostFunction(0.05, 0.4), 200_000, ['gpt-4.1-nano', 'o3-nano', 'o4-mini']);
 }
 
 export function openaiGPT5chat(): LLM {
-	return new OpenAI('GPT5 chat', 'gpt-5-chat', gpt5CostFunction(1.25, 10), 200_000, ['gpt-4']);
+	return new OpenAI('GPT5 chat', 'gpt-5-chat', openAICostFunction(1.25, 10), 200_000, ['gpt-4.1']);
 }
 
 export class OpenAI extends AiLLM<OpenAIProvider> {
@@ -85,21 +67,12 @@ export class OpenAI extends AiLLM<OpenAIProvider> {
 		return this.aiProvider;
 	}
 
-	async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		if (this.getModel().startsWith('o1-')) {
-			if (opts?.stopSequences) {
-				opts.stopSequences = undefined;
-			}
-			if (llmMessages[0].role === 'system') {
-				const systemPrompt = llmMessages.shift().content;
-				const userPrompt = llmMessages[0].content;
-				if (typeof systemPrompt !== 'string' || typeof userPrompt !== 'string')
-					throw new Error('System prompt and first user message must be only string content when using o1 models, as system prompts are not supported');
-				llmMessages[0].content = `Always follow the system prompt instructions when replying:\n<system-prompt>\n${systemPrompt}\n</system-prompt>\n\n${userPrompt}`;
-			}
-		}
+	async generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
+		console.log('Defaulting temp to 1');
+		opts ??= {};
+		opts.temperature = 1;
 
-		return super.generateTextFromMessages(llmMessages, opts);
+		return super.generateMessage(llmMessages, opts);
 	}
 
 	// async generateImage(description: string): Promise<string> {

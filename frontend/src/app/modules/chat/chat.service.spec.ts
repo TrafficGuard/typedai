@@ -727,7 +727,7 @@
 // 		});
 
 // 		it('should convert API LLM message with image part (mocked filename/size)', () => {
-// 			const apiImagePart: import('ai').ImagePart = { type: 'image', image: 'base64data', mimeType: 'image/png' };
+// 			const apiImagePart: import('ai').ImagePart = { type: 'image', image: 'base64data', mediaType: 'image/png' };
 // 			// Simulate backend adding filename/size, as convertMessage expects them via `(apiImgPart as any)`
 // 			(apiImagePart as any).filename = 'test.png';
 // 			(apiImagePart as any).size = 1024;
