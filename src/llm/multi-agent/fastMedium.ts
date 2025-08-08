@@ -1,4 +1,5 @@
 import { cerebrasQwen3_235b_Thinking } from '#llm/services/cerebras';
+import { openaiGPT5mini } from '#llm/services/openai';
 import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
@@ -12,17 +13,19 @@ import { BaseLLM } from '../base-llm';
 export class FastMediumLLM extends BaseLLM {
 	private readonly providers: LLM[];
 	private readonly cerebras: LLM;
+	private readonly openai: LLM;
 	private readonly gemini: LLM;
 
 	constructor() {
-		super('Fast Medium (Qwen3 235b (Cerebras) - Gemini 2.5 Flash)', 'multi', 'fast-medium', 0, () => ({
+		super('Fast Medium (Qwen3 235b (Cerebras) - GPT-5 Mini - Gemini 2.5 Flash)', 'multi', 'fast-medium', 0, () => ({
 			inputCost: 0,
 			outputCost: 0,
 			totalCost: 0,
 		}));
-		this.providers = [cerebrasQwen3_235b_Thinking(), vertexGemini_2_5_Flash({ thinking: 'high' })];
+		this.providers = [cerebrasQwen3_235b_Thinking(), openaiGPT5mini(), vertexGemini_2_5_Flash({ thinking: 'high' })];
 		this.cerebras = this.providers[0];
-		this.gemini = this.providers[1];
+		this.openai = this.providers[1];
+		this.gemini = this.providers[2];
 
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}
@@ -62,8 +65,10 @@ export class FastMediumLLM extends BaseLLM {
 			if (tokens && this.cerebras.isConfigured() && tokens < this.cerebras.getMaxInputTokens() * 0.4)
 				return await this.cerebras.generateMessage(messages, opts);
 		} catch (e) {
-			logger.warn(e, `Error calling fast medium LLM with ${tokens} tokens: ${e.message}`);
+			logger.warn(e, `Error calling ${this.cerebras.getId()} with ${tokens} tokens: ${e.message}`);
 		}
+		if (this.openai.isConfigured()) return await this.openai.generateMessage(messages, opts);
+
 		return await this.gemini.generateMessage(messages, opts);
 	}
 }
