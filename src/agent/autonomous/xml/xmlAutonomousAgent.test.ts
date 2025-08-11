@@ -1,14 +1,7 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
-import {
-	type RunAgentConfig,
-	SUPERVISOR_CANCELLED_FUNCTION_NAME,
-	cancelAgent,
-	provideFeedback,
-	runAgentAndWait,
-	startAgent,
-} from '#agent/autonomous/autonomousAgentRunner';
+import { SUPERVISOR_CANCELLED_FUNCTION_NAME, cancelAgent, provideFeedback, runAgentAndWait, startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/autonomous/functions/agentFeedback';
 import { AGENT_COMPLETED_NAME } from '#agent/autonomous/functions/agentFunctions';
 import { XML_AGENT_SPAN } from '#agent/autonomous/xml/xmlAutonomousAgent';
@@ -21,6 +14,7 @@ import { lastText } from '#shared/llm/llm.model';
 import type { User } from '#shared/user/user.model';
 import { sleep } from '#utils/async-utils';
 import { agentContextStorage } from '../../agentContextLocalStorage';
+import { type RunAgentConfig } from '../runAgentTypes';
 
 const REQUEST_FEEDBACK_VALUE = 'question is...';
 const REQUEST_FEEDBACK_FUNCTION_CALL = `<plan>Requesting feedback</plan>\n<function_calls><function_call><function_name>${AGENT_REQUEST_FEEDBACK}</function_name><parameters><${REQUEST_FEEDBACK_PARAM_NAME}>${REQUEST_FEEDBACK_VALUE}</${REQUEST_FEEDBACK_PARAM_NAME}></parameters></function_call></function_calls>`;

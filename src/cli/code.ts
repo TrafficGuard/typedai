@@ -1,6 +1,6 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
-import type { RunAgentConfig, RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
+import type { RunWorkflowConfig } from '#agent/autonomous/runAgentTypes';
 import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';

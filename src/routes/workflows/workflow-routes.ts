@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { join } from 'node:path';
 import { Type } from '@sinclair/typebox';
 import { getFileSystem } from '#agent/agentContextLocalStorage';
-import type { RunWorkflowConfig } from '#agent/autonomous/autonomousAgentRunner';
+import type { RunWorkflowConfig } from '#agent/autonomous/runAgentTypes';
 import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { systemDir, typedaiDirName } from '#app/appDirs';
 import type { AppFastifyInstance } from '#app/applicationTypes';

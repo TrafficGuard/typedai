@@ -111,6 +111,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		const id = this.llmId();
 		return !!id && (
 			   id.startsWith('openai:o')          ||
+			   id === 'openai:gpt-5'              ||
 			   id.includes('claude-3-7')          ||
 			   id.includes('sonnet-4')            ||
 			   id.includes('opus-4')              ||

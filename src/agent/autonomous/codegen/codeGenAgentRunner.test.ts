@@ -1,14 +1,7 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
-import {
-	type RunAgentConfig,
-	SUPERVISOR_CANCELLED_FUNCTION_NAME,
-	cancelAgent,
-	provideFeedback,
-	runAgentAndWait,
-	startAgent,
-} from '#agent/autonomous/autonomousAgentRunner';
+import { SUPERVISOR_CANCELLED_FUNCTION_NAME, cancelAgent, provideFeedback, runAgentAndWait, startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import { convertTypeScriptToPython } from '#agent/autonomous/codegen/pythonCodeGenUtils';
 import { AGENT_REQUEST_FEEDBACK, AgentFeedback } from '#agent/autonomous/functions/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_MEMORY } from '#agent/autonomous/functions/agentFunctions';
@@ -22,6 +15,7 @@ import { lastText } from '#shared/llm/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { sleep } from '#utils/async-utils';
 import { agentContextStorage } from '../../agentContextLocalStorage';
+import { type RunAgentConfig } from '../runAgentTypes';
 
 const PY_AGENT_COMPLETED = (note: string) => `await ${AGENT_COMPLETED_NAME}("${note}")`;
 const PY_AGENT_REQUEST_FEEDBACK = (feedback: string) => `await ${AGENT_REQUEST_FEEDBACK}("${feedback}")`;

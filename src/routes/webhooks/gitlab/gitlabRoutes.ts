@@ -1,8 +1,9 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyReply } from 'fastify';
-import { type RunWorkflowConfig, startAgent } from '#agent/autonomous/autonomousAgentRunner';
+import { startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
+import { type RunWorkflowConfig } from '#agent/autonomous/runAgentTypes';
 import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { appContext } from '#app/applicationContext';
 import type { AppFastifyInstance } from '#app/applicationTypes';
