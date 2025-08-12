@@ -20,7 +20,8 @@ RUN apt-get install -y --no-install-recommends \
 RUN curl -sL https://deb.nodesource.com/setup_20.x -o nodesource_setup.sh \
     && bash ./nodesource_setup.sh \
     && apt-get install -y nodejs \
-    && rm nodesource_setup.sh
+    && rm nodesource_setup.sh \
+    && npm install -g pnpm
 
 # Define user and home directory consistently
 ENV USER_NAME=typedai
@@ -57,7 +58,7 @@ RUN chown ${USER_NAME}:users package.json package-lock.json 2>/dev/null || chown
 USER ${USER_NAME}
 
 # Now, as the user, install npm dependencies
-RUN npm install
+RUN pnpm install
 
 # Install Angular dependencies and build Angular app
 # Ensure frontend/package.json exists in your TYPEDAI_HOME/frontend
@@ -68,7 +69,7 @@ COPY --chown=${USER_NAME}:users frontend/package.json ./
 # If it doesn't exist, this COPY command will fail. If it's optional, remove this line.
 COPY --chown=${USER_NAME}:users frontend/package-lock.json ./
 
-RUN npm install
+RUN pnpm install
 # RUN npm run build # If you need to build frontend during Docker image creation
 
 # Set work directory back to home

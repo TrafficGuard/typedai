@@ -9,5 +9,5 @@ restart_server() {
 trap restart_server SIGUSR1
 
 cd frontend && npm run start:local &
-npm run start:local &
+pnpm run start:local &
 wait
