@@ -18,14 +18,17 @@ export class CommandLineInterface {
 Current directory: ${fss.getWorkingDirectory()}
 Git repo folder: ${fss.getVcsRoot() ?? '<none>'}
 `;
-		const response = await llms().medium.generateText([
-			system(
-				'You are to analyze the provided shell command to determine if it is safe to run, i.e. will not cause configuration changes, data loss or other unintended consequences to the host system or remote systems. Reading files/config and modifying files under version control is acceptable.',
-			),
-			user(
-				`The command which is being requested to execute is:\n${command}\n\n\n Think through the dangers of running this command and response with only a single word, either SAFE, UNSURE or DANGEROUS`,
-			),
-		]);
+		const response = await llms().medium.generateText(
+			[
+				system(
+					'You are to analyze the provided shell command to determine if it is safe to run, i.e. will not cause configuration changes, data loss or other unintended consequences to the host system or remote systems. Reading files/config and modifying files under version control is acceptable.',
+				),
+				user(
+					`The command which is being requested to execute is:\n${command}\n\n\n Think through the dangers of running this command and response with only a single word, either SAFE, UNSURE or DANGEROUS`,
+				),
+			],
+			{ id: 'CLI command safety analysis' },
+		);
 		if (!response.includes('SAFE')) {
 			await humanInTheLoop(
 				agentContext(),

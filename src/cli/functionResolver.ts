@@ -25,6 +25,8 @@ import { functionRegistry } from '../functionRegistry';
 const functionAliases: Record<string, string> = {
 	f: AgentFeedback.name,
 	swe: SoftwareDeveloperAgent.name,
+	bash: CommandLineInterface.name,
+	shell: CommandLineInterface.name,
 	cli: CommandLineInterface.name,
 	code: CodeEditingAgent.name,
 	query: CodeFunctions.name,

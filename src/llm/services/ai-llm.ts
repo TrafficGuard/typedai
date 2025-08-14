@@ -151,6 +151,14 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 						// Fallback for unknown parts, though ideally all are handled
 						return part as any;
 					}) as Exclude<CoreContent, string>;
+
+				// If there are multiple text parts, then concatenate them as some providers don't handle multiple text parts
+				const textParts = processedContent.filter((part) => part.type === 'text');
+				if (textParts.length > 1) {
+					const nonTextParts = processedContent.filter((part) => part.type !== 'text');
+					const text = textParts.map((part) => part.text).join('\n');
+					processedContent = [{ type: 'text', text }, ...nonTextParts] as CoreContent;
+				}
 			}
 			return { ...restOfMsg, content: processedContent } as CoreMessage;
 		});

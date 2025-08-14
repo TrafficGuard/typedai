@@ -12,8 +12,8 @@ export const CEREBRAS_SERVICE = 'cerebras';
 export function cerebrasLLMRegistry(): Record<string, () => LLM> {
 	return {
 		'cerebras:qwen-3-32b': () => cerebrasQwen3_32b(),
-		'cerebras:qwen-3-235b-instruct-2507': () => cerebrasQwen3_235b_Instruct(),
-		'cerebras:qwen-3-235b-thinking-2507': () => cerebrasQwen3_235b_Thinking(),
+		'cerebras:qwen-3-235b-a22b-instruct-2507': () => cerebrasQwen3_235b_Instruct(),
+		'cerebras:qwen-3-235b-a22b-thinking-2507': () => cerebrasQwen3_235b_Thinking(),
 		'cerebras:qwen-3-coder-480b': () => cerebrasQwen3_Coder(),
 		'cerebras:llama-4-maverick-17b-128e-instruct': () => cerebrasLlamaMaverick(),
 	};

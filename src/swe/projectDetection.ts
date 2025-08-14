@@ -275,7 +275,6 @@ export async function getProjectInfos(autoDetect = true): Promise<ProjectInfo[] 
 }
 
 export async function getProjectInfo(autoDetect = false): Promise<ProjectInfo | null> {
-	console.log(new Error(`getProjectInfo ${autoDetect}`));
 	const infos = await getProjectInfos(autoDetect); // This is now the robust version
 
 	if (!infos || infos.length === 0) {

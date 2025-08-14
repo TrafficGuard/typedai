@@ -31,7 +31,18 @@ import { MatSliderModule } from '@angular/material/slider';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import type { CallSettings, FilePartExt, ImagePartExt, LlmInfo, LlmMessage, TextPart, UserContentExt, AssistantContentExt } from '#shared/llm/llm.model';
+import type {
+	AssistantContentExt,
+	CallSettings,
+	FilePartExt,
+	ImagePartExt,
+	LlmInfo,
+	LlmMessage,
+	ReasoningPart,
+	TextPart,
+	ToolCallPartExt,
+	UserContentExt,
+} from '#shared/llm/llm.model';
 import type { Prompt } from '#shared/prompts/prompts.model';
 import { type PromptCreatePayload, PromptGenerateResponseSchemaModel, type PromptSchemaModel, type PromptUpdatePayload } from '#shared/prompts/prompts.schema';
 import { LlmService } from '../../llm.service';
@@ -98,7 +109,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 	isLoading = signal(true);
 	isSaving = signal(false);
 	isGenerating = signal(false);
-	generationResponse = signal<AssistantContentExt | null>(null);
+	generationResult = signal<PromptGenerateResponseSchemaModel | null>(null);
 	generationError = signal<string | null>(null);
 	private destroy$ = new Subject<void>();
 	private llmsState$ = toObservable(this.llmService.llmsState);
@@ -418,13 +429,13 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 		this.cdr.detectChanges();
 	}
 
-	private _convertLlmContentToString(content: UserContentExt | AssistantContentExt | undefined): string {
+	private _convertLlmContentToString(content: LlmMessage['content'] | undefined): string {
 		if (typeof content === 'string') {
 			return content;
 		}
 		if (Array.isArray(content)) {
 			return content
-				.map((part) => {
+				.map((part: any) => {
 					if (part.type === 'text') {
 						return (part as TextPart).text;
 					}
@@ -435,6 +446,19 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 					if (part.type === 'file') {
 						const filePart = part as FilePartExt;
 						return `[File: ${filePart.filename || filePart.mediaType || 'file'}]`;
+					}
+					if (part.type === 'reasoning') {
+						return (part as ReasoningPart).text;
+					}
+					if (part.type === 'redacted-reasoning') {
+						return '[Redacted Reasoning]';
+					}
+					if (part.type === 'tool-call') {
+						const toolCallPart = part as ToolCallPartExt;
+						return `[Tool Call: ${toolCallPart.toolName}(${JSON.stringify(toolCallPart.input)})]`;
+					}
+					if (part.type === 'tool-result') {
+						return `[Tool Result: ${JSON.stringify(part.output)}]`;
 					}
 					// Fallback for any other part types that might appear in UserContentExt if extended
 					// Safely access .type, provide a default if it's not a known structure
@@ -630,6 +654,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 
 		const generationOptions: CallSettings & { llmId?: string } = formValue.options;
 
+		this.generationResult.set(null);
 		this.isGenerating.set(true);
 		this.generationError.set(null);
 
@@ -644,7 +669,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 			)
 			.subscribe({
 				next: (response) => {
-					this.generationResponse.set(response.generatedMessage.content as AssistantContentExt);
+					this.generationResult.set(response);
 					this.cdr.detectChanges();
 				},
 				error: (error) => {
@@ -655,7 +680,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 	}
 
 	addResponseToPrompt(): void {
-		const responseContent = this.generationResponse();
+		const responseContent = this.generationResult()?.generatedMessage.content;
 		if (!responseContent) {
 			console.warn('No generated response to add');
 			return;
@@ -668,7 +693,7 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 		messageGroup.get('fullContent')?.setValue(responseContent);
 		this.messagesFormArray.push(messageGroup);
 
-		this.generationResponse.set(null);
+		this.generationResult.set(null);
 		this.generationError.set(null);
 
 		this.cdr.detectChanges();
@@ -825,5 +850,19 @@ export class PromptFormComponent implements OnInit, OnDestroy {
 				this.cdr.detectChanges();
 			}
 		}
+	}
+
+	public getReasoningPart(content: AssistantContentExt): ReasoningPart | undefined {
+		if (Array.isArray(content)) {
+			return content.find((part) => part.type === 'reasoning') as ReasoningPart | undefined;
+		}
+		return undefined;
+	}
+
+	public getNonReasoningParts(content: AssistantContentExt): AssistantContentExt {
+		if (Array.isArray(content)) {
+			return content.filter((part) => part.type !== 'reasoning');
+		}
+		return content;
 	}
 }

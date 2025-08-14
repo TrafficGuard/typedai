@@ -17,7 +17,7 @@ export const AGENT_COMPLETED_PARAM_NAME = 'note';
 export class Agent {
 	/**
 	 * Notifies that the user request has completed and there is no more work to be done, or that no more useful progress can be made with the functions.
-	 * @param {string} note A detailed description that answers/completes the user request.
+	 * @param {string} note A detailed description that answers/completes the user request using Markdown formatting.
 	 */
 	@func()
 	async completed(note: string): Promise<void> {
@@ -60,7 +60,7 @@ export class Agent {
 	async getMemory(key: string): Promise<string> {
 		if (!key) throw new Error(`Parameter "key" must be provided. Was ${key}`);
 		const memory = agentContext().memory;
-		if (!memory[key]) throw new Error(`Memory key ${key} does not exist`);
+		if (!memory[key]) throw new Error(`Memory key ${key} does not exist. Valid keys are ${Object.keys(memory).join(', ')}`);
 		return memory[key];
 	}
 

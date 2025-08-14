@@ -111,7 +111,8 @@ async function runNpmScriptOrCommandInDirs(scriptOrCommandName, directories) {
             currentNpmSubCommandForDir += ':ci';
         }
 
-        const commandToExecuteInDir = `npm ${currentNpmSubCommandForDir}`;
+        const pkgMgr = dirInfo.path.includes('frontend') ? 'npm' : 'pnpm';
+        const commandToExecuteInDir = `${pkgMgr} ${currentNpmSubCommandForDir}`;
 
         // Use the base script/command name for the task identifier for consistency
         const taskName = `${dirInfo.name}-${scriptOrCommandName}`; // e.g., "frontend-build", "root-install"
@@ -144,7 +145,7 @@ async function runNpmScriptOrCommandInDirs(scriptOrCommandName, directories) {
         }
     });
 
-    const overallCommandDescription = `npm ${baseNpmSubCommand}`;
+    const overallCommandDescription = `${pkgMgr} ${baseNpmSubCommand}`;
     if (anyFailed) {
         console.error(`\n>>> "${overallCommandDescription}" failed in one or more directories. <<<`);
         return false; // Indicate failure

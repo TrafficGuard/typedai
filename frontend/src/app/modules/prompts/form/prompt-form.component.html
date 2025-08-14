@@ -290,7 +290,7 @@
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-semibold">Response</h2>
                     <div class="flex items-center gap-2">
-                        <button *ngIf="generationResponse()"
+                        <button *ngIf="generationResult()"
                                 mat-stroked-button
                                 color="primary"
                                 (click)="addResponseToPrompt()"
@@ -298,10 +298,19 @@
                             <mat-icon class="mr-2">add</mat-icon>
                             Add to prompt
                         </button>
-                        <button *ngIf="generationResponse()" mat-icon-button matTooltip="Copy Response">
+                        <button *ngIf="generationResult()" mat-icon-button matTooltip="Copy Response">
                             <mat-icon>content_copy</mat-icon>
                         </button>
                     </div>
+                </div>
+
+                <!-- Add this block -->
+                <div *ngIf="generationResult() as result" class="mb-3 text-sm">
+                    <strong>Request Time:</strong> {{ result.createdAt | date : 'medium' }}. &nbsp;&nbsp;
+                    <strong>Total Time:</strong> {{ ((result.totalTime ?? 0) / 1000).toFixed(1) }}s&nbsp;&nbsp;
+                    <strong>Tokens in/out:</strong> {{ result.inputTokens }}/{{ result.outputTokens }}&nbsp;&nbsp;
+                    <strong>Cost: </strong> ${{ result.cost?.toFixed(4) }}&nbsp;&nbsp;
+                    <strong>Tok/S:</strong> {{ (result.outputTokens > 0 && result.totalTime > 0 ? (result.outputTokens / (result.totalTime / 1000)) : 0).toFixed(1) }}
                 </div>
 
                 <!-- Loading State -->
@@ -316,14 +325,27 @@
                 </div>
 
                 <!-- Response Content -->
-                <div *ngIf="generationResponse() && !isGenerating()" class="prose max-w-none">
+                <div *ngIf="generationResult() as result" class="prose max-w-none">
+                    @let content = result.generatedMessage.content;
+                    <!-- Add this block -->
+                    @if (getReasoningPart(content); as reasoning) {
+                        <mat-expansion-panel class="mb-3 !shadow-sm border">
+                            <mat-expansion-panel-header>
+                                <mat-panel-title class="!text-sm !font-semibold">
+                                    Reasoning
+                                </mat-panel-title>
+                            </mat-expansion-panel-header>
+                            <div class="whitespace-pre-wrap break-words p-4">{{ reasoning.text }}</div>
+                        </mat-expansion-panel>
+                    }
+                    @let displayContent = getNonReasoningParts(content);
                     <!-- Handle string response for backward compatibility and text-only responses -->
-                    <ng-container *ngIf="isString(generationResponse())">
-                        <pre class="whitespace-pre-wrap">{{ generationResponse() }}</pre>
+                    <ng-container *ngIf="isString(displayContent)">
+                        <pre class="whitespace-pre-wrap">{{ displayContent }}</pre>
                     </ng-container>
                     <!-- Handle complex array response (with text, images, etc.) -->
-                    <ng-container *ngIf="isArray(generationResponse())">
-                        <div *ngFor="let part of generationResponse()">
+                    <ng-container *ngIf="isArray(displayContent)">
+                        <div *ngFor="let part of displayContent">
                             <pre *ngIf="part.type === 'text'" class="whitespace-pre-wrap">{{ part.text }}</pre>
                             <img *ngIf="part.type === 'image'" [src]="getImageUrl(part)" alt="Generated Image" class="max-w-full h-auto rounded-md my-2">
                             <!-- NOTE: Other part types like 'file', 'tool-call' are not visually rendered here but could be added. -->
@@ -332,7 +354,7 @@
                 </div>
 
                 <!-- Placeholder -->
-                <div *ngIf="!generationResponse() && !isGenerating() && !generationError()" class="text-center text-gray-500 py-8">
+                <div *ngIf="!generationResult() && !isGenerating() && !generationError()" class="text-center text-gray-500 py-8">
                     <mat-icon class="text-4xl mb-2 opacity-50">bolt</mat-icon>
                     <p>Click Generate to see a response</p>
                 </div>

@@ -23,7 +23,7 @@ WORKDIR $homedir
 RUN mkdir ".husky"
 COPY .husky/install.mjs .husky/install.mjs
 
-COPY package*.json ./
+COPY package*.json pnpm-lock.yaml ./
 RUN pnpm install
 
 COPY . .
