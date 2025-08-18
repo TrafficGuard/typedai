@@ -7,7 +7,7 @@ import { Prompt, PromptPreview } from '#shared/prompts/prompts.model';
 import { PromptCreatePayload, PromptListSchemaModel, PromptSchemaModel, PromptUpdatePayload } from '#shared/prompts/prompts.schema';
 import { PromptsService } from './prompts.service';
 
-xdescribe('PromptsService', () => {
+describe('PromptsService', () => {
 	let service: PromptsService;
 	let httpMock: HttpTestingController;
 
@@ -49,7 +49,11 @@ xdescribe('PromptsService', () => {
 
 	it('should be created and load initial prompts', () => {
 		expect(service).toBeTruthy();
-		expect((service as any)._prompts.getValue()).toEqual(mockPromptList.prompts);
+		const state = service.promptsState();
+		expect(state.status).toBe('success');
+		if (state.status === 'success') {
+			expect(state.data).toEqual(mockPromptList.prompts);
+		}
 	});
 
 	describe('refreshPrompts', () => {
@@ -62,7 +66,11 @@ xdescribe('PromptsService', () => {
 			req.flush(mockPromptList);
 			tick();
 
-			expect((service as any)._prompts.getValue()).toEqual(mockPromptList.prompts);
+			const state = service.promptsState();
+			expect(state.status).toBe('success');
+			if (state.status === 'success') {
+				expect(state.data).toEqual(mockPromptList.prompts);
+			}
 		}));
 	});
 
@@ -72,7 +80,7 @@ xdescribe('PromptsService', () => {
 			service.getPromptById(promptId).subscribe();
 			tick();
 
-			const req = httpMock.expectOne(PROMPT_API.getPromptById.buildPath({ promptId }));
+			const req = httpMock.expectOne(PROMPT_API.getPromptById.path({ promptId }));
 			expect(req.request.method).toBe('GET');
 			req.flush(mockPromptSchemaModel);
 			tick();
@@ -110,7 +118,7 @@ xdescribe('PromptsService', () => {
 			});
 			tick();
 
-			const req = httpMock.expectOne(PROMPT_API.updatePrompt.buildPath({ promptId }));
+			const req = httpMock.expectOne(PROMPT_API.updatePrompt.path({ promptId }));
 			expect(req.request.method).toBe('PATCH');
 			expect(req.request.body).toEqual(payload);
 			req.flush(mockPromptSchemaModel);
@@ -137,20 +145,24 @@ xdescribe('PromptsService', () => {
 				userId: 'user1',
 			};
 
-			(service as any)._prompts.next(initialPrompts);
+			(service as any)._promptsState.set({ status: 'success', data: initialPrompts });
 			service._selectedPrompt.set(initialSelectedPrompt);
 			tick();
 
 			service.deletePrompt(promptIdToDelete).subscribe();
 			tick();
 
-			const req = httpMock.expectOne(PROMPT_API.deletePrompt.buildPath({ promptId: promptIdToDelete }));
+			const req = httpMock.expectOne(PROMPT_API.deletePrompt.path({ promptId: promptIdToDelete }));
 			expect(req.request.method).toBe('DELETE');
 			req.flush(null, { status: 204, statusText: 'No Content' });
 			tick();
 
-			expect((service as any)._prompts.getValue()?.length).toBe(1);
-			expect((service as any)._prompts.getValue()?.find((p: PromptPreview) => p.id === promptIdToDelete)).toBeUndefined();
+			const state = service.promptsState();
+			expect(state.status).toBe('success');
+			if (state.status === 'success') {
+				expect(state.data.length).toBe(1);
+				expect(state.data.find((p) => p.id === promptIdToDelete)).toBeUndefined();
+			}
 			expect(service.selectedPrompt()).toBeNull();
 		}));
 
@@ -170,19 +182,23 @@ xdescribe('PromptsService', () => {
 				userId: 'user1',
 			};
 
-			(service as any)._prompts.next(initialPrompts);
+			(service as any)._promptsState.set({ status: 'success', data: initialPrompts });
 			service._selectedPrompt.set(initialSelectedPrompt);
 			tick();
 
 			service.deletePrompt(promptIdToDelete).subscribe();
 			tick();
 
-			const req = httpMock.expectOne(PROMPT_API.deletePrompt.buildPath({ promptId: promptIdToDelete }));
+			const req = httpMock.expectOne(PROMPT_API.deletePrompt.path({ promptId: promptIdToDelete }));
 			req.flush(null, { status: 204, statusText: 'No Content' });
 			tick();
 
-			expect((service as any)._prompts.getValue()?.length).toBe(1);
-			expect((service as any)._prompts.getValue()?.[0].id).toBe('1');
+			const state = service.promptsState();
+			expect(state.status).toBe('success');
+			if (state.status === 'success') {
+				expect(state.data.length).toBe(1);
+				expect(state.data[0].id).toBe('1');
+			}
 			expect(service.selectedPrompt()?.id).toBe('1'); // Selected prompt should remain unchanged
 		}));
 	});
@@ -214,7 +230,7 @@ xdescribe('PromptsService', () => {
 			service.setSelectedPromptFromPreview(preview);
 			tick(); // Allow setSelectedPromptFromPreview to call getPromptById
 
-			const req = httpMock.expectOne(PROMPT_API.getPromptById.buildPath({ promptId: '123' }));
+			const req = httpMock.expectOne(PROMPT_API.getPromptById.path({ promptId: '123' }));
 			expect(req.request.method).toBe('GET');
 			req.flush(mockPromptSchemaModel); // This will trigger the tap operator in getPromptById
 			tick(); // Allow the tap operator and subscription in setSelectedPromptFromPreview to complete
