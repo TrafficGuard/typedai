@@ -59,6 +59,14 @@ const codeEditNav: FuseNavigationItem = {
     link: '/ui/code-edit',
 };
 
+const slackNav: FuseNavigationItem = {
+    id: 'slack',
+    title: 'Slack',
+    type: 'basic',
+    icon: 'heroicons_outline:chat-bubble-left-right',
+    link: '/ui/slack',
+};
+
 export const defaultNavigation: FuseNavigationItem[] = [
     chatNav,
     agentsNav,
@@ -67,6 +75,7 @@ export const defaultNavigation: FuseNavigationItem[] = [
     promptsNav,
     codeReviewNav,
     codeEditNav,
+    slackNav,
 ];
 
 if (environment.modules?.trim().length) {
@@ -79,6 +88,7 @@ if (environment.modules?.trim().length) {
     if(modules.includes('codeTask')) defaultNavigation.push(codeTaskNav);
     if(modules.includes('prompts')) defaultNavigation.push(promptsNav);
     if(modules.includes('codeReview')) defaultNavigation.push(codeReviewNav);
+    if(modules.includes('slack')) defaultNavigation.push(slackNav);
     // if(modules.includes('codeEdit')) defaultNavigation.push(codeEditNav);
 }
 

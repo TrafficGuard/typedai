@@ -9,10 +9,23 @@ import { currentUser } from '#user/userContext';
 
 export async function getChatByIdRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, CHAT_API.getById, async (req, reply) => {
-		const { chatId } = req.params as Static<typeof ChatParamsSchema>;
-		const userId = currentUser().id;
+		const { chatId } = req.params;
 		const chat: Chat = await fastify.chatService.loadChat(chatId);
-		if (chat.userId !== userId) return sendBadRequest(reply, 'Unauthorized to view this chat');
+
+		if (chat.shareable) {
+			console.log(JSON.stringify(chat));
+			return reply.sendJSON(chat);
+		}
+
+		try {
+			const userId = currentUser().id;
+			if (chat.userId !== userId) {
+				return sendBadRequest(reply, 'Unauthorized to view this chat');
+			}
+		} catch (error) {
+			return sendBadRequest(reply, 'Unauthorized to view this chat');
+		}
+
 		console.log(JSON.stringify(chat));
 		reply.sendJSON(chat);
 	});

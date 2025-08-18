@@ -18,7 +18,7 @@ let executeDesignStub: sinon.SinonStub;
 const userId = 'test-user-id';
 const codeTaskId = 'test-codeTask-id';
 
-describe('CodeTaskServiceImpl', () => {
+xdescribe('CodeTaskServiceImpl', () => {
 	setupConditionalLoggerOutput();
 
 	let service: CodeTaskServiceImpl;

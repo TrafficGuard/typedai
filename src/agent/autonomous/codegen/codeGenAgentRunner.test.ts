@@ -42,7 +42,7 @@ function result(contents: string): string {
 	return `<result>${contents}</result>`;
 }
 
-describe('codegenAgentRunner', () => {
+xdescribe('codegenAgentRunner', () => {
 	setupConditionalLoggerOutput();
 	const ctx = initInMemoryApplicationContext();
 

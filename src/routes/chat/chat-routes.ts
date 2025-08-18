@@ -28,10 +28,21 @@ export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 			schema: CHAT_API.getById.schema,
 		},
 		async (req, reply) => {
-			const { chatId } = req.params as Static<typeof ChatParamsSchema>;
-			const userId = currentUser().id;
+			const { chatId } = req.params;
 			const chat: Chat = await fastify.chatService.loadChat(chatId);
-			if (chat.userId !== userId) return sendBadRequest(reply, 'Unauthorized to view this chat');
+
+			if (chat.shareable) {
+				// console.log(JSON.stringify(chat));
+				return reply.sendJSON(chat);
+			}
+
+			try {
+				const userId = currentUser().id;
+				if (chat.userId !== userId) return sendBadRequest(reply, 'Unauthorized to view this chat');
+			} catch (error) {
+				return sendBadRequest(reply, 'Unauthorized to view this chat');
+			}
+
 			// console.log(JSON.stringify(chat));
 			reply.sendJSON(chat);
 		},
@@ -43,9 +54,9 @@ export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 			schema: CHAT_API.createChat.schema,
 		},
 		async (req, reply) => {
-			const { llmId, userContent, options, autoReformat } = req.body as Static<typeof ChatMessageSendSchema>;
+			const { llmId, userContent, options, autoReformat } = req.body;
 
-			let currentUserContent: UserContentExt = userContent as UserContentExt;
+			let currentUserContent: UserContentExt = userContent;
 
 			let chat: Chat = {
 				id: undefined,
@@ -136,10 +147,10 @@ export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 			schema: CHAT_API.sendMessage.schema,
 		},
 		async (req, reply) => {
-			const { chatId } = req.params as Static<typeof ChatParamsSchema>;
-			const { llmId, userContent, options, autoReformat } = req.body as Static<typeof ChatMessageSendSchema>;
+			const { chatId } = req.params;
+			const { llmId, userContent, options, autoReformat } = req.body;
 
-			let currentUserContent: UserContentExt = userContent as UserContentExt;
+			let currentUserContent: UserContentExt = userContent;
 
 			const chat: Chat = await fastify.chatService.loadChat(chatId);
 			if (chat.userId !== currentUser().id) return sendBadRequest(reply, 'Unauthorized to send message to this chat');
@@ -214,8 +225,8 @@ export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 			schema: CHAT_API.regenerateMessage.schema,
 		},
 		async (req, reply) => {
-			const { chatId } = req.params as Static<typeof ChatParamsSchema>;
-			const { userContent, llmId, historyTruncateIndex, options } = req.body as Static<typeof RegenerateMessageSchema>;
+			const { chatId } = req.params;
+			const { userContent, llmId, historyTruncateIndex, options } = req.body;
 			const userId = currentUser().id;
 
 			const chat: Chat = await fastify.chatService.loadChat(chatId);
@@ -235,7 +246,7 @@ export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 
 			chat.messages = chat.messages.slice(0, historyTruncateIndex - 1);
 
-			chat.messages.push({ role: 'user', content: userContent as UserContentExt, time: Date.now() });
+			chat.messages.push({ role: 'user', content: userContent, time: Date.now() });
 
 			const responseMessage = await llm.generateMessage(chat.messages, { id: 'chat-regenerate', ...options });
 			chat.messages.push(responseMessage);
@@ -265,7 +276,7 @@ export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 			schema: CHAT_API.deleteChat.schema,
 		},
 		async (req, reply) => {
-			const { chatId } = req.params as Static<typeof ChatParamsSchema>;
+			const { chatId } = req.params;
 			const userId = currentUser().id;
 			try {
 				const chat = await fastify.chatService.loadChat(chatId);
@@ -288,8 +299,8 @@ export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 			schema: CHAT_API.updateDetails.schema,
 		},
 		async (req, reply) => {
-			const { chatId } = req.params as Static<typeof ChatParamsSchema>;
-			const updates = req.body as Static<typeof ChatUpdateDetailsSchema>; // Use specific schema type
+			const { chatId } = req.params;
+			const updates = req.body; // Use specific schema type
 			const userId = currentUser().id;
 
 			const chat = await fastify.chatService.loadChat(chatId);
@@ -314,7 +325,7 @@ export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 		async (req, reply) => {
 			currentUser(); // Ensures user is authenticated, will throw if not
 
-			const { text } = req.body as Static<typeof ChatMarkdownRequestSchema>;
+			const { text } = req.body;
 
 			const llmToUse = summaryLLM();
 			if (!llmToUse.isConfigured()) {

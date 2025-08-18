@@ -145,7 +145,7 @@ async function runNpmScriptOrCommandInDirs(scriptOrCommandName, directories) {
         }
     });
 
-    const overallCommandDescription = `${pkgMgr} ${baseNpmSubCommand}`;
+    const overallCommandDescription = `(p)npm ${baseNpmSubCommand}`;
     if (anyFailed) {
         console.error(`\n>>> "${overallCommandDescription}" failed in one or more directories. <<<`);
         return false; // Indicate failure

@@ -80,7 +80,8 @@ describe('PromptsService', () => {
 			service.getPromptById(promptId).subscribe();
 			tick();
 
-			const req = httpMock.expectOne(PROMPT_API.getPromptById.path({ promptId }));
+			const url = PROMPT_API.getPromptById.pathTemplate.replace(':promptId', promptId);
+			const req = httpMock.expectOne(url);
 			expect(req.request.method).toBe('GET');
 			req.flush(mockPromptSchemaModel);
 			tick();
@@ -118,7 +119,8 @@ describe('PromptsService', () => {
 			});
 			tick();
 
-			const req = httpMock.expectOne(PROMPT_API.updatePrompt.path({ promptId }));
+			const url = PROMPT_API.updatePrompt.pathTemplate.replace(':promptId', promptId);
+			const req = httpMock.expectOne(url);
 			expect(req.request.method).toBe('PATCH');
 			expect(req.request.body).toEqual(payload);
 			req.flush(mockPromptSchemaModel);
@@ -152,7 +154,8 @@ describe('PromptsService', () => {
 			service.deletePrompt(promptIdToDelete).subscribe();
 			tick();
 
-			const req = httpMock.expectOne(PROMPT_API.deletePrompt.path({ promptId: promptIdToDelete }));
+			const url = PROMPT_API.deletePrompt.pathTemplate.replace(':promptId', promptIdToDelete);
+			const req = httpMock.expectOne(url);
 			expect(req.request.method).toBe('DELETE');
 			req.flush(null, { status: 204, statusText: 'No Content' });
 			tick();
@@ -189,7 +192,8 @@ describe('PromptsService', () => {
 			service.deletePrompt(promptIdToDelete).subscribe();
 			tick();
 
-			const req = httpMock.expectOne(PROMPT_API.deletePrompt.path({ promptId: promptIdToDelete }));
+			const url = PROMPT_API.deletePrompt.pathTemplate.replace(':promptId', promptIdToDelete);
+			const req = httpMock.expectOne(url);
 			req.flush(null, { status: 204, statusText: 'No Content' });
 			tick();
 
@@ -230,7 +234,8 @@ describe('PromptsService', () => {
 			service.setSelectedPromptFromPreview(preview);
 			tick(); // Allow setSelectedPromptFromPreview to call getPromptById
 
-			const req = httpMock.expectOne(PROMPT_API.getPromptById.path({ promptId: '123' }));
+			const url = PROMPT_API.getPromptById.pathTemplate.replace(':promptId', '123');
+			const req = httpMock.expectOne(url);
 			expect(req.request.method).toBe('GET');
 			req.flush(mockPromptSchemaModel); // This will trigger the tap operator in getPromptById
 			tick(); // Allow the tap operator and subscription in setSelectedPromptFromPreview to complete

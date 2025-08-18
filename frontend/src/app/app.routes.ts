@@ -82,6 +82,7 @@ export const appRoutes: Route[] = [
             {path: 'prompts', loadChildren: () => import('app/modules/prompts/prompts.routes')},
             {path: 'codeTask', loadChildren: () => import('./modules/codeTask/codeTask.routes')},
             {path: 'code-edit', loadChildren: () => import('./modules/codeEdit/code-edit.routes').then(m => m.default)},
+            {path: 'slack', loadChildren: () => import('app/modules/slack/slack.routes')},
         ]
     },
     // 404 & Catch all
