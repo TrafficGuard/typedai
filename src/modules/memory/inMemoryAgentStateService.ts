@@ -33,9 +33,9 @@ export class InMemoryAgentStateService implements AgentContextService {
 		await this.save(ctx);
 	}
 
-	async load(executionId: string): Promise<AgentContext> {
-		if (!this.stateMap.has(executionId)) throw new Error('Agent state not found');
-		const serialized = this.stateMap.get(executionId)!; // Added non-null assertion as we check with .has()
+	async load(agentId: string): Promise<AgentContext> {
+		if (!this.stateMap.has(agentId)) throw new Error('Agent state not found');
+		const serialized = this.stateMap.get(agentId)!; // Added non-null assertion as we check with .has()
 		return deserializeContext(serialized);
 	}
 

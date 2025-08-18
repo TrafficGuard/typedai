@@ -84,6 +84,6 @@ export class CerebrasLLM extends AiLLM<OpenAIProvider> {
 			envKey = CEREBRAS_KEYS[cerebrasKeyIndex];
 			if (++cerebrasKeyIndex > CEREBRAS_KEYS.length) cerebrasKeyIndex = 0;
 		}
-		return currentUser()?.llmConfig.cerebrasKey || envKey || process.env.CEREBRAS_API_KEY;
+		return currentUser()?.llmConfig.cerebrasKey || envKey;
 	}
 }

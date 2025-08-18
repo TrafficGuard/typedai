@@ -38,6 +38,7 @@ import {
 } from '#shared/llm/llm.model';
 import type { LlmCall } from '#shared/llmCall/llmCall.model';
 import { errorToString } from '#utils/errors';
+import { quotaRetry } from '#utils/quotaRetry';
 
 // Helper to convert DataContent | URL to string for our UI-facing models
 function convertDataContentToString(content: string | URL | Uint8Array | ArrayBuffer | Buffer | undefined): string {
@@ -164,6 +165,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 		});
 	}
 
+	@quotaRetry({ retries: 5, initialBackoffMs: 5000 })
 	async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
 		const combinedOpts = { ...this.defaultOptions, ...opts };
 		const description = combinedOpts.id ?? '';

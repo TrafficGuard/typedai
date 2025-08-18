@@ -160,6 +160,7 @@ const GenerateTextOptionsSpecificSchema = Type.Object({
 	type: Type.Optional(Type.Union([Type.Literal('text'), Type.Literal('json')])),
 	id: Type.Optional(Type.String()),
 	thinking: Type.Optional(Type.Union([Type.Literal('none'), Type.Literal('low'), Type.Literal('medium'), Type.Literal('high')])),
+	providerOptions: Type.Optional(Type.Record(Type.String(), Type.Any())),
 });
 
 export const GenerateTextOptionsSchema = Type.Intersect([CallSettingsSchema, GenerateTextOptionsSpecificSchema], { $id: 'GenerateTextOptions' });

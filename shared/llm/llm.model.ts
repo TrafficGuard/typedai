@@ -83,6 +83,7 @@ export interface GenerateTextOptions extends CallSettings {
 	/** Identifier used in trace spans, UI etc */
 	id?: string;
 	thinking?: ThinkingLevel;
+	providerOptions?: Record<string, any>;
 }
 
 /**
