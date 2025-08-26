@@ -6,6 +6,10 @@
     color: var(--fuse-primary) !important;
 }
 
+.rotate-90 {
+  transform: rotate(90deg);
+}
+
 .recording-button {
     background-color: rgba(var(--fuse-primary-rgb), 0.1);
 

@@ -286,6 +286,19 @@
                                         markdown
                                     </mat-icon>
                                 </button>
+                                <button *ngIf="llmSupportsServiceTiers()"
+                                        class="ml-0.5 hidden sm:inline-flex"
+                                        mat-icon-button
+                                        (click)="toggleServiceTier()"
+                                        [matTooltip]="'Service Tier: ' + serviceTier()">
+                                    <mat-icon
+                                        [svgIcon]="serviceTierIcon()"
+                                        [ngClass]="{
+                                            'text-primary': serviceTier() !== 'default',
+                                            'rotate-90': serviceTier() === 'priority'
+                                        }">
+                                    </mat-icon>
+                                </button>
                             </div>
                             <!-- mat-select -->
                             <mat-form-field appearance="fill" class="w-20 mt-2 hidden sm:block" style="min-width: 225px" subscriptSizing="dynamic">

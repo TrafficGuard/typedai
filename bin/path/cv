@@ -17,7 +17,7 @@ fi
 
 export CLAUDE_CODE_USE_VERTEX=1
 export ANTHROPIC_VERTEX_PROJECT_ID=$GCLOUD_PROJECT
-export CLOUD_ML_REGION=global
+export CLOUD_ML_REGION=us-east5 #$GCLOUD_REGION
 
 # If claude isn't installed, install it with npm install -g @anthropic-ai/claude-code
 if ! command -v claude &> /dev/null; then

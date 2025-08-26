@@ -19,6 +19,17 @@ export function cerebrasLLMRegistry(): Record<string, () => LLM> {
 	};
 }
 
+// https://cloud.cerebras.ai/platform/org_<org-id>/models  PAYG rate limits
+// https://inference-docs.cerebras.ai/support/rate-limits. rate limit headers
+// https://cerebras-inference.help.usepylon.com/articles/9996007307-cerebras-code-faq  Cerebras Code rate limits
+/*
+Cerebras Code 
+
+ Tier    RPM    TPM        TPD
+ Pro     15     165,000    24M
+ Max     20     275,000    120M
+*/
+
 // https://inference-docs.cerebras.ai/models/qwen-3-32b
 export function cerebrasQwen3_32b(): LLM {
 	return new CerebrasLLM('Qwen3 32b (Cerebras)', 'qwen-3-32b', 16_382, fixedCostPerMilTokens(0.4, 0.8));

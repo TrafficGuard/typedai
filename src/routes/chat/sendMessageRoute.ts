@@ -1,4 +1,3 @@
-import type { Static } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendBadRequest } from '#fastify/index';
 import { getLLM } from '#llm/llmFactory';
@@ -8,14 +7,14 @@ import { registerApiRoute } from '#routes/routeUtils';
 import { CHAT_API } from '#shared/chat/chat.api';
 import type { Chat } from '#shared/chat/chat.model';
 import type { ChatMessageSendSchema, ChatParamsSchema } from '#shared/chat/chat.schema';
-import { type LLM, type LlmMessage, type TextPartExt, type UserContentExt, contentText } from '#shared/llm/llm.model';
+import { type GenerateTextOptions, type LLM, type LlmMessage, type TextPartExt, type UserContentExt, contentText } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { getMarkdownFormatPrompt } from './chatPromptUtils';
 
 export async function sendMessageRoute(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, CHAT_API.sendMessage, async (req, reply) => {
-		const { chatId } = req.params as Static<typeof ChatParamsSchema>;
-		const { llmId, userContent, options, autoReformat } = req.body as Static<typeof ChatMessageSendSchema>;
+		const { chatId } = req.params;
+		const { llmId, userContent, options, autoReformat } = req.body;
 
 		let currentUserContent: UserContentExt = userContent as UserContentExt;
 
@@ -69,9 +68,21 @@ export async function sendMessageRoute(fastify: AppFastifyInstance): Promise<voi
 			}
 		}
 
+		const { serviceTier, ...restOfOptions } = options ?? {};
+		const llmOptions: GenerateTextOptions = restOfOptions;
+		if (serviceTier && serviceTier !== 'default') {
+			llmOptions.providerOptions = {
+				...(llmOptions.providerOptions ?? {}),
+				openai: {
+					...(llmOptions.providerOptions?.openai ?? {}),
+					serviceTier: serviceTier,
+				},
+			};
+		}
+
 		chat.messages.push({ role: 'user', content: currentUserContent, time: Date.now() });
 
-		const responseMessage: LlmMessage = await llmInstance.generateMessage(chat.messages, { id: 'chat', ...options });
+		const responseMessage: LlmMessage = await llmInstance.generateMessage(chat.messages, { id: 'chat', ...llmOptions });
 		chat.messages.push(responseMessage);
 
 		await fastify.chatService.saveChat(chat);

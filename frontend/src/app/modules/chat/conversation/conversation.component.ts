@@ -131,6 +131,22 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
 	autoReformatEnabled: WritableSignal<boolean> = signal(false);
 
+	serviceTier: WritableSignal<'default' | 'flex' | 'priority'> = signal('default');
+
+	llmSupportsServiceTiers = computed(() => {
+		const id = this.llmId();
+		// Service tiers are available for gpt-5 and gpt-5-mini, but not gpt-5-chat
+		return !!id && (id.startsWith('openai:gpt-5') && !id.endsWith('chat'));
+	});
+
+	serviceTierIcon = computed(() => {
+		switch (this.serviceTier()) {
+			case 'priority': return 'stat_3';
+			case 'flex': return 'chevron_right';
+			default: return 'keyboard_double_arrow_right';
+		}
+	});
+
 	private messageInputChanged: Subject<string> = new Subject<string>();
 	private mediaRecorder: MediaRecorder;
 	private audioChunks: Blob[] = [];
@@ -494,6 +510,17 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		this.autoReformatEnabled.update((v) => !v);
 	}
 
+	toggleServiceTier(): void {
+		const currentTier = this.serviceTier();
+		if (currentTier === 'default') {
+			this.serviceTier.set('flex');
+		} else if (currentTier === 'flex') {
+			this.serviceTier.set('priority');
+		} else {
+			this.serviceTier.set('default');
+		}
+	}
+
 	/**
 	 * Open the chat info drawer
 	 */
@@ -604,7 +631,8 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			this._scrollToBottom();
 
 			const baseChatOptions = currentUser.chat && typeof currentUser.chat === 'object' ? currentUser.chat : {};
-			const options = { ...baseChatOptions, thinking: this.llmHasThinkingLevels() ? this.thinkingLevel() : null };
+			const options = { ...baseChatOptions, thinking: this.llmHasThinkingLevels() ? this.thinkingLevel() : undefined };
+			const serviceTierPayload = this.llmSupportsServiceTiers() ? this.serviceTier() : undefined;
 			const enableReformat = this.autoReformatEnabled();
 
 			let apiCall: Observable<any>;
@@ -612,10 +640,10 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			const chatForAPICall = chatStateBeforeSend;
 
 			if (!chatForAPICall || chatForAPICall.id === NEW_CHAT_ID) {
-				apiCall = this._chatService.createChat(userContentPayload, currentLlmId, options, enableReformat);
+				apiCall = this._chatService.createChat(userContentPayload, currentLlmId, options, enableReformat, serviceTierPayload);
 			} else {
 				// Pass originalAttachments for UI purposes if service needs it for its own optimistic updates
-				apiCall = this._chatService.sendMessage(chatForAPICall.id, userContentPayload, currentLlmId, options, originalAttachments, enableReformat);
+				apiCall = this._chatService.sendMessage(chatForAPICall.id, userContentPayload, currentLlmId, options, originalAttachments, enableReformat, serviceTierPayload);
 			}
 
 			apiCall.subscribe({

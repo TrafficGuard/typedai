@@ -176,6 +176,42 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 			// Gemini Flash 2.0 thinking max is about 42
 			if (combinedOpts.topK > 40) combinedOpts.topK = 40;
 
+			combinedOpts.providerOptions ??= {};
+			const providerOptions: any = combinedOpts.providerOptions;
+			if (combinedOpts.thinking) {
+				// if (this.getService() === 'groq') {
+				// 	providerOptions.groq = { reasoningFormat: 'parsed' };
+				// }
+
+				// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
+				if (this.getService() === 'openai' && this.model.startsWith('o')) providerOptions.openai = { reasoningEffort: combinedOpts.thinking };
+				let thinkingBudget: number;
+				// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
+				// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
+				if (this.getModel().includes('claude-3-7') || this.getModel().includes('opus-4') || this.getModel().includes('sonnet-4')) {
+					if (combinedOpts.thinking === 'low') thinkingBudget = 1024;
+					if (combinedOpts.thinking === 'medium') thinkingBudget = 6000;
+					else if (combinedOpts.thinking === 'high') thinkingBudget = 13000;
+					providerOptions.anthropic = {
+						thinking: { type: 'enabled', budgetTokens: thinkingBudget },
+					};
+					// maxOutputTokens += budgetTokens;
+					// Streaming is required when max_tokens is greater than 21,333
+				}
+				// https://cloud.google.com/vertex-ai/generative-ai/docs/thinking#budget
+				else if (this.getId().includes('gemini-2.5')) {
+					if (combinedOpts.thinking === 'low') thinkingBudget = 8192;
+					else if (combinedOpts.thinking === 'medium') thinkingBudget = 16384;
+					else if (combinedOpts.thinking === 'high') thinkingBudget = 24576;
+					providerOptions.google = {
+						thinkingConfig: {
+							includeThoughts: true,
+							thinkingBudget,
+						},
+					};
+				}
+			}
+
 			const prompt = messages.map((m) => m.content).join('\n');
 			span.setAttributes({
 				inputChars: prompt.length,
@@ -183,6 +219,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				service: this.service,
 				// userId: currentUser().id,
 				description,
+				opts: JSON.stringify(combinedOpts),
 			});
 
 			if (!combinedOpts.id) {
@@ -213,43 +250,10 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				};
 			}
 
+			console.log(providerOptions);
+
 			const requestTime = Date.now();
 			try {
-				const providerOptions: any = {};
-				if (combinedOpts.thinking) {
-					// if (this.getService() === 'groq') {
-					// 	providerOptions.groq = { reasoningFormat: 'parsed' };
-					// }
-
-					// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
-					if (this.getService() === 'openai' && this.model.startsWith('o')) providerOptions.openai = { reasoningEffort: combinedOpts.thinking };
-					let thinkingBudget: number;
-					// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
-					// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
-					if (this.getModel().includes('claude-3-7') || this.getModel().includes('opus-4') || this.getModel().includes('sonnet-4')) {
-						if (combinedOpts.thinking === 'low') thinkingBudget = 1024;
-						if (combinedOpts.thinking === 'medium') thinkingBudget = 6000;
-						else if (combinedOpts.thinking === 'high') thinkingBudget = 13000;
-						providerOptions.anthropic = {
-							thinking: { type: 'enabled', budgetTokens: thinkingBudget },
-						};
-						// maxOutputTokens += budgetTokens;
-						// Streaming is required when max_tokens is greater than 21,333
-					}
-					// https://cloud.google.com/vertex-ai/generative-ai/docs/thinking#budget
-					else if (this.getId().includes('gemini-2.5')) {
-						if (combinedOpts.thinking === 'low') thinkingBudget = 8192;
-						else if (combinedOpts.thinking === 'medium') thinkingBudget = 16384;
-						else if (combinedOpts.thinking === 'high') thinkingBudget = 24576;
-						providerOptions.google = {
-							thinkingConfig: {
-								includeThoughts: true,
-								thinkingBudget,
-							},
-						};
-					}
-				}
-
 				const result: GenerateTextResult<any, any> = await aiGenerateText({
 					model: this.aiModel(),
 					messages,

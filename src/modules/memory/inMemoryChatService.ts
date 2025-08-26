@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { ChatService } from '#chat/chatService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
-import type { Chat, ChatList, ChatPreview, Message } from '#shared/chat/chat.model';
+import type { Chat, ChatList, ChatPreview } from '#shared/chat/chat.model';
+import type { LlmMessage } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 
 /**
@@ -11,25 +12,6 @@ import { currentUser } from '#user/userContext';
  */
 export class InMemoryChatService implements ChatService {
 	private chats: Map<string, Chat> = new Map();
-
-	/**
-	 * Create a new chat
-	 * @param newChatData The data for the new chat
-	 * @returns The created chat object
-	 */
-	@span()
-	async createChat(newChatData: { title: string; shareable?: boolean; userId?: string; messages?: Message[] }): Promise<Chat> {
-		const currentUserId = currentUser().id;
-		const chat: Chat = {
-			id: randomUUID(),
-			title: newChatData.title,
-			shareable: newChatData.shareable ?? false,
-			userId: newChatData.userId ?? currentUserId,
-			updatedAt: Date.now(),
-			messages: newChatData.messages ?? [],
-		};
-		return this.saveChat(chat);
-	}
 
 	/**
 	 * Load a chat by its ID

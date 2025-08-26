@@ -291,7 +291,7 @@ Output your plan as a hierarchical list. For example:
 Instructions:
 Provide a concise details of the most probable next steps of the plan (i.e. function call) to take with reasoning.
 Then applying logic reasoning, taking into account all of the provided context, explain which are the most appropriate choice(s).
-List the possible functions from the <functions> section which are relevant to complete the next step, along with the parameter descriptions.
+List the possible functions from the <functions> section which are relevant to complete the next step, along with the full function and parameter descriptions.
 Select the function(s) to best complete the next step. You may call more than one function. Call the Agent.requestFeedback if more details/decisions are required, or Agent.completed if the request is complete.
 Otherwise return any values to analyse further.
 -->
@@ -383,7 +383,7 @@ Provide a review of the draft python code against each of the Python code instru
 - Do not return saved variables; do not re-save existing memory.
 - Code defensively; check object properties.
 - Handle user-specified items flexibly (refer to 'Interpreting User Requests').
-- If item not found using assumptions, return all values.
+- If item not found using assumptions, return all values for further analysis.
 - Directly return `Agent_completed` result (after storing info).
 - Do not assume Python files (e.g., TS, Java, Terraform, PHP, C#, C++, Ruby).
 - Directly analyze/return text/data from `<memory>` and `<script-result>`; return unstructured data in Dict for analysis.

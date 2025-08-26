@@ -86,7 +86,7 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 
 		let stdout = execSync(commandToRun, options);
 		if (typeof stdout !== 'string') stdout = stdout.toString();
-
+		stdout = formatAnsiWithMarkdownLinks(stdout);
 		logger.info(stdout);
 
 		return {
@@ -94,15 +94,15 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 			stdout,
 			stderr: '',
 			error: null,
-			exitCode: 0, // Add exitCode for success
+			exitCode: 0,
 			cwd,
 		};
 	} catch (error) {
 		logger.error(error, `Error executing command: ${commandToRun} in ${cwd}`);
 		return {
 			cmd: command,
-			stdout: error.stdout?.toString() || '',
-			stderr: error.stderr?.toString() || '',
+			stdout: formatAnsiWithMarkdownLinks(error.stdout?.toString() || ''),
+			stderr: formatAnsiWithMarkdownLinks(error.stderr?.toString() || ''),
 			error: error instanceof Error ? error : new Error(String(error)),
 			exitCode: error.code ?? 1,
 			cwd,
@@ -227,24 +227,26 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 				span.setStatus({ code: SpanStatusCode.OK });
 				return { stdout, stderr, exitCode: 0, command };
 			} catch (error) {
+				const stdout = formatAnsiWithMarkdownLinks(error.stdout || '');
+				const stderr = formatAnsiWithMarkdownLinks(error.stderr || '');
 				span.setAttributes({
 					'container.id': containerId,
 					'container.command': command,
 					cwd: opts?.workingDirectory ?? CONTAINER_PATH, // Log container CWD
 					command: dockerCommand,
-					stdout: formatAnsiWithMarkdownLinks(error.stdout),
-					stderr: formatAnsiWithMarkdownLinks(error.stderr),
+					stdout,
+					stderr,
 					exitCode: error.code,
 				});
 				span.recordException(error);
 				span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
 				logger.error(error, `Error executing ${command} in container ${containerId}`);
 				if (opts?.throwOnError) {
-					const e: any = new Error(`Error running ${command} in container. ${error.stdout} ${error.stderr}`);
+					const e: any = new Error(`Error running ${command} in container. ${stdout} ${stderr}`);
 					e.code = error.code;
 					throw e;
 				}
-				return { stdout: error.stdout, stderr: error.stderr, exitCode: error.code, command };
+				return { stdout, stderr, exitCode: error.code, command };
 			}
 		}
 
@@ -269,22 +271,24 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 			span.setStatus({ code: SpanStatusCode.OK });
 			return { stdout, stderr, exitCode: 0, command };
 		} catch (error) {
+			const stdout = formatAnsiWithMarkdownLinks(error.stdout || '');
+			const stderr = formatAnsiWithMarkdownLinks(error.stderr || '');
 			span.setAttributes({
 				cwd: options.cwd as string,
 				command,
-				stdout: formatAnsiWithMarkdownLinks(error.stdout),
-				stderr: formatAnsiWithMarkdownLinks(error.stderr),
+				stdout,
+				stderr,
 				exitCode: error.code,
 			});
 			span.recordException(error);
 			span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
 			logger.error(error, `Error executing ${command}`);
 			if (opts?.throwOnError) {
-				const e: any = new Error(`Error running ${command}. ${error.stdout} ${error.stderr}`);
+				const e: any = new Error(`Error running ${command}. ${stdout} ${stderr}`);
 				e.code = error.code;
 				throw e;
 			}
-			return { stdout: error.stdout, stderr: error.stderr, exitCode: error.code, command };
+			return { stdout, stderr, exitCode: error.code, command };
 		}
 	});
 }
@@ -324,17 +328,19 @@ export async function spawnCommand(command: string, workingDirectory?: string): 
 			span.setStatus({ code: code === 0 ? SpanStatusCode.OK : SpanStatusCode.ERROR });
 			return { stdout, stderr, exitCode: code, command };
 		} catch (error) {
+			const stdout = formatAnsiWithMarkdownLinks(error.stdout || '');
+			const stderr = formatAnsiWithMarkdownLinks(error.stderr || '');
 			span.setAttributes({
 				cwd: hostCwd,
 				command: commandToRun,
-				stdout: formatAnsiWithMarkdownLinks(error.stdout),
-				stderr: formatAnsiWithMarkdownLinks(error.stderr),
+				stdout,
+				stderr,
 				exitCode: error.code,
 			});
 			span.recordException(error);
 			span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
 			logger.error(error, `Error executing ${command}`);
-			return { stdout: error.stdout, stderr: error.stderr, exitCode: error.code, command };
+			return { stdout, stderr, exitCode: error.code, command };
 		}
 	});
 }
@@ -356,6 +362,8 @@ function spawnAsync(command: string, options: SpawnOptionsWithoutStdio): Promise
 			});
 
 			process.on('close', (code) => {
+				stdout = formatAnsiWithMarkdownLinks(stdout || '');
+				stderr = formatAnsiWithMarkdownLinks(stderr || '');
 				span.setAttributes({
 					cwd: options.cwd.toString(),
 					command,

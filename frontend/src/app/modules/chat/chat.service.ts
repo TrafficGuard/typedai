@@ -183,11 +183,16 @@ export class ChatServiceClient {
 		);
 	}
 
-	createChat(userContent: UserContentExt, llmId: string, options?: CallSettings, autoReformat?: boolean): Observable<Chat> {
+	createChat(userContent: UserContentExt, llmId: string, options?: CallSettings, autoReformat?: boolean, serviceTier?: 'default' | 'flex' | 'priority'): Observable<Chat> {
 		let optimisticId: string | undefined; // Declare optimisticId
 
 		// userContent is already prepared by the component
-		const payload: ChatMessagePayload = { llmId, userContent, options, autoReformat: autoReformat ?? false };
+		const payload: ChatMessagePayload = {
+			llmId,
+			userContent,
+			options: { ...options, serviceTier },
+			autoReformat: autoReformat ?? false,
+		};
 
 		// Optimistic update logic for NEW_CHAT_ID
 		const currentNewChatState = this._chatState();
@@ -395,11 +400,17 @@ export class ChatServiceClient {
 		options?: CallSettings,
 		attachmentsForUI?: Attachment[],
 		autoReformat?: boolean,
+		serviceTier?: 'default' | 'flex' | 'priority',
 	): Observable<void> {
 		let optimisticMessageId: string | undefined; // Declare optimisticMessageId
 
 		// userContent is already prepared by the component
-		const payload: ChatMessagePayload = { llmId, userContent, options, autoReformat: autoReformat ?? false };
+		const payload: ChatMessagePayload = {
+			llmId,
+			userContent,
+			options: { ...options, serviceTier },
+			autoReformat: autoReformat ?? false,
+		};
 
 		// Locally add user's message immediately for responsiveness
 		const { text: derivedTextFromUserContent } = userContentExtToAttachmentsAndText(userContent);

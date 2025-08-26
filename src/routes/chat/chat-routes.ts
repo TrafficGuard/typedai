@@ -16,7 +16,7 @@ import type {
 	ChatUpdateDetailsSchema,
 	RegenerateMessageSchema,
 } from '#shared/chat/chat.schema';
-import { contentText } from '#shared/llm/llm.model';
+import { contentText, system, user } from '#shared/llm/llm.model';
 import type { LLM, LlmMessage, TextPartExt, UserContentExt } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { getMarkdownFormatPrompt } from './chatPromptUtils';
@@ -31,10 +31,7 @@ export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 			const { chatId } = req.params;
 			const chat: Chat = await fastify.chatService.loadChat(chatId);
 
-			if (chat.shareable) {
-				// console.log(JSON.stringify(chat));
-				return reply.sendJSON(chat);
-			}
+			if (chat.shareable) return reply.sendJSON(chat);
 
 			try {
 				const userId = currentUser().id;
@@ -43,7 +40,6 @@ export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 				return sendBadRequest(reply, 'Unauthorized to view this chat');
 			}
 
-			// console.log(JSON.stringify(chat));
 			reply.sendJSON(chat);
 		},
 	);
@@ -128,7 +124,8 @@ export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 				{ id: 'Chat title' },
 			);
 
-			chat.messages.push({ role: 'user', content: currentUserContent, time: Date.now() });
+			chat.messages.push(system('Respond in Markdown format'));
+			chat.messages.push(user(currentUserContent));
 
 			const responseMessage: LlmMessage = await llm.generateMessage(chat.messages, { id: 'chat', ...options });
 			chat.messages.push(responseMessage);
@@ -213,8 +210,6 @@ export async function chatRoutes(fastify: AppFastifyInstance): Promise<void> {
 
 			await fastify.chatService.saveChat(chat);
 
-			console.log(responseMessage);
-			console.log(JSON.stringify(responseMessage));
 			reply.sendJSON(responseMessage);
 		},
 	);

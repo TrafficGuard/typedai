@@ -1,7 +1,7 @@
 import { type Static, Type } from '@sinclair/typebox';
 import { CHAT_PREVIEW_KEYS, type Chat, type ChatList, type ChatPreview } from '#shared/chat/chat.model';
 import type { AreTypesFullyCompatible, ChangePropertyType } from '#shared/typeUtils';
-import { CallSettingsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel, UserContentSchema } from '../llm/llm.schema';
+import { CallSettingsSchema, GenerateTextOptionsSchema, LlmMessagesSchema, type LlmMessagesSchemaModel, UserContentSchema } from '../llm/llm.schema';
 
 //#region == Chat database model schemas ====
 
@@ -58,7 +58,14 @@ export const ChatMessageSendSchema = Type.Object(
 	{
 		llmId: Type.String(),
 		userContent: UserContentSchema, // UserContentSchema from llm.schema.ts (represents UserContentExt)
-		options: Type.Optional(CallSettingsSchema),
+		options: Type.Optional(
+			Type.Intersect([
+				GenerateTextOptionsSchema,
+				Type.Object({
+					serviceTier: Type.Optional(Type.Union([Type.Literal('default'), Type.Literal('flex'), Type.Literal('priority')])),
+				}),
+			]),
+		),
 		autoReformat: Type.Optional(Type.Boolean()),
 	},
 	{ $id: 'ChatMessageSend' },
@@ -113,5 +120,3 @@ export const ChatMarkdownResponseSchema = Type.Object(
 	{ $id: 'ChatMarkdownResponse' },
 );
 export type ChatMarkdownResponseModel = Static<typeof ChatMarkdownResponseSchema>;
-
-//#endregion - Chat API schemas

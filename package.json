@@ -35,6 +35,7 @@
     "swebench": " node --env-file=variables/local.env -r esbuild-register src/cli/swebench.ts",
     "research": " node --env-file=variables/local.env -r esbuild-register src/cli/research.ts",
     "review": "   node --env-file=variables/local.env -r esbuild-register src/cli/review.ts",
+    "tokens": "   node --env-file=variables/local.env -r esbuild-register src/cli/tokens.ts",
     "util": "     node --env-file=variables/local.env -r esbuild-register src/cli/util.ts",
     "watch": "    node --env-file=variables/local.env -r esbuild-register src/cli/watch.ts",
     "build": "    tsc",
