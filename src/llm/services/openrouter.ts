@@ -1,6 +1,7 @@
-import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
+import { EmbeddingModelV2, ImageModelV2, LanguageModelV2 } from '@ai-sdk/provider';
+import { OpenRouterProvider, createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { fixedCostPerMilTokens } from '#llm/base-llm';
-import type { LLM, LlmCostFunction } from '#shared/llm/llm.model';
+import type { GenerateTextOptions, LLM, LlmCostFunction } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { AiLLM } from './ai-llm';
 
@@ -8,32 +9,67 @@ export const OPENROUTER_SERVICE = 'openrouter';
 
 export function openrouterLLMRegistry(): Record<string, () => LLM> {
 	return {
-		'openrouter:google/gemini-2.5-pro-exp-03-25:free': () => openRouterGemini2_5_Pro(),
+		'openrouter:qwen/qwen3-235b-a22b-thinking-2507': () => openRouterQwen3_235b_Thinking(),
+		'openrouter:qwen/qwen/qwen3-235b-a22b-2507': () => openRouterQwen3_235b_Instruct(),
 	};
 }
 
 // https://openrouter.ai/models
 
-export function openRouterGemini2_5_Pro(): LLM {
-	return new OpenRouterLLM('Gemini 2.5 Pro (OpenRouter)', 'google/gemini-2.5-pro-exp-03-25:free', 1_000_000, fixedCostPerMilTokens(0, 0));
+export function openRouterQwen3_235b_Thinking(): LLM {
+	return new OpenRouterLLM('Qwen3 235b Thinking (Cerebras)', 'qwen/qwen3-235b-a22b-thinking-2507', 131_000, fixedCostPerMilTokens(0.6, 1.2), {});
+}
+
+export function openRouterQwen3_235b_Instruct(): LLM {
+	return new OpenRouterLLM('Qwen3 235b Instruct (Cerebras)', 'qwen/qwen3-235b-a22b-2507', 131_000, fixedCostPerMilTokens(0.6, 1.2), {});
+}
+
+declare module '@openrouter/ai-sdk-provider' {
+	interface OpenRouterProvider {
+		languageModel(modelId: string): LanguageModelV2;
+		/**
+		  Returns the text embedding model with the given id.
+		  The model id is then passed to the provider function to get the model.
+		  
+		  @param {string} modelId - The id of the model to return.
+		  
+		  @returns {LanguageModel} The language model associated with the id
+		  
+		  @throws {NoSuchModelError} If no such model exists.
+		*/
+		textEmbeddingModel(modelId: string): EmbeddingModelV2<string>;
+		/**
+		  Returns the image model with the given id.
+		  The model id is then passed to the provider function to get the model.
+		  
+		  @param {string} modelId - The id of the model to return.
+		  
+		  @returns {ImageModel} The image model associated with the id
+		*/
+		imageModel(modelId: string): ImageModelV2;
+	}
 }
 
 /**
  * https://inference-docs.openrouter.ai/introduction
  * Next release of OpenRouter provider should work instead of using OpenAIProvider
  */
-export class OpenRouterLLM extends AiLLM<OpenAIProvider> {
-	constructor(displayName: string, model: string, maxInputTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, OPENROUTER_SERVICE, model, maxInputTokens, calculateCosts);
+export class OpenRouterLLM extends AiLLM<OpenRouterProvider> {
+	constructor(displayName: string, model: string, maxInputTokens: number, calculateCosts: LlmCostFunction, defaultOptions?: GenerateTextOptions) {
+		super(displayName, OPENROUTER_SERVICE, model, maxInputTokens, calculateCosts, [], defaultOptions);
 	}
 
-	protected provider(): any {
-		return createOpenAI({
-			baseURL: 'https://openrouter.ai/api/v1',
+	protected provider(): OpenRouterProvider {
+		return createOpenRouter({
 			apiKey: this.apiKey(),
 			headers: {
 				'HTTP-Referer': 'https://typedai.dev', // Optional. Site URL for rankings on openrouter.ai.
 				'X-Title': 'TypedAI', // Optional. Site title for rankings on
+			},
+			extraBody: {
+				provider: {
+					only: ['Cerebras'],
+				},
 			},
 		});
 	}

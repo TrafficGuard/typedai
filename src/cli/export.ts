@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import micromatch from 'micromatch';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { countTokens } from '#llm/tokens';
+import { logger } from '#o11y/logger';
 
 /**
  * If there are no arguments then only write the exported contents to the console
@@ -40,7 +41,10 @@ async function main() {
 	};
 
 	const noPatterns = patterns.length === 0;
-	if (noPatterns) dbg('No patterns provided – exporting entire workspace.');
+	if (noPatterns) {
+		logger.error('No patterns provided. Exiting');
+		process.exit(1);
+	}
 
 	let matchedFiles: string[] = [];
 

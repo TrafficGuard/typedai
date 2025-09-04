@@ -37,23 +37,23 @@ function openAICostFunction(inputMil: number, outputMil: number): LlmCostFunctio
 }
 
 export function openaiGPT5flex(): LLM {
-	return new OpenAI('GPT5 (flex)', 'gpt-5', openAICostFunction(0.625, 5), 200_000, [], 'flex');
+	return openaiGPT5('flex');
 }
 
 export function openaiGPT5priority(): LLM {
-	return new OpenAI('GPT5 (priority)', 'gpt-5', openAICostFunction(2.5, 205), 200_000, [], 'priority');
+	return openaiGPT5('priority');
 }
 
-export function openaiGPT5(): LLM {
-	return new OpenAI('GPT5', 'gpt-5', openAICostFunction(1.25, 10), 200_000, ['o3', 'gpt-4.1']);
+export function openaiGPT5(serviceTier?: 'auto' | 'flex' | 'priority'): LLM {
+	return new OpenAI('GPT5', 'gpt-5', openAICostFunction(1.25, 10), 200_000, ['o3', 'gpt-4.1'], serviceTier);
 }
 
 export function openaiGPT5miniFlex(): LLM {
-	return new OpenAI('GPT5 mini (flex)', 'gpt-5-mini', openAICostFunction(0.125, 1), 200_000, [], 'flex');
+	return openaiGPT5mini('flex');
 }
 
-export function openaiGPT5mini(): LLM {
-	return new OpenAI('GPT5 mini', 'gpt-5-mini', openAICostFunction(0.25, 2), 200_000, ['gpt-4.1-mini', 'o3-mini', 'o4-mini']);
+export function openaiGPT5mini(serviceTier?: 'auto' | 'flex' | 'priority'): LLM {
+	return new OpenAI('GPT5 mini', 'gpt-5-mini', openAICostFunction(0.25, 2), 200_000, ['gpt-4.1-mini', 'o3-mini', 'o4-mini'], serviceTier);
 }
 
 export function openaiGPT5nano(): LLM {

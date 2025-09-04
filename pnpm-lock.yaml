@@ -126,8 +126,8 @@ importers:
         specifier: ^5.1.0
         version: 5.6.3(encoding@0.1.13)
       '@openrouter/ai-sdk-provider':
-        specifier: ^0.4.5
-        version: 0.4.6(zod@3.25.76)
+        specifier: 1.1.2
+        version: 1.1.2(ai@5.0.8(zod@3.25.76))(zod@3.25.76)
       '@opentelemetry/api':
         specifier: ^1.6.0
         version: 1.9.0
@@ -549,24 +549,11 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4
 
-  '@ai-sdk/provider-utils@2.1.10':
-    resolution: {integrity: sha512-4GZ8GHjOFxePFzkl3q42AU0DQOtTQ5w09vmaWUf/pKFXJPizlnzKSUkF0f+VkapIUfDugyMqPMT1ge8XQzVI7Q==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.0.0
-    peerDependenciesMeta:
-      zod:
-        optional: true
-
   '@ai-sdk/provider-utils@3.0.1':
     resolution: {integrity: sha512-/iP1sKc6UdJgGH98OCly7sWJKv+J9G47PnTjIj40IJMUQKwDrUMyf7zOOfRtPwSuNifYhSoJQ4s1WltI65gJ/g==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4
-
-  '@ai-sdk/provider@1.0.9':
-    resolution: {integrity: sha512-jie6ZJT2ZR0uVOVCDc9R2xCX5I/Dum/wEK28lx21PJx6ZnFAN9EzD2WsPhcDWfCgGx3OAZZ0GyM3CEobXpa9LA==}
-    engines: {node: '>=18'}
 
   '@ai-sdk/provider@2.0.0':
     resolution: {integrity: sha512-6o7Y2SeO9vFKB8lArHXehNuusnpddKPk7xqL7T2/b+OvXMRIXUO1rR4wcv1hAFUAT9avGZshty3Wlua/XA7TvA==}
@@ -1937,11 +1924,12 @@ packages:
   '@octokit/types@6.41.0':
     resolution: {integrity: sha512-eJ2jbzjdijiL3B4PrSQaSjuF2sPEQPVCPzBvTHJD9Nz+9dw2SGH4K4xeQJ77YfTq5bRQ+bD8wT11JbeDPmxmGg==}
 
-  '@openrouter/ai-sdk-provider@0.4.6':
-    resolution: {integrity: sha512-oUa8xtssyUhiKEU/aW662lsZ0HUvIUTRk8vVIF3Ha3KI/DnqX54zmVIuzYnaDpermqhy18CHqblAY4dDt1JW3g==}
+  '@openrouter/ai-sdk-provider@1.1.2':
+    resolution: {integrity: sha512-cfiKVpNygGFaJojBHFvtTf7UiF458Xh9yPcTg4FXF7bGYN5V33Rxx9dXNE12fjv6lHeC5C7jwQHDrzUIFol1iQ==}
     engines: {node: '>=18'}
     peerDependencies:
-      zod: ^3.0.0
+      ai: ^5.0.0
+      zod: ^3.24.1 || ^v4
 
   '@opentelemetry/api-logs@0.57.2':
     resolution: {integrity: sha512-uIX52NnTM0iBh84MShlpouI7UKqkZ7MrUszTmaypHBu4r7NofznSnQRfJ+uUeDtQDj6w8eFGg5KBLDAwAPz1+A==}
@@ -8763,15 +8751,6 @@ snapshots:
       '@ai-sdk/provider-utils': 3.0.1(zod@3.25.76)
       zod: 3.25.76
 
-  '@ai-sdk/provider-utils@2.1.10(zod@3.25.76)':
-    dependencies:
-      '@ai-sdk/provider': 1.0.9
-      eventsource-parser: 3.0.3
-      nanoid: 3.3.11
-      secure-json-parse: 2.7.0
-    optionalDependencies:
-      zod: 3.25.76
-
   '@ai-sdk/provider-utils@3.0.1(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
@@ -8779,10 +8758,6 @@ snapshots:
       eventsource-parser: 3.0.3
       zod: 3.25.76
       zod-to-json-schema: 3.24.6(zod@3.25.76)
-
-  '@ai-sdk/provider@1.0.9':
-    dependencies:
-      json-schema: 0.4.0
 
   '@ai-sdk/provider@2.0.0':
     dependencies:
@@ -10350,10 +10325,9 @@ snapshots:
     dependencies:
       '@octokit/openapi-types': 12.11.0
 
-  '@openrouter/ai-sdk-provider@0.4.6(zod@3.25.76)':
+  '@openrouter/ai-sdk-provider@1.1.2(ai@5.0.8(zod@3.25.76))(zod@3.25.76)':
     dependencies:
-      '@ai-sdk/provider': 1.0.9
-      '@ai-sdk/provider-utils': 2.1.10(zod@3.25.76)
+      ai: 5.0.8(zod@3.25.76)
       zod: 3.25.76
 
   '@opentelemetry/api-logs@0.57.2':

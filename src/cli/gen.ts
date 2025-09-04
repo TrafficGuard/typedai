@@ -5,12 +5,14 @@ import { initApplicationContext, initInMemoryApplicationContext } from '#app/app
 import { ReasonerDebateLLM } from '#llm/multi-agent/reasoning-debate';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { countTokens } from '#llm/tokens';
-import { LLM, ThinkingLevel, contentText, messageText, user } from '#shared/llm/llm.model';
+import { LLM, LlmMessage, ThinkingLevel, messageText, system, user } from '#shared/llm/llm.model';
+import { beep } from '#utils/beep';
 import { LLM_CLI_ALIAS, parseProcessArgs } from './cli';
 import { parsePromptWithImages } from './promptParser';
+import { terminalLog } from './terminal';
 
 // Usage:
-// npm run gen
+// ai gen -s="system prompt"  'input prompt'
 
 async function main() {
 	const { initialPrompt: rawPrompt, llmId, flags } = parseProcessArgs();
@@ -21,6 +23,8 @@ async function main() {
 	else await initInMemoryApplicationContext();
 
 	let llm: LLM = defaultLLMs().medium;
+	terminalLog('PROMPT:');
+	terminalLog(rawPrompt);
 	if (llmId) {
 		if (!LLM_CLI_ALIAS[llmId]) {
 			console.error(`LLM alias ${llmId} not found. Valid aliases are ${Object.keys(LLM_CLI_ALIAS).join(', ')}`);
@@ -31,13 +35,17 @@ async function main() {
 
 	// Count tokens of the text part only for display purposes
 	const tokens = await countTokens(textPrompt);
-	console.log(`Generating with ${llm.getId()}. Input ${tokens} text tokens\n`);
+	terminalLog(`Generating with ${llm.getId()}. Input ${tokens} text tokens\n`);
 	const start = Date.now();
 	// Pass the full UserContent (text + images) as a message array
 	let thinking: ThinkingLevel = 'high';
 	if (llm instanceof ReasonerDebateLLM) thinking = 'low';
 
-	const message = await llm.generateMessage([user(userContent)], { id: 'CLI-gen', thinking });
+	const messages: LlmMessage[] = [];
+	if (flags.s) messages.push(system(textPrompt));
+	messages.push(user(userContent));
+
+	const message = await llm.generateMessage(messages, { id: 'CLI-gen', thinking });
 
 	const text = messageText(message);
 	console.log(text);
@@ -50,15 +58,16 @@ async function main() {
 		try {
 			const clipboardy = (await import('clipboardy')).default;
 			await clipboardy.write(text);
-			console.log('\nCopied output to clipboard.');
+			terminalLog('\nCopied output to clipboard.');
 		} catch (error) {
 			console.error('\nFailed to copy to clipboard. Is `clipboardy` installed? `npm i clipboardy`');
 			console.error(error);
 		}
 	}
 
-	console.log(`\nGenerated ${await countTokens(text)} tokens by ${llm.getId()} in ${(duration / 1000).toFixed(1)} seconds`);
-	console.log('Wrote output to src/cli/gen-out');
+	terminalLog(`\nGenerated ${await countTokens(text)} tokens by ${llm.getId()} in ${(duration / 1000).toFixed(1)} seconds`);
+	terminalLog('Wrote output to src/cli/gen-out');
+	beep();
 }
 
 main().catch(console.error);

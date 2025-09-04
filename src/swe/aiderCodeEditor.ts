@@ -13,7 +13,6 @@ import { callStack } from '#llm/llmCallService/llmCall';
 import { anthropicClaude4_Sonnet } from '#llm/services/anthropic';
 import { deepSeekV3 } from '#llm/services/deepseek';
 import { openaiGPT5 } from '#llm/services/openai';
-import { openRouterGemini2_5_Pro } from '#llm/services/openrouter';
 import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import { getActiveSpan } from '#o11y/trace';

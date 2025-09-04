@@ -94,9 +94,10 @@ class AnthropicVertexLLM extends AiLLM<GoogleVertexAnthropicProvider> {
 		}
 
 		console.log(`Configuring anthropic vertex provider with ${project}`);
+		const location = currentUser()?.llmConfig.vertexRegion || process.env.GCLOUD_CLAUDE_REGION || envVar('GCLOUD_REGION');
 		this.aiProvider ??= createVertexAnthropic({
 			project: project,
-			location: currentUser()?.llmConfig.vertexRegion || process.env.GCLOUD_CLAUDE_REGION || envVar('GCLOUD_REGION'),
+			location,
 		});
 
 		return this.aiProvider;

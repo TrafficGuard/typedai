@@ -9,7 +9,7 @@ import { execCommand, failOnError } from '#utils/exec';
 @funcClass(__filename)
 export class CodeFunctions {
 	/**
-	 * Runs the initialise command from the project configuration file
+	 * Runs the initialise command from the .typedai.json configuration file
 	 */
 	@func()
 	async initialiseProject(): Promise<string> {
@@ -24,7 +24,7 @@ export class CodeFunctions {
 	}
 
 	/**
-	 * Compiles the project using the compile command from the project config file
+	 * Compiles the project using the compile command from the .typedai.json config file
 	 */
 	@func()
 	async compile(): Promise<string> {

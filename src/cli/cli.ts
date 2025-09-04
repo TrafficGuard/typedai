@@ -6,11 +6,12 @@ import { MAD_Balanced, MAD_Fast, MAD_SOTA } from '#llm/multi-agent/reasoning-deb
 import { Claude4_1_Opus_Vertex } from '#llm/services/anthropic-vertex';
 import { cerebrasQwen3_235b_Thinking, cerebrasQwen3_Coder } from '#llm/services/cerebras';
 import { defaultLLMs } from '#llm/services/defaultLlms';
-import { openaiGPT5, openaiGPT5mini, openaiGPT5nano } from '#llm/services/openai';
+import { openaiGPT5, openaiGPT5flex, openaiGPT5mini, openaiGPT5nano, openaiGPT5priority } from '#llm/services/openai';
 import { perplexityDeepResearchLLM, perplexityLLM, perplexityReasoningProLLM } from '#llm/services/perplexity-llm';
 import { xai_Grok4 } from '#llm/services/xai';
 import { logger } from '#o11y/logger';
 import { LLM } from '#shared/llm/llm.model';
+import { terminalLog } from './terminal';
 
 export const LLM_CLI_ALIAS: Record<string, () => LLM> = {
 	e: () => defaultLLMs().easy,
@@ -22,6 +23,9 @@ export const LLM_CLI_ALIAS: Record<string, () => LLM> = {
 	cc: cerebrasQwen3_Coder,
 	x: xai_Grok4,
 	g5: openaiGPT5,
+	g5p: openaiGPT5priority,
+	g5f: openaiGPT5flex,
+	gpt5: openaiGPT5,
 	g5m: openaiGPT5mini,
 	g5n: openaiGPT5nano,
 	madb: MAD_Balanced,
@@ -58,7 +62,7 @@ export function parseProcessArgs(): CliOptions {
 	const scriptPath = process.argv[1];
 	let scriptName = scriptPath.split(path.sep).at(-1);
 	scriptName = scriptName.substring(0, scriptName.length - 3);
-	console.log(`Script name: ${scriptName}`);
+	// console.log(`Script name: ${scriptName}`);
 
 	// Grab the CLI args that were actually delivered to the Node process
 	const scriptArgs = process.argv.slice(2);
@@ -159,6 +163,7 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 	// This uses fstatSync so it works even when the script is launched through `npm run …`
 	let stdinPrompt = '';
 	try {
+		// terminalLog(process.env.NODE_ENV);
 		// Do not read from stdin during tests, as it may be polluted by test runners or git hooks.
 		if (process.env.NODE_ENV !== 'test') {
 			// If -i flag is present, assume interactive input and read from stdin.
@@ -166,12 +171,17 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 				console.log('Enter prompt (send EOF to finish; e.g. Ctrl+D on a new line):');
 				stdinPrompt = readFileSync(0, 'utf-8').trim();
 			} else {
+				// terminalLog('Checking stdin');
 				const stats = fstatSync(0); // fd 0 = stdin
 				// Is data coming from a pipe (FIFO) or a redirected file?
 				if (stats.isFIFO() || stats.isFile()) {
+					// terminalLog('Stdin is a pipe or redirected file');
 					stdinPrompt = readFileSync(0, 'utf-8').trim();
+					// terminalLog(`Read ${stdinPrompt.length} chars`);
 				}
 			}
+		} else {
+			// terminalLog('No stdin detected');
 		}
 	} catch {
 		/* ignore – fall back to CLI args or file */
@@ -222,6 +232,7 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 		scriptArgs.splice(mIdx, 1); // Remove the flag itself
 	}
 	const llmId: string | undefined = (flags.l as string) || (flags.llm as string); // Assign llm from the flags map
+	// console.error(llmId);
 
 	// Extract function classes before processing prompt
 	const functionClasses = parseFunctionArgument(scriptArgs);
@@ -245,7 +256,7 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 			'If running a `npm run` command, the program arguments need to be seperated by "--". e.g. "npm run agent -- -f=code,web,jira". Alternatively use the `ai` script as an alias for `npm run` which doesnt required the -- seperator, and can be run from any directory.',
 		);
 
-	logger.debug({ functionClasses }, 'Parsed function classes');
+	// logger.debug({ functionClasses }, 'Parsed function classes');
 	// logger.info(initialPrompt);
 
 	// If no prompt provided then load from file
