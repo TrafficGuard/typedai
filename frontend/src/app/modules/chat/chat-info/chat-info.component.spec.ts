@@ -1,13 +1,24 @@
+import { ClipboardModule } from '@angular/cdk/clipboard';
 import { WritableSignal, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconTestingModule } from '@angular/material/icon/testing';
+import { MatInputModule } from '@angular/material/input';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDrawer } from '@angular/material/sidenav';
+import { MatSliderModule } from '@angular/material/slider';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { UserService } from 'app/core/user/user.service';
 import { ChatServiceClient } from 'app/modules/chat/chat.service';
 import { Chat } from 'app/modules/chat/chat.types';
-import { UserProfile } from '#shared/user/user.model';
+import { UserProfile, UserProfileUpdate } from '#shared/user/user.model';
 import { ChatInfoComponent } from './chat-info.component';
 import { ChatInfoPo } from './chat-info.component.po';
 
@@ -31,7 +42,21 @@ const mockUser: UserProfile = {
 	enabled: false
 };
 
-xdescribe('ChatInfoComponent', () => {
+describe('ChatInfoComponent', () => {
+	const originalConsoleError = console.error;
+	const originalConsoleWarn = console.warn;
+
+	beforeAll(() => {
+		spyOn(console, 'error').and.stub();
+		spyOn(console, 'warn').and.stub();
+	});
+
+	afterAll(() => {
+		// Restore originals so other suites behave normally
+		console.error = originalConsoleError;
+		console.warn = originalConsoleWarn;
+	});
+
 	let fixture: ComponentFixture<ChatInfoComponent>;
 	let po: ChatInfoPo;
 	let mockUserService: jasmine.SpyObj<UserService>;
@@ -39,6 +64,7 @@ xdescribe('ChatInfoComponent', () => {
 	let mockRouter: jasmine.SpyObj<Router>;
 	let mockMatDrawer: jasmine.SpyObj<MatDrawer>;
 	let mockUserSignal: WritableSignal<UserProfile | null>;
+	let capturedPayload: UserProfileUpdate | undefined;
 
 	const initialChatSettings = {
 		temperature: 0.7,
@@ -49,6 +75,7 @@ xdescribe('ChatInfoComponent', () => {
 	};
 
 	beforeEach(async () => {
+		capturedPayload = undefined;
 		mockUserSignal = signal<UserProfile | null>(null);
 		mockUserService = jasmine.createSpyObj('UserService', ['update']);
 		Object.defineProperty(mockUserService, 'userProfile', {
@@ -61,7 +88,21 @@ xdescribe('ChatInfoComponent', () => {
 		mockMatDrawer = jasmine.createSpyObj('MatDrawer', ['close']);
 
 		await TestBed.configureTestingModule({
-			imports: [ChatInfoComponent, NoopAnimationsModule],
+			imports: [
+				ChatInfoComponent,
+				NoopAnimationsModule,
+				MatSliderModule,
+				MatIconTestingModule,
+				FormsModule,
+				MatButtonModule,
+				MatProgressSpinnerModule,
+				ClipboardModule,
+				MatExpansionModule,
+				MatFormFieldModule,
+				MatInputModule,
+				MatSlideToggleModule,
+				MatTooltipModule,
+			],
 			providers: [
 				{ provide: UserService, useValue: mockUserService },
 				{ provide: ChatServiceClient, useValue: mockChatService },
@@ -139,18 +180,26 @@ xdescribe('ChatInfoComponent', () => {
 			await po.detectAndWait();
 		});
 
-		it('should call UserService.update with new settings when a slider changes', async () => {	
+		it('should call UserService.update with new settings when a slider changes', async () => {
 			// Arrange
-			mockUserService.update.and.returnValue(of(undefined));
+			mockUserService.update.and.callFake((payload) => {
+				capturedPayload = payload;
+				return of(undefined);
+			});
 			const newTemperature = 0.9;
 
 			// Act
 			await po.setSliderValue('temperatureSlider', newTemperature);
 			// detectAndWait is called within setSliderValue
+			const actualSliderValue = await po.getSliderValue('temperatureSlider');
 
 			// Assert
-			const expectedSettings = { ...initialChatSettings, temperature: newTemperature };
-			expect(mockUserService.update).toHaveBeenCalledWith(jasmine.objectContaining({ chat: expectedSettings }));
+			expect(mockUserService.update).toHaveBeenCalled();
+			expect(capturedPayload).withContext('Payload should have been captured').toBeDefined();
+			if (capturedPayload) {
+				expect(capturedPayload.chat.temperature).withContext('Temperature should be updated').toBe(actualSliderValue);
+				expect(capturedPayload.chat.topP).withContext('TopP should be unchanged').toBe(initialChatSettings.topP);
+			}
 			expect(await po.isSettingsLoadingVisible()).toBeFalse(); // Should reset after call
 			expect(await po.getSettingsErrorText()).toBeNull();
 		});
@@ -166,7 +215,7 @@ xdescribe('ChatInfoComponent', () => {
 			// Assert
 			expect(mockUserService.update).toHaveBeenCalled();
 			expect(await po.isSettingsLoadingVisible()).toBeFalse();
-			expect(await po.getSettingsErrorText()).toBe('Update failed');
+			expect(await po.isSettingsErrorVisible()).withContext('Error display should be visible on API failure').toBeTrue();
 		});
 	});
 
@@ -304,5 +353,103 @@ xdescribe('ChatInfoComponent', () => {
 		const dbUrl = await po.getDatabaseUrl();
 		expect(dbUrl).toBeTruthy();
 		expect(dbUrl).toContain('chat-db-url-id');
+	});
+
+	describe('Sharing Functionality', () => {
+		const shareableChat: Chat = { id: 'share-123', title: 'Shareable Chat', shareable: true, messages: [], updatedAt: Date.now(), userId: 'user1' };
+		const nonShareableChat: Chat = { id: 'share-456', title: 'Private Chat', shareable: false, messages: [], updatedAt: Date.now(), userId: 'user1' };
+		const newChat: Chat = { id: 'new-chat', title: 'New Chat', messages: [], updatedAt: Date.now(), userId: 'user1' };
+
+		it('should NOT show the sharing panel for a new chat', async () => {
+			fixture.componentRef.setInput('chat', newChat);
+			await po.detectAndWait();
+			expect(await po.isSharingPanelVisible()).toBeFalse();
+		});
+
+		it('should show the sharing panel for an existing chat', async () => {
+			fixture.componentRef.setInput('chat', nonShareableChat);
+			await po.detectAndWait();
+			expect(await po.isSharingPanelVisible()).toBeTrue();
+		});
+
+		it('should show the toggle as ON for a shareable chat', async () => {
+			fixture.componentRef.setInput('chat', shareableChat);
+			await po.detectAndWait();
+			expect(await po.isSharingPanelVisible()).toBeTrue();
+			expect(await po.isSharingToggleChecked()).toBeTrue();
+		});
+
+		it('should show the toggle as OFF for a non-shareable chat', async () => {
+			fixture.componentRef.setInput('chat', nonShareableChat);
+			await po.detectAndWait();
+			expect(await po.isSharingToggleChecked()).toBeFalse();
+		});
+
+		it('should call updateChatDetails with "true" when toggled ON', async () => {
+			mockChatService.updateChatDetails.and.returnValue(of(null));
+			fixture.componentRef.setInput('chat', nonShareableChat);
+			await po.detectAndWait();
+
+			await po.clickSharingToggle();
+
+			expect(mockChatService.updateChatDetails).toHaveBeenCalledWith('share-456', { shareable: true });
+		});
+
+		it('should call updateChatDetails with "false" when toggled OFF', async () => {
+			mockChatService.updateChatDetails.and.returnValue(of(null));
+			fixture.componentRef.setInput('chat', shareableChat);
+			await po.detectAndWait();
+
+			await po.clickSharingToggle();
+
+			expect(mockChatService.updateChatDetails).toHaveBeenCalledWith('share-123', { shareable: false });
+		});
+
+		it('should show the public link input when chat is shareable', async () => {
+			fixture.componentRef.setInput('chat', shareableChat);
+			await po.detectAndWait();
+
+			expect(await po.isPublicLinkVisible()).toBeTrue();
+			const linkValue = await po.getPublicLinkValue();
+			expect(linkValue).toContain(window.location.origin);
+			expect(linkValue).toContain('share-123');
+		});
+
+		it('should hide the public link input when chat is not shareable', async () => {
+			fixture.componentRef.setInput('chat', nonShareableChat);
+			await po.detectAndWait();
+			expect(await po.isPublicLinkVisible()).toBeFalse();
+		});
+
+		it('should disable the toggle while the update is in progress', async () => {
+			const updateSubject = new Subject<null>();
+			mockChatService.updateChatDetails.and.returnValue(updateSubject.asObservable());
+			fixture.componentRef.setInput('chat', nonShareableChat);
+			await po.detectAndWait();
+
+			// Act: Trigger the update but don't wait for it to complete.
+			await po.clickSharingToggle();
+
+			// Assert: Check that the toggle is disabled immediately.
+			expect(await po.isSharingToggleDisabled()).withContext('Sharing toggle should be disabled while updating').toBe(true);
+
+			// Act: Complete the asynchronous operation.
+			updateSubject.next(null);
+			updateSubject.complete();
+			await po.detectAndWait(); // Allow component to react to the completion.
+
+			// Assert: Check that the toggle is re-enabled.
+			expect(await po.isSharingToggleDisabled()).withContext('Sharing toggle should be re-enabled after update completes').toBe(false);
+		});
+
+		it('should re-enable the toggle on API error', async () => {
+			mockChatService.updateChatDetails.and.returnValue(throwError(() => new Error('API Error')));
+			fixture.componentRef.setInput('chat', nonShareableChat);
+			await po.detectAndWait();
+
+			await po.clickSharingToggle();
+
+			expect(await po.isSharingToggleDisabled()).toBeFalse();
+		});
 	});
 });

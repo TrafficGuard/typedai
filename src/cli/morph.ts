@@ -17,7 +17,7 @@ import { defaultLLMs } from '#llm/services/defaultLlms';
 import { Slack } from '#modules/slack/slack';
 import { logger } from '#o11y/logger';
 import { CodeFunctions } from '#swe/codeFunctions';
-import { MorphCodeEditor } from '#swe/morph/morphCoder';
+import { MorphCodeAgent } from '#swe/morph/morphCoder';
 import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs, saveAgentId } from './cli';
 import { resolveFunctionClasses } from './functionResolver';
@@ -66,7 +66,7 @@ export async function main(): Promise<void> {
 		FileSystemTree,
 		LiveFiles,
 		Perplexity,
-		MorphCodeEditor,
+		MorphCodeAgent,
 		// Git,
 		// GitLab,
 		DeepThink,

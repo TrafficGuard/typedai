@@ -1,6 +1,7 @@
 import { ComponentFixture } from '@angular/core/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatSliderHarness } from '@angular/material/slider/testing';
+import { MatSlideToggleHarness } from '@angular/material/slide-toggle/testing';
 import { BaseSpecPo } from '../../../../test/base.po';
 import { ChatInfoComponent } from './chat-info.component';
 
@@ -28,6 +29,12 @@ export class ChatInfoPo extends BaseSpecPo<ChatInfoComponent> {
 		settingsLoadingSpinner: 'settings-loading-spinner',
 		nameSavingSpinner: 'name-saving-spinner',
 		chatDeletingSpinner: 'chat-deleting-spinner',
+
+		sharingPanel: 'sharing-panel',
+		sharingToggle: 'sharing-toggle',
+		publicLinkInput: 'public-link-input',
+		publicLinkCopyButton: 'public-link-copy-btn',
+		isUpdatingSharingSpinner: 'updating-sharing-spinner', // Placeholder for potential spinner
 	} as const;
 
 	// State Queries
@@ -81,8 +88,8 @@ export class ChatInfoPo extends BaseSpecPo<ChatInfoComponent> {
 
 	async getSliderValue(sliderTestId: keyof typeof this.ids): Promise<number> {
 		const sliderHarness = await this.harness(MatSliderHarness, { selector: `[data-testid="${this.ids[sliderTestId]}"]` });
-		// TODO what is correct API usage for a single value slider?
-		return (await sliderHarness.getMinValue()) || sliderHarness.getMaxValue();
+		const thumbHarness = await sliderHarness.getEndThumb();
+		return await thumbHarness.getValue();
 	}
 
 	async getSettingsErrorText(): Promise<string | null> {
@@ -91,6 +98,10 @@ export class ChatInfoPo extends BaseSpecPo<ChatInfoComponent> {
 			return text.replace('Error: ', '').trim();
 		}
 		return null;
+	}
+
+	async isSettingsErrorVisible(): Promise<boolean> {
+		return this.has(this.ids.settingsErrorDisplay);
 	}
 
 	async isSettingsLoadingVisible(): Promise<boolean> {
@@ -133,8 +144,38 @@ export class ChatInfoPo extends BaseSpecPo<ChatInfoComponent> {
 
 	async setSliderValue(sliderTestId: keyof typeof this.ids, value: number): Promise<void> {
 		const sliderHarness = await this.harness(MatSliderHarness, { selector: `[data-testid="${this.ids[sliderTestId]}"]` });
-		throw new Error('TODO implement setSliderValue()');
-		// await sliderHarness.setValue(value); // invalid
-		// await this.detectAndWait(); // ngModelChange should trigger onSettingChange
+		const thumbHarness = await sliderHarness.getEndThumb();
+		await thumbHarness.setValue(value);
+		await this.detectAndWait(); // ngModelChange should trigger onSettingChange
+	}
+
+	// --- Sharing Panel Queries & Actions ---
+
+	async isSharingPanelVisible(): Promise<boolean> {
+		return this.has(this.ids.sharingPanel);
+	}
+
+	async isSharingToggleChecked(): Promise<boolean> {
+		const toggle = await this.harness(MatSlideToggleHarness, { selector: `[data-testid="${this.ids.sharingToggle}"]` });
+		return toggle.isChecked();
+	}
+
+	async isSharingToggleDisabled(): Promise<boolean> {
+		const toggle = await this.harness(MatSlideToggleHarness, { selector: `[data-testid="${this.ids.sharingToggle}"]` });
+		return toggle.isDisabled();
+	}
+
+	async clickSharingToggle(): Promise<void> {
+		const toggle = await this.harness(MatSlideToggleHarness, { selector: `[data-testid="${this.ids.sharingToggle}"]` });
+		await toggle.toggle();
+		await this.detectAndWait();
+	}
+
+	async isPublicLinkVisible(): Promise<boolean> {
+		return this.has(this.ids.publicLinkInput);
+	}
+
+	async getPublicLinkValue(): Promise<string> {
+		return this.value(this.ids.publicLinkInput);
 	}
 }

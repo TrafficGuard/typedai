@@ -26,14 +26,16 @@ import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { CodeFunctions } from '#swe/codeFunctions';
 import { NpmPackages } from '#swe/lang/nodejs/npmPackages';
 import { TypescriptTools } from '#swe/lang/nodejs/typescriptTools';
-import { MorphCodeEditor } from '#swe/morph/morphCoder';
+import { MorphCodeAgent } from '#swe/morph/morphCoder';
+import { MorphEditor } from '#swe/morph/morphEditor';
 import { SoftwareDeveloperAgent } from '#swe/softwareDeveloperAgent';
 
 // Add any function classes to be made available here to ensure their function schemas are registered
 const FUNCTIONS = [
 	AgentFeedback,
 	CodeEditingAgent,
-	MorphCodeEditor,
+	MorphCodeAgent,
+	MorphEditor,
 	DeepThink,
 	FileSystemTree,
 	FileSystemRead,

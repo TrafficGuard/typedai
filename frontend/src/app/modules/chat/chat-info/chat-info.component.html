@@ -55,37 +55,37 @@
                 <div class="space-y-1">
                     <div>
                         <label class="text-secondary font-medium">Temperature</label>
-                        <span class="pl-2 font-bold text-secondary">{{settings.temperature}}</span>
+                        <span class="pl-2 font-bold text-secondary">{{settings().temperature}}</span>
                         <mat-slider [min]="0" [max]="2" [step]="0.1" data-testid="temperature-slider">
-                            <input matSliderThumb [(ngModel)]="settings.temperature" (change)="onSettingChange()">
+                            <input matSliderThumb [value]="settings().temperature ?? 0" (valueChange)="onSettingChange('temperature', $event)">
                         </mat-slider>
                     </div>
                     <div>
                         <label class="text-secondary font-medium">Top P</label>
-                        <span class="pl-2 font-bold text-secondary">{{settings.topP}}</span>
+                        <span class="pl-2 font-bold text-secondary">{{settings().topP}}</span>
                         <mat-slider [min]="0" [max]="1" [step]="0.05" data-testid="topP-slider">
-                            <input matSliderThumb [(ngModel)]="settings.topP" (change)="onSettingChange()">
+                            <input matSliderThumb [value]="settings().topP ?? 0" (valueChange)="onSettingChange('topP', $event)">
                         </mat-slider>
                     </div>
                     <div>
                         <label class="text-secondary font-medium">Top K</label>
-                        <span class="pl-2 font-bold text-secondary">{{settings.topK}}</span>
+                        <span class="pl-2 font-bold text-secondary">{{settings().topK}}</span>
                         <mat-slider [min]="1" [max]="60" [step]="1" data-testid="topK-slider">
-                            <input matSliderThumb [(ngModel)]="settings.topK" (change)="onSettingChange()">
+                            <input matSliderThumb [value]="settings().topK ?? 1" (valueChange)="onSettingChange('topK', $event)">
                         </mat-slider>
                     </div>
                     <div>
                         <label class="text-secondary font-medium">Presence Penalty</label>
-                        <span class="pl-2 font-bold text-secondary">{{settings.presencePenalty}}</span>
+                        <span class="pl-2 font-bold text-secondary">{{settings().presencePenalty}}</span>
                         <mat-slider [min]="0" [max]="2" [step]="0.1" data-testid="presencePenalty-slider">
-                            <input matSliderThumb [(ngModel)]="settings.presencePenalty" (change)="onSettingChange()">
+                            <input matSliderThumb [value]="settings().presencePenalty ?? 0" (valueChange)="onSettingChange('presencePenalty', $event)">
                         </mat-slider>
                     </div>
                     <div>
                         <label class="text-secondary font-medium">Frequency Penalty</label>
-                        <span class="pl-2 font-bold text-secondary">{{settings.frequencyPenalty}}</span>
+                        <span class="pl-2 font-bold text-secondary">{{settings().frequencyPenalty}}</span>
                         <mat-slider [min]="0" [max]="2" [step]="0.1" data-testid="frequencyPenalty-slider">
-                            <input matSliderThumb [(ngModel)]="settings.frequencyPenalty" (change)="onSettingChange()">
+                            <input matSliderThumb [value]="settings().frequencyPenalty ?? 0" (valueChange)="onSettingChange('frequencyPenalty', $event)">
                         </mat-slider>
                     </div>
                 </div>
@@ -99,6 +99,35 @@
                 <mat-spinner diameter="24" data-testid="settings-loading-spinner"></mat-spinner>
                 <span class="ml-2">Saving settings...</span>
             </div>
+
+            <!-- Sharing Section -->
+            <div class="mt-6 space-y-4" *ngIf="chat()?.id && chat()?.id !== 'new-chat'" data-testid="sharing-panel">
+                <div class="mb-2 text-lg font-medium">Sharing</div>
+
+                <div class="flex items-center justify-between">
+                    <span class="font-medium">Public Access</span>
+                    <mat-slide-toggle
+                        data-testid="sharing-toggle"
+                        [checked]="!!chat()?.shareable"
+                        (change)="toggleSharing($event.checked)"
+                        [disabled]="isUpdatingSharing()">
+                        <input matSlideToggleThumb>
+                    </mat-slide-toggle>
+                </div>
+
+                <div *ngIf="chat()?.shareable" class="mt-4">
+                    <p class="font-medium">Anyone with the link can view</p>
+                    <div class="flex items-center mt-2 space-x-2">
+                        <mat-form-field class="flex-auto">
+                            <input matInput [value]="getPublicLink()" readonly data-testid="public-link-input">
+                        </mat-form-field>
+                        <button mat-icon-button [cdkCopyToClipboard]="getPublicLink()" matTooltip="Copy link" data-testid="public-link-copy-btn">
+                            <mat-icon svgIcon="heroicons_outline:clipboard-document"></mat-icon>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
 
             <!-- Delete Chat Section -->
             <div class="mt-8 border-t pt-6" *ngIf="chat()?.id && chat()?.id !== 'new-chat'">

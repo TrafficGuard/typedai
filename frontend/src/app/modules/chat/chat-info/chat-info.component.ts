@@ -6,7 +6,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDrawer } from '@angular/material/sidenav';
+import { ClipboardModule } from '@angular/cdk/clipboard';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { MatSliderModule } from '@angular/material/slider';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { UserService } from 'app/core/user/user.service';
@@ -22,7 +27,7 @@ import { AgentLinks, GoogleCloudLinks } from '../../agents/agent-links';
 	encapsulation: ViewEncapsulation.None,
 	changeDetection: ChangeDetectionStrategy.OnPush,
 	standalone: true,
-	imports: [CommonModule, MatButtonModule, MatIconModule, MatSliderModule, MatProgressSpinnerModule, MatTooltipModule, FormsModule],
+	imports: [CommonModule, MatButtonModule, MatIconModule, MatSliderModule, MatProgressSpinnerModule, MatTooltipModule, FormsModule, MatSlideToggleModule, MatExpansionModule, MatFormFieldModule, MatInputModule, ClipboardModule],
 	providers: [DecimalPipe],
 })
 export class ChatInfoComponent {
@@ -39,6 +44,7 @@ export class ChatInfoComponent {
 	editedName = signal('');
 	isSavingName = signal(false);
 	isDeletingChat = signal(false);
+	isUpdatingSharing = signal(false);
 
 	readonly panelTitle = computed(() => {
 		const currentChat = this.chat();
@@ -129,7 +135,8 @@ export class ChatInfoComponent {
 	 * Handler for slider value changes
 	 * Triggers immediate save of updated settings
 	 */
-	onSettingChange(key: keyof NonNullable<UserProfile['chat']>, value: number): void {
+	onSettingChange(key: keyof NonNullable<UserProfile['chat']>, value: number | null): void {
+		if (value === null) return;
 		this.settings.update((s) => {
 			if (!s) return s;
 			return { ...s, [key]: value };
@@ -177,6 +184,37 @@ export class ChatInfoComponent {
 				}),
 			)
 			.subscribe();
+	}
+
+	toggleSharing(newStatus: boolean): void {
+		const currentChat = this.chat();
+		if (!currentChat?.id) {
+			return;
+		}
+
+		this.isUpdatingSharing.set(true);
+		this.chatService
+			.updateChatDetails(currentChat.id, { shareable: newStatus })
+			.pipe(
+				takeUntilDestroyed(this.destroyRef),
+				catchError((error) => {
+					console.error('Failed to update sharing status:', error);
+					// TODO: Optionally, revert the toggle state visually on error and show a snackbar.
+					return EMPTY;
+				}),
+				finalize(() => {
+					this.isUpdatingSharing.set(false);
+				}),
+			)
+			.subscribe();
+	}
+
+	getPublicLink(): string {
+		const currentChat = this.chat();
+		if (!currentChat?.shareable || !currentChat.id) {
+			return '';
+		}
+		return `${window.location.origin}/ui/chat/${currentChat.id}`;
 	}
 
 	deleteChat(): void {

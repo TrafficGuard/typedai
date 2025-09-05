@@ -10,7 +10,7 @@ import { CompilationError } from '../sweErrors';
 import { MorphAPI } from './morphApi';
 
 @funcClass(__filename)
-export class MorphCodeEditor {
+export class MorphCodeAgent {
 	/**
 	 * Edits the files to implement the plan and commits changes to version control
 	 * It also compiles, formats, and runs static analysis/linting where applicable.

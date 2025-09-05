@@ -1,14 +1,81 @@
-<div class="flex flex-col flex-auto min-w-0">
-    <div class="flex flex-col sm:flex-row flex-auto sm:items-center min-w-0 p-6 sm:p-10">
-        <div class="flex-auto">
-            <h2 class="text-3xl font-semibold tracking-tight leading-8">Slack Integration</h2>
-            <div class="text-secondary">Manage your Slack chatbot.</div>
+<div class="flex flex-col flex-auto w-full p-4 sm:p-4">
+    <!-- Header Section -->
+    <div class="flex items-center justify-between mb-4 mx-3">
+        <h1 class="text-3xl font-medium tracking-tight leading-none">Slack</h1>
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium"
+                 [class]="isRunning ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'">
+                <div class="w-2 h-2 rounded-full" 
+                     [class]="isRunning ? 'bg-green-500' : 'bg-red-500'"></div>
+                {{ isRunning ? 'Running' : 'Stopped' }}
+            </div>
         </div>
     </div>
-    <div class="p-6 sm:p-10">
-        <div class="flex gap-4">
-            <button mat-flat-button [color]="'primary'">Start Chatbot</button>
-            <button mat-flat-button [color]="'warn'">Stop Chatbot</button>
+
+    <!-- Main Content -->
+    <div class="overflow-auto bg-card rounded-lg shadow">
+        <div class="p-8 text-center">
+            <!-- Bot Status Icon -->
+            <mat-icon 
+                [svgIcon]="isRunning ? 'heroicons_outline:play' : 'heroicons_outline:stop'" 
+                class="!w-16 !h-16 mb-4"
+                [class]="isRunning ? 'text-green-500' : 'text-gray-400'">
+            </mat-icon>
+            
+            <!-- Title and Description -->
+            <h2 class="text-xl font-medium mb-2">Slack Chatbot Control</h2>
+            <p class="text-secondary mb-8">Start or stop your Slack chatbot integration</p>
+            
+            <!-- Control Buttons -->
+            <div class="flex flex-col sm:flex-row gap-4 max-w-sm mx-auto">
+                <button 
+                    mat-flat-button 
+                    color="primary"
+                    [disabled]="isRunning"
+                    (click)="startBot()"
+                    class="flex-1"
+                    data-testid="start-bot-btn">
+                    <mat-icon svgIcon="heroicons_outline:play"></mat-icon>
+                    <span class="ml-2">Start Bot</span>
+                </button>
+                
+                <button 
+                    mat-stroked-button 
+                    color="warn"
+                    [disabled]="!isRunning"
+                    (click)="stopBot()"
+                    class="flex-1"
+                    data-testid="stop-bot-btn">
+                    <mat-icon svgIcon="heroicons_outline:stop"></mat-icon>
+                    <span class="ml-2">Stop Bot</span>
+                </button>
+            </div>
+
+            <!-- Last Action Info 
+            <div class="mt-8 pt-6 border-t border-gray-200" *ngIf="lastAction">
+                <p class="text-sm text-secondary">
+                    Last {{ lastAction.type }}: {{ lastAction.time | date:'mediumDate' }} at {{ lastAction.time | date:'shortTime' }}
+                </p>
+            </div>
+
+            <!-- Quick Stats (Optional) 
+            <div class="mt-8 pt-6 border-t border-gray-200">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg mx-auto">
+                    <div class="text-center">
+                        <div class="text-2xl font-medium">{{ isRunning ? '1' : '0' }}</div>
+                        <div class="text-sm text-secondary">Active Bots</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-medium">{{ uptime }}</div>
+                        <div class="text-sm text-secondary">Uptime</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-medium">Ready</div>
+                        <div class="text-sm text-secondary">Status</div>
+                    </div>
+                </div>
+            </div>
+        -->
         </div>
     </div>
 </div>
