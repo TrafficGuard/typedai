@@ -78,7 +78,7 @@ export function execCmdSync(command: string, cwd = getFileSystem().getWorkingDir
 		logger.debug(`execCmdSync ${commandToRun}\ncwd: ${hostCwd}\nshell: ${shell}`);
 
 		const options: ExecSyncOptions = {
-			cwd: hostCwd,
+			cwd: hostCwd ?? undefined,
 			shell,
 			encoding: 'utf8',
 			env: { ...process.env, PATH: `${process.env.PATH}:/bin:/usr/bin` },
@@ -140,7 +140,7 @@ export async function execCmd(command: string, cwd: string = getFileSystem().get
 		const shell = getAvailableShell();
 		const result = await new Promise<ExecResults>((resolve, reject) => {
 			// Use the potentially wrapped command string here
-			exec(commandToRun, { cwd: hostCwd, shell }, (error, stdout, stderr) => {
+			exec(commandToRun, { cwd: hostCwd ?? undefined, shell }, (error, stdout, stderr) => {
 				resolve({
 					cmd: command, // IMPORTANT: Return the original command for compatibility
 					stdout: formatAnsiWithMarkdownLinks(stdout),
@@ -206,7 +206,7 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 		if (containerId) {
 			// Running inside a container via docker exec
 			const dockerCommand = buildDockerCommand(containerId, command, opts?.workingDirectory, opts?.envVars);
-			const hostCwd = getFileSystem().getVcsRoot();
+			const hostCwd = getFileSystem().getVcsRoot() ?? undefined;
 			const options: ExecOptions = { cwd: hostCwd, env: process.env };
 
 			try {
@@ -300,11 +300,11 @@ export async function spawnCommand(command: string, workingDirectory?: string): 
 		const containerId = context?.containerId;
 		const shell = getAvailableShell();
 		let commandToRun: string;
-		let hostCwd: string;
+		let hostCwd: string | undefined;
 
 		if (containerId && !command.startsWith('rg ')) {
 			commandToRun = buildDockerCommand(containerId, command, workingDirectory);
-			hostCwd = getFileSystem().getVcsRoot();
+			hostCwd = getFileSystem().getVcsRoot() ?? undefined;
 		} else {
 			commandToRun = command;
 			hostCwd = workingDirectory ?? getFileSystem().getWorkingDirectory();
@@ -365,11 +365,11 @@ function spawnAsync(command: string, options: SpawnOptionsWithoutStdio): Promise
 				stdout = formatAnsiWithMarkdownLinks(stdout || '');
 				stderr = formatAnsiWithMarkdownLinks(stderr || '');
 				span.setAttributes({
-					cwd: options.cwd.toString(),
+					cwd: options.cwd?.toString(),
 					command,
 					stdout,
 					stderr,
-					exitCode: code,
+					exitCode: code ?? undefined,
 				});
 				span.setStatus({ code: code === 0 ? SpanStatusCode.OK : SpanStatusCode.ERROR });
 
@@ -406,7 +406,7 @@ export async function runShellCommand(cmd: string, opts?: ExecCmdOptions): Promi
 	}
 
 	const shell: string = process.platform === 'win32' ? 'cmd.exe' : os.platform() === 'darwin' ? '/bin/zsh' : '/bin/bash';
-	const env: Record<string, string> = opts?.envVars ? { ...process.env, ...opts.envVars } : { ...process.env };
+	const env: Record<string, string | undefined> = opts?.envVars ? { ...process.env, ...opts.envVars } : { ...process.env };
 	const cwd: string = opts?.workingDirectory ?? getFileSystem().getWorkingDirectory();
 
 	const child = spawn(shell, [], { stdio: ['pipe', 'pipe', 'pipe'], cwd, env });
@@ -435,7 +435,10 @@ export async function runShellCommand(cmd: string, opts?: ExecCmdOptions): Promi
 					const parts = commandOutput.split(commandDoneMarker);
 					stdout = parts[0];
 					const exitCodeMatch = parts[1].match(/EXIT_CODE:(\d+)/);
-					const exitCode = exitCodeMatch ? Number.parseInt(exitCodeMatch[1], 10) : null;
+					if (!exitCodeMatch) {
+						logger.error({ commandOutput }, 'Could not parse exit code from command output');
+					}
+					const exitCode = exitCodeMatch ? Number.parseInt(exitCodeMatch[1], 10) : 0;
 
 					// Clean up listeners
 					child.stdout.off('data', onStdoutData);
@@ -465,13 +468,13 @@ export async function runShellCommand(cmd: string, opts?: ExecCmdOptions): Promi
 	let result: ExecResult;
 	try {
 		if (shell === '/bin/zsh') {
-			const zshrc = path.join(process.env.HOME, '.zshrc');
+			const zshrc = path.join(process.env.HOME!, '.zshrc');
 			if (existsSync(zshrc)) {
 				const result = await sendCommand(`source ${zshrc}`);
 				if (result.exitCode) logger.error(`source ${zshrc} returned ${result.exitCode}.`);
 			}
 		} else if (shell === '/bin/bash') {
-			const bashrc = path.join(process.env.HOME, '.bashrc');
+			const bashrc = path.join(process.env.HOME!, '.bashrc');
 			if (existsSync(bashrc)) {
 				const result = await sendCommand(`source ${bashrc}`);
 				if (result.exitCode) logger.error(`source ${bashrc} returned ${result.exitCode}.`);

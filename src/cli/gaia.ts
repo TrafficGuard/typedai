@@ -97,6 +97,7 @@ async function answerGaiaQuestion(task: GaiaQuestion): Promise<GaiaResult> {
 		});
 
 		const agent = await appContext().agentStateService.load(agentId);
+		if (!agent) throw new Error(`Agent ${agentId} not found`);
 		const llmCalls = await appContext().llmCallService.getLlmCallsForAgent(agentId);
 
 		// Extract reasoning trace from LLM calls

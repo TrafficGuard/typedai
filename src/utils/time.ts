@@ -13,7 +13,7 @@ export function formatMillisDuration(duration: number): string {
 	const seconds = Math.floor(duration / millisecondsInASecond);
 	const milliseconds = duration % millisecondsInASecond;
 
-	const parts = [];
+	const parts: string[] = [];
 
 	if (days > 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
 	if (hours > 0) parts.push(`${hours}hr`);

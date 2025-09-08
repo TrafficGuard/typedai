@@ -32,6 +32,7 @@ export async function forceStopAgent(agentId: string): Promise<void> {
 		const startTime = Date.now();
 		const interval = setInterval(async () => {
 			const updatedAgent = await appContext().agentStateService.load(agentId);
+			if (!updatedAgent) throw new Error(`Agent ${agentId} not found`);
 			// Agent should be in an error state if the checkForceStopped() function has been called in its execution
 			if (!isExecuting(updatedAgent)) {
 				clearInterval(interval);

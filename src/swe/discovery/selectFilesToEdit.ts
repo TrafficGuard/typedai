@@ -19,15 +19,15 @@ export interface SelectFilesResponse {
  * @param requirements
  * @param projectInfo
  */
-export async function selectFilesToEdit(requirements: string, projectInfo?: ProjectInfo): Promise<SelectFilesResponse> {
+export async function selectFilesToEdit(requirements: string, projectInfo?: ProjectInfo | null): Promise<SelectFilesResponse> {
 	projectInfo ??= await getProjectInfo();
-	const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
+	const projectMaps: RepositoryMaps = await generateRepositoryMaps(projectInfo ? [projectInfo] : []);
 
 	const tokenizer = await createByModelName('gpt-4o'); // TODO model specific tokenizing
 	const fileSystemTreeTokens = tokenizer.encode(projectMaps.fileSystemTreeWithFolderSummaries.text).length;
 	logger.info(`FileSystem tree tokens: ${fileSystemTreeTokens}`);
 
-	if (projectInfo.fileSelection) requirements += `\nAdditional note: ${projectInfo.fileSelection}`;
+	if (projectInfo?.fileSelection) requirements += `\nAdditional note: ${projectInfo.fileSelection}`;
 
 	const repositoryOverview: string = await getRepositoryOverview();
 	const fileSystemWithSummaries: string = `<project_map>\n${projectMaps.fileSystemTreeWithFolderSummaries.text}\n</project_map>\n`;
@@ -86,14 +86,14 @@ The file paths must exist in the <project_map /> file_contents path attributes.
 	return selectedFiles;
 }
 
-async function secondPass(requirements: string, initialSelection: SelectFilesResponse, projectInfo: ProjectInfo): Promise<SelectFilesResponse> {
+async function secondPass(requirements: string, initialSelection: SelectFilesResponse, projectInfo: ProjectInfo | null): Promise<SelectFilesResponse> {
 	const fileSystem = getFileSystem();
 	const allFiles = [...initialSelection.primaryFiles, ...initialSelection.secondaryFiles];
 	const fileContents = await fileSystem.readFilesAsXml(allFiles.map((file) => file.filePath));
 
-	if (projectInfo.fileSelection) requirements += `\nAdditional note: ${projectInfo.fileSelection}`;
+	if (projectInfo?.fileSelection) requirements += `\nAdditional note: ${projectInfo.fileSelection}`;
 
-	const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
+	const projectMaps: RepositoryMaps = await generateRepositoryMaps(projectInfo ? [projectInfo] : []);
 
 	const fileSystemWithSummaries: string = `<project_map>\n${projectMaps.fileSystemTreeWithFolderSummaries.text}\n</project_map>\n`;
 	const repositoryOverview: string = await getRepositoryOverview();
@@ -279,7 +279,7 @@ export async function removeNonExistingFiles(fileSelection: SelectFilesResponse)
 	};
 }
 
-async function fileExists(selectedFile: SelectedFile): Promise<SelectedFile> {
+async function fileExists(selectedFile: SelectedFile): Promise<SelectedFile | null> {
 	try {
 		await fs.access(path.join(getFileSystem().getWorkingDirectory(), selectedFile.filePath));
 		return selectedFile;

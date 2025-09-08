@@ -63,7 +63,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 
 				if (!parentDoc.exists) throw new Error(`Parent agent ${state.parentAgentId} not found`);
 
-				const parentData = parentDoc.data();
+				const parentData = parentDoc.data()!;
 				const childAgents = new Set(parentData.childAgents || []);
 
 				// Add child to parent if not already present
@@ -266,7 +266,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 					const docRef = this.db.doc(`AgentContext/${id}`);
 					const docSnap = await docRef.get();
 					if (!docSnap.exists) return null;
-					const data = docSnap.data();
+					const data = docSnap.data()!;
 					return {
 						agentId: id,
 						user: data.user,
@@ -293,6 +293,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 		// Now delete the agents
 		const deleteBatch = this.db.batch();
 		for (const agent of agents) {
+			if (!agent) continue;
 			if (!agent.agentId) continue; // Should not happen, but safety check
 			for (const childId of agent.childAgents ?? []) {
 				deleteBatch.delete(this.db.doc(`AgentContext/${childId}`));
@@ -378,7 +379,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 		try {
 			// Save the Firestore-compatible data
 			console.log(typeof firestoreIterationData.toolState);
-			for (const [k, v] of Object.entries(firestoreIterationData.toolState)) {
+			for (const [k, v] of Object.entries(firestoreIterationData.toolState ?? {})) {
 			}
 			console.log(firestoreIterationData.toolState);
 			await iterationDocRef.set(firestoreIterationData); // Save the Firestore-specific object

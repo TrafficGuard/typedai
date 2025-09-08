@@ -37,7 +37,7 @@ function largeCost(usage) {
 }
 
 export class MorphAPI {
-	openai: OpenAI;
+	openai: OpenAI | undefined;
 
 	@span()
 	async edit(initialCode: string, editSnippet: string, instructions?: string): Promise<string> {
@@ -69,13 +69,14 @@ export class MorphAPI {
 		const duration = (endTime - startTime) / 1000;
 		// logger.info({ duration }, 'Morph edit duration (ms)');
 		// logger.info(response.usage);
-		const inputTokens = response.usage.prompt_tokens;
-		const outputTokens = response.usage.completion_tokens;
+		const inputTokens = response?.usage?.prompt_tokens;
+		const outputTokens = response?.usage?.completion_tokens;
 		const cost = useLargeModel ? largeCost(response.usage) : fastCost(response.usage);
 		console.log(`Morph edit cost: $${cost}`);
 		addCost(cost);
 
 		const mergedCode = response.choices[0].message.content;
+		if (!mergedCode) throw new Error('Morph returned empty/undefined response');
 		return mergedCode;
 	}
 }

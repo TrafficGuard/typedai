@@ -22,7 +22,9 @@ export function agentContext(): AgentContext | undefined {
 }
 
 export function llms(): AgentLLMs {
-	return agentContextStorage.getStore()?.llms;
+	const store = agentContextStorage.getStore();
+	if (!store) throw new Error('No agent context available');
+	return store.llms;
 }
 
 /**
@@ -93,7 +95,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		llms: config.llms, // we can't do `?? defaultLLMs()` as compiling breaks from import cycle dependencies,
 		fileSystem,
 		useSharedRepos: config.useSharedRepos ?? true, // Apply default if not provided in config
-		functions: Array.isArray(config.functions) ? new LlmFunctionsImpl(...config.functions) : config.functions,
+		functions: Array.isArray(config.functions) ? new LlmFunctionsImpl(...config.functions) : (config.functions ?? new LlmFunctionsImpl()),
 		completedHandler: config.completedHandler ?? new ConsoleCompletedHandler(),
 		memory: {},
 		invoking: [],

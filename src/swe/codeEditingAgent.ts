@@ -63,7 +63,7 @@ export class CodeEditingAgent {
 		logger.info(fileSelection, `Initial selected file count: ${fileSelection.length}. Tokens: ${await countTokens(fileContents)}`);
 
 		const repositoryOverview: string = await getRepositoryOverview();
-		const installedPackages: string = await projectInfo.languageTools.getInstalledPackages();
+		const installedPackages: string = (await projectInfo.languageTools?.getInstalledPackages()) || '';
 
 		const implementationDetailsPrompt = `${repositoryOverview}\n${installedPackages}\n${fileContents}
 		<requirements>${requirements}</requirements>
@@ -131,7 +131,7 @@ export class CodeEditingAgent {
 		logger.info(fileSelection, `Initial selected file count: ${fileSelection.length}. Tokens: ${await countTokens(fileContents)}`);
 
 		const repositoryOverview: string = await getRepositoryOverview();
-		const installedPackages: string = await projectInfo.languageTools.getInstalledPackages();
+		const installedPackages: string = (await projectInfo?.languageTools?.getInstalledPackages()) || '';
 
 		const onlineResearch = await this.onlineResearch(repositoryOverview, installedPackages, implementationPlan);
 		if (onlineResearch) implementationPlan += onlineResearch;
@@ -174,7 +174,7 @@ export class CodeEditingAgent {
 		// return execCommand(`git diff --stat HEAD ${gitBase}`)
 	} // end of runCodeEditWorkflow method
 
-	private failOnCompileError(compileErrorAnalysis: CompileErrorAnalysis) {
+	private failOnCompileError(compileErrorAnalysis: CompileErrorAnalysis | null) {
 		if (compileErrorAnalysis) {
 			let message = `Failed to compile the project. ${compileErrorAnalysis.compileIssuesSummary}\n${compileErrorAnalysis.compilerOutput}`;
 			if (compileErrorAnalysis.fatalError) message += `\nFatal Error: ${compileErrorAnalysis.fatalError}\n`;
@@ -434,7 +434,7 @@ export class CodeEditingAgent {
 	async testLoop(requirements: string, projectInfo: ProjectInfo, initialSelectedFiles: string[]): Promise<CompileErrorAnalysis | null> {
 		if (!projectInfo.test || projectInfo.test.length === 0) return null;
 		let testErrorOutput = null;
-		let errorAnalysis: CompileErrorAnalysis = null;
+		let errorAnalysis: CompileErrorAnalysis | null = null;
 		const compileErrorHistory = [];
 		const MAX_ATTEMPTS = 2;
 		for (let i = 0; i < MAX_ATTEMPTS; i++) {

@@ -55,8 +55,8 @@ type PipelineWithJobs = PipelinePreview & { jobs: PartialJobSchema[] };
 
 @funcClass(__filename)
 export class GitLab extends AbstractSCM implements SourceControlManagement {
-	_gitlab: Gitlab<false>;
-	_config: GitLabConfig;
+	_gitlab: Gitlab<false> | undefined;
+	_config: GitLabConfig | undefined;
 
 	/**
 	 * Checks if the GitLab configuration (token, host, groups) is available.
@@ -285,7 +285,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 	 * @param mergeRequestIId The merge request IID. Can be found in the URL to a pipeline
 	 */
 	@func()
-	async getLatestMergeRequestPipeline(gitlabProjectId: string | number, mergeRequestIId: number): Promise<PipelineWithJobs> {
+	async getLatestMergeRequestPipeline(gitlabProjectId: string | number, mergeRequestIId: number): Promise<PipelineWithJobs | null> {
 		// allPipelines<E extends boolean = false>(projectId: string | number, mergerequestIId: number, options?: Sudo & ShowExpanded<E>): Promise<GitlabAPIResponse<Pick<PipelineSchema, 'id' | 'sha' | 'ref' | 'status'>[], C, E, void>>;
 		const pipelines = await this.api().MergeRequests.allPipelines(gitlabProjectId, mergeRequestIId);
 		if (pipelines.length === 0) return null;
@@ -293,6 +293,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 		// pipelines.sort((a, b) => (Date.parse(a.created_at) < Date.parse(b.created_at) ? 1 : -1));
 
 		const latestPipeline = pipelines.at(0);
+		if (!latestPipeline) return null;
 
 		const fullJobs: JobSchema[] = await this.api().Jobs.all(gitlabProjectId, { pipelineId: latestPipeline.id });
 		const jobs: PartialJobSchema[] = fullJobs.map((job) => {
@@ -338,6 +339,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 
 		// pipelines.sort((a, b) => (Date.parse(a.created_at) < Date.parse(b.created_at) ? 1 : -1));
 		const latestPipeline = pipelines.at(0);
+		if (!latestPipeline) throw new Error('No pipelines for the merge request');
 
 		if (latestPipeline.status !== 'failed' && latestPipeline.status !== 'blocked') throw new Error('Pipeline is not failed or blocked');
 

@@ -151,7 +151,7 @@ export class AiderCodeEditor {
 			let callCount = 0;
 			for (const llmMessages of calls) {
 				const llmCall: LlmCall = {
-					settings: undefined,
+					settings: {},
 					id: randomUUID(),
 					agentId: agentContext()?.agentId,
 					llmId: llm?.getId(),

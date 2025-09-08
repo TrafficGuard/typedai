@@ -220,7 +220,7 @@ export interface AutonomousIteration {
 	/** Tool state, LiveFile's, FileStore etc. Class name as the key */
 	toolState?: Record<string, any>;
 	/** Any error */
-	error?: string;
+	error?: string | null;
 	/** Plan generation stats */
 	stats: GenerationStats;
 }

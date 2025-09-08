@@ -61,7 +61,7 @@ export interface CliOptions {
 export function parseProcessArgs(): CliOptions {
 	const scriptPath = process.argv[1];
 	let scriptName = scriptPath.split(path.sep).at(-1);
-	scriptName = scriptName.substring(0, scriptName.length - 3);
+	scriptName = scriptName!.substring(0, scriptName!.length - 3);
 	// console.log(`Script name: ${scriptName}`);
 
 	// Grab the CLI args that were actually delivered to the Node process
@@ -188,7 +188,7 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 	}
 
 	// Check if we're resuming an agent
-	let resumeAgentId: string;
+	let resumeAgentId: string | undefined;
 	let resumeLastRun = false;
 	let i = 0;
 	for (; i < scriptArgs.length; i++) {
@@ -199,7 +199,7 @@ export function parseUserCliArgs(scriptName: string, scriptArgs: string[]): CliO
 			break;
 		}
 	}
-	resumeAgentId = resumeLastRun ? resumeAgentId || getLastRunAgentId(scriptName) : undefined;
+	resumeAgentId = resumeLastRun ? getLastRunAgentId(scriptName) : undefined;
 	if (resumeLastRun) flags.r = resumeAgentId ?? true; // Record the -r flag in the flags map
 	if (resumeLastRun && !resumeAgentId) {
 		// Throw error instead of exiting

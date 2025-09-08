@@ -38,7 +38,7 @@ describe('agentContext', () => {
 				metadata: { 'metadata-key': 'metadata-value' },
 			};
 			const agentContext: AgentContext = createContext(config);
-			agentContext.fileSystem.setWorkingDirectory('./src');
+			agentContext.fileSystem?.setWorkingDirectory('./src');
 			agentContext.memory.memory_key = 'memory_value';
 			agentContext.functionCallHistory.push({
 				function_name: 'func',

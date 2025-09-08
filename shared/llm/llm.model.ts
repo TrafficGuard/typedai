@@ -220,7 +220,8 @@ export function isSystemUserPrompt(prompt: Prompt): prompt is SystemUserPrompt {
  * @return the last message contents as a string
  */
 export function lastText(messages: LlmMessage[] | ReadonlyArray<LlmMessage>): string {
-	return messageText(messages.at(-1));
+	if (!messages.length) throw new Error('No messages');
+	return messageText(messages.at(-1)!);
 }
 
 /**

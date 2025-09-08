@@ -11,7 +11,7 @@ export class Fireworks extends AiLLM<OpenAIProvider> {
 		super(displayName, FIREWORKS_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
-	protected apiKey(): string {
+	protected apiKey(): string | undefined {
 		return currentUser()?.llmConfig.fireworksKey?.trim() || process.env.FIREWORKS_API_KEY;
 	}
 

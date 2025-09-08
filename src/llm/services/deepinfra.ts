@@ -11,7 +11,7 @@ export class Deepinfra extends AiLLM<OpenAIProvider> {
 		super(displayName, DEEPINFRA_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
-	protected apiKey(): string {
+	protected apiKey(): string | undefined {
 		return currentUser()?.llmConfig.deepinfraKey?.trim() || process.env.DEEPINFRA_API_KEY;
 	}
 

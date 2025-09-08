@@ -292,6 +292,7 @@ export function runAgentStateServiceTests(
 			const loadedContext = await service.load(id); // load now throws on not found/not allowed
 
 			expect(loadedContext).to.not.be.null; // This check is technically redundant now, but harmless
+			if (!loadedContext) throw new Error('Loaded context is null');
 
 			// --- Targeted Assertions for State Verification ---
 
@@ -321,7 +322,7 @@ export function runAgentStateServiceTests(
 			// The instance itself might be different, but it should be rehydrated correctly
 			// based on the stored ID.
 			expect(loadedContext.completedHandler).to.exist; // Check it's not null/undefined
-			expect(loadedContext.completedHandler.agentCompletedHandlerId()).to.equal(mockCompletedHandler.agentCompletedHandlerId());
+			expect(loadedContext.completedHandler!.agentCompletedHandlerId()).to.equal(mockCompletedHandler.agentCompletedHandlerId());
 
 			// Assert lastUpdate exists
 			expect(loadedContext.lastUpdate).to.be.a('number');
@@ -331,7 +332,7 @@ export function runAgentStateServiceTests(
 			const id = agentId();
 			const context1 = createMockAgentContext(id, { name: 'V1', state: 'agent', iterations: 1 });
 			await service.save(context1);
-			const savedTime1 = (await service.load(id)).lastUpdate;
+			const savedTime1 = (await service.load(id))!.lastUpdate;
 
 			await new Promise((resolve) => setTimeout(resolve, 10)); // Ensure time passes
 
@@ -340,10 +341,10 @@ export function runAgentStateServiceTests(
 
 			const loadedContext = await service.load(id);
 			// Assert only the changed fields and lastUpdate
-			expect(loadedContext.name).to.equal('V2');
-			expect(loadedContext.state).to.equal('completed');
-			expect(loadedContext.iterations).to.equal(2);
-			expect(loadedContext.lastUpdate).to.be.greaterThan(savedTime1);
+			expect(loadedContext!.name).to.equal('V2');
+			expect(loadedContext!.state).to.equal('completed');
+			expect(loadedContext!.iterations).to.equal(2);
+			expect(loadedContext!.lastUpdate).to.be.greaterThan(savedTime1);
 		});
 
 		it('should return null when loading a non-existent agent', async () => {
@@ -375,14 +376,14 @@ export function runAgentStateServiceTests(
 			await service.save(childContext);
 
 			// Load and verify parent's childAgents list
-			const loadedParent = await service.load(parentId); // load now throws on not found/not allowed
-			expect(loadedParent).to.not.be.null; // Redundant check
-			expect(loadedParent.childAgents).to.deep.equal([childId]);
+			const loadedParent = await service.load(parentId);
+			expect(loadedParent).to.not.be.null;
+			expect(loadedParent!.childAgents).to.deep.equal([childId]);
 
 			// Load and verify child's parentAgentId
-			const loadedChild = await service.load(childId); // load now throws on not found/not allowed
-			expect(loadedChild).to.not.be.null; // Redundant check
-			expect(loadedChild.parentAgentId).to.equal(parentId);
+			const loadedChild = await service.load(childId);
+			expect(loadedChild).to.not.be.null;
+			expect(loadedChild!.parentAgentId).to.equal(parentId);
 		});
 
 		it('should reject saving a child when parent does not exist', async () => {
@@ -414,9 +415,9 @@ export function runAgentStateServiceTests(
 			const loadedContext = await service.load(id); // load now throws on not found/not allowed
 			expect(loadedContext).to.not.be.null; // Redundant check
 			// Assert the persisted state matches the new state
-			expect(loadedContext.state).to.equal(newState);
+			expect(loadedContext!.state).to.equal(newState);
 			// Assert one other property to ensure only state was updated
-			expect(loadedContext.name).to.equal(originalName);
+			expect(loadedContext!.name).to.equal(originalName);
 		});
 	});
 
@@ -631,7 +632,7 @@ export function runAgentStateServiceTests(
 			// So, loading the executing agent after the delete call should still succeed.
 			const executingAgentAfterDelete = await service.load(executingAgentId);
 			expect(executingAgentAfterDelete).to.not.be.null;
-			expect(executingAgentAfterDelete.agentId).to.equal(executingAgentId);
+			expect(executingAgentAfterDelete!.agentId).to.equal(executingAgentId);
 		});
 
 		it('should delete a parent agent and its children when parent ID is provided (if parent is deletable)', async () => {
@@ -653,17 +654,17 @@ export function runAgentStateServiceTests(
 			// Verify parent remains (load should succeed)
 			const parentAfterDelete = await service.load(parentIdCompleted);
 			expect(parentAfterDelete).to.not.be.null;
-			expect(parentAfterDelete.agentId).to.equal(parentIdCompleted);
+			expect(parentAfterDelete!.agentId).to.equal(parentIdCompleted);
 
 			// Verify the targeted child *remains* because the implementation filters for !parentAgentId (load should succeed)
 			const child1AfterDelete = await service.load(childId1);
 			expect(child1AfterDelete).to.not.be.null;
-			expect(child1AfterDelete.agentId).to.equal(childId1);
+			expect(child1AfterDelete!.agentId).to.equal(childId1);
 
 			// Verify the other child remains (load should succeed)
 			const child2AfterDelete = await service.load(childId2);
 			expect(child2AfterDelete).to.not.be.null;
-			expect(child2AfterDelete.agentId).to.equal(childId2);
+			expect(child2AfterDelete!.agentId).to.equal(childId2);
 		});
 
 		it('should handle non-existent IDs gracefully without error', async () => {
@@ -705,9 +706,9 @@ export function runAgentStateServiceTests(
 
 			const loadedContextAfterUpdate = await service.load(agentId1); // load now throws on not found/not allowed
 			expect(loadedContextAfterUpdate).to.not.be.null; // Redundant check
-			expect(loadedContextAfterUpdate.functions).to.be.instanceOf(LlmFunctionsImpl);
+			expect(loadedContextAfterUpdate!.functions).to.be.instanceOf(LlmFunctionsImpl);
 
-			const updatedFunctionNames = loadedContextAfterUpdate.functions.getFunctionClassNames();
+			const updatedFunctionNames = loadedContextAfterUpdate!.functions.getFunctionClassNames();
 			// Verify the specified function was added
 			expect(updatedFunctionNames).to.include(MockFunction.name);
 			// Verify default 'Agent' function remains because updateFunctions creates a new LlmFunctions()
@@ -721,17 +722,17 @@ export function runAgentStateServiceTests(
 			// Add a function first to ensure replacement works
 			await service.updateFunctions(agentId1, [MockFunction.name]);
 			let context = await service.load(agentId1); // load now throws on not found/not allowed
-			expect(context.functions.getFunctionClassNames()).to.include(MockFunction.name);
+			expect(context!.functions.getFunctionClassNames()).to.include(MockFunction.name);
 
 			// Now update with an empty list
 			await service.updateFunctions(agentId1, []);
 			context = await service.load(agentId1); // load now throws on not found/not allowed
-			expect(context.functions).to.be.instanceOf(LlmFunctionsImpl);
+			expect(context!.functions).to.be.instanceOf(LlmFunctionsImpl);
 
 			// Get the expected default function names added by LlmFunctions constructor
 			const defaultFuncs = new LlmFunctionsImpl();
 			// Assert that the agent's functions now only contain the defaults
-			expect(context.functions.getFunctionClassNames().sort()).to.deep.equal(defaultFuncs.getFunctionClassNames().sort());
+			expect(context!.functions.getFunctionClassNames().sort()).to.deep.equal(defaultFuncs.getFunctionClassNames().sort());
 		});
 
 		// Modified test to expect NotFound error
@@ -761,9 +762,9 @@ export function runAgentStateServiceTests(
 			expect(updatedContext).to.not.be.null; // Redundant check
 
 			// Assert the known function *was* added successfully
-			expect(updatedContext.functions.getFunctionClassNames()).to.include(MockFunction.name);
+			expect(updatedContext!.functions.getFunctionClassNames()).to.include(MockFunction.name);
 			// Assert the unknown function *was not* added
-			expect(updatedContext.functions.getFunctionClassNames()).to.not.include(unknownFunctionName);
+			expect(updatedContext!.functions.getFunctionClassNames()).to.not.include(unknownFunctionName);
 		});
 	});
 
@@ -967,7 +968,7 @@ export function runAgentStateServiceTests(
 			expect(loadedIteration.toolState).to.deep.equal(originalToolState);
 
 			// Check a nested property within toolState
-			expect(loadedIteration.toolState.FileStore.metadataCache['/project/output/data.json'].size).to.equal(1024); // Access as Record
+			expect(loadedIteration.toolState!.FileStore.metadataCache['/project/output/data.json'].size).to.equal(1024); // Access as Record
 		});
 
 		// Optional: Test saving iteration for non-existent agent (depends on desired behavior - Firestore might allow it)
@@ -1031,9 +1032,9 @@ export function runAgentStateServiceTests(
 
 		it('should return the iteration detail if agent and iteration exist and are owned by the current user', async () => {
 			const detail = await service.getAgentIterationDetail(agentIdForIterations, iterationNumber);
-			expect(detail).to.not.be.null; // Redundant check
-			expect(detail.agentId).to.equal(agentIdForIterations);
-			expect(detail.iteration).to.equal(iterationNumber);
+			expect(detail).to.not.be.null;
+			expect(detail!.agentId).to.equal(agentIdForIterations);
+			expect(detail!.iteration).to.equal(iterationNumber);
 		});
 
 		// Modified test to expect NotFound error

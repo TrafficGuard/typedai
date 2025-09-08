@@ -14,6 +14,7 @@ export class FileSystemTree {
 	@func()
 	async collapseFolder(folderPath: string): Promise<boolean> {
 		const agent = agentContext();
+		if (!agent) return false;
 		if (!(await getFileSystem().directoryExists(folderPath))) return false;
 		agent.toolState ??= {};
 		agent.toolState.FileSystemTree ??= [];
@@ -31,6 +32,8 @@ export class FileSystemTree {
 	@func()
 	async expandAll(): Promise<void> {
 		const agent = agentContext();
+		if (!agent) return;
+		agent.toolState ??= {};
 		agent.toolState.FileSystemTree ??= [];
 	}
 
@@ -42,6 +45,7 @@ export class FileSystemTree {
 	@func()
 	async expandFolder(folderPath: string): Promise<boolean> {
 		const agent = agentContext();
+		if (!agent) return false;
 		if (!(await getFileSystem().directoryExists(folderPath))) return false;
 		agent.toolState ??= {};
 		agent.toolState.FileSystemTree ??= [];

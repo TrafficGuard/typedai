@@ -48,8 +48,8 @@ async function main() {
 			);
 			console.log(`Answer: ${answer}`);
 
-			const cost = agentContext().cost - lastCost;
-			lastCost = agentContext().cost;
+			const cost = agentContext()!.cost - lastCost;
+			lastCost = agentContext()!.cost;
 			console.log(`Cost: ${cost}`);
 			appendFileSync('easy.jsonl', `${JSON.stringify({ index: question.index, correct: answer === question.correct_letter, answer, response })}\n`);
 		} catch (e) {
@@ -61,7 +61,7 @@ async function main() {
 	//
 	// console.log(text);
 	console.log('Wrote output to src/cli/easy-out');
-	console.log(`Cost USD$${agentContext().cost.toFixed(2)}`);
+	console.log(`Cost USD$${agentContext()!.cost.toFixed(2)}`);
 }
 
 main()

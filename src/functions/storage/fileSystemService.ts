@@ -57,7 +57,7 @@ const gitIgnorePaths = new Set<string>();
 export class FileSystemService implements IFileSystemService {
 	/** The filesystem path */
 	private workingDirectory = '';
-	private basePath?: string;
+	private basePath: string;
 	private vcs: VersionControlSystem | null = null;
 	log: Pino.Logger;
 
@@ -214,7 +214,8 @@ export class FileSystemService implements IFileSystemService {
 	async getFileContentsRecursivelyAsXml(dirPath: string, storeToMemory: boolean, filter: (path: string) => boolean = () => true): Promise<string> {
 		const filenames = (await this.listFilesRecursively(dirPath)).filter(filter);
 		const contents = await this.readFilesAsXml(filenames);
-		if (storeToMemory) agentContext().memory[`file-contents-${join(this.getWorkingDirectory(), dirPath)}`] = contents;
+		const agent = agentContext();
+		if (storeToMemory && agent) agent.memory[`file-contents-${join(this.getWorkingDirectory(), dirPath)}`] = contents;
 		return contents;
 	}
 

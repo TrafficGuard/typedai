@@ -64,7 +64,7 @@ export async function includeAlternativeAiToolFiles(fileSelection: string[], opt
 /**
  * Collects unique absolute paths of directories to check.
  */
-function _collectRelevantFolders(fileSelectionSet: Set<string>, cwd: string, absoluteVcsRoot?: string): Set<string> {
+function _collectRelevantFolders(fileSelectionSet: Set<string>, cwd: string, absoluteVcsRoot?: string | null): Set<string> {
 	const folderSet = new Set<string>([cwd]); // Always check CWD
 	if (absoluteVcsRoot && cwd !== absoluteVcsRoot) {
 		folderSet.add(absoluteVcsRoot); // Add VCS root if different

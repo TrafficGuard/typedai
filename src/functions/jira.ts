@@ -189,7 +189,7 @@ export class Jira {
 
 		const key = response.data.key;
 		// Create url in the format https://account.atlassian.net/browse/ABC-123
-		let url = this.instance.defaults.baseURL;
+		let url = this.axios().defaults.baseURL!;
 		url = `${url.substring(0, url.indexOf('t/') + 1)}/browse/${key}`;
 
 		return { key, url };

@@ -11,8 +11,8 @@ export class XAI extends AiLLM<XaiProvider> {
 		super(displayName, XAI_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
-	protected apiKey(): string {
-		return currentUser()?.llmConfig.xaiKey || process.env.XAI_API_KEY;
+	protected apiKey(): string | undefined {
+		return currentUser()?.llmConfig.xaiKey?.trim() || process.env.XAI_API_KEY;
 	}
 
 	provider(): XaiProvider {

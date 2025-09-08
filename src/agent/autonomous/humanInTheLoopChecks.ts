@@ -28,7 +28,7 @@ export async function checkHumanInTheLoop(
 	}
 
 	// Update cost tracking
-	const currentCost = agentContext().cost;
+	const currentCost = agentContext()!.cost;
 	const newCosts = currentCost - counters.lastCost;
 	counters.lastCost = currentCost;
 	counters.costAccumulated += newCosts;

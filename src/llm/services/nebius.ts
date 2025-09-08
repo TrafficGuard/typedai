@@ -21,8 +21,8 @@ export class NebiusLLM extends AiLLM<OpenAIProvider> {
 		super(displayName, NEBIUS_SERVICE, model, 128_000, calculateCosts);
 	}
 
-	protected apiKey(): string {
-		return currentUser()?.llmConfig.nebiusKey || process.env.NEBIUS_API_KEY;
+	protected apiKey(): string | undefined {
+		return currentUser()?.llmConfig.nebiusKey?.trim() || process.env.NEBIUS_API_KEY;
 	}
 
 	provider(): OpenAIProvider {

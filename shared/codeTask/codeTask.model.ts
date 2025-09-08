@@ -44,7 +44,7 @@ export interface CodeTask {
 	updatedAt: number;
 	/** History of agents ids run for this code task */
 	agentHistory?: string[];
-	error?: string;
+	error?: string | null;
 }
 
 // --- Data Transfer Objects (DTOs) ---

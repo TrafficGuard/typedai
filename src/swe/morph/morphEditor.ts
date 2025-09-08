@@ -40,12 +40,12 @@ export class MorphEditor {
 		codeEdit: string,
 		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the autonomous agents.
 	): Promise<void> {
-		let projectInfo: ProjectInfo = altOptions?.projectInfo;
+		let projectInfo: ProjectInfo | undefined | null = altOptions?.projectInfo;
 		projectInfo ??= await getProjectInfo();
 
 		const fss: IFileSystemService = getFileSystem();
 		if (altOptions?.workingDirectory) fss.setWorkingDirectory(altOptions.workingDirectory);
-		fss.setWorkingDirectory(projectInfo.baseDir);
+		if (projectInfo) fss.setWorkingDirectory(projectInfo.baseDir);
 
 		if (!(await fss.fileExists(filePath))) throw new Error(`File ${filePath} does not exist to edit`);
 		const fileContents = await fss.readFile(filePath);

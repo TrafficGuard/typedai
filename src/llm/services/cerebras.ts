@@ -90,11 +90,11 @@ export class CerebrasLLM extends AiLLM<OpenAIProvider> {
 	}
 
 	protected apiKey(): string | undefined {
-		let envKey: string;
+		let envKey: string | undefined;
 		if (CEREBRAS_KEYS.length) {
 			envKey = CEREBRAS_KEYS[cerebrasKeyIndex];
 			if (++cerebrasKeyIndex > CEREBRAS_KEYS.length) cerebrasKeyIndex = 0;
 		}
-		return currentUser()?.llmConfig.cerebrasKey || envKey;
+		return currentUser()?.llmConfig.cerebrasKey?.trim() || envKey;
 	}
 }

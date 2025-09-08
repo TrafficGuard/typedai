@@ -60,8 +60,8 @@ export class Anthropic extends AiLLM<AnthropicProvider> {
 		super(displayName, ANTHROPIC_SERVICE, model, 200_000, calculateCosts, oldIds);
 	}
 
-	protected apiKey(): string {
-		return currentUser()?.llmConfig.anthropicKey || process.env.ANTHROPIC_API_KEY;
+	protected apiKey(): string | undefined {
+		return currentUser()?.llmConfig.anthropicKey?.trim() || process.env.ANTHROPIC_API_KEY;
 	}
 
 	protected _preprocessProviderMessages(llmMessages: LlmMessage[]): LlmMessage[] {

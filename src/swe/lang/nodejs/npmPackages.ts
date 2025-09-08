@@ -2,12 +2,13 @@ import axios from 'axios';
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { PublicWeb } from '#functions/web/web';
+import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { cacheRetry } from '../../../cache/cacheRetry';
 
 export interface NpmPackageInfo {
-	docUrl: string;
-	gitHubUrl: string;
+	docUrl: string | null;
+	gitHubUrl: string | null;
 }
 
 interface NpmOrgPackageInfo {
@@ -63,7 +64,7 @@ export class NpmPackages {
 	// @func
 	async getDocumentation(npmPackageName: string): Promise<string> {
 		const info = await this.getPackageInfo(npmPackageName);
-		const crawls = [];
+		const crawls: Array<Promise<Map<string, string>>> = [];
 		if (info.gitHubUrl) crawls.push(new PublicWeb().crawlWebsite(info.gitHubUrl));
 		if (info.docUrl) crawls.push(new PublicWeb().crawlWebsite(info.docUrl));
 
@@ -76,7 +77,7 @@ export class NpmPackages {
 	@cacheRetry({ retries: 1, backOffMs: 1000 })
 	async downloadDocumentation(npmPackageName: string): Promise<string> {
 		const info = await this.getPackageInfo(npmPackageName);
-		const crawls = [];
+		const crawls: Array<Promise<Map<string, string>>> = [];
 		if (info.gitHubUrl) crawls.push(new PublicWeb().crawlWebsite(info.gitHubUrl));
 		if (info.docUrl) crawls.push(new PublicWeb().crawlWebsite(info.docUrl));
 
@@ -94,7 +95,7 @@ export class NpmPackages {
 	@cacheRetry()
 	@func()
 	async getPackageInfo(npmPackageName: string): Promise<NpmPackageInfo> {
-		const llm = agentContext().llms.easy;
+		const llm = agentContext()?.llms.easy ?? defaultLLMs().easy;
 		// fetch the HTML at https://npmjs.com/package/${npmPackageName}
 		const url = `https://npmjs.com/package/${npmPackageName}`;
 		const npmjsFetch = await fetch(url);

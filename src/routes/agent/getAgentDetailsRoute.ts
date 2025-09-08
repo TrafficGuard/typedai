@@ -12,7 +12,7 @@ export async function getAgentDetailsRoute(fastify: AppFastifyInstance): Promise
 	registerApiRoute(fastify, AGENT_API.details, async (req, reply) => {
 		const { agentId } = req.params;
 		try {
-			const agentContext: AgentContext = await fastify.agentStateService.load(agentId);
+			const agentContext: AgentContext | null = await fastify.agentStateService.load(agentId);
 			if (!agentContext) return sendBadRequest(reply, `Agent ${agentId} not found`);
 
 			const response: AgentContextApi = serializeContext(agentContext);

@@ -54,8 +54,9 @@ export class MorphCodeAgent {
 		autoCommit = true,
 		altOptions?: { projectInfo?: ProjectInfo; workingDirectory?: string }, // altOptions are for programmatic use and not exposed to the autonomous agents.
 	): Promise<void> {
-		let projectInfo: ProjectInfo = altOptions?.projectInfo;
+		let projectInfo: ProjectInfo | undefined | null = altOptions?.projectInfo;
 		projectInfo ??= await getProjectInfo();
+		if (!projectInfo) throw new Error('No project info found');
 
 		const fss: IFileSystemService = getFileSystem();
 		const vcs = fss.getVcs();

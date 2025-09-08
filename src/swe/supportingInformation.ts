@@ -25,7 +25,7 @@ export async function supportingInformation(
 		/* -----------------------------------------------------------
 		 * 1. Work out which projects we need to report on
 		 * --------------------------------------------------------- */
-		const allProjects = await getProjectInfos(); // backend + frontend + any others
+		const allProjects = (await getProjectInfos()) ?? []; // backend + frontend + any others
 
 		// Determine the repository root using VCS root or by searching upwards for .typedai.json
 		const repoRoot = fss.getVcsRoot() ?? (await findRepoRoot(originalWd, getFileSystem)) ?? originalWd;

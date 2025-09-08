@@ -78,7 +78,7 @@ async function _startAgent(agent: AgentContext): Promise<AgentExecution> {
 	if (githubProject) {
 		runAsUser(agent.user, async () => {
 			const repoPath = await new GitHub().cloneProject(githubProject);
-			agent.fileSystem.setWorkingDirectory(repoPath);
+			agent.fileSystem!.setWorkingDirectory(repoPath);
 			if (metadata.github.branch) await new Git().switchToBranch(metadata.github.branch);
 		});
 	}
@@ -116,10 +116,12 @@ export async function startAgentAndWaitForCompletion(config: RunAgentConfig): Pr
 	const poll = async (agentId: string): Promise<void> => {
 		const terminalStates = ['completed', 'error', 'cancelled'];
 		let agent = await appContext().agentStateService.load(agentId);
+		if (!agent) throw new Error(`Agent ${agentId} not found to wait for completion`);
 
 		while (!terminalStates.includes(agent.state)) {
 			await new Promise((resolve) => setTimeout(resolve, 2000)); // Poll every 2 seconds
 			agent = await appContext().agentStateService.load(agentId);
+			if (!agent) throw new Error(`Agent ${agentId} not found to wait for completion`);
 			logger.debug(`Polling agent ${agentId}, current state: ${agent.state}`);
 		}
 	};
@@ -127,6 +129,8 @@ export async function startAgentAndWaitForCompletion(config: RunAgentConfig): Pr
 	await poll(agentExecution.agentId);
 
 	const agent = await appContext().agentStateService.load(agentExecution.agentId);
+	if (!agent) throw new Error(`Agent ${agentExecution.agentId} not found`);
+
 	if (agent.state !== 'completed') {
 		const errorMessage = agent.error ? errorToString(agent.error as any) : `Agent finished in non-completed state: ${agent.state}`;
 		throw new Error(errorMessage);
@@ -148,6 +152,7 @@ export async function runAgentAndWait(config: RunAgentConfig): Promise<string> {
 
 export async function cancelAgent(agentId: string, executionId: string, feedback: string): Promise<void> {
 	const agent = await appContext().agentStateService.load(agentId);
+	if (!agent) throw new Error(`Agent ${agentId} not found to cancel`);
 	if (agent.executionId !== executionId) throw new Error('Invalid executionId. Agent has already been cancelled/resumed');
 
 	agent.functionCallHistory.push({
@@ -161,6 +166,7 @@ export async function cancelAgent(agentId: string, executionId: string, feedback
 
 export async function resumeError(agentId: string, executionId: string, feedback: string): Promise<void> {
 	const agent = await appContext().agentStateService.load(agentId);
+	if (!agent) throw new Error(`Agent ${agentId} not found to resume`);
 	if (agent.executionId !== executionId) throw new Error('Invalid executionId. Agent has already been resumed');
 
 	agent.functionCallHistory.push({
@@ -180,6 +186,7 @@ export async function resumeError(agentId: string, executionId: string, feedback
  */
 export async function resumeHil(agentId: string, executionId: string, feedback: string): Promise<void> {
 	const agent = await appContext().agentStateService.load(agentId);
+	if (!agent) throw new Error(`Agent ${agentId} not found to resume HIL`);
 	if (agent.executionId !== executionId) throw new Error('Invalid executionId. Agent has already been resumed');
 
 	// Check if the agent is in a state appropriate for this generic resume function
@@ -216,6 +223,7 @@ export async function resumeHil(agentId: string, executionId: string, feedback: 
  */
 export async function resumeCompleted(agentId: string, executionId: string, instructions: string): Promise<void> {
 	const agent = await appContext().agentStateService.load(agentId);
+	if (!agent) throw new Error(`Agent ${agentId} not found to resume`);
 	if (agent.executionId !== executionId) throw new Error('Invalid executionId. Agent has already been resumed');
 
 	// Generate New Execution Identifiers
@@ -224,7 +232,7 @@ export async function resumeCompleted(agentId: string, executionId: string, inst
 
 	// Reset Execution-Specific Fields
 	agent.callStack = [];
-	agent.error = null;
+	agent.error = undefined;
 	agent.output = undefined;
 	agent.iterations = 0;
 	agent.invoking = [];
@@ -258,6 +266,7 @@ export async function resumeCompleted(agentId: string, executionId: string, inst
  */
 export async function resumeCompletedWithUpdatedUserRequest(agentId: string, executionId: string, userRequest: string): Promise<void> {
 	const agent = await appContext().agentStateService.load(agentId);
+	if (!agent) throw new Error(`Agent ${agentId} not found to resume`);
 	if (agent.executionId !== executionId) throw new Error('Invalid executionId. Agent has already been resumed');
 
 	agent.inputPrompt = agent.inputPrompt.replace(agent.userPrompt, userRequest);
@@ -270,6 +279,7 @@ export async function resumeCompletedWithUpdatedUserRequest(agentId: string, exe
 
 export async function provideFeedback(agentId: string, executionId: string, feedback: string): Promise<void> {
 	const agent = await appContext().agentStateService.load(agentId);
+	if (!agent) throw new Error(`Agent ${agentId} not found to provide feedback`);
 	if (agent.executionId !== executionId) throw new Error('Invalid executionId. Agent has already been provided feedback');
 
 	// This function is specifically for when the agent is in 'hitl_feedback' state

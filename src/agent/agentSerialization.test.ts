@@ -241,98 +241,98 @@ describe('serializeContext', () => {
 		});
 
 		it('should default type to "autonomous"', () => {
-			const context = { ...baseContext, type: undefined } as AgentContext;
+			const context = { ...baseContext, type: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).type).to.equal('autonomous');
 		});
 
 		it('should default subtype to "xml"', () => {
-			const context = { ...baseContext, subtype: undefined } as AgentContext;
+			const context = { ...baseContext, subtype: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).subtype).to.equal('xml');
 		});
 
 		it('should default executionId if undefined', () => {
-			const context = { ...baseContext, executionId: undefined } as AgentContext;
+			const context = { ...baseContext, executionId: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).executionId).to.equal('unknown-execution-id-default');
 		});
 
 		it('should default typedAiRepoDir if undefined', () => {
-			const context = { ...baseContext, typedAiRepoDir: undefined } as AgentContext;
+			const context = { ...baseContext, typedAiRepoDir: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).typedAiRepoDir).to.equal(mockCwd);
 		});
 
 		it('should default traceId if undefined', () => {
-			const context = { ...baseContext, traceId: undefined } as AgentContext;
+			const context = { ...baseContext, traceId: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).traceId).to.equal('unknown-trace-id-default');
 		});
 
 		it('should default name if undefined', () => {
-			const context = { ...baseContext, name: undefined } as AgentContext;
+			const context = { ...baseContext, name: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).name).to.equal('Unnamed Agent (Default)');
 		});
 
 		it('should default state if undefined', () => {
-			const context = { ...baseContext, state: undefined } as AgentContext;
+			const context = { ...baseContext, state: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).state).to.equal('error');
 		});
 
 		it('should default hilBudget if undefined', () => {
-			const context = { ...baseContext, hilBudget: undefined } as AgentContext;
+			const context = { ...baseContext, hilBudget: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).hilBudget).to.equal(0);
 		});
 
 		it('should default cost if undefined', () => {
-			const context = { ...baseContext, cost: undefined } as AgentContext;
+			const context = { ...baseContext, cost: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).cost).to.equal(0);
 		});
 
 		it('should default budgetRemaining to 0 if undefined (and hilBudget defaults to 0)', () => {
-			const context = { ...baseContext, budgetRemaining: undefined, hilBudget: undefined } as AgentContext;
+			const context = { ...baseContext, budgetRemaining: undefined, hilBudget: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).budgetRemaining).to.equal(0);
 		});
 
 		it('should default budgetRemaining to hilBudget if budgetRemaining is undefined and hilBudget is set', () => {
-			const context = { ...baseContext, budgetRemaining: undefined, hilBudget: 50 } as AgentContext;
+			const context = { ...baseContext, budgetRemaining: undefined, hilBudget: 50 } as unknown as AgentContext;
 			expect(serializeContext(context).budgetRemaining).to.equal(50);
 		});
 
 		it('should default lastUpdate if undefined', () => {
-			const context = { ...baseContext, lastUpdate: undefined } as AgentContext;
+			const context = { ...baseContext, lastUpdate: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).lastUpdate).to.equal(mockTimestamp);
 		});
 
 		it('should default iterations if undefined', () => {
-			const context = { ...baseContext, iterations: undefined } as AgentContext;
+			const context = { ...baseContext, iterations: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).iterations).to.equal(0);
 		});
 
 		it('should default userPrompt if undefined', () => {
-			const context = { ...baseContext, userPrompt: undefined } as AgentContext;
+			const context = { ...baseContext, userPrompt: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).userPrompt).to.equal('');
 		});
 
 		it('should default inputPrompt if undefined', () => {
-			const context = { ...baseContext, inputPrompt: undefined } as AgentContext;
+			const context = { ...baseContext, inputPrompt: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).inputPrompt).to.equal('');
 		});
 
 		it('should default hilCount if undefined', () => {
-			const context = { ...baseContext, hilCount: undefined } as AgentContext;
+			const context = { ...baseContext, hilCount: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).hilCount).to.equal(0);
 		});
 
 		it('should default useSharedRepos if undefined', () => {
-			const context = { ...baseContext, useSharedRepos: undefined } as AgentContext;
+			const context = { ...baseContext, useSharedRepos: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).useSharedRepos).to.be.true;
 		});
 
 		it('should default hilRequested if undefined', () => {
-			const context = { ...baseContext, hilRequested: undefined } as AgentContext;
+			const context = { ...baseContext, hilRequested: undefined } as unknown as AgentContext;
 			expect(serializeContext(context).hilRequested).to.be.false;
 		});
 
 		describe('LLMs Defaults', () => {
 			it('should default llms to default IDs if context.llms is undefined', () => {
-				const context = { ...baseContext, llms: undefined } as AgentContext;
+				const context = { ...baseContext, llms: undefined } as unknown as AgentContext;
 				const result = serializeContext(context);
 				expect(result.llms).to.deep.equal({
 					easy: 'default-llm-id-easy',

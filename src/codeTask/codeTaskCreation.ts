@@ -89,7 +89,7 @@ export class CodeTaskCreation {
 			// 3. Repository Setup
 			logger.info({ codeTaskId }, '[CodeTaskServiceImpl] Starting SCM setup...');
 
-			let scm: SourceControlManagement;
+			let scm: SourceControlManagement | undefined;
 			if (codeTask.repositorySource === 'gitlab') scm = new GitLab();
 			if (codeTask.repositorySource === 'github') scm = new GitHub();
 

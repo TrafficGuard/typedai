@@ -14,15 +14,31 @@ import type { AppFastifyInstance } from '#app/applicationTypes';
 import type { RouteDefinition, RouteSchemaConfig } from '#shared/api-definitions';
 
 // Success-payload inference – mirrors the Angular helper
+// type InferSuccessResponse<TResponseSchemasMap extends Record<number, TSchema> | undefined> = TResponseSchemasMap extends undefined
+// 	? unknown
+// 	: TResponseSchemasMap[200] extends TSchema
+// 		? Static<TResponseSchemasMap[200]>
+// 		: TResponseSchemasMap[201] extends TSchema
+// 			? Static<TResponseSchemasMap[201]>
+// 			: TResponseSchemasMap[204] extends TSchema
+// 				? undefined
+// 				: unknown;
+// tsconfig strictNulls=true verison.  We need to check if the key exists before trying to access it.
 type InferSuccessResponse<TResponseSchemasMap extends Record<number, TSchema> | undefined> = TResponseSchemasMap extends undefined
 	? unknown
-	: TResponseSchemasMap[200] extends TSchema
-		? Static<TResponseSchemasMap[200]>
-		: TResponseSchemasMap[201] extends TSchema
-			? Static<TResponseSchemasMap[201]>
-			: TResponseSchemasMap[204] extends TSchema
-				? undefined
-				: unknown;
+	: 200 extends keyof TResponseSchemasMap
+		? TResponseSchemasMap[200] extends TSchema
+			? Static<TResponseSchemasMap[200]>
+			: 201 extends keyof TResponseSchemasMap
+				? TResponseSchemasMap[201] extends TSchema
+					? Static<TResponseSchemasMap[201]>
+					: 204 extends keyof TResponseSchemasMap
+						? TResponseSchemasMap[204] extends TSchema
+							? undefined
+							: unknown
+						: unknown
+				: unknown
+		: unknown;
 
 // Helper type to construct RouteGenericInterface from a FastifySchema
 type RouteGenericFromSchema<Schema extends FastifySchema> = RouteGenericInterface & {
@@ -42,7 +58,7 @@ export function registerApiRoute<
 	TPathParamsSchema extends TSchema | undefined,
 	TQuerySchema extends TSchema | undefined,
 	TBodySchema extends TSchema | undefined,
-	TResponseSchemasMap extends Record<number, TSchema> | undefined,
+	TResponseSchemasMap extends Record<number, TSchema>,
 	TSuccessResponsePayload = InferSuccessResponse<TResponseSchemasMap>,
 >(
 	fastify: AppFastifyInstance,

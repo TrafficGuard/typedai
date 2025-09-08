@@ -44,8 +44,8 @@ export class TogetherLLM extends AiLLM<TogetherAIProvider> {
 		super(displayName, TOGETHER_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
-	protected apiKey(): string {
-		return currentUser()?.llmConfig.togetheraiKey || process.env.TOGETHERAI_API_KEY;
+	protected apiKey(): string | undefined {
+		return currentUser()?.llmConfig.togetheraiKey?.trim() || process.env.TOGETHERAI_API_KEY;
 	}
 
 	provider(): TogetherAIProvider {

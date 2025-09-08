@@ -33,7 +33,7 @@ async function main() {
 	};
 
 	await runWorkflowAgent(config, async () => {
-		const agent = agentContext();
+		const agent = agentContext()!;
 		agent.name = `Query: ${await llms().easy.generateText(
 			`<query>\n${initialPrompt}\n</query>\n\nSummarise the query into only a terse few words for a short title (8 words maximum) for the name of the AI agent completing the task. Output the short title only, nothing else.`,
 			{ id: 'Agent name' },
