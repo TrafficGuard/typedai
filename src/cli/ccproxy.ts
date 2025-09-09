@@ -60,7 +60,7 @@ const app = fastify({
 	bodyLimit: 4 * 1024 * 1024, // 4mb, equivalent to express.json({ limit: '4mb' })
 });
 
-app.post('/v1/messages', async (request: FastifyRequest, reply: FastifyReply) => {
+app.post('/v1/messages', async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
 	const started = Date.now();
 	const reqId = randomUUID();
 

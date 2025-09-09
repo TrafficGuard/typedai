@@ -75,14 +75,15 @@ export class Agent {
 	async memory(operation: 'SAVE' | 'DELETE' | 'GET', key: string, content?: string): Promise<undefined | string> {
 		if (operation === 'SAVE') {
 			await this.saveMemory(key, content as string);
-			return;
+			return undefined;
 		}
 		if (operation === 'DELETE') {
 			await this.deleteMemory(key);
-			return;
+			return undefined;
 		}
 		if (operation === 'GET') {
 			return this.getMemory(key);
 		}
+		throw new Error(`Invalid operation: ${operation}`);
 	}
 }

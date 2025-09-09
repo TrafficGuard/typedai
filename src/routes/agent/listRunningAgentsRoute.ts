@@ -12,7 +12,7 @@ import { registerApiRoute } from '../routeUtils';
 const TERMINAL_STATES = ['completed', 'error', 'cancelled'];
 
 export async function listRunningAgentsRoute(fastify: AppFastifyInstance): Promise<void> {
-	registerApiRoute(fastify, AGENT_API.listRunning, async (req, reply) => {
+	registerApiRoute(fastify, AGENT_API.listRunning, async (req, reply): Promise<void> => {
 		try {
 			const runningAgentIds = Object.keys(agentExecutions);
 			if (runningAgentIds.length === 0) return reply.sendJSON([]);
