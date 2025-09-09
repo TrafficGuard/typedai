@@ -22,7 +22,12 @@ export type TaskLevel = 'easy' | 'medium' | 'hard' | 'xhard';
 /**
  * The LLMs for each Task Level
  */
-export type AgentLLMs = Record<TaskLevel, LLM>;
+export type AgentLLMs = {
+	easy: LLM;
+	medium: LLM;
+	hard: LLM;
+	xhard: LLM | null | undefined;
+};
 
 export type AgentType = 'autonomous' | 'workflow';
 

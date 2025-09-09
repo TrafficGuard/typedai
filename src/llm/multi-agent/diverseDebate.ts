@@ -33,7 +33,14 @@ export class ConfidentDiverseDebateLLM extends BaseLLM {
 	debateLLMs: LLM[]; // These should be pre-configured with diverse system prompts
 	mediatorLLM: LLM;
 
-	generationStats: GenerationStats;
+	generationStats: GenerationStats = {
+		requestTime: 0,
+		timeToFirstToken: 0,
+		totalTime: 0,
+		inputTokens: 0,
+		outputTokens: 0,
+		llmId: '',
+	};
 
 	constructor(
 		name: string,
@@ -50,24 +57,22 @@ export class ConfidentDiverseDebateLLM extends BaseLLM {
 		this.debateLLMs = debateLLMFactories.map((factory) => factory());
 		this.mediatorLLM = mediatorLLMFactory();
 
-		if (this.debateLLMs.length === 0) {
-			throw new Error('ConfidentDiverseDebateLLM requires at least one debate LLM.');
-		}
+		if (this.debateLLMs.length === 0) throw new Error('ConfidentDiverseDebateLLM requires at least one debate LLM.');
 	}
 
-	isConfigured(): boolean {
+	override isConfigured(): boolean {
 		return this.primaryLLM.isConfigured() && this.mediatorLLM.isConfigured() && this.debateLLMs.every((llm) => llm.isConfigured());
 	}
 
-	getModel(): string {
+	override getModel(): string {
 		return this.model; // Returns the conceptual ID
 	}
 
-	protected supportsGenerateTextFromMessages(): boolean {
+	protected override supportsGenerateTextFromMessages(): boolean {
 		return true;
 	}
 
-	protected async generateTextFromMessages(llmMessages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string> {
+	protected override async generateTextFromMessages(llmMessages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string> {
 		logger.info(`[${this.getDisplayName()}] Phase 1: Initial Confidence Check with ${this.primaryLLM.getDisplayName()}`);
 
 		// Generate a few samples for confidence check

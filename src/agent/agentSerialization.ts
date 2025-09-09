@@ -100,7 +100,7 @@ export function deserializeContext(data: AgentContextApi): AgentContext {
 
 	const llmsImpl = deserializeLLMs(data.llms as Record<keyof AgentLLMs, string | undefined>);
 
-	let completedHandlerImpl: AgentCompleted | undefined = undefined;
+	let completedHandlerImpl: AgentCompleted | null = null;
 	// Use the new property name 'completedHandler'
 	if (data.completedHandler) {
 		completedHandlerImpl = getCompletedHandler(data.completedHandler);

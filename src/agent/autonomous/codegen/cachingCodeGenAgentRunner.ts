@@ -110,16 +110,16 @@ export async function runCachingCodegenAgent(agent: AgentContext): Promise<Agent
 				try {
 					// Human in the loop checks ------------------------
 					if (hilCount && countSinceHil === hilCount) {
-						await humanInTheLoop(agentContext(), `Agent control loop has performed ${hilCount} iterations`);
+						await humanInTheLoop(agent, `Agent control loop has performed ${hilCount} iterations`);
 						countSinceHil = 0;
 					}
 					countSinceHil++;
 
-					logger.debug(`Budget remaining $${agent.budgetRemaining.toFixed(2)}. Total cost $${agentContextStorage.getStore().cost.toFixed(2)}`);
+					logger.debug(`Budget remaining $${agent.budgetRemaining.toFixed(2)}. Total cost $${agent.cost.toFixed(2)}`);
 					if (hilBudget && agent.budgetRemaining <= 0) {
 						// HITL happens once budget is exceeded, which may be more than the allocated budget
 						const increase = agent.hilBudget - agent.budgetRemaining;
-						await humanInTheLoop(agentContext(), `Agent cost has increased by USD\$${increase.toFixed(2)}. Increase budget by $${agent.hilBudget}`);
+						await humanInTheLoop(agent, `Agent cost has increased by USD\$${increase.toFixed(2)}. Increase budget by $${agent.hilBudget}`);
 						agent.budgetRemaining = agent.hilBudget;
 					}
 
@@ -144,7 +144,7 @@ export async function runCachingCodegenAgent(agent: AgentContext): Promise<Agent
 					// If the last function was requestFeedback then we'll remove it from function history add it as function results
 					let historyToIndex = agent.functionCallHistory.length ? agent.functionCallHistory.length - 1 : 0;
 					let requestFeedbackCallResult = '';
-					if (agent.functionCallHistory.length && agent.functionCallHistory.at(-1).function_name === AGENT_REQUEST_FEEDBACK) {
+					if (agent.functionCallHistory.length && agent.functionCallHistory.at(-1)!.function_name === AGENT_REQUEST_FEEDBACK) {
 						historyToIndex--;
 						requestFeedbackCallResult = buildFunctionCallHistoryPrompt('results', 10000, historyToIndex + 1, historyToIndex + 2);
 					}

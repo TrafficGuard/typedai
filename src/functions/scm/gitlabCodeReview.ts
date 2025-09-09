@@ -41,8 +41,8 @@ export type GitLabProject = Pick<
 export class GitLabCodeReview {
 	// @ts-ignore
 	_gitlab: GitlabApi;
-	_config: GitLabConfig;
-	_gitlabSCM: SourceControlManagement;
+	_config: GitLabConfig | undefined;
+	_gitlabSCM: SourceControlManagement | undefined;
 
 	private config(): GitLabConfig {
 		if (!this._config) {
@@ -144,10 +144,10 @@ export class GitLabCodeReview {
 					baseSha: mergeRequest.diff_refs.base_sha,
 					headSha: mergeRequest.diff_refs.head_sha,
 					startSha: mergeRequest.diff_refs.start_sha,
-					oldPath: reviewResult.task.oldPath,
+					oldPath: reviewResult.task.oldPath ?? '',
 					newPath: reviewResult.task.filePath,
 					positionType: 'text',
-					newLine: comment.lineNumber > 0 ? comment.lineNumber.toString() : undefined,
+					newLine: comment.lineNumber > 0 ? comment.lineNumber.toString() : '',
 				};
 				Object.keys(position).forEach((key) => position[key] === undefined && delete position[key]);
 				const positionOptions = position.newLine ? { position } : undefined;

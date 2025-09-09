@@ -91,7 +91,7 @@ function _collectRelevantFolders(fileSelectionSet: Set<string>, cwd: string, abs
 /**
  * Checks a single folder for all relevant AI tool files.
  */
-async function _checkFolderForAiFiles(folder: string, absoluteVcsRoot: string | undefined, addFileCallback: AddFileCallback): Promise<void> {
+async function _checkFolderForAiFiles(folder: string, absoluteVcsRoot: string | null, addFileCallback: AddFileCallback): Promise<void> {
 	const checks: Promise<void>[] = [
 		_checkSimpleFilesExist(folder, addFileCallback),
 		_checkCursorRulesDir(folder, addFileCallback),

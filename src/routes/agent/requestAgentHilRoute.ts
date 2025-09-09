@@ -14,22 +14,20 @@ export async function requestAgentHilRoute(fastify: AppFastifyInstance): Promise
 
 		try {
 			const agent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
-
+			if (!agent) return sendNotFound(reply, `Agent ${agentId} not found`);
 			if (agent.executionId !== executionId)
 				return sendBadRequest(reply, `Execution ID mismatch. Agent ${agentId} is currently on execution ${agent.executionId}.`);
 
 			if (agent.hilRequested) {
 				logger.info(`HIL check already requested for agent ${agentId}, execution ${executionId}.`);
-				// Load again to ensure latest state is returned
-				const updatedAgent = await fastify.agentStateService.load(agentId!);
-				return send(reply, 200, serializeContext(updatedAgent));
+				return send(reply, 200, serializeContext(agent));
 			}
 
 			if (!isExecuting(agent)) return sendBadRequest(reply, `Agent ${agentId} is not in an executing state (${agent.state}). Cannot request HIL check.`);
 
 			await fastify.agentStateService.requestHumanInLoopCheck(agent);
 
-			const updatedAgent = await fastify.agentStateService.load(agentId!);
+			const updatedAgent = (await fastify.agentStateService.load(agentId!))!;
 			reply.sendJSON(serializeContext(updatedAgent));
 		} catch (error: any) {
 			if (error instanceof NotFound) return sendNotFound(reply, error.message);

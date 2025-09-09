@@ -60,14 +60,14 @@ export class PublicWeb {
 	// @func()
 	@cacheRetry({ scope: 'global' })
 	async getWebPageExtract(url: string, dataExtractionInstructions: string, memoryKey?: string): Promise<string> {
-		const memory = agentContextStorage.getStore().memory;
-		if (memory[memoryKey]) throw new Error(`The memory key ${memoryKey} already exists`);
+		const memory = agentContextStorage.getStore()!.memory;
+		if (memoryKey && memory[memoryKey]) throw new Error(`The memory key ${memoryKey} already exists`);
 		const contents = await this.getWebPage(url);
 		const extracted = await llms().medium.generateText(`<page_contents>${contents}</page_contents>\n\n${dataExtractionInstructions}`, {
 			id: 'Webpage Data Extraction',
 		});
 		if (memoryKey) {
-			agentContextStorage.getStore().memory[memoryKey] = extracted;
+			agentContextStorage.getStore()!.memory[memoryKey] = extracted;
 		}
 		return extracted;
 	}
@@ -112,7 +112,7 @@ export class PublicWeb {
 		const reader = new Readability(doc.window.document);
 		try {
 			const article = reader.parse();
-			return article.content;
+			return article?.content ?? html;
 		} catch (e) {
 			logger.warn(e, `Could not create readability version of ${url}`);
 			return html;
@@ -292,7 +292,7 @@ export class PublicWeb {
 					),
 				)
 				.on('pageerror', ({ message }) => logs.push(message))
-				.on('requestfailed', (request) => logs.push(`${request.failure().errorText} ${request.url()}`));
+				.on('requestfailed', (request) => logs.push(`${request?.failure()?.errorText} ${request?.url()}`));
 
 			await page.goto(url, { waitUntil: ['load', 'domcontentloaded'] });
 

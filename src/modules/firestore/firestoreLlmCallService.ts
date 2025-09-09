@@ -447,8 +447,8 @@ export class FirestoreLlmCallService implements LlmCallService {
 		// The data saved to Firestore has references instead of large blobs.
 		// Construct the full LlmCall object to return
 		const savedLlmCall: LlmCall = {
-			id,
 			...dataToSave, // This has llmCallId, requestTime, userId, agentId
+			id,
 			messages: messagesToSave,
 			// Initialize optional LlmCall fields not present in LlmRequest
 			timeToFirstToken: undefined,
@@ -663,7 +663,7 @@ export class FirestoreLlmCallService implements LlmCallService {
 				// Check again in case getAgentStoragePath threw
 				for (const ref of externalRefsToDelete) {
 					const uniqueId = ref.substring(AGENT_REF_PREFIX.length);
-					const filePath = join(agentMsgDataPath, uniqueId);
+					const filePath = join(agentMsgDataPath!, uniqueId);
 					try {
 						await fs.unlink(filePath);
 						logger.debug(`Deleted external file: ${filePath}`);

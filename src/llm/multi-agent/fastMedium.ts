@@ -30,15 +30,15 @@ export class FastMediumLLM extends BaseLLM {
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}
 
-	isConfigured(): boolean {
+	override isConfigured(): boolean {
 		return this.providers.findIndex((llm) => !llm.isConfigured()) === -1;
 	}
 
-	protected supportsGenerateTextFromMessages(): boolean {
+	protected override supportsGenerateTextFromMessages(): boolean {
 		return true;
 	}
 
-	protected async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+	protected override async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
 		const message = await this._generateMessage(llmMessages, opts);
 		return messageText(message);
 	}
@@ -57,7 +57,7 @@ export class FastMediumLLM extends BaseLLM {
 		return await countTokens(text);
 	}
 
-	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+	override async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
 		opts ??= {};
 		opts.thinking = 'high';
 		const tokens = await this.textTokens(messages);

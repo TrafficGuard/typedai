@@ -47,8 +47,8 @@ class GeminiLLM extends AiLLM<GoogleGenerativeAIProvider> {
 		super(displayName, GEMINI_SERVICE, model, maxInputToken, costFunction, oldModelIds);
 	}
 
-	protected apiKey(): string {
-		let envKey: string;
+	protected apiKey(): string | undefined {
+		let envKey: string | undefined;
 		if (GEMINI_KEYS.length) {
 			envKey = GEMINI_KEYS[geminiKeyIndex];
 			if (++geminiKeyIndex > GEMINI_KEYS.length) geminiKeyIndex = 0;

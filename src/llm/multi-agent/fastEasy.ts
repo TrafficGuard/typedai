@@ -30,15 +30,15 @@ export class FastEasyLLM extends BaseLLM {
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}
 
-	isConfigured(): boolean {
+	override isConfigured(): boolean {
 		return this.providers.findIndex((llm) => !llm.isConfigured()) === -1;
 	}
 
-	protected supportsGenerateTextFromMessages(): boolean {
+	protected override supportsGenerateTextFromMessages(): boolean {
 		return true;
 	}
 
-	protected async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+	protected override async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
 		const message = await this._generateMessage(llmMessages, opts);
 		return messageText(message);
 	}
@@ -56,7 +56,7 @@ export class FastEasyLLM extends BaseLLM {
 		return tokens < this.groqScout.getMaxInputTokens();
 	}
 
-	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+	override async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
 		try {
 			if (await this.useGroqScout(messages)) return await this.groqScout.generateMessage(messages, opts);
 		} catch (e) {

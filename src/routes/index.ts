@@ -10,6 +10,7 @@ import { llmRoutes } from './llms/llm-routes';
 import { userRoutes } from './profile/user-routes';
 import { promptRoutes } from './prompts/prompts-routes';
 import { scmRoutes } from './scm/scmRoutes';
+import { slackRoutes } from './slack/slackRoutes';
 import { workflowRoutes } from './workflows/workflow-routes';
 
 /**
@@ -29,4 +30,5 @@ export async function apiRoutes(fastify: AppFastifyInstance) {
 	await fastify.register(promptRoutes);
 	await fastify.register(scmRoutes);
 	await fastify.register(workflowRoutes);
+	await fastify.register(slackRoutes);
 }

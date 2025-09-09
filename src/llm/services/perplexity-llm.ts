@@ -79,18 +79,18 @@ export class PerplexityLLM extends AiLLM<PerplexityProvider> {
 		super(displayName, PERPLEXITY_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
-	protected apiKey(): string {
+	protected override apiKey(): string {
 		return functionConfig(Perplexity)?.key || process.env.PERPLEXITY_API_KEY;
 	}
 
-	protected provider(): PerplexityProvider {
+	protected override provider(): PerplexityProvider {
 		this.aiProvider ??= createPerplexity({
 			apiKey: this.apiKey(),
 		});
 		return this.aiProvider;
 	}
 
-	aiModel(): LanguageModelV2 {
+	override aiModel(): LanguageModelV2 {
 		const aiModel = super.aiModel();
 		if (this.getModel().includes('sonar-reasoning-pro')) {
 			return wrapLanguageModel({

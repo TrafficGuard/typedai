@@ -36,8 +36,8 @@ One quirk of threaded messages is that a parent message object will retain a thr
  */
 export class SlackChatBotService implements ChatBotService, AgentCompleted {
 	channels: Set<string> = new Set();
-	appChannel = '';
 	slackApi: SlackAPI | undefined;
+	status: 'disconnected' | 'connected' = 'disconnected';
 
 	private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
 
@@ -125,7 +125,6 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 
 		const botToken = process.env.SLACK_BOT_TOKEN;
 		const signingSecret = process.env.SLACK_SIGNING_SECRET;
-		this.appChannel = process.env.SLACK_APP_CHANNEL;
 		const channels = process.env.SLACK_CHANNELS;
 		const appToken = process.env.SLACK_APP_TOKEN;
 
@@ -143,7 +142,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			appToken: appToken,
 		});
 
-		this.channels = new Set([...channels.split(',').map((s) => s.trim())]);
+		this.channels = new Set([...channels!.split(',').map((s) => s.trim())]);
 
 		// Listen for messages in channels
 		slackApp.event('message', async ({ event, say }) => {
@@ -190,15 +189,16 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			const threadId = event.ts;
 			logger.info(`New thread ${event.ts}`);
 
-			await this.slackApi.addReaction(event.channel, threadId, 'robot_face');
+			await this.api().addReaction(event.channel, threadId, 'robot_face');
 
 			try {
 				const agentExec = await this.startAgentForThread(threadId, event.channel, text);
 				await agentExec.execution;
-				const agent: AgentContext = await agentService.load(agentExec.agentId);
+				const agent: AgentContext = (await agentService.load(agentExec.agentId))!;
+
 				if (agent.state !== 'completed' && agent.state !== 'hitl_feedback') {
 					logger.error(`Agent did not complete. State was ${agent.state}`);
-					await this.slackApi.addReaction(event.channel, event.ts, 'robot_face::boom');
+					await this.api().addReaction(event.channel, event.ts, 'robot_face::boom');
 					return;
 				}
 				return;
@@ -212,7 +212,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			const agent: AgentContext | null = await agentService.load(agentId);
 			const messages = await this.fetchThreadMessages(event.channel, threadId);
 
-			await this.slackApi.addReaction(event.channel, _event.ts, 'robot_face');
+			await this.api().addReaction(event.channel, _event.ts, 'robot_face');
 
 			const prompt = `${JSON.stringify(messages)}\n\nReply to this conversation thread`;
 
@@ -250,21 +250,25 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 	}
 
 	async fetchThreadMessages(channel: string, parentMessageTs: string): Promise<any> {
-		const result = await slackApp.client.conversations.replies({
+		const result = await slackApp!.client.conversations.replies({
 			ts: parentMessageTs,
 			channel,
 			limit: 1000,
 		});
 
-		const messages: MessageElement[] = result.messages;
+		if (result.error) {
+			logger.error(result.error, 'Error fetching thread messages');
+			if (!result.messages) return;
+		}
+		const messages: MessageElement[] = result.messages!;
 
 		if (result.has_more) {
-			const nextResult = await slackApp.client.conversations.replies({
+			const nextResult = await slackApp!.client.conversations.replies({
 				ts: parentMessageTs,
-				cursor: result.response_metadata.next_cursor,
+				cursor: result.response_metadata!.next_cursor,
 				channel,
 			});
-			messages.push(...nextResult.messages);
+			messages.push(...nextResult.messages!);
 		}
 		return messages;
 	}

@@ -147,8 +147,8 @@ const FINAL_TEMP = 0.3;
  * @constructor
  */
 export class ReasonerDebateLLM extends BaseLLM {
-	llms: LLM[];
-	mediator: LLM;
+	llms!: LLM[];
+	mediator!: LLM;
 
 	/**
 	 *
@@ -183,22 +183,22 @@ export class ReasonerDebateLLM extends BaseLLM {
 		}
 	}
 
-	isConfigured(): boolean {
+	override isConfigured(): boolean {
 		for (const llm of this.llms) {
 			if (!llm.isConfigured()) return false;
 		}
 		return this.mediator.isConfigured();
 	}
 
-	getModel(): string {
+	override getModel(): string {
 		return `${this.mediator.getId()}|${this.llms.map((llm) => llm.getId()).join('|')}`;
 	}
 
-	protected supportsGenerateTextFromMessages(): boolean {
+	protected override supportsGenerateTextFromMessages(): boolean {
 		return true;
 	}
 
-	protected async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
+	protected override async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
 		opts ??= {};
 		// Use 'thinking' as the number of debate rounds
 		let rounds = 0;

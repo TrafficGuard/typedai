@@ -21,8 +21,8 @@ export class DeepThink {
 	 */
 	@func()
 	async deepThink(files: string[], memoryKeys: string[], additionalInformation: string, queryOrRequirements: string): Promise<string> {
-		const agent: AgentContext = agentContext();
-		const fss: IFileSystemService = agent.fileSystem;
+		const agent: AgentContext = agentContext()!;
+		const fss: IFileSystemService | null = agent.fileSystem;
 
 		let prompt = '';
 		if (memoryKeys) {
@@ -33,7 +33,9 @@ export class DeepThink {
 				.join('\n');
 			prompt += `Memory:\n${memoryContent}\n\n`;
 		}
+
 		if (files.length) {
+			if (!fss) throw new Error('File system not initialized');
 			const rulesFiles = await includeAlternativeAiToolFiles(files);
 			const allFiles = new Set([...files, ...rulesFiles]);
 			// Sort the rules files first

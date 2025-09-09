@@ -558,7 +558,7 @@ export function runLlmCallServiceTests(
 			it('should apply the limit parameter when retrieving calls for an agent', async () => {
 				const agentId = `agent-limit-${randomUUID()}`;
 				// Create more calls than the limit
-				const calls = [];
+				const calls: LlmCall[] = [];
 				for (let i = 0; i < 5; i++) {
 					calls.push(await service.saveRequest(createTestCreateLlmRequest({ agentId, description: `Call ${i}` })));
 				}
@@ -644,7 +644,7 @@ export function runLlmCallServiceTests(
 				const description = `desc-limit-${randomUUID()}`;
 				const userId = `user-${randomUUID()}`;
 				// Create more calls than the limit
-				const calls = [];
+				const calls: LlmCall[] = [];
 				for (let i = 0; i < 5; i++) {
 					calls.push(await service.saveRequest(createTestCreateLlmRequest({ description, userId }))); // Ensure distinct request times for potential ordering
 				}
@@ -667,7 +667,7 @@ export function runLlmCallServiceTests(
 				const agentId = `agent-${randomUUID()}`;
 
 				// Create calls for the target agent and description
-				const targetCalls = [];
+				const targetCalls: LlmCall[] = [];
 				for (let i = 0; i < 5; i++) {
 					targetCalls.push(await service.saveRequest(createTestCreateLlmRequest({ description, agentId })));
 				}

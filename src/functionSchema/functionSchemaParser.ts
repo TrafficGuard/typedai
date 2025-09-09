@@ -91,7 +91,7 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 	const jsonUpdatedTimestamp = getFileUpdatedTimestamp(`${cachedPath}.json`);
 
 	// If the cached schemas are newer than the source file, then we can use them
-	if (jsonUpdatedTimestamp && jsonUpdatedTimestamp > sourceUpdatedTimestamp) {
+	if (jsonUpdatedTimestamp && sourceUpdatedTimestamp && jsonUpdatedTimestamp > sourceUpdatedTimestamp) {
 		try {
 			const json = readFileSync(`${cachedPath}.json`).toString();
 			if (logger) logger.debug(`Loading cached function schemas from ${cachedPath}.json`);

@@ -22,6 +22,7 @@ export abstract class AbstractUserService implements UserService {
 	}
 
 	getSingleUser(): User {
+		if (!this.singleUser) throw new Error('Single user not initialized');
 		return this.singleUser;
 	}
 
@@ -56,7 +57,7 @@ export abstract class AbstractUserService implements UserService {
 
 	@span({ email: 0 })
 	async authenticateUser(email: string, password: string): Promise<User> {
-		let user: User;
+		let user: User | null = null;
 		try {
 			user = await this.getUserByEmail(email);
 		} catch (e) {

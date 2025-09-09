@@ -85,7 +85,7 @@ export function startWatcher(): void {
 
 			// If a matching line is found, proceed to extract requirements
 			const line = lines[index];
-			const indentation = line.match(/^\s*/)[0]; // Capture leading whitespace for indentation
+			const indentation = line.match(/^\s*/)?.[0]; // Capture leading whitespace for indentation
 			const requirements = line.trim().slice(3, -2).trim();
 
 			logger.info(`Extracted requirements: ${requirements}`);

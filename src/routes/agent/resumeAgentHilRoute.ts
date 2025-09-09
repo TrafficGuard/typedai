@@ -14,7 +14,8 @@ export async function resumeAgentHilRoute(fastify: AppFastifyInstance): Promise<
 		try {
 			// resumeHil should ideally handle agent existence/ownership or call a service method that does
 			await resumeHil(agentId!, executionId!, feedback!);
-			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			const updatedAgent = await fastify.agentStateService.load(agentId!);
+			if (!updatedAgent) throw new Error(`Agent ${agentId} not found`);
 			send(reply, 200, serializeContext(updatedAgent));
 		} catch (error) {
 			if (error instanceof NotFound) return sendNotFound(reply, error.message);

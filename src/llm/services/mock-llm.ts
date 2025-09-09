@@ -155,10 +155,10 @@ export class MockLLM extends BaseLLM {
 	 * based on the arguments. This preserves the dual-queue system of `MockLLM` and allows it to
 	 * handle both simple string prompts and complex message arrays.
 	 */
-	generateText(userPrompt: string, opts?: GenerateTextOptions): Promise<string>;
-	generateText(systemPrompt: string, userPrompt: string, opts?: GenerateTextOptions): Promise<string>;
-	generateText(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string>;
-	async generateText(
+	override generateText(userPrompt: string, opts?: GenerateTextOptions): Promise<string>;
+	override generateText(systemPrompt: string, userPrompt: string, opts?: GenerateTextOptions): Promise<string>;
+	override generateText(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string>;
+	override async generateText(
 		userOrSystemOrMessages: string | ReadonlyArray<LlmMessage>,
 		userOrOpts?: string | GenerateTextOptions,
 		opts?: GenerateTextOptions,
@@ -177,7 +177,7 @@ export class MockLLM extends BaseLLM {
 		return this._generateText(systemPrompt, userPrompt, theOpts);
 	}
 
-	protected async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+	protected override async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
 		const isAutoCommit = opts?.id === 'autoCommitMessage';
 		/*                                                                                                                                                  
 		   Record this call in BOTH flavours so that tests using                                                                                                                                                           
@@ -226,7 +226,7 @@ export class MockLLM extends BaseLLM {
 		return assistantMessage;
 	}
 
-	protected async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
+	protected override async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
 		const isAutoCommit = opts?.id === 'autoCommitMessage';
 		const messages: LlmMessage[] = [];
 		if (systemPrompt) messages.push(system(systemPrompt));
@@ -279,7 +279,8 @@ export class MockLLM extends BaseLLM {
 	 * simulating the behavior of a real LLM integration.
 	 */
 	private async saveLlmCall(requestMessages: ReadonlyArray<LlmMessage>, assistantMessage: LlmMessage, opts?: GenerateTextOptions): Promise<void> {
-		const description = opts?.id ?? '';
+		opts ??= {};
+		const description = opts.id ?? '';
 		return withActiveSpan(`saveLlmCall ${description}`, async (span) => {
 			const fullPromptText = requestMessages.map((m) => messageText(m)).join('\n');
 			const responseText = messageText(assistantMessage);
@@ -300,7 +301,7 @@ export class MockLLM extends BaseLLM {
 
 			const inputTokens = await this.countTokens(fullPromptText);
 			const outputTokens = await this.countTokens(responseText);
-			const { totalCost } = this.calculateCosts(inputTokens, outputTokens);
+			const { totalCost } = this.calculateCosts(inputTokens, outputTokens, {}, new Date(finishTime));
 			addCost(totalCost);
 
 			llmCall.timeToFirstToken = timeToFirstToken;

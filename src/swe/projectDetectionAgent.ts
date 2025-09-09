@@ -95,7 +95,7 @@ If no projects are found, respond with an empty JSON array [].
 					test: [],
 					primary: false,
 					language: '',
-					languageTools: undefined,
+					languageTools: null,
 					devBranch: '',
 					fileSelection: '',
 					indexDocs: [],

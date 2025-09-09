@@ -20,19 +20,19 @@ export class OllamaLLM extends BaseLLM {
 		}));
 	}
 
-	isConfigured(): boolean {
+	override isConfigured(): boolean {
 		return Boolean(process.env.OLLAMA_API_URL);
 	}
 
-	private getOllamaApiUrl(): string {
+	private getOllamaApiUrl(): string | undefined {
 		return process.env.OLLAMA_API_URL;
 	}
 
-	protected supportsGenerateTextFromMessages(): boolean {
+	protected override supportsGenerateTextFromMessages(): boolean {
 		return true;
 	}
 
-	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+	override async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
 		return withActiveSpan(`generateMessage ${opts?.id ?? ''}`, async (span) => {
 			const inputPromptString = messages.map((m) => m.content).join('\n');
 
@@ -48,7 +48,7 @@ export class OllamaLLM extends BaseLLM {
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
 				callStack: callStack(),
-				settings: opts,
+				settings: opts ?? {},
 			});
 			const requestTime = Date.now();
 
@@ -73,7 +73,7 @@ export class OllamaLLM extends BaseLLM {
 			const llmCall: LlmCall = await llmCallSave;
 			const inputTokens = await countTokens(inputPromptString);
 			const outputTokens = await countTokens(responseText);
-			const { totalCost } = this.calculateCosts(inputTokens, outputTokens); // Will be 0
+			const { totalCost } = this.calculateCosts(inputTokens, outputTokens, response.data.usage, new Date(finishTime)); // Will be 0
 			llmCall.timeToFirstToken = timeToFirstToken;
 			llmCall.totalTime = finishTime - requestTime;
 			llmCall.cost = totalCost; // VM cost?

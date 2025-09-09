@@ -16,6 +16,7 @@ export async function cancelAgentRoute(fastify: AppFastifyInstance): Promise<voi
 			await cancelAgent(agentId!, executionId!, reason!);
 			// Load the updated agent to return the state
 			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			if (!updatedAgent) return sendNotFound(reply, `Agent ${agentId} not found`);
 			send(reply, 200, serializeContext(updatedAgent));
 		} catch (error) {
 			if (error instanceof NotFound) return sendNotFound(reply, error.message);

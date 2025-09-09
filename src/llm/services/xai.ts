@@ -43,7 +43,7 @@ export function grok4CostFunction(
 	cachedInput: number,
 	threshold = 128000,
 ): LlmCostFunction {
-	return (inputTokens: number, outputTokens: number, usage, completionTime, result) => {
+	return (inputTokens: number, outputTokens: number, usage, completionTime) => {
 		let inputMil = inputMilLow;
 		let outputMil = outputMilLow;
 		if (inputTokens >= threshold) {

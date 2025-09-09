@@ -2,6 +2,7 @@ import { getFileSystem } from '#agent/agentContextLocalStorage';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendServerError } from '#fastify/responses';
 import { logger } from '#o11y/logger';
+import { registerApiRoute } from '#routes/routeUtils';
 import { CODE_EDIT_API, type FilesContentResponse } from '#shared/codeEdit/codeEdit.api';
 
 /**
@@ -9,7 +10,7 @@ import { CODE_EDIT_API, type FilesContentResponse } from '#shared/codeEdit/codeE
  * POST /api/code-edit/files-content
  */
 export async function getFilesContentRoute(fastify: AppFastifyInstance): Promise<void> {
-	fastify.post(CODE_EDIT_API.getFilesContent.pathTemplate, { schema: CODE_EDIT_API.getFilesContent.schema }, async (req, reply) => {
+	registerApiRoute(fastify, CODE_EDIT_API.getFilesContent, async (req, reply) => {
 		const { filePaths } = req.body;
 		const fss = getFileSystem();
 

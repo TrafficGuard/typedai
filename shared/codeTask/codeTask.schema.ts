@@ -104,7 +104,7 @@ export const CodeTaskApiSchema = Type.Object({
 	createdAt: Type.Number(), // Assuming timestamp
 	updatedAt: Type.Number(), // Assuming timestamp
 	agentHistory: Type.Optional(Type.Array(Type.String())),
-	error: Type.Optional(Type.String()),
+	error: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 });
 const _codeTaskApiCheck: AreTypesFullyCompatible<CodeTask, Static<typeof CodeTaskApiSchema>> = true;
 
@@ -137,7 +137,7 @@ export const UpdateCodeTaskApiBodySchema = Type.Partial(
 			ciCdProposedFix: Type.Optional(Type.String()),
 			updatedAt: Type.Number(),
 			agentHistory: Type.Optional(Type.Array(Type.String())),
-			error: Type.Optional(Type.String()),
+			error: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 			filesToAdd: Type.Optional(Type.Array(Type.String())),
 			filesToRemove: Type.Optional(Type.Array(Type.String())),
 		},

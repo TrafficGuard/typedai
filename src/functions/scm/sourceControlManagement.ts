@@ -58,7 +58,7 @@ function isScmObject(obj: Record<string, any>): boolean {
  * It first searches the agents functions, then falls back to searching the function registry for a single match.
  */
 export async function getSourceControlManagementTool(): Promise<SourceControlManagement> {
-	const scm = agentContext().functions.getFunctionInstances().find(isScmObject) as SourceControlManagement;
+	const scm = agentContext()!.functions.getFunctionInstances().find(isScmObject) as SourceControlManagement;
 	if (scm) return scm;
 	// dynamic import is required to avoid module loading dependency issues
 	const functionRegistry = (await import('../../functionRegistryModule.cjs')).functionRegistry as () => Array<new () => any>;

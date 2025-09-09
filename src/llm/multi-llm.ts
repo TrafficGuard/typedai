@@ -1,6 +1,6 @@
 import { llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import { GenerateJsonOptions, type GenerateTextOptions, type LLM } from '#shared/llm/llm.model';
+import { GenerateJsonOptions, type GenerateTextOptions, type LLM, LlmMessage, messageText } from '#shared/llm/llm.model';
 import { BaseLLM } from './base-llm';
 
 /*
@@ -30,33 +30,33 @@ export class MultiLLM extends BaseLLM {
 		this.maxOutputTokens = Math.min(...llms.map((llm) => llm.getMaxInputTokens()));
 	}
 
-	async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
-		const calls: Array<{ model: string; call: Promise<string> }> = [];
+	override async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
+		const calls: Array<{ model: string; call: Promise<LlmMessage> }> = [];
 		for (const llm of this.llms) {
 			for (let i = 0; i < this.callsPerLLM; i++) {
-				calls.push({ model: llm.getModel(), call: llm.generateText(systemPrompt, userPrompt, opts) });
+				calls.push({ model: llm.getModel(), call: llm.generateMessage(systemPrompt ? [systemPrompt, userPrompt] : userPrompt, opts) });
 			}
 		}
 		const settled = await Promise.allSettled(calls.map((call) => call.call));
-		const responses = settled.filter((result) => result.status === 'fulfilled').map((result) => (result as PromiseFulfilledResult<string>).value);
+		const responses = settled.filter((result) => result.status === 'fulfilled').map((result) => (result as PromiseFulfilledResult<LlmMessage>).value);
 
 		const response = await llms().hard.generateTextWithResult(selectBestResponsePrompt(responses, userPrompt, systemPrompt));
 		const index = Number.parseInt(response) - 1; // sub 1 as responses are indexed from 1 in the prompt
 		logger.info(`Best response was from ${calls[index].model}`);
-		return responses[index];
+		return messageText(responses[index]);
 	}
 
-	getMaxInputTokens(): number {
+	override getMaxInputTokens(): number {
 		return this.maxOutputTokens;
 	}
 }
 
-function selectBestResponsePrompt(responses: string[], userPrompt: string, systemPrompt?: string): string {
+function selectBestResponsePrompt(responses: LlmMessage[], userPrompt: string, systemPrompt?: string): string {
 	let prompt = systemPrompt ?? '';
 	prompt += '<responses>\n';
 	let i = 1;
 	for (const result of responses) {
-		prompt += `<response-${i}>\n${result}\n</response-${i++}>\n`;
+		prompt += `<response-${i}>\n${messageText(result)}\n</response-${i++}>\n`;
 	}
 	prompt += '</responses>\n';
 	prompt += `<input>\n${systemPrompt}${userPrompt}\n</input>\n`;

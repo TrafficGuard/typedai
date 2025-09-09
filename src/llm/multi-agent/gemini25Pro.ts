@@ -22,20 +22,20 @@ export class Gemini25Pro extends BaseLLM {
 		this.maxInputTokens = this.vertex.getMaxInputTokens();
 	}
 
-	isConfigured(): boolean {
+	override isConfigured(): boolean {
 		return this.gemini.isConfigured() || this.vertex.isConfigured();
 	}
 
-	protected supportsGenerateTextFromMessages(): boolean {
+	protected override supportsGenerateTextFromMessages(): boolean {
 		return true;
 	}
 
-	protected async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+	protected override async generateTextFromMessages(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
 		const message = await this._generateMessage(llmMessages, opts);
 		return messageText(message);
 	}
 
-	async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+	override async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
 		try {
 			return await this.gemini.generateMessage(messages, opts);
 		} catch (e) {

@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { batch, mutex, resolvablePromise, sleep } from './async-utils';
+import { batch, resolvablePromise, sleep } from './async-utils';
 
 describe('async-utils', () => {
 	describe('sleep', () => {
@@ -22,7 +22,7 @@ describe('async-utils', () => {
 
 	describe('batch', () => {
 		it('should execute promises in batches', async () => {
-			const promises = [];
+			const promises: Array<Promise<number>> = [];
 			for (let i = 0; i < 100; i++) {
 				promises.push(Promise.resolve(i));
 			}

@@ -39,7 +39,8 @@ export class ImageGen {
 			n: 1,
 			size,
 		});
-		const imageUrl = response.data[0].url;
+		const imageUrl = response.data?.[0].url;
+		if (!imageUrl) throw new Error('Failed to generate image');
 		logger.debug(`Generated image at ${imageUrl}`);
 
 		// Fetch the image bytes

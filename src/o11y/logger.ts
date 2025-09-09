@@ -57,7 +57,7 @@ const transport =
 // });
 // const multi = pino.multistream(targets)
 
-let agentContextFn: () => AgentContext;
+const agentContextFn: (() => AgentContext) | undefined = undefined;
 
 async function load() {
 	// const agentContextLocalStorageModule = await import('#agent/agentContextLocalStorage.js');
@@ -100,7 +100,7 @@ export const logger: Pino.Logger = Pino({
 			const stackProp: any = stackTrace ? { stack_trace: stackTrace } : {};
 
 			if (agentContextFn) {
-				const agent = agentContextFn();
+				const agent = (agentContextFn as () => AgentContext)();
 				if (agent) {
 					object.agentId = agent.agentId;
 					if (agent.parentAgentId) object.parentAgentId = agent.parentAgentId;

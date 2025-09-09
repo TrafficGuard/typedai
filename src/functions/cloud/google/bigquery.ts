@@ -18,6 +18,7 @@ export class BigQuery {
 	@func()
 	async query(sqlQuery: string, location: string, projectId: string | undefined): Promise<string> {
 		projectId ??= process.env.GCLOUD_PROJECT;
+		if (!projectId) throw new Error('GCLOUD_PROJECT environment variable not set');
 		const result = await new BigQueryDriver(projectId, location).query(sqlQuery);
 		if (result.length > 5001) {
 			return `${result.substring(0, 5000)}\n<truncated>`;
@@ -57,7 +58,7 @@ class BigQueryDriver {
 
 		const estimatedBytesProcessed = dryRun.metadata.statistics.totalBytesProcessed;
 		const gb = estimatedBytesProcessed / 1000 / 1000 / 1000;
-		if (gb > 100) await humanInTheLoop(agentContext(), `Requesting to run bigquery processing ${gb.toFixed(0)}GB.\nQuery:${query}`);
+		if (gb > 100) await humanInTheLoop(agentContext()!, `Requesting to run bigquery processing ${gb.toFixed(0)}GB.\nQuery:${query}`);
 		logger.info('querying...');
 		const [job] = await this.bigqueryClient.createQueryJob({
 			query,

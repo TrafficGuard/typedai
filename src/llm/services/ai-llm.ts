@@ -98,7 +98,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 
 	protected abstract apiKey(): string | undefined;
 
-	isConfigured(): boolean {
+	override isConfigured(): boolean {
 		return Boolean(this.apiKey());
 	}
 
@@ -106,7 +106,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 		return this.provider().languageModel(this.getModel());
 	}
 
-	protected supportsGenerateTextFromMessages(): boolean {
+	protected override supportsGenerateTextFromMessages(): boolean {
 		return true;
 	}
 
@@ -166,7 +166,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 	}
 
 	@quotaRetry({ retries: 5, initialBackoffMs: 5000 })
-	async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
+	override async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
 		const combinedOpts = { ...this.defaultOptions, ...opts };
 		const description = combinedOpts.id ?? '';
 		return await withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
@@ -174,7 +174,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 			const messages: CoreMessage[] = this.processMessages(llmMessages);
 
 			// Gemini Flash 2.0 thinking max is about 42
-			if (combinedOpts.topK > 40) combinedOpts.topK = 40;
+			if (combinedOpts.topK && combinedOpts.topK > 40) combinedOpts.topK = 40;
 
 			combinedOpts.providerOptions ??= {};
 			const providerOptions: any = combinedOpts.providerOptions;
@@ -185,16 +185,18 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 
 				// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
 				if (this.getService() === 'openai' && this.model.startsWith('o')) providerOptions.openai = { reasoningEffort: combinedOpts.thinking };
-				let thinkingBudget: number;
+				let thinkingBudget: number | undefined;
 				// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
 				// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
 				if (this.getModel().includes('claude-3-7') || this.getModel().includes('opus-4') || this.getModel().includes('sonnet-4')) {
 					if (combinedOpts.thinking === 'low') thinkingBudget = 1024;
 					if (combinedOpts.thinking === 'medium') thinkingBudget = 6000;
 					else if (combinedOpts.thinking === 'high') thinkingBudget = 13000;
-					providerOptions.anthropic = {
-						thinking: { type: 'enabled', budgetTokens: thinkingBudget },
-					};
+					if (thinkingBudget) {
+						providerOptions.anthropic = {
+							thinking: { type: 'enabled', budgetTokens: thinkingBudget },
+						};
+					}
 					// maxOutputTokens += budgetTokens;
 					// Streaming is required when max_tokens is greater than 21,333
 				}
@@ -203,12 +205,14 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 					if (combinedOpts.thinking === 'low') thinkingBudget = 8192;
 					else if (combinedOpts.thinking === 'medium') thinkingBudget = 16384;
 					else if (combinedOpts.thinking === 'high') thinkingBudget = 24576;
-					providerOptions.google = {
-						thinkingConfig: {
-							includeThoughts: true,
-							thinkingBudget,
-						},
-					};
+					if (thinkingBudget) {
+						providerOptions.google = {
+							thinkingConfig: {
+								includeThoughts: true,
+								thinkingBudget,
+							},
+						};
+					}
 				}
 			}
 
@@ -273,11 +277,10 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				const finishTime = Date.now();
 
 				const { inputCost, outputCost, totalCost } = this.calculateCosts(
-					result.usage.inputTokens,
-					result.usage.outputTokens,
+					result.usage.inputTokens ?? 0,
+					result.usage.outputTokens ?? 0,
 					result.providerMetadata,
 					result.response.timestamp,
-					result,
 				);
 				const cost = Number.isNaN(totalCost) ? 0 : totalCost;
 
@@ -303,8 +306,8 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				const stats: GenerationStats = {
 					llmId: this.getId(),
 					cost,
-					inputTokens: result.usage.inputTokens,
-					outputTokens: result.usage.outputTokens,
+					inputTokens: result.usage.inputTokens ?? 0,
+					outputTokens: result.usage.outputTokens ?? 0,
 					requestTime,
 					timeToFirstToken: llmCall.timeToFirstToken,
 					totalTime: llmCall.totalTime,
@@ -312,8 +315,9 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 
 				// Convert to AssistantContentExt
 				const assistantMsg = result.response.messages.find((msg) => msg.role === 'assistant');
+				if (!assistantMsg) throw new Error('No assistant message found');
 				const assistantContent: AssistantContentExt = [];
-				if (Array.isArray(assistantMsg.content)) {
+				if (Array.isArray(assistantMsg?.content)) {
 					for (const content of assistantMsg.content) {
 						if (content.type === 'text') {
 							assistantContent.push({
@@ -387,7 +391,11 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 	}
 
 	// https://sdk.vercel.ai/docs/ai-sdk-core/generating-text#streamtext
-	async streamText(llmMessages: LlmMessage[], onChunkCallback: (chunk: TextStreamPart<any>) => void, opts?: GenerateTextOptions): Promise<GenerationStats> {
+	override async streamText(
+		llmMessages: LlmMessage[],
+		onChunkCallback: (chunk: TextStreamPart<any>) => void,
+		opts?: GenerateTextOptions,
+	): Promise<GenerationStats> {
 		const combinedOpts = { ...this.defaultOptions, ...opts };
 		return withActiveSpan(`streamText ${combinedOpts?.id ?? ''}`, async (span) => {
 			// The processMessages method now correctly returns CoreMessage[]
@@ -428,7 +436,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 
 			const [usage, finishReason, metadata, response] = await Promise.all([result.usage, result.finishReason, result.providerMetadata, result.response]);
 			const finish = Date.now();
-			const { inputCost, outputCost, totalCost } = this.calculateCosts(usage.inputTokens, usage.outputTokens, metadata, new Date(finish));
+			const { inputCost, outputCost, totalCost } = this.calculateCosts(usage.inputTokens ?? 0, usage.outputTokens ?? 0, metadata, new Date(finish));
 
 			addCost(totalCost);
 
@@ -437,8 +445,8 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 			const stats: GenerationStats = {
 				llmId: this.getId(),
 				cost: totalCost,
-				inputTokens: usage.inputTokens,
-				outputTokens: usage.outputTokens,
+				inputTokens: usage.inputTokens ?? 0,
+				outputTokens: usage.outputTokens ?? 0,
 				totalTime: finish - requestTime,
 				timeToFirstToken: firstTokenTime - requestTime,
 				requestTime,

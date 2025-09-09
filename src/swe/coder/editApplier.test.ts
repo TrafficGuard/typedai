@@ -21,7 +21,7 @@ describe('applyEdits', () => {
 
 		// Configure default behaviors for methods used by applyEdits or test setup
 		mockFileSystemService.fileExists.resolves(false); // Default: file does not exist
-		mockFileSystemService.readFile.resolves(null); // Default: file not found or empty
+		mockFileSystemService.readFile.resolves(''); // Default: file not found or empty
 		mockFileSystemService.writeFile.resolves(); // Default: write succeeds
 
 		defaultOptions = {

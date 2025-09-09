@@ -160,21 +160,21 @@ export class PostgresAgentStateService implements AgentContextService {
 		const dataForDeserialization: Static<typeof AgentContextSchema> = {
 			agentId: row.agent_id,
 			executionId: row.execution_id,
-			containerId: row.container_id,
-			typedAiRepoDir: row.typed_ai_repo_dir === null ? undefined : row.typed_ai_repo_dir,
+			containerId: row.container_id ?? undefined,
+			typedAiRepoDir: row.typed_ai_repo_dir,
 			traceId: row.trace_id,
-			name: row.name === null ? undefined : row.name,
-			parentAgentId: row.parent_agent_id === null ? undefined : row.parent_agent_id,
+			name: row.name ?? '',
+			parentAgentId: row.parent_agent_id ?? undefined,
 			user: resolvedUserId, // CRITICAL: This must be the string user ID
 			state: row.state as AgentRunningState, // Assuming AgentRunningState is compatible
 			callStack: this.safeJsonParse(row.call_stack, 'call_stack_schema_align') ?? [],
 			error: row.error === null ? undefined : row.error,
-			hilBudget: row.hil_budget !== null && row.hil_budget !== undefined ? Number.parseFloat(String(row.hil_budget)) : undefined,
-			hilCount: row.hil_count === null ? undefined : row.hil_count,
+			hilBudget: row.hil_budget !== null && row.hil_budget !== undefined ? Number.parseFloat(String(row.hil_budget)) : 2,
+			hilCount: row.hil_count ?? 20,
 			cost: row.cost !== null && row.cost !== undefined ? Number.parseFloat(String(row.cost)) : 0, // Default in schema if not present
-			budgetRemaining: row.budget_remaining !== null && row.budget_remaining !== undefined ? Number.parseFloat(String(row.budget_remaining)) : undefined,
+			budgetRemaining: row.budget_remaining ? Number.parseFloat(String(row.budget_remaining)) : 0,
 			llms: this.safeJsonParse(row.llms_serialized, 'llms_serialized_schema_align') ?? { easy: '', medium: '', hard: '', xhard: '' },
-			useSharedRepos: row.use_shared_repos === null ? undefined : row.use_shared_repos,
+			useSharedRepos: row.use_shared_repos ?? false,
 			memory: this.safeJsonParse(row.memory_serialized, 'memory_serialized_schema_align') ?? {}, // Default in schema
 			lastUpdate: (row.last_update as Date).getTime(), // Schema expects number (timestamp)
 			metadata: this.safeJsonParse(row.metadata_serialized, 'metadata_serialized_schema_align') ?? {}, // Default in schema
@@ -182,11 +182,11 @@ export class PostgresAgentStateService implements AgentContextService {
 			completedHandler: row.completed_handler_id === null ? undefined : row.completed_handler_id,
 			pendingMessages: this.safeJsonParse(row.pending_messages_serialized, 'pending_messages_serialized_schema_align') ?? [],
 			type: row.type as AgentType, // Assuming AgentType is compatible
-			subtype: row.subtype === null ? undefined : row.subtype,
+			subtype: row.subtype ?? '',
 			iterations: row.iterations, // Schema expects number
 			invoking: this.safeJsonParse(row.invoking_serialized, 'invoking_serialized_schema_align') ?? [],
 			notes: this.safeJsonParse(row.notes_serialized, 'notes_serialized_schema_align') ?? [],
-			userPrompt: row.user_prompt === null ? undefined : row.user_prompt,
+			userPrompt: row.user_prompt ?? '',
 			inputPrompt: row.input_prompt, // Schema expects string, DB schema for input_prompt is NOT NULL.
 			messages: this.safeJsonParse(row.messages_serialized, 'messages_serialized_schema_align') ?? [],
 			functionCallHistory: this.safeJsonParse(row.function_call_history_serialized, 'function_call_history_serialized_schema_align') ?? [],
@@ -195,9 +195,9 @@ export class PostgresAgentStateService implements AgentContextService {
 
 			// Ensure all fields from AgentContextSchema are present, using undefined for those not in AgentContextsTable
 			// or not yet handled. deserializeContext should have defaults for these.
-			fileSystem: undefined, // deserializeContext handles default for complex objects if schema allows undefined
+			fileSystem: null, // deserializeContext handles default for complex objects if schema allows undefined
 			toolState: undefined,
-			createdAt: row.created_at ? (row.created_at as Date).getTime() : undefined, // Safely handle optional field
+			createdAt: row.created_at ? (row.created_at as Date).getTime() : Date.now(), // Safely handle optional field
 		};
 		return deserializeContext(dataForDeserialization);
 	}
@@ -517,7 +517,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			...dbData,
 			agent_id: iterationData.agentId,
 			iteration_number: iterationData.iteration,
-			created_at: new Date(iterationData.createdAt),
+			created_at: iterationData.createdAt ? new Date(iterationData.createdAt) : new Date(),
 		};
 
 		// For ON CONFLICT DO UPDATE, Kysely expects a subset of Updateable<AgentIterationsTable>

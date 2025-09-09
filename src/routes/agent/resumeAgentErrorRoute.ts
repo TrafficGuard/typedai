@@ -15,7 +15,8 @@ export async function resumeAgentErrorRoute(fastify: AppFastifyInstance): Promis
 			// resumeError should ideally handle agent existence/ownership or call a service method that does
 			await resumeError(agentId!, executionId!, feedback!);
 			// Load the updated agent to return the state
-			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			const updatedAgent = await fastify.agentStateService.load(agentId!);
+			if (!updatedAgent) return sendNotFound(reply, `Agent ${agentId} not found`);
 			send(reply, 200, serializeContext(updatedAgent));
 		} catch (error) {
 			if (error instanceof NotFound) return sendNotFound(reply, error.message);

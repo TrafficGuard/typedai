@@ -75,9 +75,9 @@ describe('LocalFileStore', () => {
 			for (const file of testFiles) {
 				const listedFile = listedFiles.find((f) => f.filename === file.name);
 				expect(listedFile).to.exist;
-				expect(listedFile.description).to.equal(file.description);
-				expect(listedFile.size).to.above(0);
-				expect(listedFile.lastUpdated).to.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+				expect(listedFile!.description).to.equal(file.description);
+				expect(listedFile!.size).to.above(0);
+				expect(listedFile!.lastUpdated).to.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
 			}
 		}));
 

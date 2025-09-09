@@ -33,7 +33,7 @@ export class LocalFileStore implements FileStore {
 	 */
 	@func()
 	async saveFile(filename: string, contents: string | Buffer, description: string): Promise<string> {
-		const agentId = agentContext().agentId;
+		const agentId = agentContext()!.agentId;
 		const fullPath = path.join(this.basePath, agentId, filename);
 		await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
 
@@ -72,7 +72,7 @@ export class LocalFileStore implements FileStore {
 	 */
 	@func()
 	async getFile(filename: string): Promise<string> {
-		const agentId = agentContext().agentId;
+		const agentId = agentContext()!.agentId;
 		const fullPath = path.join(this.basePath, agentId, filename);
 		return await fs.promises.readFile(fullPath, 'utf8');
 	}
@@ -83,7 +83,7 @@ export class LocalFileStore implements FileStore {
 	 */
 	// @func()
 	async listFiles(): Promise<FileMetadata[]> {
-		const agentId = agentContext().agentId;
+		const agentId = agentContext()!.agentId;
 		const dirPath = path.join(this.basePath, agentId);
 		await fs.promises.mkdir(dirPath, { recursive: true });
 		const files = await fs.promises.readdir(dirPath);

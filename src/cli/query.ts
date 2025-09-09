@@ -19,7 +19,7 @@ async function main() {
 	const { initialPrompt: rawPrompt, resumeAgentId, flags } = parseProcessArgs();
 	const { textPrompt, userContent } = parsePromptWithImages(rawPrompt);
 
-	const useXhard = flags.xhr && !!llms().xhard;
+	const useXhard: boolean = !!flags.xhr && !!llms().xhard;
 	if (flags.xhr && !useXhard) {
 		logger.error('Xhard LLM not cofigured. Check defaultLLMs.ts');
 		return;
@@ -40,7 +40,7 @@ async function main() {
 	};
 
 	const agentId = await runWorkflowAgent(config, async () => {
-		const agent = agentContext();
+		const agent = agentContext()!;
 		// Use textPrompt for generating the agent name summary
 		agent.name = `Query: ${await llms().easy.generateText(
 			`<query>\n${textPrompt}\n</query>\n\nSummarise the query into only a terse few words for a short title (8 words maximum) for the name of the AI agent completing the task. Output the short title only, nothing else.`,

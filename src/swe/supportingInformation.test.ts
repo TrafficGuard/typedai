@@ -80,7 +80,7 @@ describe('supportingInformation', () => {
 	});
 
 	it('returns backend packages for backend-only selection', async () => {
-		const backendProject = (await getProjectInfos()).find((p) => p.baseDir === './')!;
+		const backendProject = (await getProjectInfos())!.find((p) => p.baseDir === './')!;
 		const result = await supportingInformation(backendProject, ['src/index.ts']);
 
 		expect(result).to.contain('BACKEND');
@@ -88,7 +88,7 @@ describe('supportingInformation', () => {
 	});
 
 	it('returns frontend packages for frontend-only selection', async () => {
-		const backendProject = (await getProjectInfos()).find((p) => p.baseDir === './')!;
+		const backendProject = (await getProjectInfos())!.find((p) => p.baseDir === './')!;
 		const result = await supportingInformation(backendProject, ['frontend/src/app.component.ts']);
 
 		expect(result).to.contain('FRONTEND');
@@ -96,7 +96,7 @@ describe('supportingInformation', () => {
 	});
 
 	it('returns both package blocks when files from both projects are selected', async () => {
-		const backendProject = (await getProjectInfos()).find((p) => p.baseDir === './')!;
+		const backendProject = (await getProjectInfos())!.find((p) => p.baseDir === './')!;
 		const result = await supportingInformation(backendProject, ['src/index.ts', 'frontend/src/app.component.ts']);
 
 		expect(result).to.contain('BACKEND');
@@ -106,7 +106,7 @@ describe('supportingInformation', () => {
 	it('detects correct packages when CWD is inside frontend', async () => {
 		getFileSystem().setWorkingDirectory(frontendDir);
 
-		const backendProject = (await getProjectInfos()).find((p) => p.baseDir === './')!;
+		const backendProject = (await getProjectInfos())!.find((p) => p.baseDir === './')!;
 		const result = await supportingInformation(backendProject, ['src/app.component.ts']);
 
 		expect(result).to.contain('FRONTEND');

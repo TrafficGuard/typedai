@@ -56,17 +56,17 @@ export class WebResearcher {
 			const maxContentSize = summariseLLM.getMaxInputTokens() - (knowledgeBase.length + query.length + 500);
 			// console.log('maxContentSize', maxContentSize);
 
-			serpResults = serpResults.filter((serp) => serp.content?.length < maxContentSize);
+			serpResults = serpResults.filter((serp) => serp.content?.length && serp.content?.length < maxContentSize);
 			if (!serpResults.length) break;
 
 			// content =searchResults.pop()
 
-			content += `\n${serpResults.pop().content}`;
+			content += `\n${serpResults.pop()!.content}`;
 			let pagesAdded = 1;
-			let nextSearchResult: OrganicSearchResult = serpResults.length ? serpResults[serpResults.length - 1] : null;
-			while (nextSearchResult && content.length + nextSearchResult.content.length < maxContentSize && pagesAdded <= 2) {
-				logger.debug('Adding search result', nextSearchResult.content.length);
-				content += `\n${serpResults.pop().content}`;
+			let nextSearchResult: OrganicSearchResult | null = serpResults.length ? serpResults[serpResults.length - 1] : null;
+			while (nextSearchResult && content.length + nextSearchResult.content!.length < maxContentSize && pagesAdded <= 2) {
+				logger.debug('Adding search result', nextSearchResult.content!.length);
+				content += `\n${serpResults.pop()!.content}`;
 				pagesAdded++;
 				nextSearchResult = serpResults.length ? serpResults[serpResults.length - 1] : null;
 			}

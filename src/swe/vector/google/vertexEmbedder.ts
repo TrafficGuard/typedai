@@ -72,7 +72,9 @@ export class VertexAITextEmbeddingService {
 		const tokensInRequest = await countTokens(text);
 		await this.waitForRateLimit(tokensInRequest);
 
-		const instances = [helpers.toValue({ content: text, task_type: taskType })];
+		const value = helpers.toValue({ content: text, task_type: taskType });
+		if (!value) throw new Error('Invalid data type or NaN in embedding vector.');
+		const instances = [value];
 		const request: PredictRequest = {
 			endpoint: this.endpointPath,
 			instances: instances,

@@ -138,19 +138,20 @@ export class CePO_LLM extends BaseLLM {
 		}
 	}
 
-	getModel(): string {
+	override getModel(): string {
 		return this.llm.getId();
 	}
 
-	isConfigured(): boolean {
+	override isConfigured(): boolean {
 		return this.llm.isConfigured();
 	}
 
-	protected supportsGenerateTextFromMessages(): boolean {
+	protected override supportsGenerateTextFromMessages(): boolean {
 		return true;
 	}
 
-	protected async generateTextFromMessages(initialMessages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string> {
+	protected override async generateTextFromMessages(initialMessages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string> {
+		opts ??= {};
 		opts.thinking = 'high';
 		return withActiveSpan(`CePO id:${opts?.id ?? 'N/A'}`, async () => {
 			const completions: string[] = [];

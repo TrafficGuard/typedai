@@ -47,15 +47,15 @@ export class GitHub extends AbstractSCM implements SourceControlManagement {
 	/** Do not access. Use request() */
 	private _request;
 	/** Do not access. Use config() */
-	private _config: GitHubConfig;
+	private _config: GitHubConfig | undefined;
 
 	config(): GitHubConfig {
 		if (!this._config) {
 			const userConfig = functionConfig(GitHub) as GitHubConfig;
 			this._config = {
-				username: userConfig.username || process.env.GITHUB_USER,
-				organisation: userConfig.organisation || process.env.GITHUB_ORG,
-				token: userConfig.token || envVar('GITHUB_TOKEN'),
+				username: userConfig.username || process.env.GITHUB_USER || '',
+				organisation: userConfig.organisation || process.env.GITHUB_ORG || '',
+				token: userConfig.token || envVar('GITHUB_TOKEN') || '',
 			};
 			if (!this._config.username && !this._config.organisation) throw new Error('GitHub Org or User must be provided');
 			if (!this._config.token) throw new Error('GitHub token must be provided');
@@ -180,7 +180,7 @@ export class GitHub extends AbstractSCM implements SourceControlManagement {
 			return {
 				id: response.data.id,
 				html_url: response.data.html_url,
-				body: response.data.body,
+				body: response.data.body!,
 				user: response.data.user ? { login: response.data.user.login, id: response.data.user.id } : null,
 				created_at: response.data.created_at,
 				updated_at: response.data.updated_at,

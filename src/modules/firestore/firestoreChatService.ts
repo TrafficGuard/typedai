@@ -28,7 +28,7 @@ export class FirestoreChatService implements ChatService {
 				throw new Error(`Chat with id ${chatId} not found`);
 			}
 
-			const data = docSnap.data();
+			const data = docSnap.data()!;
 			const chat: Chat = {
 				id: chatId,
 				userId: data.userId,
@@ -138,7 +138,7 @@ export class FirestoreChatService implements ChatService {
 				throw new Error(`Chat with id ${chatId} not found`);
 			}
 
-			const chatData = docSnap.data();
+			const chatData = docSnap.data()!;
 			if (chatData.userId !== userId) {
 				logger.warn(`User ${userId} is not authorized to delete chat ${chatId}`);
 				throw new Error('Not authorized to delete this chat');

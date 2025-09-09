@@ -165,7 +165,7 @@ export async function runXmlAgent(agent: AgentContext): Promise<AgentExecution> 
 								function_name: functionCall.function_name,
 								parameters: functionCall.parameters,
 								stdout: JSON.stringify(functionResponse),
-								stdoutSummary: outputSummary,
+								stdoutSummary: outputSummary ?? undefined,
 							});
 							// Should check if completed or requestFeedback then there's no more function calls
 							if (functionCall.function_name === AGENT_COMPLETED_NAME) {
@@ -180,7 +180,7 @@ export async function runXmlAgent(agent: AgentContext): Promise<AgentExecution> 
 								requestFeedback = true;
 								break;
 							}
-							agent.error = null;
+							agent.error = undefined;
 						} catch (e) {
 							functionErrorCount++;
 							anyFunctionCallErrors = true;

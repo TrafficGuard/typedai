@@ -76,12 +76,12 @@ function createSelectionState(initialPendingPaths: string[] = []): SelectionStat
 		},
 		markKept(file: SelectedFile): void {
 			const key = norm(file.filePath);
-			state.kept.set(key, file.reason);
+			state.kept.set(key, file.reason ?? '');
 			state.pending.delete(key);
 		},
 		markIgnored(file: SelectedFile): void {
 			const key = norm(file.filePath);
-			state.ignored.set(key, file.reason);
+			state.ignored.set(key, file.reason ?? '');
 			state.pending.delete(key);
 		},
 		hasUndecided(): boolean {
@@ -271,7 +271,7 @@ async function selectFilesCore(
 			if (justKeptPaths.length > 0) {
 				try {
 					const cwd = getFileSystem().getWorkingDirectory();
-					const vcsRoot = getFileSystem().getVcsRoot();
+					const vcsRoot = getFileSystem().getVcsRoot() ?? cwd;
 					const alternativeFiles = await includeAlternativeAiToolFiles(justKeptPaths, { cwd, vcsRoot });
 					for (const altFile of alternativeFiles) {
 						const altFilePath = norm(altFile);
@@ -347,9 +347,14 @@ async function selectFilesCore(
 }
 
 async function initializeFileSelectionAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<LlmMessage[]> {
-	projectInfo ??= (await getProjectInfos())[0];
+	if (!projectInfo) {
+		const projectInfos = await getProjectInfos();
+		if (projectInfos?.length) {
+			projectInfo = projectInfos[0];
+		}
+	}
 
-	const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
+	const projectMaps: RepositoryMaps = await generateRepositoryMaps(projectInfo ? [projectInfo] : []);
 	const repositoryOverview: string = await getRepositoryOverview();
 	// Split the file-system tree into folder-level chunks so the first request
 	// always fits within the FAST_MAX_TOKENS budget.  The LLM can later ask for
@@ -492,7 +497,7 @@ async function processedIterativeStepUserPrompt(response: IterationResponse): Pr
 	let ignoreText = '';
 	if (ignored.length) {
 		ignoreText = '\nRemoved the following ignored files:';
-		for (const ig of response.ignoreFiles) {
+		for (const ig of response.ignoreFiles ?? []) {
 			ignoreText += `\n${ig.filePath} - ${ig.reason}`;
 		}
 	}

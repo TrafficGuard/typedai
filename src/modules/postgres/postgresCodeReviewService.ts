@@ -37,17 +37,15 @@ export class PostgresCodeReviewService implements CodeReviewService {
 		logger.debug({ id }, 'PostgresCodeReviewService.getCodeReviewConfig called');
 		const result = await this.kysely.selectFrom('code_review_configs').selectAll().where('id', '=', id).executeTakeFirst();
 
-		if (!result) {
-			return null;
-		}
+		if (!result) return null;
 
 		return {
 			id: result.id,
 			title: result.title,
-			description: result.description, // Already nullable
+			description: result.description ?? '', // Already nullable
 			enabled: result.enabled,
-			fileExtensions: this.parseOrNull<CodeReviewFileExtensions>(result.file_extensions_serialized),
-			requires: this.parseOrNull<CodeReviewRequires>(result.requires_serialized),
+			fileExtensions: this.parseOrNull<CodeReviewFileExtensions>(result.file_extensions_serialized) ?? { include: [] },
+			requires: this.parseOrNull<CodeReviewRequires>(result.requires_serialized) ?? { text: [] },
 			tags: this.parseOrNull<string[]>(result.tags_serialized) ?? [],
 			projectPaths: this.parseOrNull<string[]>(result.project_paths_serialized) ?? [],
 			examples: this.parseOrNull<CodeReviewExample[]>(result.examples_serialized) ?? [],
@@ -62,10 +60,10 @@ export class PostgresCodeReviewService implements CodeReviewService {
 		return results.map((result) => ({
 			id: result.id,
 			title: result.title,
-			description: result.description,
+			description: result.description ?? '',
 			enabled: result.enabled,
-			fileExtensions: this.parseOrNull<CodeReviewFileExtensions>(result.file_extensions_serialized),
-			requires: this.parseOrNull<CodeReviewRequires>(result.requires_serialized),
+			fileExtensions: this.parseOrNull<CodeReviewFileExtensions>(result.file_extensions_serialized) ?? { include: [] },
+			requires: this.parseOrNull<CodeReviewRequires>(result.requires_serialized) ?? { text: [] },
 			tags: this.parseOrNull<string[]>(result.tags_serialized) ?? [],
 			projectPaths: this.parseOrNull<string[]>(result.project_paths_serialized) ?? [],
 			examples: this.parseOrNull<CodeReviewExample[]>(result.examples_serialized) ?? [],

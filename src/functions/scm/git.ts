@@ -190,12 +190,12 @@ export class Git implements VersionControlSystem {
 		if (exitCode === 0) {
 			return true;
 		}
-		if (exitCode > 0 && stderr?.includes('already exists')) {
+		if (stderr?.includes('already exists')) {
 			logger.info(`Branch ${branchName} already exists. Switching to it`);
 			await this.switchToBranch(branchName);
 			return false;
 		}
-		if (exitCode > 0) throw new Error(`${stdout}\n${stderr}`);
+		throw new Error(`${stdout}\n${stderr}`);
 	}
 
 	/**

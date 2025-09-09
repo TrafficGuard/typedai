@@ -3,6 +3,7 @@ import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendBadRequest, sendJSON, sendNotFound } from '#fastify/responses';
 import { getLLM } from '#llm/llmFactory';
 import { logger } from '#o11y/logger';
+import { registerApiRoute } from '#routes/routeUtils';
 import type { LlmMessage } from '#shared/llm/llm.model';
 import { PROMPT_API } from '#shared/prompts/prompts.api';
 import type { Prompt } from '#shared/prompts/prompts.model';
@@ -43,7 +44,7 @@ export async function promptRoutes(fastify: AppFastifyInstance): Promise<void> {
 	/**
 	 * Create a new prompt.
 	 */
-	fastify.post(PROMPT_API.createPrompt.pathTemplate, { schema: PROMPT_API.createPrompt.schema }, async (req, reply) => {
+	registerApiRoute(fastify, PROMPT_API.createPrompt, async (req, reply) => {
 		const payload = req.body;
 		const userId = currentUser().id;
 
@@ -70,7 +71,7 @@ export async function promptRoutes(fastify: AppFastifyInstance): Promise<void> {
 	/**
 	 * Get a specific prompt by its ID (latest revision).
 	 */
-	fastify.get(PROMPT_API.getPromptById.pathTemplate, { schema: PROMPT_API.getPromptById.schema }, async (req, reply) => {
+	registerApiRoute(fastify, PROMPT_API.getPromptById, async (req, reply) => {
 		const { promptId } = req.params;
 		const userId = currentUser().id;
 
@@ -90,7 +91,7 @@ export async function promptRoutes(fastify: AppFastifyInstance): Promise<void> {
 	/**
 	 * Get a specific revision of a prompt.
 	 */
-	fastify.get(PROMPT_API.getPromptRevision.pathTemplate, { schema: PROMPT_API.getPromptRevision.schema }, async (req, reply) => {
+	registerApiRoute(fastify, PROMPT_API.getPromptRevision, async (req, reply) => {
 		const { promptId, revisionId: revisionIdStr } = req.params;
 		const userId = currentUser().id;
 
@@ -113,7 +114,7 @@ export async function promptRoutes(fastify: AppFastifyInstance): Promise<void> {
 	/**
 	 * Update an existing prompt.
 	 */
-	fastify.patch(PROMPT_API.updatePrompt.pathTemplate, { schema: PROMPT_API.updatePrompt.schema }, async (req, reply) => {
+	registerApiRoute(fastify, PROMPT_API.updatePrompt, async (req, reply) => {
 		const { promptId } = req.params;
 		const updates = req.body;
 		const userId = currentUser().id;
@@ -138,7 +139,7 @@ export async function promptRoutes(fastify: AppFastifyInstance): Promise<void> {
 	/**
 	 * Delete a prompt and all its revisions.
 	 */
-	fastify.delete(PROMPT_API.deletePrompt.pathTemplate, { schema: PROMPT_API.deletePrompt.schema }, async (req, reply) => {
+	registerApiRoute(fastify, PROMPT_API.deletePrompt, async (req, reply) => {
 		const { promptId } = req.params;
 		const userId = currentUser().id;
 
@@ -193,7 +194,7 @@ export async function promptRoutes(fastify: AppFastifyInstance): Promise<void> {
 	/**
 	 * Generate content directly from messages.
 	 */
-	fastify.post(PROMPT_API.generateFromMessages.pathTemplate, { schema: PROMPT_API.generateFromMessages.schema }, async (req, reply) => {
+	registerApiRoute(fastify, PROMPT_API.generateFromMessages, async (req, reply) => {
 		const payload = req.body;
 		const userId = currentUser().id;
 

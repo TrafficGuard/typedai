@@ -45,7 +45,7 @@ export class GoogleCalendar {
 			singleEvents: true,
 			orderBy: 'startTime',
 		});
-		return processCalendarEvents(res.data.items, targetTimezone);
+		return processCalendarEvents(res.data.items ?? [], targetTimezone);
 	}
 }
 
@@ -54,12 +54,12 @@ function processCalendarEvents(events: calendar_v3.Schema$Event[], targetTimezon
 
 	for (const event of events) {
 		// Case 1: Ignore All-Day Events (like your "Office" event)
-		if (event.start.date) {
+		if (event.start?.date) {
 			continue; // Move to the next event
 		}
 
 		// Case 2: Handle Timed Events (all other events)
-		if (event.start.dateTime && event.end.dateTime) {
+		if (event.start?.dateTime && event.end?.dateTime) {
 			// The native JavaScript Date object can parse ISO 8601 strings correctly.
 			// It will represent the correct moment in time.
 			const startDate = new Date(event.start.dateTime);
@@ -77,7 +77,7 @@ function processCalendarEvents(events: calendar_v3.Schema$Event[], targetTimezon
 			const endTime = formatInTimeZone(endDate, targetTimezone, formatString);
 
 			processedEvents.push({
-				summary: event.summary,
+				summary: event.summary ?? '',
 				startTime,
 				endTime,
 				durationInHours: Number(durationInHours.toFixed(2)),

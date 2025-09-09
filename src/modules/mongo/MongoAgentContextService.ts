@@ -55,7 +55,7 @@ function dbDocToAgentContext(doc: any): AgentContext | null {
 		llmFunctionsInstance.fromJSON(functionsData); // Call instance method
 	}
 
-	let rehydratedCompletedHandler: AgentCompleted | undefined = undefined;
+	let rehydratedCompletedHandler: AgentCompleted | null = null;
 	if (doc.completedHandlerId) {
 		rehydratedCompletedHandler = getCompletedHandler(doc.completedHandlerId);
 		if (!rehydratedCompletedHandler) {

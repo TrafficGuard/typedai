@@ -1,6 +1,6 @@
 export async function sleep(millis: number): Promise<void> {
 	return new Promise((resolve) => {
-		setTimeout(() => resolve(null), millis);
+		setTimeout(() => resolve(void null), millis);
 	});
 }
 
@@ -92,34 +92,34 @@ export function resolvablePromise<T>(): ResolvablePromise<T> {
 	return promise;
 }
 
-export class Mutex {
-	private lock: ResolvablePromise<void> | null = null;
+// export class Mutex {
+// 	private lock: ResolvablePromise<void> | null = null;
 
-	async run<T>(func: () => Promise<T>): Promise<T> {
-		while (this.lock) {
-			await this.lock;
-		}
+// 	async run<T>(func: () => Promise<T>): Promise<T> {
+// 		while (this.lock) {
+// 			await this.lock;
+// 		}
 
-		this.lock = resolvablePromise();
-		try {
-			return func();
-		} finally {
-			this.lock.resolveValue();
-			this.lock = null;
-		}
-	}
-}
+// 		this.lock = resolvablePromise();
+// 		try {
+// 			return func();
+// 		} finally {
+// 			this.lock.resolveValue();
+// 			this.lock = null;
+// 		}
+// 	}
+// }
 
-export function mutex(originalMethod: any, context: ClassMethodDecoratorContext): any {
-	context.addInitializer(function () {
-		this[context.name] = this[context.name].bind(this);
-	});
-	return function replacementMethod(this: any, ...args: any[]) {
-		return this.mutex.run(async () => {
-			return originalMethod.call(this, ...args);
-		});
-	};
-}
+// export function mutex(originalMethod: any, context: ClassMethodDecoratorContext): any {
+// 	context.addInitializer(function () {
+// 		this[context.name] = this[context.name].bind(this);
+// 	});
+// 	return function replacementMethod(this: any, ...args: any[]) {
+// 		return this.mutex.run(async () => {
+// 			return originalMethod.call(this, ...args);
+// 		});
+// 	};
+// }
 
 /**
  * Executes a list of promises in batches

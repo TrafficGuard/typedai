@@ -3,6 +3,7 @@ import type * as http from 'node:http';
 import { join } from 'node:path';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import fastify, {
+	FastifyReply,
 	type ContextConfigDefault,
 	type FastifyBaseLogger,
 	type FastifyInstance,
@@ -311,7 +312,7 @@ async function loadPlugins(config: FastifyConfig) {
 		secret: process.env.JWT_SECRET || 'your-secret-key',
 	});
 	await fastifyInstance.register(import('@fastify/cors'), {
-		origin: [new URL(process.env.UI_URL).origin],
+		origin: [new URL(process.env.UI_URL!).origin],
 		methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 		allowedHeaders: ['Content-Type', 'Authorization', 'X-Goog-Iap-Jwt-Assertion', 'Enctype'],
 		credentials: true,
@@ -333,7 +334,7 @@ function loadHooks() {
 	loadOnRequestHooks(fastifyInstance);
 
 	// Authentication hook
-	let authenticationMiddleware = null;
+	let authenticationMiddleware: ((req: FastifyRequest, reply: FastifyReply, next: () => void) => void) | null = null;
 	if (process.env.AUTH === 'google_iap') {
 		authenticationMiddleware = googleIapMiddleware;
 		logger.info('Configured Google IAP authentication middleware');

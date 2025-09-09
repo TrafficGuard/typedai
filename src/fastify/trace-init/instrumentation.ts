@@ -133,11 +133,11 @@ export class PinoInstrumentation extends InstrumentationBase {
 		];
 	}
 
-	getConfig(): PinoInstrumentationConfig {
+	override getConfig(): PinoInstrumentationConfig {
 		return this._config;
 	}
 
-	setConfig(config: PinoInstrumentationConfig) {
+	override setConfig(config: PinoInstrumentationConfig) {
 		this._config = config;
 	}
 

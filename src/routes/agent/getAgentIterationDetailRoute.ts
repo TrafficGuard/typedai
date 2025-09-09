@@ -12,16 +12,14 @@ export async function getAgentIterationDetailRoute(fastify: AppFastifyInstance):
 		const { agentId, iterationNumber } = req.params;
 		try {
 			// service.getAgentIterationDetail now handles agent/iteration existence and ownership check internally
-			const iterationDetail: AutonomousIteration = await fastify.agentStateService.getAgentIterationDetail(agentId, iterationNumber);
+			const iterationDetail: AutonomousIteration | null = await fastify.agentStateService.getAgentIterationDetail(agentId, iterationNumber);
+			if (!iterationDetail) return sendNotFound(reply, `Iteration ${iterationNumber} not found for agent ${agentId}`);
+
 			// No need for: if (!iterationDetail) { ... } as getAgentIterationDetail now throws
 			reply.sendJSON(iterationDetail);
 		} catch (error) {
-			if (error instanceof NotFound) {
-				return sendNotFound(reply, error.message);
-			}
-			if (error instanceof NotAllowed) {
-				return send(reply, 403, { error: error.message });
-			}
+			if (error instanceof NotFound) return sendNotFound(reply, error.message);
+			if (error instanceof NotAllowed) return send(reply, 403, { error: error.message });
 			logger.error(error, `Error loading iteration ${iterationNumber} for agent ${agentId} [error]`);
 			send(reply, 500, { error: 'Failed to load agent iteration detail' });
 		}

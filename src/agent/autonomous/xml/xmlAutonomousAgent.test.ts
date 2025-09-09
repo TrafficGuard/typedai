@@ -188,8 +188,9 @@ describe.skip('xmlAgentRunner', () => {
 
 			const id = await runAgentAndWait(runConfig({ functions }));
 			const ctx = await appContext().agentStateService.load(id);
-			expect(ctx.state).to.equal('error');
-			expect(ctx.error).to.include(THROW_ERROR_TEXT);
+			expect(ctx).to.exist;
+			expect(ctx!.state).to.equal('error');
+			expect(ctx!.error).to.include(THROW_ERROR_TEXT);
 		});
 	});
 

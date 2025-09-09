@@ -16,7 +16,7 @@ export abstract class AbstractSCM implements SourceControlManagement {
 		if (!projectPathWithNamespace) throw new Error('Parameter "projectPathWithNamespace" must be truthy');
 
 		const fss = getFileSystem();
-		const agent: AgentContext | null = agentContext();
+		const agent: AgentContext | undefined = agentContext();
 
 		let targetPath: string;
 		if (targetDirectory) {

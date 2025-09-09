@@ -40,7 +40,7 @@ export async function jiraRoutes(fastify: AppFastifyInstance): Promise<void> {
 
 			try {
 				const hmac = crypto.createHmac('sha256', hmacToken);
-				hmac.update(req.rawBody);
+				hmac.update(req.rawBody?.toString() ?? '');
 				const digest = `sha256=${hmac.digest('hex')}`;
 
 				if (hmac && digest !== hmacHeader) {
@@ -96,6 +96,7 @@ export async function jiraRoutes(fastify: AppFastifyInstance): Promise<void> {
 						});
 					}
 				}
+				return () => send(reply, 200);
 			});
 			/*
              {

@@ -10,7 +10,7 @@ export class BuildFailureAgent {
 		// https://gitlab.example.com/group/subgroup/projectName/-/jobs/12345
 		const parts = buildUrl.split('/');
 		const projectPath = parts.slice(3, parts.indexOf('-')).join('/');
-		const jobNumber = parts.at(-1);
+		const jobNumber = parts.at(-1)!;
 		const logs = await gitlab.getJobLogs(projectPath, jobNumber);
 
 		// If previous pipelines on the merge request/branch have failed then we need to look at the first failing pipeline diff

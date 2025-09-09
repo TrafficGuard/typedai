@@ -466,9 +466,8 @@ export interface LlmCallMessageSummaryPart {
 export type LlmCostFunction = (
 	promptTokens: number,
 	completionTokens: number,
-	usage?: any,
-	completionTime?: Date,
-	result?: GenerateTextResult<any, any>,
+	usage: any,
+	completionTime: Date,
 ) => { inputCost: number; outputCost: number; totalCost: number };
 
 export interface LlmInfo {

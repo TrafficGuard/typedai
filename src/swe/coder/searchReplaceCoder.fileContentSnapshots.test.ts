@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
+import { Git } from '#functions/scm/git';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MockLLM } from '#llm/services/mock-llm';
 import type { AgentLLMs } from '#shared/agent/agent.model';
@@ -24,7 +25,7 @@ describe('SearchReplaceCoder – fileContentSnapshots', () => {
 		fsStub = sinon.createStubInstance(FileSystemService);
 		fsStub.getWorkingDirectory.returns(repoRoot);
 		fsStub.fileExists.resolves(true);
-		fsStub.getVcs.returns(null);
+		fsStub.getVcs.returns(new Git(fsStub));
 		fsStub.getVcsRoot.returns(repoRoot);
 
 		const mockLLM = new MockLLM();

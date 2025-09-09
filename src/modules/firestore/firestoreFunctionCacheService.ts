@@ -44,7 +44,7 @@ export class FirestoreCacheService implements FunctionCacheService {
 	getScopePath(scope: CacheScope): string {
 		switch (scope) {
 			case 'agent':
-				return `agent-${agentContext().agentId}`;
+				return `agent-${agentContext()!.agentId}`;
 			case 'user':
 				return `user-${currentUser().id}`;
 			case 'global':

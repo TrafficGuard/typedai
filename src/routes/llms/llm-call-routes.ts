@@ -2,6 +2,7 @@ import { Type } from '@sinclair/typebox';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendNotFound } from '#fastify/index';
 import { logger } from '#o11y/logger';
+import { registerApiRoute } from '#routes/routeUtils';
 import { AGENT_API } from '#shared/agent/agent.api';
 import type { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
 
@@ -31,7 +32,7 @@ export async function llmCallRoutes(fastify: AppFastifyInstance): Promise<void> 
 	);
 
 	// Endpoint to get LLM call summaries for an agent
-	fastify.get(AGENT_API.getLlmCallSummaries.pathTemplate, { schema: AGENT_API.getLlmCallSummaries.schema }, async (req, reply) => {
+	registerApiRoute(fastify, AGENT_API.getLlmCallSummaries, async (req, reply) => {
 		const { agentId } = req.params;
 		try {
 			const summaries: LlmCallSummary[] = await fastify.llmCallService.getLlmCallSummaries(agentId);
@@ -44,7 +45,7 @@ export async function llmCallRoutes(fastify: AppFastifyInstance): Promise<void> 
 
 	// Endpoint to get a specific LLM call detail
 	// The path from AGENT_API.getLlmCallDetail includes agentId, so we use that.
-	fastify.get(AGENT_API.getLlmCallDetail.pathTemplate, { schema: AGENT_API.getLlmCallDetail.schema }, async (req, reply) => {
+	registerApiRoute(fastify, AGENT_API.getLlmCallDetail, async (req, reply) => {
 		const { agentId, llmCallId } = req.params; // agentId might be used for authorization/scoping in service
 		try {
 			const llmCallDetail: LlmCall | null = await fastify.llmCallService.getLlmCallDetail(llmCallId);

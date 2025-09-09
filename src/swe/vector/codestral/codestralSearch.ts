@@ -357,7 +357,7 @@ export async function getEmbeddingsBatch(texts: string[]): Promise<number[][]> {
 				const response = await client.embeddings.create({ model: EMBED_MODEL, inputs: textsInBatchForApi });
 				response.data.forEach((embeddingData, batchIndex) => {
 					const dataItem = currentBatchData[batchIndex];
-					embeddingsMap.set(dataItem.originalIndex, embeddingData.embedding);
+					if (embeddingData.embedding) embeddingsMap.set(dataItem.originalIndex, embeddingData.embedding);
 				});
 			} catch (e) {
 				console.error(`Error processing batch: ${e instanceof Error ? e.message : String(e)}`);
@@ -381,7 +381,7 @@ export async function getEmbeddingsBatch(texts: string[]): Promise<number[][]> {
 			const response = await client.embeddings.create({ model: EMBED_MODEL, inputs: textsInBatchForApi });
 			response.data.forEach((embeddingData, batchIndex) => {
 				const dataItem = currentBatchData[batchIndex];
-				embeddingsMap.set(dataItem.originalIndex, embeddingData.embedding);
+				if (embeddingData.embedding) embeddingsMap.set(dataItem.originalIndex, embeddingData.embedding);
 			});
 		} catch (e) {
 			console.error(`Error processing final batch: ${e instanceof Error ? e.message : String(e)}`);

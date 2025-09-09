@@ -195,7 +195,7 @@ describe('projectDetection', () => {
 			const result = await getProjectInfos();
 
 			expect(result).to.be.an('array').with.lengthOf(1);
-			const project = result[0];
+			const project = result![0];
 			expect(project.baseDir).to.equal('./');
 			expect(project.primary).to.be.true;
 			expect(project.language).to.equal('typescript');
@@ -244,8 +244,8 @@ describe('projectDetection', () => {
 			const result = await getProjectInfos();
 
 			expect(result).to.be.an('array').with.lengthOf(1);
-			expect(result[0].baseDir).to.equal('vcs_project/');
-			expect(result[0].initialise).to.deep.equal(['pip install']);
+			expect(result![0].baseDir).to.equal('vcs_project/');
+			expect(result![0].initialise).to.deep.equal(['pip install']);
 			// The agent should not be called if a valid file is found
 			// (similar to the previous test, relying on the logic that prevents agent call)
 
@@ -383,7 +383,7 @@ describe('projectDetection', () => {
 
 			// Assertions
 			expect(result).to.be.an('array').with.lengthOf(1);
-			const project = result[0];
+			const project = result![0];
 			expect(project.baseDir).to.equal('./app'); // As defined in the file content
 			expect(project.language).to.equal('typescript');
 			expect(project.devBranch).to.equal('develop');

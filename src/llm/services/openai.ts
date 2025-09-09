@@ -101,8 +101,8 @@ export class OpenAI extends AiLLM<OpenAIProvider> {
 		);
 	}
 
-	protected apiKey(): string {
-		let envKey: string;
+	protected override apiKey(): string | undefined {
+		let envKey: string | undefined;
 		if (OPENAI_KEYS.length) {
 			envKey = OPENAI_KEYS[openaiKeyIndex];
 			if (++openaiKeyIndex > OPENAI_KEYS.length) openaiKeyIndex = 0;
@@ -110,14 +110,14 @@ export class OpenAI extends AiLLM<OpenAIProvider> {
 		return currentUser()?.llmConfig.openaiKey || envKey;
 	}
 
-	provider(): OpenAIProvider {
+	override provider(): OpenAIProvider {
 		this.aiProvider ??= createOpenAI({
-			apiKey: this.apiKey(),
+			apiKey: this.apiKey()!,
 		});
 		return this.aiProvider;
 	}
 
-	async generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
+	override async generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
 		console.log('Defaulting temp to 1');
 		opts ??= {};
 		opts.temperature = 1;

@@ -67,12 +67,7 @@ export async function scmRoutes(fastify: AppFastifyInstance): Promise<void> {
 						const providerType = provider.getScmType();
 						logger.info(`Fetching projects from ${providerType}`);
 						try {
-							const projects: GitProject[] = await provider.getProjects();
-							// Map projects to the new structured format including the provider type
-							return projects.map((project) => ({
-								type: providerType,
-								...project,
-							}));
+							return await provider.getProjects();
 						} catch (error) {
 							logger.error(error, `Error fetching projects for ${providerType}`);
 							throw new Error(`Failed to fetch projects from ${providerType}. ${error.message}`);

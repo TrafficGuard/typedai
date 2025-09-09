@@ -12,7 +12,7 @@ export async function initApplicationContext(): Promise<ApplicationContext> {
 		logger.warn(initialInit);
 		logger.warn('Application context attempted to be re-initialized at');
 		logger.warn(new Error());
-		return;
+		return applicationContext;
 	}
 	initialInit = new Error();
 
@@ -69,7 +69,7 @@ export async function initPostgresApplicationContext(): Promise<ApplicationConte
 	// async import to minimize loading dependencies on startup
 	const postgresModule = await import('../modules/postgres/postgresModule.cjs');
 	applicationContext = postgresModule.postgresApplicationContext();
-	await applicationContext?.init();
+	await applicationContext?.init?.();
 	await applicationContext.userService.ensureSingleUser();
 	return applicationContext;
 }

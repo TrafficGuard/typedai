@@ -13,7 +13,8 @@ export async function updateAgentFunctionsRoute(fastify: AppFastifyInstance): Pr
 
 		try {
 			await fastify.agentStateService.updateFunctions(agentId!, functions!);
-			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			const updatedAgent = await fastify.agentStateService.load(agentId);
+			if (!updatedAgent) return sendNotFound(reply, `Agent ${agentId} not found`);
 			const serialized = serializeContext(updatedAgent);
 			reply.sendJSON(serialized);
 		} catch (error) {

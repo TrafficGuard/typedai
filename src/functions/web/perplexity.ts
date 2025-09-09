@@ -30,7 +30,7 @@ export class Perplexity {
 					{ id: 'Perplexity memory key' },
 				);
 				const key = `Perplexity-${summary}`;
-				agentContext().memory[key] = report;
+				agentContext()!.memory[key] = report;
 				return key;
 			}
 			return report;

@@ -1,10 +1,11 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send } from '#fastify/responses';
 import { logger } from '#o11y/logger';
+import { registerApiRoute } from '#routes/routeUtils';
 import { CODE_REVIEW_API } from '#shared/codeReview/codeReview.api';
 
 export async function codeReviewRoutes(fastify: AppFastifyInstance): Promise<void> {
-	fastify.get(CODE_REVIEW_API.list.pathTemplate, { schema: CODE_REVIEW_API.list.schema }, async (request, reply) => {
+	registerApiRoute(fastify, CODE_REVIEW_API.list, async (request, reply) => {
 		try {
 			const configs = await fastify.codeReviewService.listCodeReviewConfigs();
 			reply.sendJSON(configs);
@@ -14,7 +15,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance): Promise<voi
 		}
 	});
 
-	fastify.get(CODE_REVIEW_API.getById.pathTemplate, { schema: CODE_REVIEW_API.getById.schema }, async (request, reply) => {
+	registerApiRoute(fastify, CODE_REVIEW_API.getById, async (request, reply) => {
 		const { id } = request.params;
 		try {
 			const config = await fastify.codeReviewService.getCodeReviewConfig(id);
@@ -29,7 +30,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance): Promise<voi
 		}
 	});
 
-	fastify.post(CODE_REVIEW_API.create.pathTemplate, { schema: CODE_REVIEW_API.create.schema }, async (request, reply) => {
+	registerApiRoute(fastify, CODE_REVIEW_API.create, async (request, reply) => {
 		const config = request.body;
 		try {
 			const id = await fastify.codeReviewService.createCodeReviewConfig(config);
@@ -40,7 +41,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance): Promise<voi
 		}
 	});
 
-	fastify.put(CODE_REVIEW_API.update.pathTemplate, { schema: CODE_REVIEW_API.update.schema }, async (request, reply) => {
+	registerApiRoute(fastify, CODE_REVIEW_API.update, async (request, reply) => {
 		const { id } = request.params; // Removed explicit cast
 		const config = request.body;
 		try {
@@ -52,7 +53,7 @@ export async function codeReviewRoutes(fastify: AppFastifyInstance): Promise<voi
 		}
 	});
 
-	fastify.delete(CODE_REVIEW_API.delete.pathTemplate, { schema: CODE_REVIEW_API.delete.schema }, async (request, reply) => {
+	registerApiRoute(fastify, CODE_REVIEW_API.delete, async (request, reply) => {
 		const { id } = request.params;
 		try {
 			await fastify.codeReviewService.deleteCodeReviewConfig(id);

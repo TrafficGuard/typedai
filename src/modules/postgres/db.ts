@@ -9,8 +9,8 @@ import type { ColumnType } from 'kysely';
 export interface AgentContextsTable {
 	agent_id: string; // PRIMARY KEY
 	execution_id: string;
-	container_id: string;
-	typed_ai_repo_dir: string | null;
+	container_id: string | null;
+	typed_ai_repo_dir: string;
 	trace_id: string;
 	name: string | null;
 	parent_agent_id: string | null;

@@ -115,7 +115,7 @@ describe('FirestoreFunctionCacheService', () => {
 			// Set one via the decorator, and one via the cacheService API
 			await new TestClass().bazAgent(1, 2);
 			await cacheService.setValue('agent', 'TestClass', 'foo', [3, 4], '3');
-			const clearedCount = await cacheService.clearAgentCache(agentContext().agentId);
+			const clearedCount = await cacheService.clearAgentCache(agentContext()!.agentId);
 			expect(clearedCount).to.equal(2);
 			const value1 = await cacheService.getValue('agent', 'TestClass', 'bazAgent', [1, 2]);
 			const value2 = await cacheService.getValue('agent', 'TestClass', 'foo', [3, 4]);

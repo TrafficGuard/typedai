@@ -25,11 +25,11 @@ export async function updateDesignRoute(fastify: AppFastifyInstance): Promise<vo
 			if (error.message?.includes('not found')) {
 				return sendNotFound(reply, `Code task with ID ${codeTaskId} not found`);
 			}
-			if (error.message?.includes('state')) {
-				// HTTP 409 Conflict for state issues
-				reply.code(409);
-				return reply.send({ error: error.message || 'Cannot update design in current state' });
-			}
+			// if (error.message?.includes('state')) {
+			// 	// HTTP 409 Conflict for state issues
+			// 	reply.code(409);
+			// 	return reply.send({ error: error.message || 'Cannot update design in current state' });
+			// }
 			return sendServerError(reply, error.message || 'Failed to trigger design update');
 		}
 	});

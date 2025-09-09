@@ -31,15 +31,15 @@ export class DeepSeekR1_Fallbacks extends BaseLLM {
 		}));
 	}
 
-	protected supportsGenerateTextFromMessages(): boolean {
+	protected override supportsGenerateTextFromMessages(): boolean {
 		return true;
 	}
 
-	isConfigured(): boolean {
+	override isConfigured(): boolean {
 		return this.llms.findIndex((llm) => !llm.isConfigured()) === -1;
 	}
 
-	async generateTextFromMessages(messages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
+	override async generateTextFromMessages(messages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
 		for (const llm of this.llms) {
 			if (!llm.isConfigured()) continue;
 

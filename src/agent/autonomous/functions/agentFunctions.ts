@@ -34,7 +34,7 @@ export class Agent {
 	async saveMemory(key: string, content: string): Promise<void> {
 		if (!key || !key.trim().length) throw new Error('Memory key must be provided');
 		if (!content || !content.trim().length) throw new Error('Memory content must be provided');
-		const memory = agentContext().memory;
+		const memory = agentContext()!.memory;
 		if (memory[key]) logger.info(`Overwriting memory key ${key}`);
 		memory[key] = content;
 	}
@@ -46,7 +46,7 @@ export class Agent {
 	 */
 	// @func()
 	async deleteMemory(key: string): Promise<void> {
-		const memory = agentContext().memory;
+		const memory = agentContext()!.memory;
 		if (!memory[key]) logger.info(`deleteMemory key doesn't exist: ${key}`);
 		delete memory[key];
 	}
@@ -59,7 +59,7 @@ export class Agent {
 	// @func()
 	async getMemory(key: string): Promise<string> {
 		if (!key) throw new Error(`Parameter "key" must be provided. Was ${key}`);
-		const memory = agentContext().memory;
+		const memory = agentContext()!.memory;
 		if (!memory[key]) throw new Error(`Memory key ${key} does not exist. Valid keys are ${Object.keys(memory).join(', ')}`);
 		return memory[key];
 	}
@@ -74,10 +74,12 @@ export class Agent {
 	@func()
 	async memory(operation: 'SAVE' | 'DELETE' | 'GET', key: string, content?: string): Promise<undefined | string> {
 		if (operation === 'SAVE') {
-			return this.saveMemory(key, content) as undefined;
+			await this.saveMemory(key, content as string);
+			return;
 		}
 		if (operation === 'DELETE') {
-			return this.deleteMemory(key) as undefined;
+			await this.deleteMemory(key);
+			return;
 		}
 		if (operation === 'GET') {
 			return this.getMemory(key);

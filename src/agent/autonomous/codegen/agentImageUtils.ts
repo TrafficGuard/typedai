@@ -43,7 +43,7 @@ export async function checkForImageSources(result: Record<string, any>, fileStor
 		// Check if the value matches the image request structure
 		if (typeof value === 'object' && value !== null && value.type === 'image' && typeof value.source === 'string') {
 			const request = value as ImageSource;
-			let base64: string;
+			let base64: string | undefined;
 			let imageData: Buffer | undefined;
 			let filename: string | undefined;
 			let mediaType: string | undefined;

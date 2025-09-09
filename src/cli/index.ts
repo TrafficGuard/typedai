@@ -31,7 +31,7 @@ async function main() {
 		},
 	};
 
-	const maps = await generateRepositoryMaps(await getProjectInfos());
+	const maps = await generateRepositoryMaps((await getProjectInfos()) ?? []);
 
 	console.log(`languageProjectMap ${maps.languageProjectMap.tokens} tokens`);
 	console.log(`fileSystemTree ${maps.fileSystemTree.tokens} tokens`);

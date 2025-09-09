@@ -18,7 +18,7 @@ describe('validateBlocks', () => {
 	// Mock rules
 	const ruleAlwaysPass: ValidationRule = {
 		name: 'AlwaysPass',
-		check: () => null,
+		check: () => Promise.resolve(null),
 	};
 
 	const ruleAlwaysFail: ValidationRule = {
@@ -28,7 +28,7 @@ describe('validateBlocks', () => {
 
 	const ruleFailForFileA: ValidationRule = {
 		name: 'FailForFileA',
-		check: (block) => (block.filePath === 'fileA.ts' ? Promise.resolve({ file: block.filePath, reason: 'FileA is not allowed' }) : null),
+		check: (block) => (block.filePath === 'fileA.ts' ? Promise.resolve({ file: block.filePath, reason: 'FileA is not allowed' }) : Promise.resolve(null)),
 	};
 
 	it('should return all blocks as valid if no rules or all rules pass', async () => {

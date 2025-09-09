@@ -35,7 +35,11 @@ let checkForceStopped: () => void;
  * @param theAgentContextStorage
  * @param checkForcedStoppedFunc
  */
-export function setTracer(theTracer: Tracer, theAgentContextStorage: AsyncLocalStorage<AgentContext>, checkForcedStoppedFunc: () => void = () => {}): void {
+export function setTracer(
+	theTracer: Tracer | null,
+	theAgentContextStorage: AsyncLocalStorage<AgentContext>,
+	checkForcedStoppedFunc: () => void = () => {},
+): void {
 	if (theTracer) tracer = wrapTracer(theTracer);
 	// Having the agentContextStorage() and checkForcedStopped () function call in this file causes a compile failure, so we need to pass in the reference to the storage.
 	agentContextStorage = theAgentContextStorage;

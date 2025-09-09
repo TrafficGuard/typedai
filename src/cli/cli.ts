@@ -17,7 +17,7 @@ export const LLM_CLI_ALIAS: Record<string, () => LLM> = {
 	e: () => defaultLLMs().easy,
 	m: () => defaultLLMs().medium,
 	h: () => defaultLLMs().hard,
-	xh: () => defaultLLMs().xhard,
+	xh: () => defaultLLMs().xhard!,
 	fm: () => new FastMediumLLM(),
 	f: cerebrasQwen3_235b_Thinking,
 	cc: cerebrasQwen3_Coder,

@@ -30,7 +30,7 @@ import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionS
 import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
-import type { AgentContext, AutonomousIteration } from '#shared/agent/agent.model';
+import type { AgentContext, AutonomousIteration, LLM } from '#shared/agent/agent.model';
 import { FILE_STORE_NAME, type FileMetadata } from '#shared/files/files.model';
 import { type FunctionCallResult, type ImagePartExt, type LlmMessage, type UserContentExt, messageText, system, text, user } from '#shared/llm/llm.model';
 import { errorToString } from '#utils/errors';
@@ -48,6 +48,8 @@ import {
 } from './pythonCodeGenUtils';
 
 const stopSequences = undefined; //['</response>']; grok4 does not support stop sequences
+
+const AGENT_TEMPERATURE = 0.6;
 
 // Thresholds for content size (in bytes)
 const LARGE_OUTPUT_THRESHOLD_BYTES = 50 * 1024; // 50KB
@@ -92,6 +94,7 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 }
 
 async function runAgentExecution(agent: AgentContext, span: Span): Promise<string> {
+	codegenSystemPrompt ??= readFileSync('src/agent/autonomous/codegen/codegen-agent-system-prompt').toString();
 	agent.traceId = span.spanContext().traceId;
 	span.setAttributes({
 		initialPrompt: agent.inputPrompt,
@@ -147,14 +150,14 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 
 				// Might need to reload the agent for dynamic updating of the tools
 				const functionsXml = convertJsonToPythonDeclaration(getAllFunctionSchemas(agent.functions.getFunctionInstances()));
-				const systemPromptWithFunctions = updateFunctionSchemas(codegenSystemPrompt, functionsXml);
+				const systemPromptWithFunctions = updateFunctionSchemas(codegenSystemPrompt!, functionsXml);
 				const fileSystemTreePrompt = await buildFileSystemTreePrompt();
 				const toolStatePrompt = await buildToolStatePrompt();
 
 				// Add function call history (handle potential requestFeedback at the end)
 				let historyEndIndex = agent.functionCallHistory.length;
 				let requestFeedbackCallResult: FunctionCallResult | null = null;
-				if (agent.functionCallHistory.length && agent.functionCallHistory.at(-1).function_name === AGENT_REQUEST_FEEDBACK) {
+				if (agent.functionCallHistory.length && agent.functionCallHistory.at(-1)!.function_name === AGENT_REQUEST_FEEDBACK) {
 					historyEndIndex--;
 					requestFeedbackCallResult = agent.functionCallHistory[historyEndIndex]; // Get the feedback call
 				}
@@ -200,10 +203,10 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				let agentPlanResponse: string;
 				let pythonMainFnCode: string; // As long as we can extract the code we can do an iteration
 				try {
-					agentPlanResponseMessage = await agent.llms.hard.generateMessage(agentMessages, {
+					agentPlanResponseMessage = await agentLLM.generateMessage(agentMessages, {
 						id: 'Codegen agent plan',
 						stopSequences,
-						temperature: 0.2,
+						temperature: AGENT_TEMPERATURE,
 						thinking: 'high',
 						maxOutputTokens: 32000,
 					});
@@ -211,10 +214,10 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					pythonMainFnCode = extractPythonCode(agentPlanResponse);
 				} catch (e) {
 					logger.warn(e, 'Error with Codegen agent plan');
-					agentPlanResponseMessage = await agent.llms.hard.generateMessage(agentMessages, {
+					agentPlanResponseMessage = await agentLLM.generateMessage(agentMessages, {
 						id: 'Codegen agent plan retry',
 						stopSequences,
-						temperature: 0.2,
+						temperature: AGENT_TEMPERATURE,
 						thinking: 'high',
 						maxOutputTokens: 32000,
 					});
@@ -278,7 +281,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					if (typeof pythonScriptResult === 'object' && pythonScriptResult !== null) {
 						// Reset images for this iteration before checking
 						currentImageParts = []; // Use a temporary variable for this iteration's images
-						const fileStore: FileStore | null = agent.functions.getFunctionType('filestore');
+						const fileStore: FileStore | undefined = agent.functions.getFunctionType('filestore');
 						currentImageParts = await checkForImageSources(pythonScriptResult, fileStore); // Pass result and filestore
 						// Store the detected images for the *next* iteration's prompt
 						imageParts = currentImageParts;
@@ -288,7 +291,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					}
 					pythonScriptResultString = JSON.stringify(cloneAndTruncateBuffers(pythonScriptResult));
 
-					agent.error = null; // If execution succeeds reset error tracking
+					agent.error = undefined; // If execution succeeds reset error tracking
 				} catch (e) {
 					const lineNumber = extractLineNumber(e.message);
 					const line = lineNumber ? ` on line "${pythonScript.split('\n')[lineNumber]}"` : '';
@@ -359,7 +362,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				// check if the UI has requested HIL.
 				if (!completed && !agentRequestedFeedbackFlag) {
 					const currentAgent = await agentStateService.load(agent.agentId); // Ensure we have the latest hilRequested status
-					if (currentAgent.hilRequested) {
+					if (currentAgent?.hilRequested) {
 						agent.state = 'hitl_user';
 						uiRequestedHilFlag = true;
 					}

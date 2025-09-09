@@ -4,12 +4,13 @@ import { writeFileSync } from 'node:fs';
 import { agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
 import { PublicWeb } from '#functions/web/web';
 import { countTokens } from '#llm/tokens';
+import { terminalLog } from './terminal';
 
 // npm run scrape <URL> <filename(optional)>
 
 async function url2markdown(url: string, outputFilename?: string) {
 	if (!URL.canParse(url)) throw new Error(`Invalid URL ${url}`);
-	console.log(`Scraping ${url}`);
+	terminalLog(`Scraping ${url}`);
 	agentContextStorage.enterWith(
 		createContext({
 			subtype: 'scrape',
@@ -22,7 +23,8 @@ async function url2markdown(url: string, outputFilename?: string) {
 	const file = outputFilename ?? 'scrape.md';
 	writeFileSync(file, markdown);
 	const tokens = await countTokens(markdown);
-	console.log(`Written ${tokens} tokens to ${file}`);
+	console.log(markdown);
+	terminalLog(`Written ${tokens} tokens to ${file}`);
 }
 
 const args = process.argv

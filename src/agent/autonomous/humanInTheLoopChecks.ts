@@ -21,7 +21,7 @@ export async function checkHumanInTheLoop(
 	if (hilCount && counters.iteration >= hilCount) {
 		agent.state = 'hitl_threshold';
 		await agentStateService.save(agent);
-		await humanInTheLoop(agent, `Agent control loop has performed ${hilCount} iterations. Total cost $${agentContext().cost.toFixed(2)}`);
+		await humanInTheLoop(agent, `Agent control loop has performed ${hilCount} iterations. Total cost $${agentContext()!.cost.toFixed(2)}`);
 		agent.state = 'agent';
 		await agentStateService.save(agent);
 		counters.iteration = 0;

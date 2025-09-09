@@ -29,6 +29,7 @@ export async function main(): Promise<void> {
 
 	if (resumeAgentId) {
 		const agent = await appContext().agentStateService.load(resumeAgentId);
+		if (!agent) throw new Error(`No agent exists with id ${resumeAgentId}`);
 		await resumeAgent(agent, resumeAgentId, initialPrompt);
 		console.log('Resume this agent by running:');
 		console.log(`ai codeAgent -r=${agent.agentId}`);

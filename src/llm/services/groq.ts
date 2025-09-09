@@ -48,7 +48,7 @@ export class GroqLLM extends AiLLM<GroqProvider> {
 		super(displayName, GROQ_SERVICE, model, maxOutputTokens, calculateCosts);
 	}
 
-	aiModel(): LanguageModelV2 {
+	override aiModel(): LanguageModelV2 {
 		const aiModel = super.aiModel();
 		if (this.getModel().includes('qwen3-32b')) {
 			return wrapLanguageModel({
@@ -59,11 +59,11 @@ export class GroqLLM extends AiLLM<GroqProvider> {
 		return aiModel;
 	}
 
-	protected apiKey(): string {
+	protected override apiKey(): string | undefined {
 		return currentUser()?.llmConfig.groqKey || process.env.GROQ_API_KEY;
 	}
 
-	provider(): GroqProvider {
+	override provider(): GroqProvider {
 		this.aiProvider ??= createGroq({
 			apiKey: this.apiKey() ?? '',
 		});

@@ -29,7 +29,7 @@ export function gemini2_5_Pro_CostFunction(
 	outputMilHigh?: number,
 	threshold = 200000,
 ): LlmCostFunction {
-	return (inputTokens: number, outputTokens: number, usage, completionTime, result) => {
+	return (inputTokens: number, outputTokens: number, usage, completionTime) => {
 		let inputMil = inputMilLow;
 		let outputMil = outputMilLow;
 		if (inputMilHigh && outputMilHigh && inputTokens >= threshold) {
@@ -98,12 +98,11 @@ export function vertexGemini_2_5_Flash_Lite(): LLM {
 }
 
 const GCLOUD_PROJECTS: string[] = [];
-
+if (process.env.GCLOUD_PROJECT) GCLOUD_PROJECTS.push(process.env.GCLOUD_PROJECT);
 for (let i = 2; i <= 9; i++) {
-	const key = process.env[`GCLOUD_PROJECT_${i}`];
-	if (!key) break;
-	if (i === 2) GCLOUD_PROJECTS.push(process.env.GCLOUD_PROJECT);
-	GCLOUD_PROJECTS.push(key);
+	const projectId = process.env[`GCLOUD_PROJECT_${i}`];
+	if (!projectId) break;
+	GCLOUD_PROJECTS.push(projectId);
 }
 let gcloudProjectIndex = 0;
 
@@ -122,12 +121,12 @@ class VertexLLM extends AiLLM<GoogleVertexProvider> {
 		super(displayName, VERTEX_SERVICE, model, maxInputToken, calculateCosts, oldIds, defaultOptions);
 	}
 
-	protected apiKey(): string {
+	protected apiKey(): string | undefined {
 		return currentUser()?.llmConfig.vertexProjectId || process.env.GCLOUD_PROJECT;
 	}
 
 	provider(): GoogleVertexProvider {
-		let project: string;
+		let project: string | undefined;
 		if (GCLOUD_PROJECTS.length) {
 			project = GCLOUD_PROJECTS[gcloudProjectIndex];
 			if (++gcloudProjectIndex >= GCLOUD_PROJECTS.length) gcloudProjectIndex = 0;

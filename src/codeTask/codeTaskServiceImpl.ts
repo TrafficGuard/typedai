@@ -14,7 +14,7 @@ import type {
 import type { FileSystemNode } from '#shared/files/fileSystemService';
 import { execCommand, failOnError } from '#utils/exec';
 import { CodeTaskCreation } from './codeTaskCreation';
-import type { CodeTaskDesignGeneration } from './codeTaskDesignGeneration';
+import { CodeTaskDesignGeneration } from './codeTaskDesignGeneration';
 import { CodeTaskFileSelection } from './codeTaskFileSelection';
 import type { CodeTaskRepository } from './codeTaskRepository';
 import { getCodeTaskRepositoryPath } from './codeTaskRepositoryPath';
@@ -33,6 +33,7 @@ export class CodeTaskServiceImpl implements CodeTaskService {
 	constructor(private codeTaskRepo: CodeTaskRepository) {
 		this.codeTaskCreation = new CodeTaskCreation(codeTaskRepo);
 		this.codeTaskFileSelection = new CodeTaskFileSelection(codeTaskRepo);
+		this.codeTaskDesignGeneration = new CodeTaskDesignGeneration(codeTaskRepo);
 	}
 
 	// --- CodeTask CRUD (Delegated to Repository) ---
@@ -182,13 +183,17 @@ export class CodeTaskServiceImpl implements CodeTaskService {
 	async getFileSystemTree(userId: string, codeTaskId: string, directoryPath?: string): Promise<FileSystemNode> {
 		logger.debug({ userId, codeTaskId, directoryPath }, '[CodeTaskServiceImpl] getFileSystemTree called');
 		const codeTask = await this.codeTaskRepo.getCodeTask(userId, codeTaskId);
+		if (!codeTask) throw new Error(`Code task with ID ${codeTaskId} not found or user not authorized.`);
 		const path = getCodeTaskRepositoryPath(codeTask);
-		return await new FileSystemService(path).getFileSystemNodes();
+		const node = await new FileSystemService(path).getFileSystemNodes();
+		if (!node) throw new Error(`${path} is not a valid directory`);
+		return node;
 	}
 
 	async getFileContent(userId: string, codeTaskId: string, filePath: string): Promise<string> {
 		logger.debug({ userId, codeTaskId, filePath }, '[CodeTaskServiceImpl] getFileContent called');
 		const codeTask = await this.codeTaskRepo.getCodeTask(userId, codeTaskId);
+		if (!codeTask) throw new Error(`Code task with ID ${codeTaskId} not found or user not authorized.`);
 		const path = getCodeTaskRepositoryPath(codeTask);
 		return await new FileSystemService(path).readFile(filePath);
 	}

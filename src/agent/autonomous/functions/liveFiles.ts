@@ -16,7 +16,8 @@ export class LiveFiles {
 	 */
 	@func()
 	async addFiles(files: string[]): Promise<void> {
-		const agent = agentContext();
+		const agent = agentContext()!;
+		agent.toolState ??= {};
 		agent.toolState.LiveFiles ??= [];
 		agent.toolState.LiveFiles = Array.from(new Set([...agent.toolState.LiveFiles, ...files]));
 	}
@@ -27,7 +28,8 @@ export class LiveFiles {
 	 */
 	@func()
 	async removeFiles(files: string[]): Promise<void> {
-		const agent = agentContext();
+		const agent = agentContext()!;
+		agent.toolState ??= {};
 		agent.toolState.LiveFiles ??= [];
 		const liveFiles = new Set(agent.toolState.LiveFiles);
 		for (const f of files) {

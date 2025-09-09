@@ -19,11 +19,11 @@ export async function resetSelectionRoute(fastify: AppFastifyInstance): Promise<
 			if (error.message?.includes('not found')) {
 				return sendNotFound(reply, error.message);
 			}
-			if (error.message?.includes('state')) {
-				// HTTP 409 Conflict for state issues
-				reply.code(409);
-				return reply.send({ error: error.message });
-			}
+			// if (error.message?.includes('state')) {
+			// 	// HTTP 409 Conflict for state issues
+			// 	reply.code(409);
+			// 	return reply.send({ error: error.message });
+			// }
 			return sendServerError(reply, 'Failed to reset file selection');
 		}
 	});

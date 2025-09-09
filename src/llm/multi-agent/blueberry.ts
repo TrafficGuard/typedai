@@ -75,8 +75,8 @@ const MIND_OVER_DATA_SYS_PROMPT = `When addressing a problem, employ "Comparativ
 `;
 
 export class Blueberry extends BaseLLM {
-	llms: LLM[];
-	mediator: LLM;
+	llms!: LLM[];
+	mediator!: LLM;
 
 	/**
 	 *
@@ -108,11 +108,11 @@ export class Blueberry extends BaseLLM {
 		if (!this.mediator) this.mediator = llm;
 	}
 
-	getModel(): string {
+	override getModel(): string {
 		return `${this.mediator.getId()}|${this.llms.map((llm) => llm.getId()).join('|')}`;
 	}
 
-	async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
+	override async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
 		if (systemPrompt) {
 			logger.error('system prompt not available for Blueberry');
 			// prepend to the user prompt?
@@ -180,6 +180,6 @@ Guidelines:
 - Ensure your final answer directly addresses the user's original question
         `;
 
-		return await this.mediator.generateText(systemPrompt, mergePrompt, { temperature: 0.6 });
+		return await this.mediator.generateText(systemPrompt!, mergePrompt, { temperature: 0.6 });
 	}
 }

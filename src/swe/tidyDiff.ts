@@ -26,7 +26,7 @@ export async function tidyDiff(baseCommitOrBranch: string): Promise<string[]> {
 
 	if (!diff.trim()) {
 		logger.info('No diff found to tidy.');
-		return;
+		return [];
 	}
 	// TODO should convert the diffs to the current code only like in the rawCode var in addCodeWithLineNumbers() in gitLabCodeReview.ts
 
@@ -77,7 +77,7 @@ Respond ONLY with a JSON object in the following format. Provide an empty array 
 
 		if (!response || !Array.isArray(response.tidyPatches) || response.tidyPatches.length === 0) {
 			logger.info('No tidying actions identified.');
-			return;
+			return [];
 		}
 
 		logger.info(`Applying ${response.tidyPatches.length} tidy patches.`);

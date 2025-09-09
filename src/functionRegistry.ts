@@ -78,7 +78,7 @@ export function functionRegistry(): Array<new () => any> {
  * @return all the registered function classes which match the given type.
  */
 export function getFunctionsByType(type: ToolType): Array<any> {
-	const functions = [];
+	const functions: any[] = [];
 	for (const func of FUNCTIONS) {
 		const tool = new func();
 		if (hasGetToolType(tool)) {

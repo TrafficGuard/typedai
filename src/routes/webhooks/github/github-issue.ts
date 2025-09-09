@@ -59,9 +59,14 @@ If you need more information from the user, you can ask for it.
 
 		async function handleAgentCompletion(agentExecution: AgentExecution) {
 			await agentExecution.execution;
-			const agent = await appContext().agentStateService.load(agentExecution.agentId);
+			const agent = (await appContext().agentStateService.load(agentExecution.agentId))!;
+
 			if (agent.state === 'completed') {
 				const note = agent.output;
+				if (!note) {
+					logger.info(`GitHub issue opened agent ${agentExecution.agentId} completed with empty note.`);
+					return;
+				}
 				try {
 					await new GitHub().postCommentOnIssue(repositoryFullName, issueNumber, note);
 				} catch (error) {

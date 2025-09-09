@@ -4,6 +4,17 @@ import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import { addCodeWithLineNumbers, getStartingLineNumber, shouldApplyCodeReview } from '#swe/codeReview/codeReviewCommon';
 import type { CodeReviewTask } from '#swe/codeReview/codeReviewTaskModel';
 
+function codeReviewConfig(codeReview: Partial<CodeReviewConfig>) {
+	return {
+		id: crypto.randomUUID(),
+		title: 'Test',
+		description: 'Test',
+		tags: [],
+		examples: [],
+		...codeReview,
+	} as CodeReviewConfig;
+}
+
 describe('GitLabCodeReview', () => {
 	describe('diff', () => {
 		it('should get the starting line number', async () => {
@@ -14,12 +25,12 @@ describe('GitLabCodeReview', () => {
 
 	describe('applyCodeReview', () => {
 		it('should return false when code review is disabled', () => {
-			const codeReview = {
+			const codeReview = codeReviewConfig({
 				enabled: false,
 				projectPaths: [],
 				fileExtensions: { include: ['*.ts'] },
 				requires: { text: ['content'] },
-			} as CodeReviewConfig;
+			});
 
 			const diff = {
 				new_path: 'src/app/file.ts',
@@ -52,12 +63,12 @@ describe('GitLabCodeReview', () => {
 		});
 
 		it('should return false when file extension does not match', () => {
-			const codeReview = {
+			const codeReview = codeReviewConfig({
 				enabled: true,
 				projectPaths: [],
 				fileExtensions: { include: ['.js'] },
 				requires: { text: ['content'] },
-			} as CodeReviewConfig;
+			});
 
 			const diff = {
 				new_path: 'src/app/file.ts',
@@ -71,12 +82,12 @@ describe('GitLabCodeReview', () => {
 		});
 
 		it('should return false when required text is not present in diff', () => {
-			const codeReview = {
+			const codeReview = codeReviewConfig({
 				enabled: true,
 				projectPaths: [],
 				fileExtensions: { include: ['.ts'] },
 				requires: { text: ['specificKeyword'] },
-			} as CodeReviewConfig;
+			});
 
 			const diff = {
 				new_path: 'src/app/file.ts',
@@ -109,12 +120,12 @@ describe('GitLabCodeReview', () => {
 		});
 
 		it('should not exclude projects when projectPaths is empty', () => {
-			const codeReview = {
+			const codeReview = codeReviewConfig({
 				enabled: true,
 				projectPaths: [],
 				fileExtensions: { include: ['.ts'] },
 				requires: { text: ['keyword'] },
-			} as CodeReviewConfig;
+			});
 
 			const diff = {
 				new_path: 'src/app/file.ts',
@@ -129,12 +140,12 @@ describe('GitLabCodeReview', () => {
 
 		it('should return false when fileExtensions.include is empty', () => {
 			// Note: This should not be a valid configuration
-			const codeReview = {
+			const codeReview = codeReviewConfig({
 				enabled: true,
 				projectPaths: [],
 				fileExtensions: { include: [] },
 				requires: { text: ['keyword'] },
-			} as CodeReviewConfig;
+			});
 
 			const diff = {
 				new_path: 'src/app/file.ts',
@@ -149,12 +160,12 @@ describe('GitLabCodeReview', () => {
 
 		it('should return false when requires.text is empty', () => {
 			// Note: This should not be a valid configuration
-			const codeReview = {
+			const codeReview = codeReviewConfig({
 				enabled: true,
 				projectPaths: [],
 				fileExtensions: { include: ['.ts'] },
 				requires: { text: [] },
-			} as CodeReviewConfig;
+			});
 
 			const diff = {
 				new_path: 'src/app/file.ts',
@@ -168,12 +179,12 @@ describe('GitLabCodeReview', () => {
 		});
 
 		it('should return true when file extension matches one of multiple', () => {
-			const codeReview = {
+			const codeReview = codeReviewConfig({
 				enabled: true,
 				projectPaths: [],
 				fileExtensions: { include: ['.js', '.ts'] },
 				requires: { text: ['keyword'] },
-			} as CodeReviewConfig;
+			});
 
 			const diff = {
 				new_path: 'src/app/file.js',
@@ -187,12 +198,12 @@ describe('GitLabCodeReview', () => {
 		});
 
 		it('should return true when diff contains any of the required texts', () => {
-			const codeReview = {
+			const codeReview = codeReviewConfig({
 				enabled: true,
 				projectPaths: [],
 				fileExtensions: { include: ['.ts'] },
 				requires: { text: ['firstKeyword', 'secondKeyword'] },
-			} as CodeReviewConfig;
+			});
 
 			const diff = {
 				new_path: 'src/app/file.ts',

@@ -103,9 +103,10 @@ export function processFunctionArguments(args: any[], expectedParamNames: string
 		finalArgs = [];
 		// Reconstruct the arguments array in the order defined by the schema.
 		// The values may still be proxies if they were nested.
+		const kwargs = potentialKwargs ?? {};
 		for (const paramName of expectedParamNames) {
 			const snakeName = camelToSnake(paramName);
-			const value = Object.hasOwn(potentialKwargs, paramName) ? potentialKwargs[paramName] : potentialKwargs[snakeName];
+			const value = Object.hasOwn(kwargs, paramName) ? kwargs[paramName] : kwargs[snakeName];
 			finalArgs.push(value);
 		}
 	} else {
@@ -124,10 +125,11 @@ export function processFunctionArguments(args: any[], expectedParamNames: string
 	const parameters: Record<string, any> = {};
 	if (isKeywordArgs) {
 		// For keyword args, only include parameters that were actually passed.
+		const kwargs = potentialKwargs ?? {};
 		for (let i = 0; i < expectedParamNames.length; i++) {
 			const paramName = expectedParamNames[i];
 			const snakeName = camelToSnake(paramName);
-			if (Object.hasOwn(potentialKwargs, paramName) || Object.hasOwn(potentialKwargs, snakeName)) {
+			if (Object.hasOwn(kwargs, paramName) || Object.hasOwn(kwargs, snakeName)) {
 				parameters[paramName] = finalArgs[i];
 			}
 		}

@@ -31,7 +31,7 @@ Git repo folder: ${fss.getVcsRoot() ?? '<none>'}
 		);
 		if (!response.includes('SAFE')) {
 			await humanInTheLoop(
-				agentContext(),
+				agentContext()!,
 				`Requesting to execute the shell command: ${command}\nCWD: ${getFileSystem().getWorkingDirectory()}\nSafety analysis: ${response}`,
 			);
 		}

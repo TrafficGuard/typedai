@@ -269,7 +269,7 @@ async function selectFilesCore(
 		if (newlyKeptPaths.length) {
 			try {
 				const cwd = getFileSystem().getWorkingDirectory();
-				const vcsRoot = getFileSystem().getVcsRoot();
+				const vcsRoot = getFileSystem().getVcsRoot() ?? undefined;
 				const alternativeFiles = await includeAlternativeAiToolFiles(newlyKeptPaths, { cwd, vcsRoot });
 				for (const altFile of alternativeFiles) {
 					if (!keptFiles.has(altFile) && !ignoredFiles.has(altFile)) {
@@ -402,7 +402,7 @@ Respond with a valid JSON object that follows the required schema.`,
 }
 
 async function initializeFileSelectionAgent(requirements: UserContentExt, opts: QueryOptions): Promise<LlmMessage[]> {
-	const projectInfo: ProjectInfo | null = opts.projectInfo;
+	const projectInfo: ProjectInfo | undefined = opts.projectInfo;
 	const projectInfos: ProjectInfo[] | null = await getProjectInfos(false);
 	const generateArg: ProjectInfo[] = projectInfo ? [projectInfo] : projectInfos || [];
 
@@ -450,17 +450,18 @@ For this initial file selection step, identify the files you need to **inspect**
 
 	if (opts?.initialFiles?.length || opts.initialFilePaths?.length) {
 		let fileContents = '';
+		const keepFiles: SelectedFile[] = [];
 		const keepAll: IterationResponse = {
-			keepFiles: [],
+			keepFiles,
 		};
 		if (opts.initialFiles) {
 			const filePaths = opts.initialFiles.map((selection) => selection.filePath);
 			fileContents = (await readFileContents(filePaths)).contents;
-			keepAll.keepFiles.push(...opts.initialFiles);
+			keepFiles.push(...opts.initialFiles);
 		}
 		if (opts.initialFilePaths) {
 			fileContents += (await readFileContents(opts.initialFilePaths)).contents;
-			keepAll.keepFiles.push(...opts.initialFilePaths.map((path) => ({ filePath: path, reason: 'previously selected' })));
+			keepFiles.push(...opts.initialFilePaths.map((path) => ({ filePath: path, reason: 'previously selected' })));
 		}
 		messages.push(assistant(fileContents));
 		messages.push(user(JSON.stringify(keepAll)));
@@ -569,7 +570,7 @@ async function processedIterativeStepUserPrompt(response: IterationResponse): Pr
 	let ignoreText = '';
 	if (ignored.length) {
 		ignoreText = '\nRemoved the following ignored files:';
-		for (const ig of response.ignoreFiles) {
+		for (const ig of response.ignoreFiles ?? []) {
 			ignoreText += `\n${ig.filePath} - ${ig.reason}`;
 		}
 	}
@@ -584,7 +585,7 @@ async function readFileContents(filePaths: string[]): Promise<{ contents: string
 	const fileSystem = getFileSystem();
 	let contents = '<files>\n';
 
-	const invalidPaths = [];
+	const invalidPaths: string[] = [];
 
 	for (const filePath of filePaths) {
 		if (!filePath) continue;

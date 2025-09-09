@@ -188,11 +188,11 @@ async function selectFilesCore(
 		const response: IterationResponse = await generateFileSelectionProcessingResponse(messages, filesToInspect, filesPendingDecision, iterationCount, llm);
 		logger.info(response);
 		for (const ignored of response.ignoreFiles ?? []) {
-			ignoredFiles.set(ignored.filePath, ignored.reason);
+			ignoredFiles.set(ignored.filePath, ignored.reason ?? '');
 			filesPendingDecision.delete(ignored.filePath);
 		}
 		for (const kept of response.keepFiles ?? []) {
-			keptFiles.set(kept.filePath, kept.reason);
+			keptFiles.set(kept.filePath, kept.reason ?? '');
 			filesPendingDecision.delete(kept.filePath);
 		}
 
@@ -202,7 +202,7 @@ async function selectFilesCore(
 			try {
 				const cwd = getFileSystem().getWorkingDirectory();
 				// Assuming projectInfo.baseDir corresponds to the VCS root for the purpose of finding config files
-				const vcsRoot = getFileSystem().getVcsRoot();
+				const vcsRoot = getFileSystem().getVcsRoot() ?? cwd;
 				const alternativeFiles = await includeAlternativeAiToolFiles(justKeptPaths, { cwd, vcsRoot });
 				for (const altFile of alternativeFiles) {
 					// Add the alternative file only if it hasn't been explicitly kept or ignored already
@@ -270,9 +270,14 @@ async function selectFilesCore(
 }
 
 async function initializeFileSelectionAgent(requirements: UserContentExt, projectInfo?: ProjectInfo, options?: FileSelectionUpdate): Promise<LlmMessage[]> {
-	projectInfo ??= (await getProjectInfos())[0];
+	if (!projectInfo) {
+		const projectInfos = await getProjectInfos();
+		if (projectInfos?.length) {
+			projectInfo = projectInfos[0];
+		}
+	}
 
-	const projectMaps: RepositoryMaps = await generateRepositoryMaps([projectInfo]);
+	const projectMaps: RepositoryMaps = await generateRepositoryMaps(projectInfo ? [projectInfo] : []);
 	const repositoryOverview: string = await getRepositoryOverview();
 	const fileSystemWithSummaries: string = `<project_files>\n${projectMaps.fileSystemTreeWithFileSummaries.text}\n</project_files>\n`;
 	const repoOutlineUserPrompt = `${repositoryOverview}${fileSystemWithSummaries}`;
@@ -389,7 +394,7 @@ async function processedIterativeStepUserPrompt(response: IterationResponse): Pr
 	let ignoreText = '';
 	if (ignored.length) {
 		ignoreText = '\nRemoved the following ignored files:';
-		for (const ig of response.ignoreFiles) {
+		for (const ig of response.ignoreFiles ?? []) {
 			ignoreText += `\n${ig.filePath} - ${ig.reason}`;
 		}
 	}
@@ -404,7 +409,7 @@ async function readFileContents(filePaths: string[]): Promise<{ contents: string
 	const fileSystem = getFileSystem();
 	let contents = '<files>\n';
 
-	const invalidPaths = [];
+	const invalidPaths: string[] = [];
 
 	for (const filePath of filePaths) {
 		if (!filePath) continue;

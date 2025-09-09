@@ -28,6 +28,7 @@ export class SlackAPI {
 				cursor: cursor,
 				limit: 100,
 			});
+			if (!response.messages) return [];
 
 			allMessages.push(...response.messages);
 			cursor = response.response_metadata?.next_cursor;
@@ -44,8 +45,8 @@ export class SlackAPI {
 	async getConversationHistory(channelId: string, limit = 100) {
 		if (!channelId) throw new Error('Channel ID is required to fetch message history');
 
-		const history = [];
-		let cursor: string | null = null;
+		const history: MessageElement[] = [];
+		let cursor: string | undefined;
 		try {
 			while (true) {
 				const response = await this.client.conversations.history({
@@ -54,8 +55,10 @@ export class SlackAPI {
 					cursor: cursor,
 				});
 
+				if (!response.messages) return [];
+
 				history.push(...response.messages);
-				cursor = response.response_metadata?.next_cursor || null;
+				cursor = response.response_metadata?.next_cursor || undefined;
 				if (!cursor || cursor === '') break;
 			}
 		} catch (error) {
@@ -123,7 +126,7 @@ export class SlackAPI {
 		);
 
 		const allConversationIds: string[] = [];
-		let cursor: string | null = null;
+		let cursor: string | undefined;
 
 		// Phase 1: Get all conversation IDs
 		console.log('Phase 1: Fetching all accessible conversations (channels, DMs, MPIMs)...');
@@ -154,7 +157,7 @@ export class SlackAPI {
 		console.log('\nPhase 2: Fetching messages for each conversation on the target day...');
 		for (const channelId of allConversationIds) {
 			const channelMessages: any[] = [];
-			let msgCursor: string | null = null;
+			let msgCursor: string | undefined;
 			do {
 				try {
 					const res: ConversationsHistoryResponse = await this.client.conversations.history({
@@ -169,7 +172,7 @@ export class SlackAPI {
 					if (res.messages) {
 						channelMessages.push(...res.messages);
 					}
-					msgCursor = res.response_metadata?.next_cursor || null;
+					msgCursor = res.response_metadata?.next_cursor || undefined;
 				} catch (error: any) {
 					if (error.data?.error) {
 						switch (error.data.error) {

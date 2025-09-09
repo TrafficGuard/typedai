@@ -36,7 +36,7 @@ export function splitFileSystemTreeByFolder(fileTree: string, maxChars = FAST_TA
 
 export async function readFileContents(filePaths: string[], fs: IFileSystemService = getFileSystem()): Promise<{ contents: string; invalidPaths: string[] }> {
 	let contents = '<files>\n';
-	const invalidPaths = [];
+	const invalidPaths: string[] = [];
 
 	for (const filePath of filePaths) {
 		if (!filePath) continue;

@@ -52,7 +52,7 @@ export function getFunctionSchemas(instance: any): Record<string, FunctionSchema
  * @param instances
  */
 export function getAllFunctionSchemas(instances: any[]): FunctionSchema[] {
-	const schemas = [];
+	const schemas: FunctionSchema[] = [];
 	for (const instance of instances) {
 		schemas.push(...Object.values(getFunctionSchemas(instance)));
 	}

@@ -72,11 +72,11 @@ export class Blackberry extends BaseLLM {
 		super('Blueberry', 'MAD', 'blueberry', 200_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
 	}
 
-	isConfigured(): boolean {
+	overrideisConfigured(): boolean {
 		return this.mediator.isConfigured() && this.llms.findIndex((llm) => !llm.isConfigured()) === -1;
 	}
 
-	async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
+	override async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
 		if (systemPrompt) {
 			logger.error('system prompt not available for Blueberry');
 			// prepend to the user prompt?
@@ -91,7 +91,7 @@ export class Blackberry extends BaseLLM {
 	private async generateInitialResponses(userPrompt: string, systemPrompt?: string, opts?: GenerateTextOptions): Promise<string[]> {
 		return Promise.all(
 			this.llms.map((llm) =>
-				llm.generateText(systemPrompt, userPrompt, {
+				llm.generateText(systemPrompt!, userPrompt, {
 					...opts,
 					temperature: 0.8,
 				}),
@@ -109,7 +109,7 @@ export class Blackberry extends BaseLLM {
 					const leftNeighborIndex = (index - 1 + this.llms.length) % this.llms.length;
 					const rightNeighborIndex = (index + 1) % this.llms.length;
 					const newUserPrompt = `${responses[index]}\n\nBelow are responses from two other agents:\n<response-1>\n${responses[leftNeighborIndex]}\n</response-1>\n\n<response-2>\n${responses[rightNeighborIndex]}\n</response-2>\n\nUse the insights from all the responses to refine and update your answer in the same format.`;
-					return llm.generateText(systemPromptSrc, newUserPrompt, opts);
+					return llm.generateText(systemPromptSrc!, newUserPrompt, opts);
 				}),
 			);
 		}
@@ -151,6 +151,6 @@ Guidelines:
 - Ensure your final answer directly addresses the user's original question
         `;
 
-		return await this.mediator.generateText(systemPrompt, mergePrompt, opts);
+		return await this.mediator.generateText(systemPrompt!, mergePrompt, opts);
 	}
 }

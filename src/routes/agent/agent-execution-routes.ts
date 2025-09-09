@@ -33,7 +33,8 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance): Promise
 			// provideFeedback should ideally handle agent existence/ownership or call a service method that does
 			await provideFeedback(agentId!, executionId!, feedback!);
 			// Load the updated agent to return the state
-			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			const updatedAgent = await fastify.agentStateService.load(agentId!);
+			if (!updatedAgent) return sendNotFound(reply, `Agent ${agentId} not found`);
 			send(reply, 200, serializeContext(updatedAgent));
 		} catch (error) {
 			if (error instanceof NotFound) return sendNotFound(reply, error.message);
@@ -50,7 +51,8 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance): Promise
 			// resumeError should ideally handle agent existence/ownership or call a service method that does
 			await resumeError(agentId!, executionId!, feedback!);
 			// Load the updated agent to return the state
-			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			const updatedAgent = await fastify.agentStateService.load(agentId!);
+			if (!updatedAgent) return sendNotFound(reply, `Agent ${agentId} not found`);
 			send(reply, 200, serializeContext(updatedAgent));
 		} catch (error) {
 			if (error instanceof NotFound) return sendNotFound(reply, error.message);
@@ -66,7 +68,8 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance): Promise
 		try {
 			// resumeHil should ideally handle agent existence/ownership or call a service method that does
 			await resumeHil(agentId!, executionId!, feedback!);
-			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			const updatedAgent = await fastify.agentStateService.load(agentId!);
+			if (!updatedAgent) return sendNotFound(reply, `Agent ${agentId} not found`);
 			send(reply, 200, serializeContext(updatedAgent));
 		} catch (error) {
 			if (error instanceof NotFound) return sendNotFound(reply, error.message);
@@ -81,7 +84,8 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance): Promise
 		const { agentId, executionId } = req.body;
 
 		try {
-			const agent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			const agent = await fastify.agentStateService.load(agentId!);
+			if (!agent) return sendNotFound(reply, `Agent ${agentId} not found`);
 
 			if (agent.executionId !== executionId)
 				return sendBadRequest(reply, `Execution ID mismatch. Agent ${agentId} is currently on execution ${agent.executionId}.`);
@@ -90,6 +94,7 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance): Promise
 				logger.info(`HIL check already requested for agent ${agentId}, execution ${executionId}.`);
 				// Load again to ensure latest state is returned
 				const updatedAgent = await fastify.agentStateService.load(agentId!);
+				if (!updatedAgent) return sendNotFound(reply, `Agent ${agentId} not found`);
 				return send(reply, 200, serializeContext(updatedAgent));
 			}
 
@@ -98,6 +103,7 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance): Promise
 			await fastify.agentStateService.requestHumanInLoopCheck(agent);
 
 			const updatedAgent = await fastify.agentStateService.load(agentId!);
+			if (!updatedAgent) return sendNotFound(reply, `Agent ${agentId} not found`);
 			send(reply, 200, serializeContext(updatedAgent));
 		} catch (error: any) {
 			if (error instanceof NotFound) return sendNotFound(reply, error.message);
@@ -114,7 +120,8 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance): Promise
 			// cancelAgent should ideally handle agent existence/ownership or call a service method that does
 			await cancelAgent(agentId!, executionId!, reason!);
 			// Load the updated agent to return the state
-			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			const updatedAgent = await fastify.agentStateService.load(agentId!);
+			if (!updatedAgent) return sendNotFound(reply, `Agent ${agentId} not found`);
 			send(reply, 200, serializeContext(updatedAgent));
 		} catch (error) {
 			if (error instanceof NotFound) return sendNotFound(reply, error.message);
@@ -130,7 +137,8 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance): Promise
 
 		try {
 			await resumeCompleted(agentId!, executionId!, instructions!);
-			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			const updatedAgent = await fastify.agentStateService.load(agentId!);
+			if (!updatedAgent) return sendNotFound(reply, `Agent ${agentId} not found`);
 			send(reply, 200, serializeContext(updatedAgent));
 		} catch (error) {
 			if (error instanceof NotFound) return sendNotFound(reply, error.message);
@@ -146,7 +154,8 @@ export async function agentExecutionRoutes(fastify: AppFastifyInstance): Promise
 
 		try {
 			await fastify.agentStateService.updateFunctions(agentId!, functions!);
-			const updatedAgent = await fastify.agentStateService.load(agentId!); // load now throws NotFound/NotAllowed
+			const updatedAgent = await fastify.agentStateService.load(agentId!);
+			if (!updatedAgent) return sendNotFound(reply, `Agent ${agentId} not found`);
 			const serialized = serializeContext(updatedAgent);
 			reply.sendJSON(serialized);
 		} catch (error) {

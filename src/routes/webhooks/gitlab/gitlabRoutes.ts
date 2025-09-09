@@ -60,7 +60,7 @@ async function handlePipelineEvent(event: any) {
 	const fullProjectPath = event.project.path_with_namespace;
 	const user = event.user;
 	const miid = event.merge_request?.iid;
-	let failedLogs: Record<string, string>;
+	let failedLogs: Record<string, string> = {};
 
 	const gitlabId = `${fullProjectPath}:${miid ?? gitRef}`;
 

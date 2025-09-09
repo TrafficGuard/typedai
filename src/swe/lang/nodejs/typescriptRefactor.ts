@@ -60,7 +60,7 @@ export class TypescriptRefactor {
 
 		// It's good practice to type the node if possible, or ensure it has the 'rename' method.
 		// ts-morph's ClassDeclaration, InterfaceDeclaration, EnumDeclaration, etc., all have .rename().
-		let identifierNode: ClassDeclaration | InterfaceDeclaration | EnumDeclaration;
+		let identifierNode: ClassDeclaration | InterfaceDeclaration | EnumDeclaration | undefined;
 
 		switch (identifierType) {
 			case 'class':

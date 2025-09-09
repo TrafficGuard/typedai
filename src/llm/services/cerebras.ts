@@ -72,7 +72,7 @@ export class CerebrasLLM extends AiLLM<OpenAIProvider> {
 		super(displayName, CEREBRAS_SERVICE, model, maxInputTokens, calculateCosts, oldModelIds);
 	}
 
-	aiModel(): LanguageModelV2 {
+	override aiModel(): LanguageModelV2 {
 		const aiModel = super.aiModel();
 		if (this.getModel().includes('qwen-3')) {
 			return wrapLanguageModel({
@@ -83,13 +83,13 @@ export class CerebrasLLM extends AiLLM<OpenAIProvider> {
 		return aiModel;
 	}
 
-	protected provider(): any {
+	protected override provider(): any {
 		return createCerebras({
 			apiKey: this.apiKey(),
 		});
 	}
 
-	protected apiKey(): string | undefined {
+	protected override apiKey(): string | undefined {
 		let envKey: string | undefined;
 		if (CEREBRAS_KEYS.length) {
 			envKey = CEREBRAS_KEYS[cerebrasKeyIndex];

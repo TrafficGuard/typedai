@@ -138,7 +138,7 @@ async function runEvalOnSingleProblem(problemId: string, workspacePath: string):
 	const evalOutcomes = { is_success: false };
 
 	try {
-		const swebenchVenvPath = process.env.SWEBENCH_VENV_PATH || path.join(process.env.HOME, 'swebench_eval_tools_env');
+		const swebenchVenvPath = process.env.SWEBENCH_VENV_PATH || path.join(process.env.HOME!, 'swebench_eval_tools_env');
 		await runEvaluation(predictionsFile, 'princeton-nlp/SWE-bench', problemId, swebenchVenvPath);
 
 		const evalFile = path.join(workspacePath, `typedai-agent.${problemId}.json`);
@@ -165,7 +165,7 @@ export async function runAgentOnSingleProblem(
 	const workspacePath = path.join(workspaceBasePath, problemId, `rollout_${rolloutIdx}`);
 	await fs.mkdir(workspacePath, { recursive: true });
 
-	let containerId: string;
+	let containerId: string | undefined;
 	let repoPathOnHost: string;
 	let diff: string;
 	let duration: number;

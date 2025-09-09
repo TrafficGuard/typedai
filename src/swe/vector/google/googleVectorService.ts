@@ -108,8 +108,7 @@ export class GoogleVectorStore implements VectorStore {
 		const documentPromises = allChunks.map(async (chunk) => {
 			const embeddingVector = await this.embeddingService.generateEmbedding(chunk.contextualized_chunk_content, 'RETRIEVAL_DOCUMENT');
 			if (embeddingVector && embeddingVector.length > 0) {
-				chunk.embedding = embeddingVector;
-				return this.createDocument(chunk);
+				return this.createDocument(chunk, embeddingVector);
 			}
 			stats.failedChunksCount++;
 			logger.warn(`Skipping chunk in ${chunk.filePath} at line ${chunk.source_location.start_line} due to embedding failure.`);
@@ -146,7 +145,7 @@ export class GoogleVectorStore implements VectorStore {
 		return Buffer.from(identifier).toString('base64url');
 	}
 
-	private createDocument(chunk: ChunkWithFileContext): google.cloud.discoveryengine.v1beta.IDocument {
+	private createDocument(chunk: ChunkWithFileContext, embeddingVector: number[]): google.cloud.discoveryengine.v1beta.IDocument {
 		const docId = this.createDocumentId(chunk.filePath, chunk.chunk_type, chunk.source_location.start_line);
 
 		const document: google.cloud.discoveryengine.v1beta.IDocument = {
@@ -155,7 +154,7 @@ export class GoogleVectorStore implements VectorStore {
 			structData: struct.encode({
 				file_path: chunk.filePath,
 				original_code: chunk.original_chunk_content,
-				embedding_vector: chunk.embedding,
+				embedding_vector: embeddingVector,
 				lexical_search_text: chunk.contextualized_chunk_content,
 			}),
 		} as any;
@@ -202,9 +201,9 @@ export class GoogleVectorStore implements VectorStore {
 				if (result.document?.structData?.fields) {
 					const fields = result.document.structData.fields;
 					// Helper to safely extract string values from Struct fields
-					const getString = (fieldName: string): string | undefined => fields[fieldName]?.stringValue;
+					const getString = (fieldName: string): string | undefined => fields[fieldName]?.stringValue ?? undefined;
 					// Helper to safely extract number values
-					const getNumber = (fieldName: string): number | undefined => fields[fieldName]?.numberValue;
+					const getNumber = (fieldName: string): number | undefined => fields[fieldName]?.numberValue ?? undefined;
 					console.log(result);
 					const item: ChunkSearchResult = {
 						id: result.document.id ?? 'unknown-id',

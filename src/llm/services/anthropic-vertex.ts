@@ -64,11 +64,12 @@ export function ClaudeVertexLLMs(): AgentLLMs {
 
 const GCLOUD_PROJECTS: string[] = [];
 
+if (process.env.GCLOUD_PROJECT) GCLOUD_PROJECTS.push(process.env.GCLOUD_PROJECT);
+
 for (let i = 2; i <= 9; i++) {
-	const key = process.env[`GCLOUD_PROJECT_${i}`];
-	if (!key) break;
-	if (i === 2) GCLOUD_PROJECTS.push(process.env.GCLOUD_PROJECT);
-	GCLOUD_PROJECTS.push(key);
+	const projectId = process.env[`GCLOUD_PROJECT_${i}`];
+	if (!projectId) break;
+	GCLOUD_PROJECTS.push(projectId);
 }
 let gcloudProjectIndex = 0;
 
@@ -85,7 +86,7 @@ class AnthropicVertexLLM extends AiLLM<GoogleVertexAnthropicProvider> {
 	}
 
 	provider(): GoogleVertexAnthropicProvider {
-		let project: string;
+		let project: string | undefined;
 		if (GCLOUD_PROJECTS.length) {
 			project = GCLOUD_PROJECTS[gcloudProjectIndex];
 			if (++gcloudProjectIndex >= GCLOUD_PROJECTS.length) gcloudProjectIndex = 0;

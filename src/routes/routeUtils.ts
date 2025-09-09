@@ -14,16 +14,6 @@ import type { AppFastifyInstance } from '#app/applicationTypes';
 import type { RouteDefinition, RouteSchemaConfig } from '#shared/api-definitions';
 
 // Success-payload inference – mirrors the Angular helper
-// type InferSuccessResponse<TResponseSchemasMap extends Record<number, TSchema> | undefined> = TResponseSchemasMap extends undefined
-// 	? unknown
-// 	: TResponseSchemasMap[200] extends TSchema
-// 		? Static<TResponseSchemasMap[200]>
-// 		: TResponseSchemasMap[201] extends TSchema
-// 			? Static<TResponseSchemasMap[201]>
-// 			: TResponseSchemasMap[204] extends TSchema
-// 				? undefined
-// 				: unknown;
-// tsconfig strictNulls=true verison.  We need to check if the key exists before trying to access it.
 type InferSuccessResponse<TResponseSchemasMap extends Record<number, TSchema> | undefined> = TResponseSchemasMap extends undefined
 	? unknown
 	: 200 extends keyof TResponseSchemasMap
@@ -42,11 +32,12 @@ type InferSuccessResponse<TResponseSchemasMap extends Record<number, TSchema> | 
 
 // Helper type to construct RouteGenericInterface from a FastifySchema
 type RouteGenericFromSchema<Schema extends FastifySchema> = RouteGenericInterface & {
-	Body: Schema extends { body: infer B } ? B : unknown;
-	Querystring: Schema extends { querystring: infer Q } ? Q : unknown;
-	Params: Schema extends { params: infer P } ? P : unknown;
-	Headers: Schema extends { headers: infer H } ? H : unknown;
-	Reply: Schema extends { response: infer R } ? R : unknown; // This represents the schema for all responses
+	Body: Schema extends { body?: infer B } ? (B extends TSchema ? Static<B> : unknown) : unknown;
+	Querystring: Schema extends { querystring?: infer Q } ? (Q extends TSchema ? Static<Q> : unknown) : unknown;
+	Params: Schema extends { params?: infer P } ? (P extends TSchema ? Static<P> : unknown) : unknown;
+	Headers: Schema extends { headers?: infer H } ? (H extends TSchema ? Static<H> : unknown) : unknown;
+	// Keep Reply as-is (Fastify handles response map)
+	Reply: Schema extends { response?: infer R } ? R : unknown;
 };
 
 /**

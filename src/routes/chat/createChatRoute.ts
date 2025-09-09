@@ -98,6 +98,6 @@ export async function createChatRoute(fastify: AppFastifyInstance): Promise<void
 
 		const savedChat = await fastify.chatService.saveChat(chat);
 
-		reply.code(201).sendJSON(savedChat);
+		reply.sendJSON(savedChat);
 	});
 }

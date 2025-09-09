@@ -50,8 +50,9 @@ export class CodeEditingAgent {
 	): Promise<void> {
 		if (!requirements) throw new Error('The argument "requirements" must be provided');
 
-		let projectInfo: ProjectInfo = altOptions?.projectInfo;
+		let projectInfo: ProjectInfo | null | undefined = altOptions?.projectInfo;
 		projectInfo ??= await getProjectInfo();
+		if (!projectInfo) throw new Error('Project info not found');
 
 		const fss: IFileSystemService = getFileSystem();
 		if (altOptions?.workingDirectory) fss.setWorkingDirectory(altOptions.workingDirectory);
@@ -96,8 +97,9 @@ export class CodeEditingAgent {
 			logger.error(`File selection was type ${typeof fileSelection}. Value: ${JSON.stringify(fileSelection)}`);
 			throw new Error(`If fileSelection is provided it must be an array. Was type ${typeof fileSelection}`);
 		}
-		let projectInfo: ProjectInfo = altOptions?.projectInfo;
+		let projectInfo: ProjectInfo | null | undefined = altOptions?.projectInfo;
 		projectInfo ??= await getProjectInfo(true);
+		if (!projectInfo) throw new Error('Project info not found');
 
 		const fss: IFileSystemService = getFileSystem();
 		if (altOptions?.workingDirectory) fss.setWorkingDirectory(altOptions.workingDirectory);
@@ -192,7 +194,7 @@ export class CodeEditingAgent {
 		let compileErrorSummaries: string[] = [];
 		/* The git commit sha of the last commit which compiled successfully. We store this so when there are one or more commits
 		   which don't compile, we can provide the diff since the last good commit to help identify causes of compile issues. */
-		let compiledCommitSha: string | null = agentContext().memory.compiledCommitSha;
+		let compiledCommitSha: string | null = agentContext()!.memory.compiledCommitSha;
 
 		const fs: IFileSystemService = getFileSystem();
 		const git = fs.getVcs();
@@ -205,7 +207,7 @@ export class CodeEditingAgent {
 					await this.compile(projectInfo);
 					const headSha = await git.getHeadSha();
 					if (compiledCommitSha !== headSha) {
-						const agent = agentContext();
+						const agent = agentContext()!;
 						agent.memory.compiledCommitSha = headSha;
 						await appContext().agentStateService.save(agent);
 					}
@@ -291,7 +293,7 @@ export class CodeEditingAgent {
 
 				// Update the compiled commit state
 				compiledCommitSha = await git.getHeadSha();
-				const agent = agentContext();
+				const agent = agentContext()!;
 				agent.memory.compiledCommitSha = compiledCommitSha;
 				await appContext().agentStateService.save(agent);
 				compileErrorAnalysis = null;
@@ -433,7 +435,7 @@ export class CodeEditingAgent {
 	//
 	async testLoop(requirements: string, projectInfo: ProjectInfo, initialSelectedFiles: string[]): Promise<CompileErrorAnalysis | null> {
 		if (!projectInfo.test || projectInfo.test.length === 0) return null;
-		let testErrorOutput = null;
+		let testErrorOutput = '';
 		let errorAnalysis: CompileErrorAnalysis | null = null;
 		const compileErrorHistory = [];
 		const MAX_ATTEMPTS = 2;
@@ -447,7 +449,7 @@ export class CodeEditingAgent {
 				errorAnalysis = null;
 				break;
 			} catch (e) {
-				testErrorOutput = e.message;
+				testErrorOutput = e.message || 'Unknown error';
 				logger.info(`Test error output: ${testErrorOutput}`);
 				errorAnalysis = await analyzeCompileErrors(testErrorOutput, initialSelectedFiles, compileErrorHistory);
 			}

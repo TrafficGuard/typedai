@@ -14,7 +14,7 @@ import { generateFileSystemTreeWithSummaries } from '#swe/index/repositoryMap';
  * @return An XML representation of the agent's memory
  */
 export async function buildMemoryPrompt(): Promise<string> {
-	const memory = agentContext().memory;
+	const memory = agentContext()!.memory;
 	let result = '<memory>\n';
 	for (const mem of Object.entries(memory)) {
 		const tokens = await countTokens(mem[1]);
@@ -42,7 +42,7 @@ export async function buildFileSystemTreePrompt(): Promise<string> {
 	let collapsedFolders: string[] = agent.toolState?.FileSystemTree ?? [];
 	if (!Array.isArray(collapsedFolders)) {
 		logger.warn(`agent.toolState.FileSystemTree was not an array (type: ${typeof collapsedFolders}). Defaulting to empty array.`, {
-			currentToolState: agent.toolState.FileSystemTree,
+			currentToolState: agent.toolState?.FileSystemTree,
 		});
 		collapsedFolders = [];
 	}
@@ -70,7 +70,7 @@ ${treeString}
  * @return An XML representation of the FileSystemService tool state
  */
 async function buildFileSystemServicePrompt(): Promise<string> {
-	const functions = agentContext().functions;
+	const functions = agentContext()!.functions;
 	const hasAnyFileSystemFunction = functions.getFunctionClassNames().some((name) => name.startsWith('FileSystem'));
 	if (!hasAnyFileSystemFunction) return '';
 	const fss = getFileSystem();
@@ -87,7 +87,7 @@ async function buildFileSystemServicePrompt(): Promise<string> {
  * @return An XML representation of the FileStore tool if one exists in the agents functions
  */
 async function buildFileStorePrompt(): Promise<string> {
-	const fileStore = agentContext().functions.getFunctionType('filestore') as FileStore;
+	const fileStore = agentContext()!.functions.getFunctionType('filestore') as FileStore;
 	if (!fileStore) return '';
 	const files: FileMetadata[] = await fileStore.listFiles();
 	if (!files.length) return '';
@@ -102,10 +102,10 @@ ${JSON.stringify(files)}
  * along with the relevant documentation files for the AI
  */
 async function buildLiveFilesPrompt(): Promise<string> {
-	const agent = agentContext();
+	const agent = agentContext()!;
 	if (!agent.functions.getFunctionClassNames().includes(LiveFiles.name)) return '';
 
-	const liveFiles = agentContext().toolState?.LiveFiles ?? [];
+	const liveFiles = agent.toolState?.LiveFiles ?? [];
 	if (!liveFiles || !liveFiles.length)
 		return '\n<live_files>\n<!-- No files selected. Live files will have their current contents displayed here -->\n</live_files>';
 
@@ -133,7 +133,7 @@ ${await getFileSystem().readFilesAsXml(liveFiles, true)}
  * of the returned string
  */
 export function buildFunctionCallHistoryPrompt(type: 'history' | 'results', maxLength = 20000, fromIndex = 0, toIndex = 0): string {
-	const fullHistory = agentContext().functionCallHistory;
+	const fullHistory = agentContext()!.functionCallHistory;
 	if (fullHistory.length === 0) return `<function_call_${type}>\n</function_call_${type}>\n`;
 
 	const functionCalls = fullHistory.slice(fromIndex, toIndex === 0 ? fullHistory.length : toIndex);
