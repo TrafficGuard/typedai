@@ -356,7 +356,7 @@ Respond with a valid JSON object that follows the required schema.`,
 				// This logic to remove 'ephemeral' status from older messages can be kept or revised.
 				// For now, keeping it as is, as it's not the primary focus of the fixes.
 				const firstEphemeralToClear = messages.find((msg, index) => {
-					const originalIndex = messages.indexOf(cachedMessages[1]);
+					const originalIndex = messages.indexOf(cachedMessages[1]!);
 					return index === originalIndex;
 				});
 				if (firstEphemeralToClear) firstEphemeralToClear.cache = undefined;

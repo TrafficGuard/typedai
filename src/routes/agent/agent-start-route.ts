@@ -39,7 +39,7 @@ export async function agentStartRoute(fastify: AppFastifyInstance): Promise<void
 			agentName: agentName,
 			initialPrompt: initialPrompt,
 			type: type as AgentType,
-			subtype: subtype,
+			subtype: subtype ?? '',
 			humanInLoop: humanInLoop, // Pass the object directly; startAgent should handle if undefined
 			llms: {
 				easy: getLLM(llms.easy),

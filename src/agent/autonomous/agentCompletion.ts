@@ -56,6 +56,7 @@ export function stateNotificationMessage(agent: AgentContext): string {
 }
 
 export function getLastFunctionCallArg(agent: AgentContext): any {
-	const result: FunctionCallResult = agent.functionCallHistory.slice(-1)[0];
-	return Object.values(result.parameters)[0];
+	if (agent.functionCallHistory.length === 0) return undefined;
+	const lastCall = agent.functionCallHistory.slice(-1)![0]!;
+	return Object.values(lastCall.parameters)[0];
 }

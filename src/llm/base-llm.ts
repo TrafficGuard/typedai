@@ -102,9 +102,9 @@ export abstract class BaseLLM implements LLM {
 		const { messages, options } = this.parseGenerateTextParameters(userOrSystemOrMessages, userOrOpts, opts);
 		if (!this.supportsGenerateTextFromMessages()) {
 			if (messages.length > 2) throw new Error('LLM service/model doesnt support multiple user messages');
-			const hasSystemPrompt = messages[0].role === 'system';
-			const systemPrompt = hasSystemPrompt ? (messages[0].content as string) : undefined;
-			const userPrompt = hasSystemPrompt ? (messages[1].content as string) : (messages[0].content as string);
+			const hasSystemPrompt = messages[0]!.role === 'system';
+			const systemPrompt = hasSystemPrompt ? (messages[0]!.content as string) : undefined;
+			const userPrompt = hasSystemPrompt ? (messages[1]!.content as string) : (messages[0]!.content as string);
 			const theOpts = typeof userOrOpts === 'string' ? opts : userOrOpts;
 			return this._generateText(systemPrompt, userPrompt, theOpts);
 		}
@@ -244,7 +244,7 @@ export abstract class BaseLLM implements LLM {
 		if (!agent) return '';
 		const arr: string[] = agent.callStack;
 		if (!arr || arr.length === 0) return '';
-		if (arr.length === 1) return arr[0];
+		if (arr.length === 1) return arr[0]!;
 		// Remove duplicates from when we call multiple in parallel, eg in findFilesToEdit
 		let i = arr.length - 1;
 		while (i > 0 && arr[i] === arr[i - 1]) {

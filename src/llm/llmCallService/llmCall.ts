@@ -10,7 +10,7 @@ export function callStack(agent?: AgentContext): string {
 	if (!agent) return '';
 	let arr: string[] = agent.callStack;
 	if (!arr || arr.length === 0) return '';
-	if (arr.length === 1) return arr[0];
+	if (arr.length === 1) return arr[0]!;
 
 	// Remove the common spans
 	arr.shift();

@@ -23,9 +23,9 @@ export class FastMediumLLM extends BaseLLM {
 			totalCost: 0,
 		}));
 		this.providers = [cerebrasQwen3_235b_Thinking(), openaiGPT5mini(), vertexGemini_2_5_Flash({ thinking: 'high' })];
-		this.cerebras = this.providers[0];
-		this.openai = this.providers[1];
-		this.gemini = this.providers[2];
+		this.cerebras = this.providers[0]!;
+		this.openai = this.providers[1]!;
+		this.gemini = this.providers[2]!;
 
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}

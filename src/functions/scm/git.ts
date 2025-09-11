@@ -286,7 +286,7 @@ export class Git implements VersionControlSystem {
 				}
 			}
 
-			commits.push({ title, description, diffs });
+			commits.push({ title: title!, description, diffs });
 		}
 
 		return commits;

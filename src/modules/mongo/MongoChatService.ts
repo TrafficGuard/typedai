@@ -286,7 +286,8 @@ export class MongoChatService implements ChatService {
 							}
 
 							if (dataToSizeCheck && originalDataField && !isAlreadyExternalPlaceholder) {
-								const partSize = typeof dataToSizeCheck === 'string' ? Buffer.byteLength(dataToSizeCheck, 'utf8') : dataToSizeCheck.byteLength;
+								const dataToSizeCheckTyped = dataToSizeCheck as string | Uint8Array | Buffer;
+								const partSize = typeof dataToSizeCheckTyped === 'string' ? Buffer.byteLength(dataToSizeCheckTyped, 'utf8') : dataToSizeCheckTyped.byteLength;
 								if (partSize > MAX_PART_SIZE_BYTES) {
 									const placeholderAssetId = randomUUID();
 									// LlmMessage doesn't have a persistent ID, generate one for the placeholder path

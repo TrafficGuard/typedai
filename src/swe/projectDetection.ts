@@ -95,7 +95,7 @@ export function normalizeScriptCommandToArray(command: ScriptCommand | undefined
 
 export function normalizeScriptCommandToFileFormat(commands: string[]): ScriptCommand {
 	if (commands.length === 0) return '';
-	if (commands.length === 1) return commands[0];
+	if (commands.length === 1) return commands[0]!;
 	return commands;
 }
 
@@ -283,8 +283,8 @@ export async function getProjectInfo(autoDetect = false): Promise<ProjectInfo | 
 	}
 
 	if (infos.length === 1) {
-		logger.debug(`getProjectInfo: Exactly one project found: ${infos[0].baseDir}`);
-		return infos[0];
+		logger.debug(`getProjectInfo: Exactly one project found: ${infos[0]!.baseDir}`);
+		return infos[0]!;
 	}
 
 	// Multiple projects
@@ -296,7 +296,7 @@ export async function getProjectInfo(autoDetect = false): Promise<ProjectInfo | 
 	}
 
 	logger.warn('getProjectInfo: Multiple projects detected/loaded, but no primary project is designated. Returning the first project as a fallback.');
-	return infos[0]; // Fallback to the first project if no primary
+	return infos[0]!; // Fallback to the first project if no primary
 }
 
 export function getLanguageTools(type: LanguageRuntime | ''): LanguageTools | null {

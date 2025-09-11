@@ -48,7 +48,7 @@ export async function settleAllWithInput<T, R>(inputs: T[], asyncFn: (input: T) 
 
 	// Iterate through the settled results, using the index to link back to the original input.
 	settledResults.forEach((result, index) => {
-		const originalInput = inputs[index];
+		const originalInput = inputs[index]!;
 
 		if (result.status === 'fulfilled') {
 			// TypeScript knows `result.value` is of type R here.

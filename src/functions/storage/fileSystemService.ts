@@ -805,7 +805,7 @@ export class FileSystemService implements IFileSystemService {
 			const parts = file.split(path.sep);
 			const isFile = !file.endsWith('/');
 			const dirPath = isFile ? parts.slice(0, -1).join(path.sep) : file;
-			const fileName = isFile ? parts[parts.length - 1] : '';
+			const fileName = isFile && parts.length ? parts[parts.length - 1]! : '';
 
 			if (!tree[dirPath]) tree[dirPath] = [];
 
@@ -1019,13 +1019,13 @@ export class FileSystemService implements IFileSystemService {
 function compactRipgrepOutput(raw: string): string {
 	if (!raw.trim()) return raw;
 	const out: string[] = [];
-	let currentFile: string | null = null;
+	let currentFile: string | undefined;
 
 	for (const line of raw.split('\n')) {
 		if (line === '--') {
 			// section separator
 			out.push('--');
-			currentFile = null; // force header on next real line
+			currentFile = undefined; // force header on next real line
 			continue;
 		}
 		const match = /^(.+?)([:\-])(.*)$/.exec(line); // filePath + ':' | '-' + rest
@@ -1040,7 +1040,7 @@ function compactRipgrepOutput(raw: string): string {
 			currentFile = file;
 			out.push(`${file}:`);
 		}
-		out.push(`${delim} ${rest.trimStart()}`); // keep “- ” or “: ” indicator
+		out.push(`${delim} ${rest!.trimStart()}`); // keep “- ” or “: ” indicator
 	}
 	return out.join('\n');
 }

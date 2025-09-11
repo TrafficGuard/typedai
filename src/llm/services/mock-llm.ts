@@ -121,7 +121,7 @@ export class MockLLM extends BaseLLM {
 	getLastCall(): MockLLMCall | undefined {
 		// last *real* call
 		for (let i = this.calls.length - 1; i >= 0; i--) {
-			if (!this.calls[i].synthetic) return this.calls[i];
+			if (!this.calls[i]!.synthetic) return this.calls[i];
 		}
 		return undefined;
 	}

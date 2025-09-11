@@ -63,7 +63,7 @@ export function func() {
 			const functionName = `${className}${FUNC_SEP}${methodName}`;
 			// NOTE - modification, build attributeExtractors from all the arguments
 			const funcDefinitions = getFunctionSchemas(this);
-			let funcDef: FunctionSchema = funcDefinitions[functionName];
+			let funcDef: FunctionSchema | undefined = funcDefinitions[functionName];
 			if (!funcDef) {
 				// Same hack in LlmFunction.ts
 				funcDef = funcDefinitions[methodName];

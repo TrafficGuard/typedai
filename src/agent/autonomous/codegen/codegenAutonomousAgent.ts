@@ -159,7 +159,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				let requestFeedbackCallResult: FunctionCallResult | null = null;
 				if (agent.functionCallHistory.length && agent.functionCallHistory.at(-1)!.function_name === AGENT_REQUEST_FEEDBACK) {
 					historyEndIndex--;
-					requestFeedbackCallResult = agent.functionCallHistory[historyEndIndex]; // Get the feedback call
+					requestFeedbackCallResult = agent.functionCallHistory[historyEndIndex]!; // Get the feedback call
 				}
 
 				// Build the agent planning prompt messages
@@ -492,6 +492,7 @@ function setupPyodideFunctionProxies(
 
 	for (const schema of functionSchemas) {
 		const [className, method] = schema.name.split(FUNC_SEP);
+		if (!className || !method) throw new Error(`Invalid function schema name: ${schema.name}`);
 		jsFunctionProxies[`_${schema.name}`] = async (...args: any[]) => {
 			// logger.info(`args ${JSON.stringify(args)}`); // Can be very verbose
 			// The system prompt instructs the generated code to use positional arguments.
@@ -503,7 +504,7 @@ function setupPyodideFunctionProxies(
 			// so the conversion block below is no longer needed and has been removed.
 
 			try {
-				const functionResponse = await functionInstances[className][method](...finalArgs);
+				const functionResponse = await functionInstances[className]![method](...finalArgs);
 				// Don't need to duplicate the content in the function call history
 				// TODO Would be nice to save over-written memory keys for history/debugging
 				let stdout = removeConsoleEscapeChars(functionResponse);
@@ -727,7 +728,7 @@ function createPromptTagSummary(content: string, maxLength: number): string {
 	let endStr = '';
 	let currentLength = 0;
 	for (let i = 0; i < content.length; i++) {
-		const char = content[i];
+		const char = content[i]!;
 		const charLen = Buffer.byteLength(char, 'utf8');
 		if (currentLength + charLen > halfMaxLength) break;
 		startStr += char;
@@ -736,7 +737,7 @@ function createPromptTagSummary(content: string, maxLength: number): string {
 
 	currentLength = 0;
 	for (let i = content.length - 1; i >= 0; i--) {
-		const char = content[i];
+		const char = content[i]!;
 		const charLen = Buffer.byteLength(char, 'utf8');
 		if (currentLength + charLen > halfMaxLength) break;
 		endStr = char + endStr;

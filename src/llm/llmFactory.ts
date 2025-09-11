@@ -80,9 +80,9 @@ export function getLLM(llmId: string): LLM {
 		return LLM_FACTORY[llmId]();
 	}
 	// Check substring matching
-	for (const key of llmRegistryKeys()) {
+	for (const key of Object.keys(LLM_FACTORY)) {
 		if (llmId.startsWith(key)) {
-			return LLM_FACTORY[key]();
+			return LLM_FACTORY[key]!();
 		}
 	}
 	if (llmId === 'multi:multi') {
@@ -92,6 +92,7 @@ export function getLLM(llmId: string): LLM {
 	// Check for old model names
 	llmTypes(); // ensure model migrations are initialized
 	const [id, model] = llmId.split(':');
+	if (!id || !model) throw new Error(`Invalid LLM id ${llmId}`);
 	if (modelMigrations[model]) return getLLM(`${id}:${modelMigrations[model]}`);
 
 	throw new Error(`No LLM registered with id ${llmId}`);

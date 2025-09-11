@@ -100,6 +100,7 @@ export class LlmFunctionsImpl implements LlmFunctions {
 
 	async callFunction(functionCall: FunctionCall): Promise<any> {
 		const [functionClass, functionName] = functionCall.function_name.split(FUNC_SEP);
+		if (!functionClass || !functionName) throw new Error(`Invalid function name: ${functionCall.function_name}`);
 		const functionClassInstance = this.functionInstances[functionClass];
 		if (!functionClassInstance) throw new Error(`Function class ${functionClass} does not exist`);
 		const func = functionClassInstance[functionName];

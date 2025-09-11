@@ -92,7 +92,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		hilCount,
 		budgetRemaining: hilBudget,
 		cost: 0,
-		llms: config.llms, // we can't do `?? defaultLLMs()` as compiling breaks from import cycle dependencies,
+		llms: config.llms!, // we can't do `?? defaultLLMs()` as compiling breaks from import cycle dependencies,
 		fileSystem,
 		useSharedRepos: config.useSharedRepos ?? true, // Apply default if not provided in config
 		functions: Array.isArray(config.functions) ? new LlmFunctionsImpl(...config.functions) : (config.functions ?? new LlmFunctionsImpl()),

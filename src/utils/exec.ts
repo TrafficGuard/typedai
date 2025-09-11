@@ -433,12 +433,12 @@ export async function runShellCommand(cmd: string, opts?: ExecCmdOptions): Promi
 
 				if (commandOutput.includes(commandDoneMarker)) {
 					const parts = commandOutput.split(commandDoneMarker);
-					stdout = parts[0];
-					const exitCodeMatch = parts[1].match(/EXIT_CODE:(\d+)/);
+					stdout = parts[0]!;
+					const exitCodeMatch = parts[1]!.match(/EXIT_CODE:(\d+)/);
 					if (!exitCodeMatch) {
 						logger.error({ commandOutput }, 'Could not parse exit code from command output');
 					}
-					const exitCode = exitCodeMatch ? Number.parseInt(exitCodeMatch[1], 10) : 0;
+					const exitCode = exitCodeMatch ? Number.parseInt(exitCodeMatch[1]!, 10) : 0;
 
 					// Clean up listeners
 					child.stdout.off('data', onStdoutData);

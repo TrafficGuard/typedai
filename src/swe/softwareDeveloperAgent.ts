@@ -32,7 +32,7 @@ export class SoftwareDeveloperAgent {
 		const requirementsSummary = await this.summariseRequirements(requirements);
 
 		// Select the Git project. If scmFullProjectPath is provided and matches a project, then skip the LLM search
-		let gitProject: GitProject;
+		let gitProject: GitProject | undefined;
 		let selectProjectRequirements = requirementsSummary;
 		if (scmFullProjectPath) {
 			gitProject = (await scm.getProjects()).find((project) => project.fullPath.toLowerCase() === scmFullProjectPath.toLowerCase());
@@ -103,7 +103,7 @@ export class SoftwareDeveloperAgent {
 	}
 
 	// @cacheRetry()
-	async detectProjectInfo(): Promise<ProjectInfo[]> {
+	async detectProjectInfo(): Promise<ProjectInfo[] | null> {
 		return await getProjectInfos();
 	}
 
@@ -113,7 +113,7 @@ export class SoftwareDeveloperAgent {
 	 */
 	async detectSingleProjectInfo(): Promise<ProjectInfo> {
 		const projectInfos = await this.detectProjectInfo();
-		if (projectInfos.length !== 1) throw new Error('detected project info length != 1');
+		if (!projectInfos || projectInfos.length !== 1) throw new Error('detected project info length != 1');
 		const projectInfo = projectInfos[0];
 		logger.info(projectInfo, `Detected project info ${Object.keys(projectInfo).join(', ')}`);
 		return projectInfo;

@@ -57,7 +57,7 @@ function convertDataContentToString(content: string | URL | Uint8Array | ArrayBu
 			let binary = '';
 			const len = content.byteLength;
 			for (let i = 0; i < len; i++) {
-				binary += String.fromCharCode(content[i]);
+				binary += String.fromCharCode(content[i]!);
 			}
 			return btoa(binary);
 		}
@@ -67,7 +67,7 @@ function convertDataContentToString(content: string | URL | Uint8Array | ArrayBu
 			let binary = '';
 			const len = uint8Array.byteLength;
 			for (let i = 0; i < len; i++) {
-				binary += String.fromCharCode(uint8Array[i]);
+				binary += String.fromCharCode(uint8Array[i]!);
 			}
 			return btoa(binary);
 		}
@@ -227,7 +227,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 			});
 
 			if (!combinedOpts.id) {
-				const lastMessage = llmMessages[llmMessages.length - 1];
+				const lastMessage = llmMessages[llmMessages.length - 1]!;
 				const lastMessageText = messageText(lastMessage);
 				const promptPreview = lastMessageText.length > 50 ? `${lastMessageText.slice(0, 50)}...` : lastMessageText;
 				console.log(new Error(`No generateMessage id provided. (${promptPreview})`));
@@ -453,7 +453,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 			};
 
 			// messages =
-			const responseMessage = response.messages[0];
+			const responseMessage = response.messages[0]!;
 			let assistantResponseMessageContent: AssistantContentExt;
 
 			if (typeof responseMessage.content === 'string') {

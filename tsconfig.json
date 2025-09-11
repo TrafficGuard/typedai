@@ -11,7 +11,7 @@
     "target": "es2023",
     "outDir": "dist",
     "noImplicitAny": false,
-    "strictNullChecks": false,
+    "strictNullChecks": true,
     "exactOptionalPropertyTypes": false,
     "useUnknownInCatchVariables": false,
     "noImplicitReturns": true,

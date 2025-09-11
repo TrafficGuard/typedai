@@ -113,11 +113,11 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 	const functionSchemas: Record<string, FunctionSchema> = {};
 
 	classes.forEach((cls: ClassDeclaration) => {
-		const className = cls.getName();
+		const className = cls.getName()!;
 
 		cls.getMethods().forEach((method: MethodDeclaration) => {
 			const methodName = method.getName();
-			const methodDescription = method.getJsDocs()[0]?.getDescription().trim();
+			const methodDescription = method.getJsDocs()[0]?.getDescription().trim() ?? '';
 
 			const hasFuncDecorator = method.getDecorators().some((decorator: Decorator) => decorator.getName() === FUNC_DECORATOR_NAME);
 			if (!hasFuncDecorator) return;
@@ -127,12 +127,12 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 				return;
 			}
 
-			const jsDocs: JSDoc = method.getJsDocs()[0];
+			const jsDocs: JSDoc | undefined = method.getJsDocs()[0];
 			let returns = '';
 			let returnType = '';
 			const paramDescriptions = {};
 			let paramIndex = 0;
-			jsDocs.getTags().forEach((tag: JSDocTag) => {
+			jsDocs?.getTags().forEach((tag: JSDocTag) => {
 				if (tag.getTagName() === 'returns' || tag.getTagName() === 'return') {
 					returnType = method.getReturnType().getText();
 					// Remove Promise wrapper if present
@@ -161,19 +161,19 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 					// remove the @param tag
 					let descriptionParts = text.split(' ').slice(1);
 					// remove the type if there is one
-					if (descriptionParts[0].startsWith('{')) {
+					if (descriptionParts[0]?.startsWith('{')) {
 						const closingBrace = descriptionParts.findIndex((value) => value.trim().endsWith('}'));
 						descriptionParts = descriptionParts.slice(closingBrace + 1);
 					}
 					// Remove the arg name, which must match the actual argument name
-					const argName = method.getParameters()[paramIndex]?.getName();
-					if (descriptionParts[0].trim() === argName) {
+					const argName = method.getParameters()[paramIndex]?.getName()!;
+					if (descriptionParts[0]?.trim() === argName) {
 						descriptionParts = descriptionParts.slice(1);
 						paramIndex++;
 					} else {
 						throw new Error(`JSDoc param name ${descriptionParts[0]} does not match arg name ${argName} for ${className}.${methodName}`);
 					}
-					if (descriptionParts[0] === '-') {
+					if (descriptionParts[0]?.trim() === '-') {
 						descriptionParts = descriptionParts.slice(1);
 					}
 					let description = descriptionParts.join(' ');

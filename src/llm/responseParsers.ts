@@ -21,9 +21,9 @@ export function parseFunctionCallsXml(response: string): FunctionCalls {
 
 	const functionCalls = doc.getElementsByTagName('function_call');
 	for (let i = 0; i < functionCalls.length; i++) {
-		const functionCall = functionCalls[i];
+		const functionCall = functionCalls[i]!;
 
-		const functionName = functionCall.getElementsByTagName('function_name')[0].textContent;
+		const functionName = functionCall.getElementsByTagName('function_name')[0]!.textContent!;
 		const parameters: { [key: string]: string } = {};
 		const params = functionCall.getElementsByTagName('parameters')[0];
 		if (params) {
@@ -34,15 +34,15 @@ export function parseFunctionCallsXml(response: string): FunctionCalls {
 				const param = node as Element;
 
 				if (param.tagName === 'parameter') {
-					const paramName = param.getElementsByTagName('name')[0].textContent.trim();
-					const paramValue = param.getElementsByTagName('value')[0].textContent.trim();
+					const paramName = param.getElementsByTagName('name')[0]!.textContent!.trim();
+					const paramValue = param.getElementsByTagName('value')[0]!.textContent!.trim();
 					// const param = params[j];
 					// const paramName = param.tagName;
 					// const paramValue = param.textContent;
 					parameters[paramName] = paramValue;
 				} else {
 					const paramName = param.tagName;
-					const paramValue = param.textContent;
+					const paramValue = param.textContent ?? '';
 					parameters[paramName] = paramValue;
 				}
 			}
@@ -84,13 +84,13 @@ export function extractJsonResult(rawText: string): any {
 		const regex = /```[jJ][sS][oO][nN]\n({.*})\n```/s;
 		const match = regex.exec(text);
 		if (match) {
-			return parseJson(match[1], rawText);
+			return parseJson(match[1]!, rawText);
 		}
 
 		const regexXml = /(?:[\s\S]*)<json>\s*([\s\S]+?)\s*<\/json>/is;
 		const matchXml = regexXml.exec(text);
 		if (matchXml) {
-			let match = matchXml[1].trim();
+			let match = matchXml[1]!.trim();
 			if (match.startsWith('```json') && text.endsWith('```')) match = match.slice(7, -3);
 			return parseJson(match, rawText);
 		}
@@ -142,7 +142,7 @@ export function extractTag(response: string, tagName: string): string {
 
 	if (!matchXml) throw new Error(`Could not find <${tagName}></${tagName}> in the response \n${response}`);
 
-	return matchXml[1].trim();
+	return matchXml[1]!.trim();
 }
 
 /**
@@ -168,13 +168,13 @@ export function extractReasoningAndJson<T>(rawText: string): { reasoning: string
 	// Try to match the XML block first, as it might encapsulate a markdown block
 	const xmlMatch = text.match(xmlRegex);
 	if (xmlMatch) {
-		reasoning = xmlMatch[1].trim();
-		const xmlContent = xmlMatch[2].trim();
+		reasoning = xmlMatch[1]!.trim();
+		const xmlContent = xmlMatch[2]!.trim();
 
 		// Check if the content of the <json> block is itself a ```json ... ``` block
 		const innerMdMatch = xmlContent.match(/^```[jJ][sS][oO][nN]\s*([\s\S]+?)\s*```$/s);
 		if (innerMdMatch) {
-			jsonString = innerMdMatch[1].trim();
+			jsonString = innerMdMatch[1]!.trim();
 		} else {
 			jsonString = xmlContent; // Content is plain JSON
 		}
@@ -182,8 +182,8 @@ export function extractReasoningAndJson<T>(rawText: string): { reasoning: string
 		// No XML block found, try to match a Markdown block
 		const mdMatch = text.match(mdRegex);
 		if (mdMatch) {
-			reasoning = mdMatch[1].trim();
-			jsonString = mdMatch[2].trim();
+			reasoning = mdMatch[1]!.trim();
+			jsonString = mdMatch[2]!.trim();
 		}
 	}
 

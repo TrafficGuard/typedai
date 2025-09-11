@@ -24,8 +24,8 @@ export class FastEasyLLM extends BaseLLM {
 		}));
 		// Define the providers and their priorities. Lower number = higher priority
 		this.providers = [groqLlama4_Scout(), vertexGemini_2_5_Flash()]; // , vertexGemini_2_5_Flash_Lite()
-		this.groqScout = this.providers[0];
-		this.gemini = this.providers[1];
+		this.groqScout = this.providers[0]!;
+		this.gemini = this.providers[1]!;
 
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}

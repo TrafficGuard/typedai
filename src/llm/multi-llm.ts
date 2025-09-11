@@ -42,8 +42,8 @@ export class MultiLLM extends BaseLLM {
 
 		const response = await llms().hard.generateTextWithResult(selectBestResponsePrompt(responses, userPrompt, systemPrompt));
 		const index = Number.parseInt(response) - 1; // sub 1 as responses are indexed from 1 in the prompt
-		logger.info(`Best response was from ${calls[index].model}`);
-		return messageText(responses[index]);
+		logger.info(`Best response was from ${calls[index]!.model}`);
+		return messageText(responses[index]!);
 	}
 
 	override getMaxInputTokens(): number {

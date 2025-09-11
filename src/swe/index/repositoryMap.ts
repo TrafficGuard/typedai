@@ -58,7 +58,7 @@ export async function generateRepositoryMaps(projectInfos: ProjectInfo[]): Promi
 	let languageProjectMap = '';
 	if (projectInfos.length > 0) {
 		const projectInfo = projectInfos[0];
-		if (projectInfo.languageTools) {
+		if (projectInfo?.languageTools) {
 			languageProjectMap = await projectInfo.languageTools.generateProjectMap();
 			logger.info(`languageProjectMap ${await countTokens(languageProjectMap)}`);
 		}
@@ -165,7 +165,7 @@ export async function buildFolderStructure(dirPath: string, fileSystemService: I
 	const ig = await fileSystemService.loadGitignoreRules(absoluteDirPath, gitRoot);
 
 	const fileProcessingPromises: Promise<{ name: string; tokens: number } | null>[] = [];
-	const subDirProcessingPromises: Promise<Folder>[] = [];
+	const subDirProcessingPromises: Promise<Folder | null>[] = [];
 
 	for (const dirent of dirents) {
 		const itemName = dirent.name;

@@ -144,7 +144,7 @@ export function buildFunctionCallHistoryPrompt(type: 'history' | 'results', maxL
 
 	// Iterate over function calls in reverse order (newest first)
 	for (let i = functionCalls.length - 1; i >= 0; i--) {
-		const call = functionCalls[i];
+		const call = functionCalls[i]!;
 		let params = '';
 		if (call.parameters) {
 			for (let [name, value] of Object.entries(call.parameters)) {

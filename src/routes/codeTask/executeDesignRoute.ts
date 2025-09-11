@@ -19,11 +19,6 @@ export async function executeDesignRoute(fastify: AppFastifyInstance): Promise<v
 			if (error.message?.includes('not found')) {
 				return sendNotFound(reply, `Code task with ID ${codeTaskId} not found`);
 			}
-			if (error.message?.includes('state') || error.message?.includes('design')) {
-				// HTTP 409 Conflict for state issues
-				reply.code(409);
-				return reply.send({ error: error.message || 'Cannot execute design in current state or no design available' });
-			}
 			return sendServerError(reply, error.message || 'Failed to trigger design execution');
 		}
 	});
