@@ -1,6 +1,13 @@
 import type { TSchema } from '@sinclair/typebox';
 import { ApiErrorResponseSchema } from './common.schema';
 
+// frontend needs to use these exported types otherwise there are issues with the build
+export { Type } from '@sinclair/typebox';
+export type {
+	TSchema,
+	Static,
+} from '@sinclair/typebox';
+
 /**
  * Defines a server API route.
  */

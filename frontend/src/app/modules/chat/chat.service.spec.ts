@@ -1,6 +1,6 @@
 // import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 // import { TestBed, fakeAsync, tick } from '@angular/core/testing';
-// import { Static } from '@sinclair/typebox';
+// import { Static } from '#shared/api-definitions';
 // import { ChatMessage, NEW_CHAT_ID, Chat as UIChat } from 'app/modules/chat/chat.types';
 // import { userContentExtToAttachmentsAndText } from 'app/modules/messageUtil';
 // import { EMPTY, of, throwError } from 'rxjs';

@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import { Static } from '@sinclair/typebox';
+import { Static } from '#shared/api-definitions';
 import { EMPTY, Observable, catchError, map, tap, throwError } from 'rxjs';
 import { AGENT_API } from '#shared/agent/agent.api';
 import { AgentContextPreview, AutonomousIteration, AutonomousIterationSummary } from '#shared/agent/agent.model';

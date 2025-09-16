@@ -1,12 +1,11 @@
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { fakeAsync, tick } from '@angular/core/testing'; // Added fakeAsync and tick for more control if needed, though direct checks might suffice.
-import { Static } from '@sinclair/typebox';
 import { of, throwError } from 'rxjs';
 import { AGENT_API } from '#shared/agent/agent.api';
 import { AgentContextPreview, AutonomousIteration } from '#shared/agent/agent.model';
 import { type AgentContextApi, type AgentContextSchema, AgentIdParamsSchema, AgentStartRequestSchema } from '#shared/agent/agent.schema'; // Added AgentStartRequestSchema
-import { RouteDefinition } from '#shared/api-definitions';
+import { Static } from '#shared/api-definitions';
 import { ApiNullResponseSchema } from '#shared/common.schema';
 import type { LlmMessagesSchema } from '#shared/llm/llm.schema';
 import { LlmCall } from '#shared/llmCall/llmCall.model';

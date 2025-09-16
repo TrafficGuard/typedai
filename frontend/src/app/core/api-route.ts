@@ -1,6 +1,5 @@
 import {HttpClient} from "@angular/common/http";
-import {RouteDefinition, PathParams} from "#shared/api-definitions";
-import {TSchema, Static} from "@sinclair/typebox";
+import {RouteDefinition, PathParams, TSchema, Static} from "#shared/api-definitions";
 import {Observable} from "rxjs";
 
 // Helper type to infer the success response type from TResponseSchemasMap

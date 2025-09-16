@@ -1,0 +1,6 @@
+onlyBuiltDependencies:
+  - '@biomejs/biome'
+  - '@parcel/watcher'
+  - esbuild
+  - lmdb
+  - msgpackr-extract
