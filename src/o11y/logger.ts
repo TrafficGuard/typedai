@@ -57,16 +57,14 @@ const transport =
 // });
 // const multi = pino.multistream(targets)
 
-const agentContextFn: (() => AgentContext) | undefined = undefined;
+let logEnricherFn: ((logObj: any) => void) | undefined = undefined;
 
-async function load() {
-	// const agentContextLocalStorageModule = await import('#agent/agentContextLocalStorage.js');
-	// // const { agentContext } = await import('#agent/agentContextLocalStorage');
-	// // agentContextFn = agentContext
-	// agentContextFn = agentContextLocalStorageModule.agentContext
-	// console.log('Dynamically loaded agentContextLocalStorage.agentContent()')
+export function setLogEnricher(fn: (logObj: any) => void) {
+	logEnricherFn = fn;
 }
-load().catch(console.error);
+
+// Fields that should not be considered "custom" keys
+const standardFields = new Set(['level', 'time', 'pid', 'hostname', 'msg', 'err', 'stack_trace', 'severity', '@type']);
 
 /**
  * Pino logger configured for a Google Cloud environment.
@@ -95,16 +93,18 @@ export const logger: Pino.Logger = Pino({
 			return { severity, level: number };
 		},
 		log(object: any) {
-			const logObject = object as { err?: Error };
+			const logObject = object as { err?: Error; msg?: string };
 			const stackTrace = logObject.err?.stack;
 			const stackProp: any = stackTrace ? { stack_trace: stackTrace } : {};
 
-			if (agentContextFn) {
-				const agent = (agentContextFn as () => AgentContext)();
-				if (agent) {
-					object.agentId = agent.agentId;
-					if (agent.parentAgentId) object.parentAgentId = agent.parentAgentId;
-				}
+			if (logEnricherFn) logEnricherFn(object);
+
+			// Custom logic to append object keys to message eg [key1, key2] so a viewer of the logs knows what additional information was logged
+			if (logObject.msg) {
+				// Find custom keys that were passed in the logging object
+				const customKeys = Object.keys(logObject).filter((key) => !standardFields.has(key));
+				// Append custom keys to the message if any exist
+				if (customKeys.length > 0) logObject.msg = `${logObject.msg} [${customKeys.join(', ')}]`;
 			}
 
 			return { ...object, ...stackProp };

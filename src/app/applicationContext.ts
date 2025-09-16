@@ -1,5 +1,6 @@
+import { agentContext } from '#agent/agentContextLocalStorage';
 import { inMemoryApplicationContext } from '#modules/memory/inMemoryApplicationContext';
-import { logger } from '#o11y/logger';
+import { logger, setLogEnricher } from '#o11y/logger';
 import type { ApplicationContext } from './applicationTypes';
 
 export let applicationContext: ApplicationContext;
@@ -17,6 +18,12 @@ export async function initApplicationContext(): Promise<ApplicationContext> {
 	initialInit = new Error();
 
 	// Security check to prevent single-user mode in production environments
+	logger.info(`AUTH: ${process.env.AUTH}`);
+	logger.info(`NODE_ENV: ${process.env.NODE_ENV}`);
+	logger.info(`DATABASE_TYPE: ${process.env.DATABASE_TYPE}`);
+	logger.info(`DATABASE_NAME: ${process.env.DATABASE_NAME}`);
+	logger.info(`GCLOUD_PROJECT: ${process.env.GCLOUD_PROJECT}`);
+
 	const authMode = process.env.AUTH;
 	const nodeEnv = process.env.NODE_ENV;
 	const isConfiguredForSingleUser = !authMode || authMode === 'single_user';
@@ -41,6 +48,15 @@ export async function initApplicationContext(): Promise<ApplicationContext> {
 	} else {
 		throw new Error(`Invalid value for DATABASE_TYPE environment: ${database}`);
 	}
+
+	setLogEnricher((logObj: any) => {
+		const agent = agentContext();
+		if (agent) {
+			logObj.agentId = agent.agentId;
+			if (agent.parentAgentId) logObj.parentAgentId = agent.parentAgentId;
+		}
+	});
+
 	return applicationContext;
 }
 

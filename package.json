@@ -38,8 +38,6 @@
     "tokens": "   node --env-file=variables/local.env -r esbuild-register src/cli/tokens.ts",
     "util": "     node --env-file=variables/local.env -r esbuild-register src/cli/util.ts",
     "watch": "    node --env-file=variables/local.env -r esbuild-register src/cli/watch.ts",
-    "build": "    tsc",
-    "build:swc": "tsc -project tsconfig.swc.json",
     "build": "    tsgo --project ./tsconfig.native.json",
     "build:tsc": "tsc",
     "initTiktokenizer": "node --env-file=variables/local.env -r esbuild-register src/initTiktokenizer.ts",
