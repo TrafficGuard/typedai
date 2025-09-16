@@ -24,11 +24,11 @@ jobs:
       - name: Install dependencies (server)
         run: pnpm install
       - name: Install biome linux-x64 (server)
-        run: npm install --save-dev @biomejs/cli-linux-x64 || true
+        run: pnpm install --save-dev @biomejs/cli-linux-x64 || true
       - name: Lint (server)
-        run: npm run lint:ci
+        run: pnpm run lint:ci
       - name: Run unit tests (server)
-        run: npm run test:unit
+        run: pnpm run test:unit
 
   db-tests-firestore:
     name: Database tests (firestore)
@@ -46,7 +46,7 @@ jobs:
       - name: Install dependencies (server)
         run: pnpm install
       - name: Run database tests (server)
-        run: npm run test:ci:firestore
+        run: pnpm run test:ci:firestore
 
   db-tests-postgres:
     name: Database tests (postgres)
@@ -120,13 +120,13 @@ jobs:
 
       - name: Install dependencies (frontend)
         working-directory: ./frontend
-        run: npm ci
+        run: pnpm install
 
       - name: Install Chrome
         uses: browser-actions/setup-chrome@latest
 
       - name: Run tests (frontend)
         working-directory: ./frontend
-        run: npm run test:ci
+        run: pnpm run test:ci
         env:
           CHROME_BIN: /usr/bin/google-chrome-stable
