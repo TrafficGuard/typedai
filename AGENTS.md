@@ -498,3 +498,27 @@ querySnapshot.forEach((doc) => {
 ```
 ### Notes
 Assign to the typed AutonomousIteration object to ensure type safety.
+
+
+# Before
+```typescript
+// convert to <conversation-history><bot></bot><user></user></conversation-history>
+// bot has property bot_profile
+const conversationHistory = threadMessages.map((message) => {
+    if (message.bot_profile) {
+        return `<bot>${message.text}</bot>`;
+    } else {
+        return `<user>${message.text}</user>`;
+    }
+});
+```
+
+# After
+```typescript
+// convert to <conversation-history><bot></bot><user></user></conversation-history>
+    // bot has property bot_profile
+    const conversationHistory = threadMessages.map((message) => {
+        const tagName = message.bot_profile ? 'bot' : 'user';
+        return `<${tagName}>\n${message.text}\n</${tagName}>\n`;
+    });
+```

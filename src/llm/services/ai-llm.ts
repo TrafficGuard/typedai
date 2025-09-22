@@ -99,7 +99,12 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 	protected abstract apiKey(): string | undefined;
 
 	override isConfigured(): boolean {
-		return Boolean(this.apiKey());
+		let key = this.apiKey();
+		if (!key) return false;
+		key = key.trim();
+		const isConfigured = key.length > 0 && key !== 'undefined' && key !== 'null';
+		// logger.info(`Checking if ${this.getId()} is configured ${this.apiKey()} ${isConfigured}`);
+		return isConfigured;
 	}
 
 	aiModel(): LanguageModelV2 {
@@ -184,7 +189,8 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				// }
 
 				// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
-				if (this.getService() === 'openai' && this.model.startsWith('o')) providerOptions.openai = { reasoningEffort: combinedOpts.thinking };
+				if (this.getService() === 'openai' && (this.model.startsWith('o') || this.model.includes('gpt5')))
+					providerOptions.openai = { reasoningEffort: combinedOpts.thinking };
 				let thinkingBudget: number | undefined;
 				// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
 				// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
@@ -308,6 +314,8 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 					cost,
 					inputTokens: result.usage.inputTokens ?? 0,
 					outputTokens: result.usage.outputTokens ?? 0,
+					cachedInputTokens: result.usage.cachedInputTokens,
+					reasoningTokens: result.usage.reasoningTokens,
 					requestTime,
 					timeToFirstToken: llmCall.timeToFirstToken,
 					totalTime: llmCall.totalTime,

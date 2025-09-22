@@ -1,10 +1,10 @@
 import readline from 'readline';
+import { agentHumanInLoop } from '#agent/agentExecutions';
 import { logger } from '#o11y/logger';
 import { withSpan } from '#o11y/trace';
 import type { AgentContext } from '#shared/agent/agent.model';
 import { Slack } from '#slack/slack';
 import { beep } from '#utils/beep';
-import { agentHumanInLoop } from './autonomousAgentRunner';
 
 export async function waitForConsoleInput(agent: AgentContext, humanInLoopReason: string): Promise<void> {
 	await withSpan('consoleHumanInLoop', async () => {

@@ -1,8 +1,6 @@
 import type { ToolType } from '#shared/agent/functions';
-import { CHAT_PREVIEW_KEYS } from '#shared/chat/chat.model';
 import type { IFileSystemService as ImportedFileSystemService } from '#shared/files/fileSystemService';
 import type { FunctionCall, FunctionCallResult, GenerationStats, ImagePartExt, LLM, LlmMessage } from '#shared/llm/llm.model';
-import { ChangePropertyType } from '#shared/typeUtils';
 import type { User } from '../user/user.model';
 import { AgentContextApi } from './agent.schema';
 

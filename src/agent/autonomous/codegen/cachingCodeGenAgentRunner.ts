@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
 import { type PyodideInterface, loadPyodide } from 'pyodide';
+import { type AgentExecution } from '#agent/agentExecutions';
 import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
 import { runAgentCompleteHandler } from '#agent/autonomous/agentCompletion';
-import { type AgentExecution, formatFunctionError, formatFunctionResult } from '#agent/autonomous/autonomousAgentRunner';
+import { formatFunctionError, formatFunctionResult } from '#agent/autonomous/autonomousAgentRunner';
 import { reviewPythonCode } from '#agent/autonomous/codegen/codeGenAgentCodeReview';
 import { convertJsonToPythonDeclaration, extractPythonCode, removePythonMarkdownWrapper } from '#agent/autonomous/codegen/pythonCodeGenUtils';
 import { AGENT_REQUEST_FEEDBACK } from '#agent/autonomous/functions/agentFeedback';

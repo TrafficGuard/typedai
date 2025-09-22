@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { agentExecutions } from '#agent/autonomous/autonomousAgentRunner';
+import { agentExecutions } from '#agent/agentExecutions';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { initFastify } from '#fastify/fastifyApp';
 import { inMemoryApplicationContext } from '#modules/memory/inMemoryApplicationContext';

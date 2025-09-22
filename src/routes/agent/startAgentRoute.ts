@@ -1,7 +1,8 @@
 import type { Static } from '@sinclair/typebox';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
+import { type AgentExecution } from '#agent/agentExecutions';
 import { serializeContext } from '#agent/agentSerialization';
-import { type AgentExecution, startAgent } from '#agent/autonomous/autonomousAgentRunner';
+import { startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send } from '#fastify/index';
 import { functionFactory } from '#functionSchema/functionDecorators';

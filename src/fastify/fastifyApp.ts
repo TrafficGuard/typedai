@@ -302,7 +302,7 @@ function listen(port: number): void {
 			if (err) {
 				throw err;
 			}
-			logger.info(`Listening on ${port}`);
+			logger.info(`Listening on port ${port}`);
 		},
 	);
 }

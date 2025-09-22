@@ -181,6 +181,7 @@ export interface GenerationStats {
 	inputTokens: number;
 	outputTokens: number;
 	cachedInputTokens?: number | undefined;
+	reasoningTokens?: number | undefined;
 	cost?: number | null;
 	llmId: string;
 }

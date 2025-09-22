@@ -45,7 +45,7 @@ export interface IFileSystemService {
 	 * @param storeToMemory if the file contents should be stored to memory. The key will be in the format file-contents-<FileSystem.workingDirectory>-<dirPath>
 	 * @returns the contents of the file(s) in format <file_contents path="dir/file1">file1 contents</file_contents><file_contents path="dir/file2">file2 contents</file_contents>
 	 */
-	getFileContentsRecursivelyAsXml(dirPath: string, storeToMemory: boolean, filter?: (path: string) => boolean): Promise<string>;
+	getFileContentsRecursivelyAsXml(dirPath: string, storeToMemory?: boolean, filter?: (path: string) => boolean): Promise<string>;
 
 	/**
 	 * Searches for files on the filesystem (using ripgrep) with contents matching the search regex.

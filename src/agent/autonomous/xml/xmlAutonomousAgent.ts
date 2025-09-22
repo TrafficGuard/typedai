@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
+import { type AgentExecution } from '#agent/agentExecutions';
 import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
 import { FUNCTION_OUTPUT_THRESHOLD, summariseLongFunctionOutput, summarizeFunctionOutput } from '#agent/agentUtils';
 import { runAgentCompleteHandler } from '#agent/autonomous/agentCompletion';
-import { type AgentExecution, formatFunctionError, formatFunctionResult } from '#agent/autonomous/autonomousAgentRunner';
+import { formatFunctionError, formatFunctionResult } from '#agent/autonomous/autonomousAgentRunner';
 import { AGENT_REQUEST_FEEDBACK } from '#agent/autonomous/functions/agentFeedback';
 import { AGENT_COMPLETED_NAME } from '#agent/autonomous/functions/agentFunctions';
 import { appContext } from '#app/applicationContext';

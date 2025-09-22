@@ -97,7 +97,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		useSharedRepos: config.useSharedRepos ?? true, // Apply default if not provided in config
 		functions: Array.isArray(config.functions) ? new LlmFunctionsImpl(...config.functions) : (config.functions ?? new LlmFunctionsImpl()),
 		completedHandler: config.completedHandler ?? new ConsoleCompletedHandler(),
-		memory: {},
+		memory: config.initialMemory ?? {},
 		invoking: [],
 		lastUpdate: Date.now(),
 		createdAt: Date.now(),

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { expect } from 'chai';
-import { Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude4_1_Opus_Vertex, Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { deepinfraDeepSeekR1, deepinfraQwen3_235B_A22B } from '#llm/services/deepinfra';
 import { deepSeekV3 } from '#llm/services/deepseek';
 import { fireworksLlama3_70B } from '#llm/services/fireworks';
@@ -13,9 +13,10 @@ import { togetherDeepSeekR1_0528_tput } from '#llm/services/together';
 import { vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import type { LlmMessage } from '#shared/llm/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { anthropicClaude4_Sonnet } from './anthropic';
+import { anthropicClaude4_1_Opus, anthropicClaude4_Sonnet } from './anthropic';
 import { cerebrasQwen3_235b_Instruct } from './cerebras';
 import { groqQwen3_32b } from './groq';
+import { openRouterQwen3_235b_Instruct, openRouterQwen3_235b_Thinking } from './openrouter';
 
 const elephantBase64 = fs.readFileSync('test/llm/purple.jpg', 'base64');
 const pdfBase64 = fs.readFileSync('test/llm/document.pdf', 'base64');
@@ -72,7 +73,7 @@ describe('LLMs', () => {
 	});
 
 	describe('Anthropic', () => {
-		const llm = anthropicClaude4_Sonnet();
+		const llm = anthropicClaude4_1_Opus();
 
 		it('should generateText', async () => {
 			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
@@ -91,7 +92,7 @@ describe('LLMs', () => {
 	});
 
 	describe('Anthropic Vertex', () => {
-		const llm = Claude4_Sonnet_Vertex();
+		const llm = Claude4_1_Opus_Vertex();
 
 		it('should have thinking', async () => {
 			const response: LlmMessage = await llm.generateMessage(SKY_PROMPT, { temperature: 0, id: 'test', thinking: 'high' });
@@ -99,7 +100,7 @@ describe('LLMs', () => {
 			expect(Array.isArray(content)).to.be.true;
 			if (Array.isArray(content)) {
 				expect(content.find((c) => c.type === 'reasoning')).to.not.be.undefined;
-				expect(content.find((c) => c.type === 'text').text.toLowerCase()).to.include('blue');
+				expect(content.find((c) => c.type === 'text')!.text.toLowerCase()).to.include('blue');
 			}
 		});
 
@@ -201,6 +202,15 @@ describe('LLMs', () => {
 
 		it('should generateText', async () => {
 			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
+			expect(response.toLowerCase()).to.include('blue');
+		});
+	});
+
+	describe('OpenRouter', () => {
+		const llm = openRouterQwen3_235b_Instruct();
+
+		it('should generateText', async () => {
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test', maxOutputTokens: 5 });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});

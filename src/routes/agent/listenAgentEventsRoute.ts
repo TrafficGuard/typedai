@@ -1,5 +1,6 @@
 import { Type } from '@sinclair/typebox';
-import { type AgentExecution, agentExecutions } from '#agent/autonomous/autonomousAgentRunner';
+import { type AgentExecution } from '#agent/agentExecutions';
+import { agentExecutions } from '#agent/agentExecutions';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendNotFound } from '#fastify/index';
 

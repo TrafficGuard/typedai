@@ -100,7 +100,12 @@ export class SlackAPI {
 				name: reaction,
 			});
 			logger.info(`Reaction removed: ${reaction} from ${channel} @ ${messageTimestamp}`);
-		} catch (error) {
+		} catch (error: any) {
+			const slackError = error?.data?.error ?? error?.message;
+			if (slackError === 'no_reaction') {
+				logger.debug(`No reaction ${reaction} found on ${channel} @ ${messageTimestamp}`);
+				return;
+			}
 			logger.error(error, `Error removing Slack reaction from ${channel} @ ${messageTimestamp}`);
 		}
 	}

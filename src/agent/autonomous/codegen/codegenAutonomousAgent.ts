@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
 import { type PyodideInterface, loadPyodide } from 'pyodide';
+import type { AgentExecution } from '#agent/agentExecutions';
 import {
 	buildFileSystemTreePrompt,
 	buildFunctionCallHistoryPrompt,
@@ -11,7 +12,6 @@ import {
 } from '#agent/agentPromptUtils';
 import { FUNCTION_OUTPUT_THRESHOLD, summarizeFunctionOutput } from '#agent/agentUtils';
 import { runAgentCompleteHandler } from '#agent/autonomous/agentCompletion';
-import type { AgentExecution } from '#agent/autonomous/autonomousAgentRunner';
 import {
 	extractAgentPlan,
 	extractCodeReview,

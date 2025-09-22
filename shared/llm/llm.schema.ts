@@ -135,6 +135,7 @@ export const GenerationStatsSchema = Type.Object({
 	inputTokens: Type.Number(),
 	outputTokens: Type.Number(),
 	cachedInputTokens: Type.Optional(Type.Number()),
+	reasoningTokens: Type.Optional(Type.Number()),
 	cost: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
 	llmId: Type.String(),
 });

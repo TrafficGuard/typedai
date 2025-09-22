@@ -1,4 +1,4 @@
-import { agentExecutions } from '#agent/autonomous/autonomousAgentRunner';
+import { agentExecutions } from '#agent/agentExecutions';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send } from '#fastify/index';
 import { logger } from '#o11y/logger';

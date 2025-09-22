@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createContext } from '#agent/agentContextLocalStorage';
+import { AgentExecution, agentExecutions } from '#agent/agentExecutions';
 import { runCodeGenAgent } from '#agent/autonomous/codegen/codegenAutonomousAgent';
 import { AGENT_REQUEST_FEEDBACK } from '#agent/autonomous/functions/agentFeedback';
 import { AGENT_COMPLETED_PARAM_NAME } from '#agent/autonomous/functions/agentFunctions';
@@ -18,27 +19,6 @@ import { RunAgentConfig } from './runAgentTypes';
 
 export const SUPERVISOR_RESUMED_FUNCTION_NAME: string = `Supervisor${FUNC_SEP}Resumed`;
 export const SUPERVISOR_CANCELLED_FUNCTION_NAME: string = `Supervisor${FUNC_SEP}Cancelled`;
-
-/**
- * The reference to a running agent
- */
-export interface AgentExecution {
-	agentId: string;
-	execution: Promise<any>;
-}
-
-/**
- * The active running agents
- * TODO convert to a Map
- */
-export const agentExecutions: Record<string, AgentExecution> = {};
-
-/**
- * The agents that are in a human-in-the-loop check to continue
- * Key: agentId
- * Value: reason for the human-in-the-loop check and a function to resume the agent
- */
-export const agentHumanInLoop: Record<string, { reason: string; resume: () => void }> = {};
 
 /**
  * Starts a new autonomous agent

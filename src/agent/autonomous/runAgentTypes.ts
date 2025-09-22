@@ -40,4 +40,6 @@ export interface RunAgentConfig {
 	containerId?: string;
 	/** Additional details for the agent */
 	metadata?: Record<string, any>;
+	/** Initial memory entries */
+	initialMemory?: Record<string, string>;
 }

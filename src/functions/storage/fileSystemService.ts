@@ -208,10 +208,10 @@ export class FileSystemService implements IFileSystemService {
 	/**
 	 * Returns the file contents of all the files recursively under the provided directory path
 	 * @param dirPath the directory to return all the files contents under
-	 * @param storeToMemory if the file contents should be stored to memory. The key will be in the format file-contents-<FileSystem.workingDirectory>-<dirPath>
+	 * @param storeToMemory if the file contents should be stored to memory. The key will be in the format file-contents-<FileSystem.workingDirectory>-<dirPath>. Defaults to false.
 	 * @returns the contents of the file(s) in format <file_contents path="dir/file1">file1 contents</file_contents><file_contents path="dir/file2">file2 contents</file_contents>
 	 */
-	async getFileContentsRecursivelyAsXml(dirPath: string, storeToMemory: boolean, filter: (path: string) => boolean = () => true): Promise<string> {
+	async getFileContentsRecursivelyAsXml(dirPath: string, storeToMemory = false, filter: (path: string) => boolean = () => true): Promise<string> {
 		const filenames = (await this.listFilesRecursively(dirPath)).filter(filter);
 		const contents = await this.readFilesAsXml(filenames);
 		const agent = agentContext();

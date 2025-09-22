@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { App, type KnownEventFromType, type SayFn, StringIndexed } from '@slack/bolt';
 import { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
+import { AgentExecution, isAgentExecuting } from '#agent/agentExecutions';
 import { getLastFunctionCallArg } from '#agent/autonomous/agentCompletion';
-import { AgentExecution, resumeCompleted, resumeCompletedWithUpdatedUserRequest, startAgent } from '#agent/autonomous/autonomousAgentRunner';
+import { resumeCompletedWithUpdatedUserRequest, startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { Jira } from '#functions/jira';
@@ -10,11 +12,15 @@ import { GitLab } from '#functions/scm/gitlab';
 import { Perplexity } from '#functions/web/perplexity';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
-import { type AgentCompleted, type AgentContext, isExecuting } from '#shared/agent/agent.model';
-import { sleep } from '#utils/async-utils';
+import { getAgentUser } from '#routes/webhooks/webhookAgentUser';
+import { type AgentCompleted, type AgentContext, type AgentLLMs, isExecuting } from '#shared/agent/agent.model';
+import type { User } from '#shared/user/user.model';
+import { runAsUser } from '#user/userContext';
 import type { ChatBotService } from '../../chatBot/chatBotService';
 import { SlackAPI } from './slackApi';
+import { slackConfig } from './slackConfig';
 import { textToBlocks } from './slackMessageFormatter';
+import { SlackSupportBotFunctions } from './slackSupportBotFunctions';
 
 let slackApp: App<StringIndexed> | undefined;
 
@@ -40,6 +46,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 	status: 'disconnected' | 'connected' = 'disconnected';
 
 	private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
+	private agentUser!: User;
 
 	api(): SlackAPI {
 		this.slackApi ??= new SlackAPI();
@@ -94,6 +101,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			channel: agent.metadata.slack.channel,
 			thread_ts: agent.metadata.slack.thread_ts,
 			blocks: textToBlocks(message),
+			text: message,
 		};
 
 		// TODO remove reaction from message it replied to
@@ -118,10 +126,17 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 	async shutdown() {
 		await slackApp?.stop();
 		slackApp = undefined;
+		this.status = 'disconnected';
+		this.channels.clear();
 	}
 
 	async initSlack(): Promise<void> {
-		if (slackApp) return;
+		if (slackApp) {
+			logger.warn('Slack app already initialized');
+			return;
+		}
+
+		this.agentUser = await getAgentUser();
 
 		const botToken = process.env.SLACK_BOT_TOKEN;
 		const signingSecret = process.env.SLACK_SIGNING_SECRET;
@@ -138,61 +153,73 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 		slackApp = new App({
 			token: botToken,
 			signingSecret: signingSecret,
-			socketMode: true, // enable to use socket mode
+			socketMode: slackConfig().socketMode,
 			appToken: appToken,
 		});
 
-		this.channels = new Set([...channels!.split(',').map((s) => s.trim())]);
+		const configuredChannels = channels
+			? channels
+					.split(',')
+					.map((s) => s.trim())
+					.filter(Boolean)
+			: [];
+		this.channels = new Set(configuredChannels);
 
-		// Listen for messages in channels
-		slackApp.event('message', async ({ event, say }) => {
-			this.handleMessage(event, say);
-		});
+		if (slackConfig().socketMode) {
+			// Listen for messages in channels
+			slackApp.event('message', async ({ event, say }) => {
+				this.handleMessage(event, say);
+			});
 
-		slackApp.event('app_mention', async ({ event, say }) => {
-			console.log('app_mention received');
-			console.log(event);
-			// TODO if not in a channel we are subscribed to, then get the thread messages and reply to it
-		});
+			slackApp.event('app_mention', async ({ event, say }) => {
+				logger.info({ event }, 'app_mention received');
+				// TODO if not in a channel we are subscribed to, then get the thread messages and reply to it
+			});
+			logger.info('Registered Slack event listeners');
+		}
 
 		await slackApp.start();
 
-		logger.info('Registered event listener');
-
-		await sleep(300000);
+		this.status = 'connected';
 	}
 
 	async handleMessage(event: KnownEventFromType<'message'>, say: SayFn) {
+		await runAsUser(this.agentUser, async () => {
+			try {
+				await this.processMessage(event, say);
+			} catch (error) {
+				logger.error(error, 'Error processing Slack message');
+				await this.api().addReaction(event.channel, event.ts, 'robot_face::boom');
+			}
+		});
+	}
+
+	private async processMessage(event: KnownEventFromType<'message'>, say: SayFn) {
 		// biomejs formatter changes event['property'] to event.property which doesn't compile
 		const _event: any = event;
-		const threadId = _event.thread_ts ?? _event.ts;
-		const agentId = `Slack-${threadId}`;
 		const agentService = appContext().agentStateService;
-		logger.debug(event, 'Slack message received [event]');
+		logger.info({ event }, 'Slack message received');
 
 		if (event.subtype === 'message_deleted') return;
 		if (event.subtype === 'message_changed') return;
 		if (event.subtype === 'channel_join') return;
-		if (event.subtype) console.log(`Event subtype: ${event.subtype}`);
 
-		// Check if the message is in the desired channel
 		if (!this.channels.has(event.channel) && event.channel_type !== 'im') {
 			logger.info(`Channel ${event.channel} not configured`);
 			return;
 		}
 
-		const text = _event.text;
+		const messageText = _event.text;
 
 		// In regular channels if the message is not a reply in a thread, then we will start a new agent to handle the first message in the thread
 		if (!_event.thread_ts) {
-			// New top-level message (new thread) in any channel type
 			const threadId = event.ts;
 			logger.info(`New thread ${event.ts}`);
 
 			await this.api().addReaction(event.channel, threadId, 'robot_face');
 
 			try {
-				const agentExec = await this.startAgentForThread(threadId, event.channel, text);
+				const agentExec = await this.startAgentForThread(threadId, event.channel, messageText);
 				await agentExec.execution;
 				const agent: AgentContext = (await agentService.load(agentExec.agentId))!;
 
@@ -201,12 +228,14 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 					await this.api().addReaction(event.channel, event.ts, 'robot_face::boom');
 					return;
 				}
+				await this.api().removeReaction(event.channel, event.ts, 'robot_face');
 				return;
 			} catch (e) {
 				logger.error(e, 'Error handling new Slack thread');
 			}
 		} else {
 			// Otherwise this is a reply to a thread
+			logger.info(`Reply to thread ${event.ts}`);
 			const threadId = _event.thread_ts;
 			const agentId = `Slack-${threadId}`;
 			const agent: AgentContext | null = await agentService.load(agentId);
@@ -217,19 +246,24 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			const prompt = `${JSON.stringify(messages)}\n\nReply to this conversation thread`;
 
 			if (!agent) {
+				logger.info(`Starting new agent for thread ${threadId}`);
 				this.startAgentForThread(threadId, event.channel, prompt, _event.ts);
-			} else if (isExecuting(agent)) {
-				// TODO make this transactional, and implement
+			} else if (isAgentExecuting(agentId)) {
+				logger.info(`Adding message to agent ${agentId}`);
 				agent.pendingMessages.push(_event.text);
 				await agentService.save(agent);
 				return;
 			} else {
+				logger.info(`Resuming completed agent ${agentId}`);
 				await resumeCompletedWithUpdatedUserRequest(agentId, agent.executionId, prompt);
 			}
+			await this.api().removeReaction(event.channel, event.ts, 'robot_face');
 		}
 	}
 
 	async startAgentForThread(threadId: string, channel: string, prompt: string, replyTs?: string): Promise<AgentExecution> {
+		const supportFuncs = new SlackSupportBotFunctions();
+
 		return await startAgent({
 			type: 'autonomous',
 			subtype: 'codegen',
@@ -242,14 +276,20 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 				'You are an AI support agent.  You are responding to support requests on the company Slack account. Respond in a helpful, concise manner. If you encounter an error responding to the request do not provide details of the error to the user, only respond with "Sorry, I\'m having difficulties providing a response to your request"',
 			metadata: { slack: { channel, thread_ts: threadId, reply_ts: replyTs } }, // Use event.ts as thread_ts for new threads
 			completedHandler: this,
+			useSharedRepos: true, // Support bot is read only
 			humanInLoop: {
 				budget: 2,
 				count: 10,
+			},
+			initialMemory: {
+				'core-documentation': await supportFuncs.getCoreDocumentation(),
+				'initial-knowledgebase-search-results': await supportFuncs.searchDocs(prompt),
 			},
 		});
 	}
 
 	async fetchThreadMessages(channel: string, parentMessageTs: string): Promise<any> {
+		logger.info(`Fetching thread messages for ${parentMessageTs}`);
 		const result = await slackApp!.client.conversations.replies({
 			ts: parentMessageTs,
 			channel,
