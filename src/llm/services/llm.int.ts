@@ -153,7 +153,7 @@ describe('LLMs', () => {
 	});
 
 	describe('Deepseek', () => {
-		const llm = deepSeekV3();
+		const llm = deepSeekV3_1();
 
 		it('should generateText', async () => {
 			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
