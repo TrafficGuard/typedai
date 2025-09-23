@@ -113,6 +113,8 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 
 	let currentFunctionHistorySize = agent.functionCallHistory.length;
 
+	const agentLLM: LLM = agent.llms.hard;
+
 	// Store the agent's response from the previous iteration to include in the next prompt
 	let previousAgentPlanResponse = '';
 	// Store the script result from the previous iteration
