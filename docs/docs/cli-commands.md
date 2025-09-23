@@ -11,81 +11,114 @@ TypedAI provides powerful command-line interface (CLI) tools that allow you to i
 
 ## CLI Wrapper Scripts
 
-TypedAI provides two main wrapper scripts for executing CLI commands:
+TypedAI provides two main wrapper scripts for executing the CLI commands, and are found in the `bin/path` directory.
 
-### `ai` Script (Local Execution)
+### `ai`
 
-The `ai` script provides a shortcut for running TypedAI npm scripts with automatic filesystem context.
+The [`ai`](https://github.com/TrafficGuard/typedai/blob/main/bin/path/ai) script allows running TypedAI repository npm scripts from any directory.
 
 **Usage:**
 ```bash
-ai <script> [args]
+ai <npm-script> [args]
 ```
 
 **Requirements:**
-- `TYPEDAI_HOME` environment variable must be set
-- Node.js and fnm installed
-- TypedAI repository cloned locally
 
-**Features:**
-- Automatically switches to the correct Node.js version using fnm
-- Passes `--fs=<current_directory>` to provide filesystem service working directory
-- Can be run from any directory
-- Uses the local TypedAI installation
+- `$TYPEDAI_HOME/bin/path` must be in your PATH (this is set by running `./bin/configure`)
 
 **Examples:**
 ```bash
-# Query the current repository
-ai query "What test frameworks does this repository use?"
+# Query the repository in the working directory
+ai query -l=gpt5 "What test frameworks does this repository use?"
 
-# Run code editing agent
+# Run the code editing agent
 ai code "Add error handling to the user authentication function"
-
-# Start research task
-ai research "Latest developments in large language models"
 ```
 
-### `aid` Script (Docker Execution)
+This is a shortcut for `npm run <npm-script> -- [args]`. Its usefull to use over `npm run` when working in the TypedAI repository as it does not require remebering to use the `--` separator for arguments.
 
-The `aid` script runs TypedAI CLI commands in a Docker container, providing isolation.
+### `aid` (Docker Execution)
+
+The [`aid`](https://github.com/TrafficGuard/typedai/blob/main/bin/path/aid) script runs TypedAI CLI commands, similar to `ai`, in a Docker container, providing isolation.
+
+It dynamically creates a docker-compose.yml file for each execution, mounting the current directory as `/workspace/` in the container
 
 **Usage:**
 ```bash
-aid <script> [args]
+aid <npm-script> [args]
 ```
 
 **Requirements:**
+
 - Docker and Docker Compose v2 installed
 - `TYPEDAI_HOME` environment variable set
 
-**Features:**
-- Creates dynamic docker-compose.yml files for each execution
-- Mounts current directory as `/workspace/` in the container
-- Provides isolated execution environment
-- Automatically handles volume mounting for TypedAI home and target repository
-
 **Examples:**
 ```bash
-# Same commands as ai script, but in Docker
-aid query "Analyze the database schema in this project"
+aid query  -l=gpt5  "Analyze the database schema in this project"
 aid code "Refactor the authentication middleware"
 ```
 
-## Available CLI Scripts
+## NPM CLI scripts
 
+### Common arguments/features
 
-### agent
-General Autonomous Agent
+#### Prompt source
+
+For scripts which take a prompt, it can be provided three ways:
+
+- As the final argument (e.g. `ai gen "What is the capital of France?"`)
+- By stdin (e.g. `cat prompt | ai gen`)
+- By default the contents of the file `src/cli/<npm-script-name>-in` (e.g. `ai gen` will use `src/cli/gen-in`)
+
+#### Prompt web page & image attachment
+
+The prompt may have lines beginning with `IMG:` or `URL:` prefixes to specify image or web page attachments.
+
+For example, preparing the file named `prompt` with the contents:
+```
+URL: https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-generate-text
+URL: https://cloud.google.com/bigquery/docs/user-defined-functions
+URL: https://cloud.google.com/vertex-ai/generative-ai/pricing
+
+I want to develop a UDF to simulate the cost of using the ML.GENERATE_TEXT function called GENERATE_TEXT_MOCK
+
+It should accept the same parameters as ML.GENERATE_TEXT and one additional parameter in the struct
+OUTPUT_TOKENS AS output_tokens. The function should return the cost of the LLM call, which can be determined from the MODEL, QUERY_STATEMENT (input), and OUTPUT_TOKENS
+```
+And then generate the response by running:
+
 ```bash
-ai agent [prompt]
-# or
-npm run agent -- [prompt]
+cat prompt | ai query -l=gpt5
 ```
 
-- **Purpose**: General-purpose autonomous agent with configurable functions
-- **Input**: Prompt from arguments or `src/cli/agent-in` file
-- **Functions**: Configurable via `-f` flag (defaults to FileSystemRead)
-- **Resume**: Use `-r[=agentId]` to resume previous execution
+### Categories
+
+[Text generation](#text-generation)
+
+[Autonomous & coding agents](#autonomous-coding-agents)
+
+[Research & analysis](#research-analysis)
+
+[Utility scripts](#Utility scripts)
+
+## Text generation
+
+Common arguments:
+
+`-l=<llm-id>` Select the LLM to use
+
+### gen
+Text generation
+```bash
+ai gen [prompt]
+# Using Perplexity to search online
+ai gen -l=pp1 what is the pricing for Grok 4 Fast
+```
+- **Purpose**: Simple text generation from prompts
+- **Input**: Arguments or `src/cli/gen-in` file
+- **Output**: Console and `src/cli/gen-out` file
+
 
 ### chat
 Interactive Chat
@@ -99,6 +132,52 @@ ai chat [prompt]
     - Can format the prompt as Markdown with the `-m` flag.
 - **Input**: Prompt from arguments or `src/cli/chat.prompt.md`.
 - **Output**: The assistant's response is printed to the console and saved to `src/cli/chat-out`.
+
+
+## Autonomous & coding agents
+
+### Agent common arguments
+
+**Resuming**
+
+The `agent` and `codeAgent` scripts support resuming an agent with the `-r` flag.
+
+`-r` will resume the most recently completed agent for a particular npm script
+
+`-r=<agentId>` will resume a specific agent
+
+**Functions**
+
+The `agent` and `codeAgent` scripts support configurable functions with the `-f` flag.
+
+The function aliases are defined in [src/cli/functionAliases.ts](https://github.com/TrafficGuard/typedai/blob/main/src/cli/functionAliases.ts).
+
+```bash
+# Example provideing the Peplexity and Slack tools
+ai agent -f=pp,slack 'Search for the current token prices for the Claude models and send it to me on Slack'
+```
+
+### agent
+
+General-purpose autonomous agent with configurable functions.
+
+The prompt may be provided as the final argument, or as stdin. If neither is provided then the prompt is read from `src/cli/agent-in`.
+
+Examples:
+```bash
+ai agent '[prompt]'
+
+npm run agent -- $PROMPT
+
+cat prompt | ai agent -f=web,fsw,fsl
+```
+
+- **Purpose**: General-purpose autonomous agent with configurable functions
+- **Input**: Prompt from arguments or `src/cli/agent-in` file
+- **Functions**: Configurable via `-f` flag (defaults to FileSystemRead)
+- **Resume**: Use `-r[=agentId]` to resume previous execution
+
+
 
 ### code
 Code Editing Agent  
@@ -118,6 +197,24 @@ ai query [question]
 - **Purpose**: Answer questions about codebase structure and functionality
 - **Output**: Written to `src/cli/query-out.md`
 - **Best for**: Code discovery, understanding existing implementations
+
+
+Example
+```bash
+cat << EOF
+URL: https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-generate-text
+URL: https://cloud.google.com/bigquery/docs/user-defined-functions
+URL: https://cloud.google.com/vertex-ai/generative-ai/pricing
+
+I want to develop a UDF which simluates the ML.GENERATE_TEXT function called GENERATE_TEXT_MOCK
+
+It should accept the same parameters as ML.GENERATE_TEXT and one additional parameter in the struct
+OUTPUT_TOKENS AS output_tokens
+
+The function should return the cost of the LLM call, which can be determined from the MODEL, QUERY_STATEMENT (input), and OUTPUT_TOKENS
+multiplied by the pricing details. Only include Gemini 2.5 models and Gemini 2.0 flash lite, and any other models cheaper than Gemini 2.5 flash lite. Do not add support for grounding.
+EOF | ai query -l=gpt5
+```
 
 ### Research and Analysis Scripts
 
@@ -150,14 +247,7 @@ ai scrape <url> [output_file]
 - **Output**: Defaults to `scrape.md`
 - **Features**: Uses Mozilla Readability for content extraction
 
-### gen
-Text Generation
-```bash
-ai gen [prompt]
-```
-- **Purpose**: Simple text generation from prompts
-- **Input**: Arguments or `src/cli/gen-in` file
-- **Output**: Console and `src/cli/gen-out` file
+
 
 ### export
 Export Files to XML

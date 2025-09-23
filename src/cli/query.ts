@@ -17,7 +17,7 @@ async function main() {
 	await initApplicationContext();
 	const agentLLMs: AgentLLMs = defaultLLMs();
 	const { initialPrompt: rawPrompt, resumeAgentId, flags } = parseProcessArgs();
-	const { textPrompt, userContent } = parsePromptWithImages(rawPrompt);
+	const { textPrompt, userContent } = await parsePromptWithImages(rawPrompt);
 
 	const useXhard: boolean = !!flags.xhr && !!llms().xhard;
 	if (flags.xhr && !useXhard) {

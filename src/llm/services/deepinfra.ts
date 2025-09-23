@@ -1,5 +1,5 @@
 import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
-import { fixedCostPerMilTokens } from '#llm/base-llm';
+import { costPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import type { LLM, LlmCostFunction } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
@@ -38,15 +38,15 @@ export function deepinfraLLMRegistry(): Record<string, () => LLM> {
 
 // https://deepinfra.com/Qwen/Qwen3-235B-A22B
 export function deepinfraQwen3_235B_A22B(): LLM {
-	return new Deepinfra('Qwen3_235B_A22B (deepinfra)', 'Qwen/Qwen3-235B-A22B', 40_960, fixedCostPerMilTokens(0.13, 0.6));
+	return new Deepinfra('Qwen3_235B_A22B (deepinfra)', 'Qwen/Qwen3-235B-A22B', 40_960, costPerMilTokens(0.13, 0.6));
 }
 
 // https://deepinfra.com/deepseek-ai/DeepSeek-R1-0528
 export function deepinfraDeepSeekR1(): LLM {
-	return new Deepinfra('DeepSeek R1 (deepinfra)', 'deepseek-ai/DeepSeek-R1-0528', 163_840, fixedCostPerMilTokens(0.5, 2.15));
+	return new Deepinfra('DeepSeek R1 (deepinfra)', 'deepseek-ai/DeepSeek-R1-0528', 163_840, costPerMilTokens(0.5, 2.15));
 }
 
 // https://deepinfra.com/moonshotai/Kimi-K2-Instruct
 export function deepinfraKimiK2(): LLM {
-	return new Deepinfra('Kimi-K2-Instruct (deepinfra)', 'moonshotai/Kimi-K2-Instruct', 16384, fixedCostPerMilTokens(0.55, 2.2));
+	return new Deepinfra('Kimi-K2-Instruct (deepinfra)', 'moonshotai/Kimi-K2-Instruct', 16384, costPerMilTokens(0.55, 2.2));
 }

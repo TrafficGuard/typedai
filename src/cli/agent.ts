@@ -14,7 +14,7 @@ import { logger } from '#o11y/logger';
 import type { AgentContext } from '#shared/agent/agent.model';
 import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs, saveAgentId } from './cli';
-import { resolveFunctionClasses } from './functionResolver';
+import { resolveFunctionClasses } from './functionAliases';
 
 export async function main(): Promise<void> {
 	registerErrorHandlers();
@@ -68,7 +68,7 @@ export async function main(): Promise<void> {
 	}
 
 	console.log('Resume this agent by running:');
-	console.log(`ai codeAgent -r=${execution.agentId}`);
+	console.log(`ai agent -r=${execution.agentId}`);
 }
 
 async function resumeAgent(agent: AgentContext, resumeAgentId: string, initialPrompt: string) {

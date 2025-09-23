@@ -1,6 +1,6 @@
 import { EmbeddingModelV2, ImageModelV2, LanguageModelV2 } from '@ai-sdk/provider';
 import { OpenRouterProvider, createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { fixedCostPerMilTokens } from '#llm/base-llm';
+import { costPerMilTokens } from '#llm/base-llm';
 import type { GenerateTextOptions, LLM, LlmCostFunction } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { AiLLM } from './ai-llm';
@@ -17,11 +17,11 @@ export function openrouterLLMRegistry(): Record<string, () => LLM> {
 // https://openrouter.ai/models
 
 export function openRouterQwen3_235b_Thinking(): LLM {
-	return new OpenRouterLLM('Qwen3 235b Thinking (Cerebras)', 'qwen/qwen3-235b-a22b-thinking-2507', 131_000, fixedCostPerMilTokens(0.6, 1.2), {});
+	return new OpenRouterLLM('Qwen3 235b Thinking (Cerebras)', 'qwen/qwen3-235b-a22b-thinking-2507', 131_000, costPerMilTokens(0.6, 1.2), {});
 }
 
 export function openRouterQwen3_235b_Instruct(): LLM {
-	return new OpenRouterLLM('Qwen3 235b Instruct (Cerebras)', 'qwen/qwen3-235b-a22b-2507', 131_000, fixedCostPerMilTokens(0.6, 1.2), {});
+	return new OpenRouterLLM('Qwen3 235b Instruct (Cerebras)', 'qwen/qwen3-235b-a22b-2507', 131_000, costPerMilTokens(0.6, 1.2), {});
 }
 
 declare module '@openrouter/ai-sdk-provider' {

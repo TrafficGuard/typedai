@@ -1,3 +1,4 @@
+import { PublicWeb } from '#functions/web/web';
 import type { ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
 
 export interface ParsedPrompt {
@@ -12,7 +13,7 @@ export interface ParsedPrompt {
  * @param rawPrompt The raw input prompt string.
  * @returns An object containing the text prompt, image attachments, and the combined UserContent.
  */
-export function parsePromptWithImages(rawPrompt: string): ParsedPrompt {
+export async function parsePromptWithImages(rawPrompt: string): Promise<ParsedPrompt> {
 	const lines = rawPrompt.split('\n');
 	const textParts: string[] = [];
 	const imageAttachments: ImagePartExt[] = [];
@@ -27,6 +28,16 @@ export function parsePromptWithImages(rawPrompt: string): ParsedPrompt {
 					imageAttachments.push({ type: 'image', image: url.toString() });
 				} catch (e) {
 					console.warn(`Invalid image URL skipped: ${urlString}`);
+				}
+			}
+		} else if (line.startsWith('URL:')) {
+			const urlString = line.substring(4).trim();
+			if (urlString) {
+				try {
+					const webPage = await new PublicWeb().getWebPage(urlString);
+					textParts.push(webPage);
+				} catch (e) {
+					console.warn(`Invalid web URL skipped: ${urlString}`);
 				}
 			}
 		} else {

@@ -1,6 +1,6 @@
 import { type GoogleVertexProvider, createVertex } from '@ai-sdk/google-vertex';
 import { HarmBlockThreshold, HarmCategory, type SafetySetting } from '@google-cloud/vertexai';
-import { fixedCostPerMilTokens } from '#llm/base-llm';
+import { costPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import { logger } from '#o11y/logger';
 import { type GenerateTextOptions, type LLM, LlmCostFunction, combinePrompts } from '#shared/llm/llm.model';
@@ -18,64 +18,11 @@ export function vertexLLMRegistry(): Record<string, () => LLM> {
 	};
 }
 
-// https://cloud.google.com/vertex-ai/generative-ai/pricing#token-based-pricing
-
-// https://cloud.google.com/vertex-ai/generative-ai/pricing#token-based-pricing
-// If a query input context is longer than 200K tokens, all tokens (input and output) are charged at long context rates.
-export function gemini2_5_Pro_CostFunction(
-	inputMilLow: number,
-	outputMilLow: number,
-	inputMilHigh?: number,
-	outputMilHigh?: number,
-	threshold = 200000,
-): LlmCostFunction {
-	return (inputTokens: number, outputTokens: number, usage, completionTime) => {
-		let inputMil = inputMilLow;
-		let outputMil = outputMilLow;
-		if (inputMilHigh && outputMilHigh && inputTokens >= threshold) {
-			inputMil = inputMilHigh;
-			outputMil = outputMilHigh;
-		}
-
-		// const isThinking = result.reasoning?.length > 0 || result.reasoningDetails?.length > 0;
-		// if(isThinking) {
-		// 	outputTokens += countTokensSync(result.reasoning);
-		// }
-		// if(Array.isArray(responseMessage.content)) {
-		// 	for(const part of responseMessage.content) {
-		// 		if(part.type === 'reasoning') {
-		// 			console.log('REASONING ===== ' + (countTokensSync(part.text)) + '  tokens')
-		// 			console.log(part.text)
-		// 		} else if(part.type === 'text') {
-		// 			console.log('TEXT ======== ' + (countTokensSync(part.text)) + '  tokens')
-		// 			console.log(part.text)
-		// 		}
-		// 	}
-		// }
-		// if(result.reasoningDetails?.length) {
-		// 	const reasoning = result.reasoningDetails[0];
-		// 	if(reasoning.type === 'text') {
-		// 		console.log('REASONING')
-		// 		console.log(result.text + '\n');
-		// 		outputTokens += countTokensSync(reasoning.text)
-		// 	}
-		// }
-
-		const inputCost = (inputTokens * inputMil) / 1_000_000;
-		const outputCost = (outputTokens * outputMil) / 1_000_000;
-		return {
-			inputCost,
-			outputCost,
-			totalCost: inputCost + outputCost,
-		};
-	};
-}
-
 // Prompts less than 200,000 tokens: $1.25/million tokens for input, $10/million for output
 // Prompts more than 200,000 tokens (up to the 1,048,576 max): $2.50/million for input, $15/million for output
 // https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-pro
 export function vertexGemini_2_5_Pro(): LLM {
-	return new VertexLLM('Gemini 2.5 Pro', 'gemini-2.5-pro', 1_000_000, gemini2_5_Pro_CostFunction(1.25, 10, 2.5, 15), [
+	return new VertexLLM('Gemini 2.5 Pro', 'gemini-2.5-pro', 1_000_000, costPerMilTokens(1.25, 10, 1.25 / 4, 2.5, 15, 200_000), [
 		'gemini-2.5-pro-preview-05-06',
 		'gemini-2.5-pro-preview-06-05',
 	]);
@@ -83,16 +30,16 @@ export function vertexGemini_2_5_Pro(): LLM {
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash
 export function vertexGemini_2_5_Flash(defaultOpts?: GenerateTextOptions): LLM {
-	return new VertexLLM('Gemini 2.5 Flash', 'gemini-2.5-flash', 1_000_000, fixedCostPerMilTokens(0.3, 2.5), ['gemini-2.5-flash-preview-05-20'], defaultOpts);
+	return new VertexLLM('Gemini 2.5 Flash', 'gemini-2.5-flash', 1_000_000, costPerMilTokens(0.3, 2.5), ['gemini-2.5-flash-preview-05-20'], defaultOpts);
 }
 
 export function vertexGemini_2_0_Flash_Lite(): LLM {
-	return new VertexLLM('Gemini 2.0 Flash Lite', 'gemini-2.0-flash-lite', 1_000_000, fixedCostPerMilTokens(0.075, 0.3));
+	return new VertexLLM('Gemini 2.0 Flash Lite', 'gemini-2.0-flash-lite', 1_000_000, costPerMilTokens(0.075, 0.3));
 }
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash-lite
 export function vertexGemini_2_5_Flash_Lite(): LLM {
-	return new VertexLLM('Gemini 2.5 Flash Lite', 'gemini-2.5-flash-lite-preview-06-17', 1_000_000, fixedCostPerMilTokens(0.01, 0.4), [
+	return new VertexLLM('Gemini 2.5 Flash Lite', 'gemini-2.5-flash-lite-preview-06-17', 1_000_000, costPerMilTokens(0.01, 0.4), [
 		'gemini-2.0-flash-lite-preview-02-05',
 	]);
 }

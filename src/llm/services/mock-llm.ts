@@ -301,7 +301,7 @@ export class MockLLM extends BaseLLM {
 
 			const inputTokens = await this.countTokens(fullPromptText);
 			const outputTokens = await this.countTokens(responseText);
-			const { totalCost } = this.calculateCosts(inputTokens, outputTokens, {}, new Date(finishTime));
+			const { totalCost } = this.calculateCosts(inputTokens, outputTokens, 0);
 			addCost(totalCost);
 
 			llmCall.timeToFirstToken = timeToFirstToken;

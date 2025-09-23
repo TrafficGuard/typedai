@@ -1,7 +1,6 @@
 import { type GoogleGenerativeAIProvider, createGoogleGenerativeAI } from '@ai-sdk/google';
-import { fixedCostPerMilTokens } from '#llm/base-llm';
+import { costPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
-import { gemini2_5_Pro_CostFunction } from '#llm/services/vertexai';
 import type { LLM, LlmCostFunction } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 
@@ -16,18 +15,18 @@ export function geminiLLMRegistry(): Record<string, () => LLM> {
 }
 
 export function Gemini_2_5_Pro(): LLM {
-	return new GeminiLLM('Gemini 2.5 Pro (Gemini)', 'gemini-2.5-pro', 1_000_000, gemini2_5_Pro_CostFunction(1.25, 10, 2.5, 15), [
+	return new GeminiLLM('Gemini 2.5 Pro (Gemini)', 'gemini-2.5-pro', 1_000_000, costPerMilTokens(1.25, 10, 1.25 / 4, 2.5, 15, 200_000), [
 		'gemini-2.5-pro-preview-05-06',
 		'gemini-2.5-pro-preview-06-05',
 	]);
 }
 
 export function Gemini_2_5_Flash(): LLM {
-	return new GeminiLLM('Gemini 2.5 Flash (Gemini)', 'gemini-2.5-flash', 1_000_000, fixedCostPerMilTokens(0.3, 2.5));
+	return new GeminiLLM('Gemini 2.5 Flash (Gemini)', 'gemini-2.5-flash', 1_000_000, costPerMilTokens(0.3, 2.5));
 }
 
 export function Gemini_2_5_Flash_Lite(): LLM {
-	return new GeminiLLM('Gemini 2.5 Flash Lite (Gemini)', 'gemini-2.5-flash-lite-preview-06-17', 1_000_000, fixedCostPerMilTokens(0.1, 0.4));
+	return new GeminiLLM('Gemini 2.5 Flash Lite (Gemini)', 'gemini-2.5-flash-lite-preview-06-17', 1_000_000, costPerMilTokens(0.1, 0.4));
 }
 
 const GEMINI_KEYS: string[] = [];

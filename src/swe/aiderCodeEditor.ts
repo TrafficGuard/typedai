@@ -11,7 +11,7 @@ import { appContext } from '#app/applicationContext';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { callStack } from '#llm/llmCallService/llmCall';
 import { anthropicClaude4_Sonnet } from '#llm/services/anthropic';
-import { deepSeekV3 } from '#llm/services/deepseek';
+import { deepSeekV3_1 } from '#llm/services/deepseek';
 import { openaiGPT5 } from '#llm/services/openai';
 import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
@@ -97,7 +97,7 @@ export class AiderCodeEditor {
 			modelArg = '--model deepseek/deepseek-chat';
 			env = { DEEPSEEK_API_KEY: deepSeekKey };
 			span.setAttribute('model', 'deepseek');
-			llm = deepSeekV3();
+			llm = deepSeekV3_1();
 		} else if (openaiKey) {
 			// default to gpt4o
 			modelArg = '';

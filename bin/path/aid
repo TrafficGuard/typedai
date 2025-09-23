@@ -11,7 +11,7 @@ fi
 
 # Check if at least one argument (npm script name) is passed
 if [ $# -lt 1 ]; then
-  echo "Usage: ai <script> [args]"
+  echo "Usage: aid <npm-script> [args]"
   exit 1
 fi
 

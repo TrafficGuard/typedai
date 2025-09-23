@@ -9,7 +9,7 @@ import { InMemoryPromptService } from '#modules/memory/inMemoryPromptService';
 import { InMemoryUserService } from '#modules/memory/inMemoryUserService';
 
 export function inMemoryApplicationContext(): ApplicationContext {
-	return {
+	const ctx = {
 		agentStateService: new InMemoryAgentStateService(),
 		chatService: new InMemoryChatService(),
 		userService: new InMemoryUserService(),
@@ -18,5 +18,9 @@ export function inMemoryApplicationContext(): ApplicationContext {
 		functionCacheService: new InMemoryFunctionCacheService(),
 		promptsService: new InMemoryPromptService(),
 		codeTaskRepository: new InMemoryCodeTaskRepository(), // For CodeTask we store the Repository
+		init: async () => {
+			await ctx.userService.ensureSingleUser();
+		},
 	};
+	return ctx;
 }

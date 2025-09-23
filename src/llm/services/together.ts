@@ -1,5 +1,5 @@
 import { type TogetherAIProvider, createTogetherAI } from '@ai-sdk/togetherai';
-import { fixedCostPerMilTokens } from '#llm/base-llm';
+import { costPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import type { LLM, LlmCostFunction } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
@@ -16,12 +16,12 @@ export function togetherLLMRegistry(): Record<string, () => LLM> {
 
 // https://www.together.ai/models/deepseek-r1
 export function togetherDeepSeekR1(): LLM {
-	return new TogetherLLM('DeepSeek R1 (Together fast)', 'deepseek-ai/DeepSeek-R1', 128_000, fixedCostPerMilTokens(3, 7));
+	return new TogetherLLM('DeepSeek R1 (Together fast)', 'deepseek-ai/DeepSeek-R1', 128_000, costPerMilTokens(3, 7));
 }
 
 // https://www.together.ai/models/deepseek-r1-0528-throughput
 export function togetherDeepSeekR1_0528_tput(): LLM {
-	return new TogetherLLM('DeepSeek R1 (Together cheap)', 'deepseek-ai/DeepSeek-R1-0528-tput', 128_000, fixedCostPerMilTokens(0.55, 2.19));
+	return new TogetherLLM('DeepSeek R1 (Together cheap)', 'deepseek-ai/DeepSeek-R1-0528-tput', 128_000, costPerMilTokens(0.55, 2.19));
 }
 
 // https://www.together.ai/models/moonshotai/kimi-k2-instruct
@@ -32,7 +32,7 @@ export function togetherKimiK2(): LLM {
 		// From https://console.groq.com/docs/model/moonshotai/kimi-k2-instruct
 		16384,
 		// Pricing from https://www.together.ai/blog/kimi-k2-on-together-ai (using cache-miss price)
-		fixedCostPerMilTokens(0.6, 2.5),
+		costPerMilTokens(0.6, 2.5),
 	);
 }
 

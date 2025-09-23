@@ -1,5 +1,5 @@
 import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
-import { fixedCostPerMilTokens } from '#llm/base-llm';
+import { costPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
 import type { LLM, LlmCostFunction } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
@@ -13,7 +13,7 @@ export function nebiusLLMRegistry(): Record<string, () => LLM> {
 }
 
 export function nebiusDeepSeekR1(): LLM {
-	return new NebiusLLM('DeepSeek R1 (Nebius)', 'deepseek-ai/DeepSeek-R1', fixedCostPerMilTokens(0.8, 2.4));
+	return new NebiusLLM('DeepSeek R1 (Nebius)', 'deepseek-ai/DeepSeek-R1', costPerMilTokens(0.8, 2.4));
 }
 
 export class NebiusLLM extends AiLLM<OpenAIProvider> {

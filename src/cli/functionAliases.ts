@@ -19,7 +19,6 @@ import { CodeFunctions } from '#swe/codeFunctions';
 import { NpmPackages } from '#swe/lang/nodejs/npmPackages';
 import { TypescriptTools } from '#swe/lang/nodejs/typescriptTools';
 import { SoftwareDeveloperAgent } from '#swe/softwareDeveloperAgent';
-import { functionRegistry } from '../functionRegistry';
 
 // Mapping of aliases to class names for easier CLI usage
 const functionAliases: Record<string, string> = {

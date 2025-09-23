@@ -73,7 +73,7 @@ export class OllamaLLM extends BaseLLM {
 			const llmCall: LlmCall = await llmCallSave;
 			const inputTokens = await countTokens(inputPromptString);
 			const outputTokens = await countTokens(responseText);
-			const { totalCost } = this.calculateCosts(inputTokens, outputTokens, response.data.usage, new Date(finishTime)); // Will be 0
+			const { totalCost } = this.calculateCosts(inputTokens, outputTokens, 0); // Will be 0
 			llmCall.timeToFirstToken = timeToFirstToken;
 			llmCall.totalTime = finishTime - requestTime;
 			llmCall.cost = totalCost; // VM cost?

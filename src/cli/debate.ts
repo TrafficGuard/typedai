@@ -18,7 +18,7 @@ async function main() {
 	await initApplicationContext();
 	const agentLLMs: AgentLLMs = defaultLLMs();
 	const { initialPrompt: rawPrompt, resumeAgentId, flags } = parseProcessArgs();
-	const { textPrompt, userContent } = parsePromptWithImages(rawPrompt);
+	const { textPrompt, userContent } = await parsePromptWithImages(rawPrompt);
 
 	console.log(`Prompt: ${textPrompt}`);
 

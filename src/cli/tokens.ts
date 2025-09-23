@@ -9,7 +9,7 @@ import { parsePromptWithImages } from './promptParser';
 
 async function main() {
 	const { initialPrompt: rawPrompt, llmId, flags } = parseProcessArgs();
-	const { textPrompt, userContent } = parsePromptWithImages(rawPrompt);
+	const { textPrompt, userContent } = await parsePromptWithImages(rawPrompt);
 
 	const tokens = await countTokens(textPrompt);
 	console.log(`${tokens} text tokens`);

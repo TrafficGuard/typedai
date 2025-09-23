@@ -18,7 +18,7 @@ async function main() {
 	const agentLlms: AgentLLMs = defaultLLMs();
 
 	const { initialPrompt: rawPrompt, resumeAgentId } = parseProcessArgs();
-	const { textPrompt, userContent } = parsePromptWithImages(rawPrompt);
+	const { textPrompt, userContent } = await parsePromptWithImages(rawPrompt);
 
 	console.log(`Prompt: ${textPrompt}`); // Log the text part
 

@@ -95,6 +95,9 @@ importers:
       '@google-cloud/opentelemetry-cloud-trace-exporter':
         specifier: ^2.4.1
         version: 2.4.1(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/resources@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(encoding@0.1.13)
+      '@google-cloud/secret-manager':
+        specifier: ^6.1.0
+        version: 6.1.0
       '@google-cloud/storage':
         specifier: ^7.17.1
         version: 7.17.1(encoding@0.1.13)
@@ -1669,6 +1672,10 @@ packages:
   '@google-cloud/pubsub@4.11.0':
     resolution: {integrity: sha512-xWxJAlyUGd6OPp97u8maMcI3xVXuHjxfwh6Dr7P/P+6NK9o446slJobsbgsmK0xKY4nTK8m5uuJrhEKapfZSmQ==}
     engines: {node: '>=14.0.0'}
+
+  '@google-cloud/secret-manager@6.1.0':
+    resolution: {integrity: sha512-IrXjT1z2yW98htydkopcxdhNVh4rpAzO3oTVzKymfdnzmzCKWVxhfwYWWvIor1bzgQN4sa21Wv0CMDokJyTt7A==}
+    engines: {node: '>=18'}
 
   '@google-cloud/storage@7.17.1':
     resolution: {integrity: sha512-2FMQbpU7qK+OtBPaegC6n+XevgZksobUGo6mGKnXNmeZpvLiAo1gTAE3oTKsrMGDV4VtL8Zzpono0YsK/Q7Iqg==}
@@ -9761,6 +9768,12 @@ snapshots:
       p-defer: 3.0.0
     transitivePeerDependencies:
       - encoding
+      - supports-color
+
+  '@google-cloud/secret-manager@6.1.0':
+    dependencies:
+      google-gax: 5.0.1
+    transitivePeerDependencies:
       - supports-color
 
   '@google-cloud/storage@7.17.1(encoding@0.1.13)':

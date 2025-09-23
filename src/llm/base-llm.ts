@@ -24,9 +24,26 @@ export interface SerializedLLM {
 	model: string;
 }
 
-export function fixedCostPerMilTokens(inputMil: number, outputMil: number): LlmCostFunction {
-	return (inputTokens: number, outputTokens: number) => {
-		const inputCost = (inputTokens * inputMil) / 1_000_000;
+export function costPerMilTokens(
+	inputMil: number,
+	outputMil: number,
+	cachedInputMil?: number,
+	longInputMil?: number,
+	longOutputMil?: number,
+	longThreshold = 128000,
+): LlmCostFunction {
+	return (inputTokens: number, outputTokens: number, cachedInputTokens: number) => {
+		let inputMilCost = inputMil;
+		let outputMilCost = outputMil;
+		if (longInputMil && longOutputMil && inputTokens >= longThreshold) {
+			inputMilCost = longInputMil;
+			outputMilCost = longOutputMil;
+		}
+		const standardInputTokens = inputTokens - cachedInputTokens;
+
+		const standardInputCost = (standardInputTokens * inputMilCost) / 1_000_000;
+		const cachedInputCost = (cachedInputTokens * (cachedInputMil ?? inputMilCost)) / 1_000_000;
+		const inputCost = standardInputCost + cachedInputCost;
 		const outputCost = (outputTokens * outputMil) / 1_000_000;
 		return {
 			inputCost,

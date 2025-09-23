@@ -1,5 +1,6 @@
 import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
 import { AiLLM } from '#llm/services/ai-llm';
+import { logger } from '#o11y/logger';
 import type { GenerateTextOptions, LLM, LlmCostFunction, LlmMessage } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 
@@ -71,7 +72,8 @@ for (let i = 2; i <= 9; i++) {
 	if (key) OPENAI_KEYS.push(key);
 	else break;
 }
-let openaiKeyIndex = 0;
+const openaiKeyIndex = 0;
+// logger.info(`module Using OpenAI keys ${OPENAI_KEYS.length}`);
 
 export class OpenAI extends AiLLM<OpenAIProvider> {
 	constructor(
@@ -102,12 +104,15 @@ export class OpenAI extends AiLLM<OpenAIProvider> {
 	}
 
 	protected override apiKey(): string | undefined {
-		let envKey: string | undefined;
-		if (OPENAI_KEYS.length) {
-			envKey = OPENAI_KEYS[openaiKeyIndex];
-			if (++openaiKeyIndex > OPENAI_KEYS.length) openaiKeyIndex = 0;
-		}
-		return currentUser()?.llmConfig.openaiKey || envKey;
+		// let envKey: string | undefined;
+		// logger.info(`Using OpenAI keys ${OPENAI_KEYS.length}`);
+		// if (OPENAI_KEYS.length) {
+		// 	envKey = OPENAI_KEYS[openaiKeyIndex];
+		// 	logger.info(`Using OpenAI key ${envKey}`);
+		// 	if (++openaiKeyIndex > OPENAI_KEYS.length) openaiKeyIndex = 0;
+		// }
+		// logger.info(`Using OpenAI key ${currentUser()?.llmConfig.openaiKey} ${process.env.OPENAI_API_KEY}`);
+		return currentUser()?.llmConfig.openaiKey || process.env.OPENAI_API_KEY;
 	}
 
 	override provider(): OpenAIProvider {

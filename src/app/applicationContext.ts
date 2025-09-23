@@ -1,5 +1,6 @@
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { inMemoryApplicationContext } from '#modules/memory/inMemoryApplicationContext';
+import { InMemoryUserService } from '#modules/memory/inMemoryUserService';
 import { logger, setLogEnricher } from '#o11y/logger';
 import type { ApplicationContext } from './applicationTypes';
 
@@ -91,8 +92,11 @@ export async function initPostgresApplicationContext(): Promise<ApplicationConte
 }
 
 export function initInMemoryApplicationContext(): ApplicationContext {
-	// if (applicationContext) throw new Error('Application context already initialized');
+	if (applicationContext && !(applicationContext.userService instanceof InMemoryUserService))
+		throw new Error('Application context already initialized not as in-memory');
 	applicationContext = inMemoryApplicationContext();
-	applicationContext.userService.ensureSingleUser().catch();
+	// This is async but initInMemoryApplicationContext is sync for covenience where it is called (maybe shouldnt be)
+	// If getting "Error: Single user not initialized" error then call `await appContext().userService.ensureSingleUser();` after creation
+	applicationContext.userService.ensureSingleUser().catch(console.error);
 	return applicationContext;
 }

@@ -236,6 +236,11 @@ export function messageText(message: LlmMessage): string {
 	return contentText(message.content as any);
 }
 
+export function messageSources(message: LlmMessage): LanguageModelV2Source[] {
+	if (typeof message.content === 'string') return [];
+	return message.content.filter((c) => c.type === 'text').flatMap((c) => c.sources ?? []);
+}
+
 /**
  * @param message
  * @returns if a message contents is text only, then returns the text, else returns null;
@@ -467,8 +472,7 @@ export interface LlmCallMessageSummaryPart {
 export type LlmCostFunction = (
 	promptTokens: number,
 	completionTokens: number,
-	usage: any,
-	completionTime: Date,
+	cachedInputTokens: number,
 ) => { inputCost: number; outputCost: number; totalCost: number };
 
 export interface LlmInfo {

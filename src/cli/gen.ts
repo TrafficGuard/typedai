@@ -1,13 +1,14 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
 import { writeFileSync } from 'node:fs';
-import { initApplicationContext, initInMemoryApplicationContext } from '#app/applicationContext';
+import { appContext, initApplicationContext, initInMemoryApplicationContext } from '#app/applicationContext';
 import { ReasonerDebateLLM } from '#llm/multi-agent/reasoning-debate';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { countTokens } from '#llm/tokens';
-import { LLM, LlmMessage, ThinkingLevel, messageText, system, user } from '#shared/llm/llm.model';
+import { LLM, LlmMessage, ThinkingLevel, messageSources, messageText, system, user } from '#shared/llm/llm.model';
 import { beep } from '#utils/beep';
-import { LLM_CLI_ALIAS, parseProcessArgs } from './cli';
+import { parseProcessArgs } from './cli';
+import { LLM_CLI_ALIAS } from './llmAliases';
 import { parsePromptWithImages } from './promptParser';
 import { terminalLog } from './terminal';
 
@@ -16,11 +17,12 @@ import { terminalLog } from './terminal';
 
 async function main() {
 	const { initialPrompt: rawPrompt, llmId, flags } = parseProcessArgs();
-	const { textPrompt, userContent } = parsePromptWithImages(rawPrompt);
+	const { textPrompt, userContent } = await parsePromptWithImages(rawPrompt);
 
 	// -s save to database
 	if (flags.s) await initApplicationContext();
-	else await initInMemoryApplicationContext();
+	else initInMemoryApplicationContext();
+	await appContext().init?.();
 
 	let llm: LLM = defaultLLMs().medium;
 	terminalLog('PROMPT:');
@@ -47,7 +49,23 @@ async function main() {
 
 	const message = await llm.generateMessage(messages, { id: 'CLI-gen', thinking });
 
-	const text = messageText(message);
+	let text = messageText(message);
+
+	const sources = messageSources(message);
+	if (sources.length > 0) {
+		text += '\n\nSources:\n';
+		for (const source of sources) {
+			switch (source.sourceType) {
+				case 'url':
+					text += `${source.url}\n`;
+					break;
+				case 'document':
+					text += `${source.filename}\n`;
+					break;
+			}
+		}
+	}
+
 	console.log(text);
 
 	const duration = Date.now() - start;
@@ -65,7 +83,9 @@ async function main() {
 		}
 	}
 
-	terminalLog(`\nGenerated ${await countTokens(text)} tokens by ${llm.getId()} in ${(duration / 1000).toFixed(1)} seconds`);
+	terminalLog(
+		`\nStats: ${llm.getId()} - Input: ${message.stats?.inputTokens}. Output: ${message.stats?.outputTokens}. Cost: \$${message.stats?.cost?.toFixed(3)}. Duration: ${(duration / 1000).toFixed(0)} seconds`,
+	);
 	terminalLog('Wrote output to src/cli/gen-out');
 	beep();
 }

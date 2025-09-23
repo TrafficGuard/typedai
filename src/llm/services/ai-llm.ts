@@ -285,8 +285,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				const { inputCost, outputCost, totalCost } = this.calculateCosts(
 					result.usage.inputTokens ?? 0,
 					result.usage.outputTokens ?? 0,
-					result.providerMetadata,
-					result.response.timestamp,
+					result.usage.cachedInputTokens ?? 0,
 				);
 				const cost = Number.isNaN(totalCost) ? 0 : totalCost;
 
@@ -444,7 +443,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 
 			const [usage, finishReason, metadata, response] = await Promise.all([result.usage, result.finishReason, result.providerMetadata, result.response]);
 			const finish = Date.now();
-			const { inputCost, outputCost, totalCost } = this.calculateCosts(usage.inputTokens ?? 0, usage.outputTokens ?? 0, metadata, new Date(finish));
+			const { inputCost, outputCost, totalCost } = this.calculateCosts(usage.inputTokens ?? 0, usage.outputTokens ?? 0, usage.cachedInputTokens ?? 0);
 
 			addCost(totalCost);
 

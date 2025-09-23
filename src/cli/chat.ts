@@ -8,7 +8,8 @@ import { logger } from '#o11y/logger';
 import { getMarkdownFormatPrompt } from '#routes/chat/chatPromptUtils';
 import { LLM, LlmMessage, UserContentExt, contentText, messageText, user } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
-import { LLM_CLI_ALIAS, parseProcessArgs, saveAgentId } from './cli';
+import { parseProcessArgs, saveAgentId } from './cli';
+import { LLM_CLI_ALIAS } from './llmAliases';
 
 async function main() {
 	await initApplicationContext();

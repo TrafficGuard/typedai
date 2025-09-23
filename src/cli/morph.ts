@@ -20,7 +20,7 @@ import { CodeFunctions } from '#swe/codeFunctions';
 import { MorphCodeAgent } from '#swe/morph/morphCoder';
 import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs, saveAgentId } from './cli';
-import { resolveFunctionClasses } from './functionResolver';
+import { resolveFunctionClasses } from './functionAliases';
 
 async function resumeAgent(resumeAgentId: string, initialPrompt: string) {
 	const agent = await appContext().agentStateService.load(resumeAgentId);
