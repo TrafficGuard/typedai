@@ -47,7 +47,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 	private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
 	private agentUser!: User;
 
-	async api(): Promise<SlackAPI> {
+	api(): SlackAPI {
 		this.slackApi ??= new SlackAPI();
 		return this.slackApi;
 	}
@@ -94,7 +94,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			return;
 		}
 
-		if (agent.metadata.slack.reply_ts) (await this.api()).removeReaction(agent.metadata.slack.channel, agent.metadata.slack.reply_ts, 'robot_face');
+		if (agent.metadata.slack.reply_ts) this.api().removeReaction(agent.metadata.slack.channel, agent.metadata.slack.reply_ts, 'robot_face');
 
 		const params: any = {
 			channel: agent.metadata.slack.channel,
@@ -173,7 +173,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 				await this.processMessage(event, say);
 			} catch (error) {
 				logger.error(error, 'Error processing Slack message');
-				await (await this.api()).addReaction(event.channel, event.ts, 'robot_face::boom');
+				await this.api().addReaction(event.channel, event.ts, 'robot_face::boom');
 			}
 		});
 	}
@@ -200,7 +200,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			const threadId = event.ts;
 			logger.info(`New thread ${event.ts}`);
 
-			await (await this.api()).addReaction(event.channel, threadId, 'robot_face');
+			await this.api().addReaction(event.channel, threadId, 'robot_face');
 
 			try {
 				const agentExec = await this.startAgentForThread(threadId, event.channel, messageText);
@@ -225,7 +225,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			const agent: AgentContext | null = await agentService.load(agentId);
 			const messages = await this.fetchThreadMessages(event.channel, threadId);
 
-			await (await this.api()).addReaction(event.channel, _event.ts, 'robot_face');
+			await this.api().addReaction(event.channel, _event.ts, 'robot_face');
 
 			const prompt = `${JSON.stringify(messages)}\n\nReply to this conversation thread`;
 
@@ -241,7 +241,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 				logger.info(`Resuming completed agent ${agentId}`);
 				await resumeCompletedWithUpdatedUserRequest(agentId, agent.executionId, prompt);
 			}
-			await (await this.api()).removeReaction(event.channel, event.ts, 'robot_face');
+			await this.api().removeReaction(event.channel, event.ts, 'robot_face');
 		}
 	}
 
