@@ -111,7 +111,7 @@ async function runNpmScriptOrCommandInDirs(scriptOrCommandName, directories) {
             currentNpmSubCommandForDir += ':ci';
         }
 
-        const pkgMgr = dirInfo.path.includes('frontend') ? 'npm' : 'pnpm';
+        const pkgMgr = 'pnpm';
         const commandToExecuteInDir = `${pkgMgr} ${currentNpmSubCommandForDir}`;
 
         // Use the base script/command name for the task identifier for consistency
