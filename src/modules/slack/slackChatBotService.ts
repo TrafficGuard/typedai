@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { App, type KnownEventFromType, type SayFn, StringIndexed } from '@slack/bolt';
 import { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
 import { AgentExecution, isAgentExecuting } from '#agent/agentExecutions';
@@ -13,7 +12,7 @@ import { Perplexity } from '#functions/web/perplexity';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { getAgentUser } from '#routes/webhooks/webhookAgentUser';
-import { type AgentCompleted, type AgentContext, type AgentLLMs, isExecuting } from '#shared/agent/agent.model';
+import { type AgentCompleted, type AgentContext } from '#shared/agent/agent.model';
 import type { User } from '#shared/user/user.model';
 import { runAsUser } from '#user/userContext';
 import type { ChatBotService } from '../../chatBot/chatBotService';
@@ -48,7 +47,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 	private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
 	private agentUser!: User;
 
-	api(): SlackAPI {
+	async api(): Promise<SlackAPI> {
 		this.slackApi ??= new SlackAPI();
 		return this.slackApi;
 	}
@@ -95,7 +94,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			return;
 		}
 
-		if (agent.metadata.slack.reply_ts) this.api().removeReaction(agent.metadata.slack.channel, agent.metadata.slack.reply_ts, 'robot_face');
+		if (agent.metadata.slack.reply_ts) (await this.api()).removeReaction(agent.metadata.slack.channel, agent.metadata.slack.reply_ts, 'robot_face');
 
 		const params: any = {
 			channel: agent.metadata.slack.channel,
@@ -137,33 +136,18 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 		}
 
 		this.agentUser = await getAgentUser();
-
-		const botToken = process.env.SLACK_BOT_TOKEN;
-		const signingSecret = process.env.SLACK_SIGNING_SECRET;
-		const channels = process.env.SLACK_CHANNELS;
-		const appToken = process.env.SLACK_APP_TOKEN;
-
-		if (!botToken || !signingSecret || !channels || !appToken) {
-			logger.error('Slack chatbot requires environment variables SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_APP_TOKEN and SLACK_CHANNELS');
-		}
-
 		this.slackApi = new SlackAPI();
 
 		// Initializes your app with your bot token and signing secret
+		const config = slackConfig();
 		slackApp = new App({
-			token: botToken,
-			signingSecret: signingSecret,
+			token: config.botToken,
+			signingSecret: config.signingSecret,
 			socketMode: slackConfig().socketMode,
-			appToken: appToken,
+			appToken: config.appToken,
 		});
 
-		const configuredChannels = channels
-			? channels
-					.split(',')
-					.map((s) => s.trim())
-					.filter(Boolean)
-			: [];
-		this.channels = new Set(configuredChannels);
+		this.channels = new Set(config.channels);
 
 		if (slackConfig().socketMode) {
 			// Listen for messages in channels
@@ -189,7 +173,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 				await this.processMessage(event, say);
 			} catch (error) {
 				logger.error(error, 'Error processing Slack message');
-				await this.api().addReaction(event.channel, event.ts, 'robot_face::boom');
+				await (await this.api()).addReaction(event.channel, event.ts, 'robot_face::boom');
 			}
 		});
 	}
@@ -216,7 +200,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			const threadId = event.ts;
 			logger.info(`New thread ${event.ts}`);
 
-			await this.api().addReaction(event.channel, threadId, 'robot_face');
+			await (await this.api()).addReaction(event.channel, threadId, 'robot_face');
 
 			try {
 				const agentExec = await this.startAgentForThread(threadId, event.channel, messageText);
@@ -225,10 +209,10 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 
 				if (agent.state !== 'completed' && agent.state !== 'hitl_feedback') {
 					logger.error(`Agent did not complete. State was ${agent.state}`);
-					await this.api().addReaction(event.channel, event.ts, 'robot_face::boom');
+					await (await this.api()).addReaction(event.channel, event.ts, 'robot_face::boom');
 					return;
 				}
-				await this.api().removeReaction(event.channel, event.ts, 'robot_face');
+				await (await this.api()).removeReaction(event.channel, event.ts, 'robot_face');
 				return;
 			} catch (e) {
 				logger.error(e, 'Error handling new Slack thread');
@@ -241,7 +225,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			const agent: AgentContext | null = await agentService.load(agentId);
 			const messages = await this.fetchThreadMessages(event.channel, threadId);
 
-			await this.api().addReaction(event.channel, _event.ts, 'robot_face');
+			await (await this.api()).addReaction(event.channel, _event.ts, 'robot_face');
 
 			const prompt = `${JSON.stringify(messages)}\n\nReply to this conversation thread`;
 
@@ -257,7 +241,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 				logger.info(`Resuming completed agent ${agentId}`);
 				await resumeCompletedWithUpdatedUserRequest(agentId, agent.executionId, prompt);
 			}
-			await this.api().removeReaction(event.channel, event.ts, 'robot_face');
+			await (await this.api()).removeReaction(event.channel, event.ts, 'robot_face');
 		}
 	}
 

@@ -62,9 +62,10 @@ export async function analyzeCompileErrors(
 		'- If the compile errors indicate one or more missing packages/modules, then set an array with the missing packages, e.g. ["package1", "package2"], on the "installPackages" property.\n' +
 		'- If there appears to be an fatal error which can\'t be fixed (e.g. configuration issue, or stuck on the same error multiple times, or a dependant project needs to be updated) that requires human intervention, then set a message describing the problem in the "fatalError" property.\n' +
 		'- Check closely for any comments in the code or any Code Guidelines that would indicate how this code/requirements should be implemented.\n' +
+		'- If the changes have inadvertently broken many files and the fixes are outside the scope of the task, then either 1) Revert the change and try a different approach which satifies the design contraints, or 2) Set the "fatalError" property with a message describing the problem.\n' +
 		`Respond with your resoning following by the JSON object that MUST be in the format of this example:
 <response_example>
-- Analysis of the compile issues
+- Analysis of the compile issues (general analysis and notes for all of the relevant items listed above)
 - Reasoning if any additional files need to be added to the available <file_contents> list which have compile errors or required implementation details
 - Reasoning if any web research is required to fix issues
 - Reasoning if there is a fatal error

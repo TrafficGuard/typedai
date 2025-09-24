@@ -1,12 +1,15 @@
 import { initApplicationContext } from '#app/applicationContext';
 import { logger } from '#o11y/logger';
 import { getAllRoutes } from '#routes/routeRegistry';
+import { GcpSecretManager } from './config/gcpSecretManager';
+import { loadSecrets } from './config/secretConfig';
 import { initFastify } from './fastify';
 
 /**
  * Creates the applications services and starts the Fastify server.
  */
 export async function initServer(): Promise<void> {
+	await loadSecrets(new GcpSecretManager());
 	const applicationContext = await initApplicationContext();
 
 	// Ensures all the functions are registered

@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { getSecret } from 'src/config/secretConfig';
 
 export interface SlackConfig {
 	hasSupportDocs: boolean;
@@ -6,6 +7,10 @@ export interface SlackConfig {
 	supportDocsLocalPath: string;
 	socketMode: boolean;
 	autoStart: boolean;
+	botToken: string;
+	signingSecret: string;
+	appToken: string;
+	channels: string[];
 }
 
 let config: SlackConfig | undefined;
@@ -24,5 +29,9 @@ function createSlackConfig(): SlackConfig {
 		supportDocsProject: process.env.SLACK_SUPPORT_DOCS_PROJECT ?? '',
 		socketMode: Boolean(process.env.SLACK_SOCKET_MODE?.trim()),
 		autoStart: Boolean(process.env.SLACK_AUTO_START?.trim()),
+		botToken: getSecret('SLACK_BOT_TOKEN'),
+		signingSecret: getSecret('SLACK_SIGNING_SECRET'),
+		appToken: getSecret('SLACK_APP_TOKEN'),
+		channels: process.env.SLACK_CHANNELS?.split(',')?.map((s) => s.trim()) || [],
 	};
 }
