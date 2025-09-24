@@ -8,7 +8,7 @@ export const XAI_SERVICE = 'xai';
 
 export class XAI extends AiLLM<XaiProvider> {
 	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, XAI_SERVICE, model, maxOutputTokens, calculateCosts);
+		super({ displayName, service: XAI_SERVICE, modelId: model, maxInputTokens: maxOutputTokens, calculateCosts });
 	}
 
 	protected apiKey(): string | undefined {

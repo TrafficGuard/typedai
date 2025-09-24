@@ -8,27 +8,33 @@ import { fireworksDeepSeekR1_Fast } from '../services/fireworks';
 
 export function deepSeekFallbackRegistry(): Record<string, () => LLM> {
 	return {
-		DeepSeekFallback: DeepSeekR1_Together_Fireworks_Nebius_SambaNova,
+		DeepSeekFallback: DeepSeek_Together_Fireworks_Nebius_SambaNova,
 	};
 }
 
-export function DeepSeekR1_Together_Fireworks_Nebius_SambaNova(): LLM {
-	return new DeepSeekR1_Fallbacks();
+export function DeepSeek_Together_Fireworks_Nebius_SambaNova(): LLM {
+	return new DeepSeek_Fallbacks();
 }
 
 /**
- * LLM implementation for DeepSeek R1 which uses Together.ai and Fireworks.ai for more privacy.
+ * LLM implementation for DeepSeek which uses Together.ai and Fireworks.ai for more privacy.
  * Tries Together.ai first as is slightly cheaper, then falls back to Fireworks
  */
-export class DeepSeekR1_Fallbacks extends BaseLLM {
+export class DeepSeek_Fallbacks extends BaseLLM {
 	private llms: LLM[] = [togetherDeepSeekR1(), fireworksDeepSeekR1_Fast(), nebiusDeepSeekR1(), sambanovaDeepseekR1()];
 
 	constructor() {
-		super('DeepSeek R1 (Together, Fireworks, Nebius, SambaNova)', 'DeepSeekFallback', 'deepseek-r1-together-fireworks-nebius-sambanova', 0, () => ({
-			inputCost: 0,
-			outputCost: 0,
-			totalCost: 0,
-		}));
+		super({
+			displayName: 'DeepSeek (Together, Fireworks, Nebius, SambaNova)',
+			service: 'DeepSeekFallback',
+			modelId: 'deepseek-together-fireworks-nebius-sambanova',
+			maxInputTokens: 0,
+			calculateCosts: () => ({
+				inputCost: 0,
+				outputCost: 0,
+				totalCost: 0,
+			}),
+		});
 	}
 
 	protected override supportsGenerateTextFromMessages(): boolean {
@@ -49,6 +55,6 @@ export class DeepSeekR1_Fallbacks extends BaseLLM {
 				logger.error(`Error with ${llm.getDisplayName()}: ${error.message}. Trying next provider.`);
 			}
 		}
-		throw new Error('All DeepSeek R1 providers failed.');
+		throw new Error('All DeepSeek providers failed.');
 	}
 }

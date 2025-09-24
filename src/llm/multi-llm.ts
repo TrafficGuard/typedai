@@ -22,11 +22,17 @@ export class MultiLLM extends BaseLLM {
 		private llms: LLM[],
 		private callsPerLLM = 1,
 	) {
-		super('multi', 'multi', 'multi', Math.min(...llms.map((llm) => llm.getMaxInputTokens())), () => ({
-			inputCost: 0,
-			outputCost: 0,
-			totalCost: 0,
-		}));
+		super({
+			displayName: 'multi',
+			service: 'multi',
+			modelId: 'multi',
+			maxInputTokens: Math.min(...llms.map((llm) => llm.getMaxInputTokens())),
+			calculateCosts: () => ({
+				inputCost: 0,
+				outputCost: 0,
+				totalCost: 0,
+			}),
+		});
 		this.maxOutputTokens = Math.min(...llms.map((llm) => llm.getMaxInputTokens()));
 	}
 

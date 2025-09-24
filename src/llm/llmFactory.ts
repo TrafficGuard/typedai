@@ -1,4 +1,4 @@
-import { deepSeekFallbackRegistry } from '#llm/multi-agent/deepSeekR1_Fallbacks';
+import { deepSeekFallbackRegistry } from '#llm/multi-agent/deepSeek_Fallbacks';
 import { multiAgentLLMRegistry } from '#llm/multi-agent/multiRegistry';
 import { MoA_reasoningLLMRegistry } from '#llm/multi-agent/reasoning-debate';
 import { MultiLLM } from '#llm/multi-llm';

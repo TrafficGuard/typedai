@@ -41,7 +41,7 @@ export function togetherKimiK2(): LLM {
  */
 export class TogetherLLM extends AiLLM<TogetherAIProvider> {
 	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, TOGETHER_SERVICE, model, maxOutputTokens, calculateCosts);
+		super({ displayName, service: TOGETHER_SERVICE, modelId: model, maxInputTokens: maxOutputTokens, calculateCosts });
 	}
 
 	protected apiKey(): string | undefined {

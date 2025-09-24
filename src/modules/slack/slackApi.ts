@@ -1,20 +1,20 @@
 import { ConversationsHistoryResponse, ConversationsListResponse, ConversationsRepliesResponse, WebClient } from '@slack/web-api';
 import { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
 import { logger } from '#o11y/logger';
-import { envVar } from '#utils/env-var';
+import { SlackConfig, slackConfig } from './slackConfig';
 
 /**
  * A class to interact with the Slack API, specifically for fetching conversations and messages.
  */
 export class SlackAPI {
 	private client: WebClient;
+	private config: SlackConfig = slackConfig();
 
 	/**
 	 * Constructs a new SlackAPI instance.
 	 */
 	constructor() {
-		const token = envVar('SLACK_BOT_TOKEN');
-		this.client = new WebClient(token);
+		this.client = new WebClient(this.config.botToken);
 	}
 
 	async getConversationReplies(channelId: string, threadTs: string, limit = 100): Promise<MessageElement[]> {

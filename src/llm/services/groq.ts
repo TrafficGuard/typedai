@@ -45,7 +45,7 @@ export function groqKimiK2(): LLM {
  */
 export class GroqLLM extends AiLLM<GroqProvider> {
 	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, GROQ_SERVICE, model, maxOutputTokens, calculateCosts);
+		super({ displayName, service: GROQ_SERVICE, modelId: model, maxInputTokens: maxOutputTokens, calculateCosts });
 	}
 
 	override aiModel(): LanguageModelV2 {

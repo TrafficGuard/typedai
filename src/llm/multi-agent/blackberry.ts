@@ -69,10 +69,16 @@ export class Blackberry extends BaseLLM {
 	mediator: LLM = Claude4_Sonnet_Vertex();
 
 	constructor() {
-		super('Blueberry', 'MAD', 'blueberry', 200_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+		super({
+			displayName: 'Blueberry',
+			service: 'MAD',
+			modelId: 'blueberry',
+			maxInputTokens: 200_000,
+			calculateCosts: () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
+		});
 	}
 
-	overrideisConfigured(): boolean {
+	override isConfigured(): boolean {
 		return this.mediator.isConfigured() && this.llms.findIndex((llm) => !llm.isConfigured()) === -1;
 	}
 

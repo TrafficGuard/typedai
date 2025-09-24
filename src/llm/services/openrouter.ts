@@ -56,7 +56,7 @@ declare module '@openrouter/ai-sdk-provider' {
  */
 export class OpenRouterLLM extends AiLLM<OpenRouterProvider> {
 	constructor(displayName: string, model: string, maxInputTokens: number, calculateCosts: LlmCostFunction, defaultOptions?: GenerateTextOptions) {
-		super(displayName, OPENROUTER_SERVICE, model, maxInputTokens, calculateCosts, [], defaultOptions);
+		super({ displayName, service: OPENROUTER_SERVICE, modelId: model, maxInputTokens, calculateCosts, oldIds: [], defaultOptions });
 	}
 
 	protected provider(): OpenRouterProvider {

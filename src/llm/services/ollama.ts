@@ -13,11 +13,17 @@ export const OLLAMA_SERVICE = 'ollama';
 
 export class OllamaLLM extends BaseLLM {
 	constructor(name: string, model: string, maxInputTokens: number) {
-		super(`${name} (Ollama)`, OLLAMA_SERVICE, model, maxInputTokens, () => ({
-			inputCost: 0,
-			outputCost: 0,
-			totalCost: 0,
-		}));
+		super({
+			displayName: `${name} (Ollama)`,
+			service: OLLAMA_SERVICE,
+			modelId: model,
+			maxInputTokens,
+			calculateCosts: () => ({
+				inputCost: 0,
+				outputCost: 0,
+				totalCost: 0,
+			}),
+		});
 	}
 
 	override isConfigured(): boolean {
@@ -39,7 +45,7 @@ export class OllamaLLM extends BaseLLM {
 			span.setAttributes({
 				input: inputPromptString,
 				inputChars: inputPromptString.length,
-				model: this.model,
+				model: this.getServiceModelId(),
 				service: this.service,
 			});
 
@@ -55,7 +61,7 @@ export class OllamaLLM extends BaseLLM {
 			const url = `${this.getOllamaApiUrl()}/api/chat`;
 
 			const response = await axios.post(url, {
-				model: this.model,
+				model: this.getServiceModelId(),
 				messages: messages,
 				stream: false,
 				options: {

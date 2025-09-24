@@ -29,7 +29,7 @@ export function deepSeekV3_1_Reasoning(): LLM {
  */
 export class DeepSeekLLM extends AiLLM<DeepSeekProvider> {
 	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, DEEPSEEK_SERVICE, model, maxOutputTokens, calculateCosts);
+		super({ displayName, service: DEEPSEEK_SERVICE, modelId: model, maxInputTokens: maxOutputTokens, calculateCosts });
 	}
 
 	// https://sdk.vercel.ai/providers/ai-sdk-providers/deepseek

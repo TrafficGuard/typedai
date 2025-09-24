@@ -1,6 +1,6 @@
 import { type OpenAIProvider, createOpenAI } from '@ai-sdk/openai';
 import { AiLLM } from '#llm/services/ai-llm';
-import { logger } from '#o11y/logger';
+import { createEnvKeyRotator } from '#llm/services/key-rotation';
 import type { GenerateTextOptions, LLM, LlmCostFunction, LlmMessage } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 
@@ -16,12 +16,11 @@ export function openAiLLMRegistry(): Record<string, () => LLM> {
 }
 
 // https://sdk.vercel.ai/providers/ai-sdk-providers/openai#prompt-caching
-
-function openAICostFunction(inputMil: number, outputMil: number): LlmCostFunction {
+// TODO replace with costPerMilTokens in base-llm.ts
+function costPerMilTokens(inputMil: number, outputMil: number): LlmCostFunction {
 	return (inputTokens: number, outputTokens: number, usage: any) => {
 		const metadata = usage as { openai?: { cachedPromptTokens?: number } };
 		const cachedPromptTokens = metadata?.openai?.cachedPromptTokens ?? 0;
-		// console.log(`OpenAI input: ${inputTokens} cached: ${cachedPromptTokens}`);
 		let inputCost: number;
 		if (cachedPromptTokens > 0) {
 			inputCost = ((inputTokens - cachedPromptTokens) * inputMil) / 1_000_000 + (cachedPromptTokens * inputMil) / 10 / 1_000_000;
@@ -46,7 +45,7 @@ export function openaiGPT5priority(): LLM {
 }
 
 export function openaiGPT5(serviceTier?: 'auto' | 'flex' | 'priority'): LLM {
-	return new OpenAI('GPT5', 'gpt-5', openAICostFunction(1.25, 10), 200_000, ['o3', 'gpt-4.1'], serviceTier);
+	return new OpenAI('GPT5', 'gpt-5', 'gpt-5', costPerMilTokens(1.25, 10), 200_000, ['o3', 'gpt-4.1'], serviceTier);
 }
 
 export function openaiGPT5miniFlex(): LLM {
@@ -54,44 +53,38 @@ export function openaiGPT5miniFlex(): LLM {
 }
 
 export function openaiGPT5mini(serviceTier?: 'auto' | 'flex' | 'priority'): LLM {
-	return new OpenAI('GPT5 mini', 'gpt-5-mini', openAICostFunction(0.25, 2), 200_000, ['gpt-4.1-mini', 'o3-mini', 'o4-mini'], serviceTier);
+	return new OpenAI('GPT5 mini', 'gpt-5-mini', 'gpt-5-mini', costPerMilTokens(0.25, 2), 200_000, ['gpt-4.1-mini', 'o3-mini', 'o4-mini'], serviceTier);
 }
 
 export function openaiGPT5nano(): LLM {
-	return new OpenAI('GPT5 nano', 'gpt-5-nano', openAICostFunction(0.05, 0.4), 200_000, ['gpt-4.1-nano', 'o3-nano', 'o4-mini']);
+	return new OpenAI('GPT5 nano', 'gpt-5-nano', 'gpt-5-nano', costPerMilTokens(0.05, 0.4), 200_000, ['gpt-4.1-nano', 'o3-nano', 'o4-mini']);
 }
 
 export function openaiGPT5chat(): LLM {
-	return new OpenAI('GPT5 chat', 'gpt-5-chat', openAICostFunction(1.25, 10), 200_000, ['gpt-4.1']);
+	return new OpenAI('GPT5 chat', 'gpt-5-chat', 'gpt-5-chat', costPerMilTokens(1.25, 10), 200_000, ['gpt-4.1']);
 }
 
-const OPENAI_KEYS: string[] = [];
-if (process.env.OPENAI_API_KEY) OPENAI_KEYS.push(process.env.OPENAI_API_KEY);
-for (let i = 2; i <= 9; i++) {
-	const key = process.env[`OPENAI_API_KEY_${i}`];
-	if (key) OPENAI_KEYS.push(key);
-	else break;
-}
-const openaiKeyIndex = 0;
-// logger.info(`module Using OpenAI keys ${OPENAI_KEYS.length}`);
+const openaiKeyRotator = createEnvKeyRotator('OPENAI_API_KEY');
 
 export class OpenAI extends AiLLM<OpenAIProvider> {
 	constructor(
 		displayName: string,
 		model: string,
+		serviceModelId: string,
 		calculateCosts: LlmCostFunction,
 		maxContext: number,
 		oldIds?: string[],
 		serviceTier?: 'auto' | 'flex' | 'priority',
 	) {
-		super(
+		super({
 			displayName,
-			OPENAI_SERVICE,
-			model,
-			maxContext,
+			service: OPENAI_SERVICE,
+			modelId: model,
+			serviceModelId: serviceModelId,
+			maxInputTokens: maxContext,
 			calculateCosts,
 			oldIds,
-			serviceTier
+			defaultOptions: serviceTier
 				? {
 						providerOptions: {
 							openai: {
@@ -100,19 +93,11 @@ export class OpenAI extends AiLLM<OpenAIProvider> {
 						},
 					}
 				: undefined,
-		);
+		});
 	}
 
 	protected override apiKey(): string | undefined {
-		// let envKey: string | undefined;
-		// logger.info(`Using OpenAI keys ${OPENAI_KEYS.length}`);
-		// if (OPENAI_KEYS.length) {
-		// 	envKey = OPENAI_KEYS[openaiKeyIndex];
-		// 	logger.info(`Using OpenAI key ${envKey}`);
-		// 	if (++openaiKeyIndex > OPENAI_KEYS.length) openaiKeyIndex = 0;
-		// }
-		// logger.info(`Using OpenAI key ${currentUser()?.llmConfig.openaiKey} ${process.env.OPENAI_API_KEY}`);
-		return currentUser()?.llmConfig.openaiKey || process.env.OPENAI_API_KEY;
+		return currentUser()?.llmConfig.openaiKey?.trim() || openaiKeyRotator.next();
 	}
 
 	override provider(): OpenAIProvider {

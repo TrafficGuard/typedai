@@ -67,12 +67,15 @@ export async function loadSecrets(sm?: SecretManager) {
 }
 
 /**
- * Returns the secret value for the given environment variable name.
+ * Returns the secret value for the given environment variable name. Values prefixed with secret:// are resolved from the SecretManager
  * @param name
- * @returns the secret value
+ * @returns the resolved secret value
  * @throws Error if the secret manager is not initialized or the secret does not exist in the secret manager
  */
 export function getSecret(name: string): string {
+	// If we have it as an env var, return it
+	if (!process.env[name]?.startsWith(SECRET_PTR_PREFIX)) return process.env[name]!;
+
 	if (hasSecretEnvVars && !initialized) throw new Error('Secret manager not initialized');
 	if (!hasSecret(name)) throw new Error(`Secret '${name}' not found in ${Array.from(secrets.keys())}`);
 	return secrets.get(name)!;

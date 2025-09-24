@@ -78,7 +78,7 @@ let gcloudProjectIndex = 0;
  */
 class AnthropicVertexLLM extends AiLLM<GoogleVertexAnthropicProvider> {
 	constructor(displayName: string, model: string, maxInputToken: number, calculateCosts: LlmCostFunction, oldIds?: string[]) {
-		super(displayName, ANTHROPIC_VERTEX_SERVICE, model, maxInputToken, calculateCosts, oldIds);
+		super({ displayName, service: ANTHROPIC_VERTEX_SERVICE, modelId: model, maxInputTokens: maxInputToken, calculateCosts, oldIds });
 	}
 
 	protected apiKey(): string | undefined {

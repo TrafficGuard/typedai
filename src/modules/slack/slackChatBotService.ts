@@ -143,13 +143,13 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 		slackApp = new App({
 			token: config.botToken,
 			signingSecret: config.signingSecret,
-			socketMode: slackConfig().socketMode,
+			socketMode: config.socketMode,
 			appToken: config.appToken,
 		});
 
 		this.channels = new Set(config.channels);
 
-		if (slackConfig().socketMode) {
+		if (config.socketMode) {
 			// Listen for messages in channels
 			slackApp.event('message', async ({ event, say }) => {
 				this.handleMessage(event, say);

@@ -36,7 +36,13 @@ export class MockLLM extends BaseLLM {
 	private calls: MockLLMCall[] = [];
 
 	constructor(id = 'mock', service = 'mock', model = 'mock', maxInputTokens = 100000) {
-		super(id, service, model, maxInputTokens, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+		super({
+			displayName: id,
+			service,
+			modelId: model,
+			maxInputTokens,
+			calculateCosts: () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
+		});
 	}
 
 	// =================================================================
@@ -328,7 +334,7 @@ export class MockLLM extends BaseLLM {
 				inputTokens,
 				outputTokens,
 				cost: totalCost,
-				model: this.model,
+				model: this.getModel(),
 				service: this.service,
 				description,
 			});

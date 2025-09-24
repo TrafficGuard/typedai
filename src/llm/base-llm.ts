@@ -24,6 +24,17 @@ export interface SerializedLLM {
 	model: string;
 }
 
+export interface BaseLlmConfig {
+	displayName: string;
+	service: string;
+	modelId: string;
+	maxInputTokens: number;
+	calculateCosts: LlmCostFunction;
+	oldIds?: string[];
+	/** The provider's native model identifier if different from modelId */
+	serviceModelId?: string;
+}
+
 export function costPerMilTokens(
 	inputMil: number,
 	outputMil: number,
@@ -54,14 +65,23 @@ export function costPerMilTokens(
 }
 
 export abstract class BaseLLM implements LLM {
-	constructor(
-		protected readonly displayName: string,
-		protected readonly service: string,
-		protected model: string,
-		protected maxInputTokens: number,
-		readonly calculateCosts: LlmCostFunction,
-		private oldIds: string[] = [],
-	) {}
+	protected readonly displayName: string;
+	protected readonly service: string;
+	protected modelId: string;
+	protected serviceModelId?: string;
+	protected maxInputTokens: number;
+	readonly calculateCosts: LlmCostFunction;
+	private oldIds: string[] = [];
+
+	constructor(cfg: BaseLlmConfig) {
+		this.displayName = cfg.displayName;
+		this.service = cfg.service;
+		this.modelId = cfg.modelId;
+		this.serviceModelId = cfg.serviceModelId;
+		this.maxInputTokens = cfg.maxInputTokens;
+		this.calculateCosts = cfg.calculateCosts;
+		this.oldIds = cfg.oldIds ?? [];
+	}
 
 	protected _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
 		throw new Error(`BaseLLM._generateText Not implemented for ${this.getId()}`);
@@ -218,7 +238,11 @@ export abstract class BaseLLM implements LLM {
 	}
 
 	getModel(): string {
-		return this.model;
+		return this.modelId;
+	}
+
+	getServiceModelId(): string {
+		return this.serviceModelId ?? this.modelId;
 	}
 
 	getService(): string {
@@ -226,7 +250,7 @@ export abstract class BaseLLM implements LLM {
 	}
 
 	getId(): string {
-		return `${this.service}:${this.model}`;
+		return `${this.service}:${this.modelId}`;
 	}
 
 	getDisplayName(): string {

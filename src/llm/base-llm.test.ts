@@ -5,11 +5,17 @@ import { BaseLLM } from './base-llm';
 // Create a concrete subclass of BaseLLM for testing
 class TestLLM extends BaseLLM {
 	constructor() {
-		super('Test LLM', 'test-service', 'test-model', 1000, () => ({
-			inputCost: 0,
-			outputCost: 0,
-			totalCost: 0,
-		}));
+		super({
+			displayName: 'Test LLM',
+			service: 'test-service',
+			modelId: 'test-model',
+			maxInputTokens: 1000,
+			calculateCosts: () => ({
+				inputCost: 0,
+				outputCost: 0,
+				totalCost: 0,
+			}),
+		});
 	}
 
 	// Expose the protected method for testing

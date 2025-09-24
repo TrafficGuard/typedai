@@ -17,11 +17,17 @@ export class FastEasyLLM extends BaseLLM {
 	private readonly gemini: LLM;
 
 	constructor() {
-		super('Fast Easy (Groq Llama Scout - Gemini 2.5 Flash)', 'multi', 'fast-easy', 0, () => ({
-			inputCost: 0,
-			outputCost: 0,
-			totalCost: 0,
-		}));
+		super({
+			displayName: 'Fast Easy (Groq Llama Scout - Gemini 2.5 Flash)',
+			service: 'multi',
+			modelId: 'fast-easy',
+			maxInputTokens: 0,
+			calculateCosts: () => ({
+				inputCost: 0,
+				outputCost: 0,
+				totalCost: 0,
+			}),
+		});
 		// Define the providers and their priorities. Lower number = higher priority
 		this.providers = [groqLlama4_Scout(), vertexGemini_2_5_Flash()]; // , vertexGemini_2_5_Flash_Lite()
 		this.groqScout = this.providers[0]!;

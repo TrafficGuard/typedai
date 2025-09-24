@@ -10,12 +10,14 @@ let initialInit: Error | undefined;
 
 export async function initApplicationContext(): Promise<ApplicationContext> {
 	if (applicationContext) {
-		logger.warn('Application context already initialized at');
-		logger.warn(initialInit);
-		logger.warn('Application context attempted to be re-initialized at');
-		logger.warn(new Error());
-		return applicationContext;
+		console.log('Application context already initialized at');
+		console.log(initialInit);
+		console.log('Application context attempted to be re-initialized at');
+		console.log(new Error());
+		// applicationContext
+		// return applicationContext;
 	}
+	console.log('initApplicationContext()');
 	initialInit = new Error();
 
 	// Security check to prevent single-user mode in production environments
@@ -71,7 +73,7 @@ export function appContext(): ApplicationContext {
 }
 
 export async function initFirestoreApplicationContext(): Promise<ApplicationContext> {
-	if (applicationContext) throw new Error('Application context already initialized');
+	// if (applicationContext) throw new Error('Application context already initialized');
 	logger.info('Initializing Firestore persistence');
 	// async import to minimize loading dependencies on startup
 	const firestoreModule = await import('../modules/firestore/firestoreModule.cjs');
@@ -81,7 +83,7 @@ export async function initFirestoreApplicationContext(): Promise<ApplicationCont
 }
 
 export async function initPostgresApplicationContext(): Promise<ApplicationContext> {
-	if (applicationContext) throw new Error('Application context already initialized');
+	// if (applicationContext) throw new Error('Application context already initialized');
 	logger.info('Initializing Postgres persistence');
 	// async import to minimize loading dependencies on startup
 	const postgresModule = await import('../modules/postgres/postgresModule.cjs');

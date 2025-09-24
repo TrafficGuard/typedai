@@ -44,7 +44,7 @@ export function sambanovaLlama3_3_70b_R1_Distill(): LLM {
  */
 export class SambanovaLLM extends AiLLM<OpenAIProvider> {
 	constructor(displayName: string, model: string, maxInputTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, SAMBANOVA_SERVICE, model, maxInputTokens, calculateCosts);
+		super({ displayName, service: SAMBANOVA_SERVICE, modelId: model, maxInputTokens, calculateCosts });
 	}
 
 	protected provider(): any {

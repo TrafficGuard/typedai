@@ -14,11 +14,17 @@ export class Gemini25Pro extends BaseLLM {
 	private readonly gemini = Gemini_2_5_Pro();
 
 	constructor() {
-		super('GeminiPro2.5', 'vertex', 'gemini-2.5-pro-preview-05-06', 0, () => ({
-			inputCost: 0,
-			outputCost: 0,
-			totalCost: 0,
-		}));
+		super({
+			displayName: 'GeminiPro2.5',
+			service: 'vertex',
+			modelId: 'gemini-2.5-pro-preview-05-06',
+			maxInputTokens: 0,
+			calculateCosts: () => ({
+				inputCost: 0,
+				outputCost: 0,
+				totalCost: 0,
+			}),
+		});
 		this.maxInputTokens = this.vertex.getMaxInputTokens();
 	}
 

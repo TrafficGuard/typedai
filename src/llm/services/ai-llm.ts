@@ -15,7 +15,7 @@ import {
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { cloneAndTruncateBuffers } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
-import { BaseLLM } from '#llm/base-llm';
+import { BaseLLM, type BaseLlmConfig } from '#llm/base-llm';
 import { type CreateLlmRequest, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
@@ -26,7 +26,6 @@ import {
 	type GenerateTextOptions,
 	type GenerationStats,
 	type ImagePartExt,
-	LlmCostFunction,
 	type LlmMessage,
 	type ReasoningPart,
 	type RedactedReasoningPart,
@@ -76,22 +75,20 @@ function convertDataContentToString(content: string | URL | Uint8Array | ArrayBu
 	return ''; // Should ideally not happen with proper type handling
 }
 
+export interface AiLlmConfig extends BaseLlmConfig {
+	defaultOptions?: GenerateTextOptions;
+}
+
 /**
  * Base class for LLM implementations using the Vercel ai package
  */
 export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 	protected aiProvider: Provider | undefined;
+	protected defaultOptions?: GenerateTextOptions;
 
-	constructor(
-		displayName: string,
-		service: string,
-		model: string,
-		maxInputToken: number,
-		calculateCosts: LlmCostFunction,
-		oldIds?: string[],
-		protected defaultOptions?: GenerateTextOptions,
-	) {
-		super(displayName, service, model, maxInputToken, calculateCosts, oldIds);
+	constructor(cfg: AiLlmConfig) {
+		super(cfg);
+		this.defaultOptions = cfg.defaultOptions;
 	}
 
 	protected abstract provider(): Provider;
@@ -108,7 +105,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 	}
 
 	aiModel(): LanguageModelV2 {
-		return this.provider().languageModel(this.getModel());
+		return this.provider().languageModel(this.getServiceModelId());
 	}
 
 	protected override supportsGenerateTextFromMessages(): boolean {
@@ -189,7 +186,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				// }
 
 				// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
-				if (this.getService() === 'openai' && (this.model.startsWith('o') || this.model.includes('gpt5')))
+				if (this.getService() === 'openai' && (this.getModel().startsWith('o') || this.getModel().includes('gpt5')))
 					providerOptions.openai = { reasoningEffort: combinedOpts.thinking };
 				let thinkingBudget: number | undefined;
 				// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
@@ -225,7 +222,8 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 			const prompt = messages.map((m) => m.content).join('\n');
 			span.setAttributes({
 				inputChars: prompt.length,
-				model: this.model,
+				model: this.getServiceModelId(),
+				configModelId: this.getModel(),
 				service: this.service,
 				// userId: currentUser().id,
 				description,
@@ -411,7 +409,8 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 			const prompt = messages.map((m) => (typeof m.content === 'string' ? m.content : m.content.map((p) => ('text' in p ? p.text : '')).join(''))).join('\n');
 			span.setAttributes({
 				inputChars: prompt.length,
-				model: this.model,
+				model: this.getServiceModelId(),
+				configModelId: this.getModel(),
 				service: this.service,
 			});
 

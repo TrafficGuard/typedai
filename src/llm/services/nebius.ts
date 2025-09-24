@@ -18,7 +18,7 @@ export function nebiusDeepSeekR1(): LLM {
 
 export class NebiusLLM extends AiLLM<OpenAIProvider> {
 	constructor(displayName: string, model: string, calculateCosts: LlmCostFunction) {
-		super(displayName, NEBIUS_SERVICE, model, 128_000, calculateCosts);
+		super({ displayName, service: NEBIUS_SERVICE, modelId: model, maxInputTokens: 128_000, calculateCosts });
 	}
 
 	protected apiKey(): string | undefined {

@@ -8,7 +8,7 @@ export const DEEPINFRA_SERVICE = 'deepinfra';
 
 export class Deepinfra extends AiLLM<OpenAIProvider> {
 	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, DEEPINFRA_SERVICE, model, maxOutputTokens, calculateCosts);
+		super({ displayName, service: DEEPINFRA_SERVICE, modelId: model, maxInputTokens: maxOutputTokens, calculateCosts });
 	}
 
 	protected apiKey(): string | undefined {

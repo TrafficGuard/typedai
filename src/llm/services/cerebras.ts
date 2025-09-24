@@ -3,6 +3,7 @@ import type { OpenAIProvider } from '@ai-sdk/openai';
 import { LanguageModelV2 } from '@ai-sdk/provider';
 import { extractReasoningMiddleware, wrapLanguageModel } from 'ai';
 import { costPerMilTokens } from '#llm/base-llm';
+import { createEnvKeyRotator } from '#llm/services/key-rotation';
 import type { LLM, LlmCostFunction } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { AiLLM } from './ai-llm';
@@ -55,21 +56,14 @@ export function cerebrasLlamaMaverick(): LLM {
 	return new CerebrasLLM('Llama Maverick (Cerebras)', 'llama-4-maverick-17b-128e-instruct', 32_000, costPerMilTokens(0.2, 0.6), ['llama3.1-8b']);
 }
 
-const CEREBRAS_KEYS: string[] = [];
-if (process.env.CEREBRAS_API_KEY) CEREBRAS_KEYS.push(process.env.CEREBRAS_API_KEY);
-for (let i = 2; i <= 9; i++) {
-	const key = process.env[`CEREBRAS_API_KEY_${i}`];
-	if (key) CEREBRAS_KEYS.push(key);
-	else break;
-}
-let cerebrasKeyIndex = 0;
+const cerebrasKeyRotator = createEnvKeyRotator('CEREBRAS_API_KEY');
 
 /**
  * https://inference-docs.cerebras.ai/introduction
  */
 export class CerebrasLLM extends AiLLM<OpenAIProvider> {
 	constructor(displayName: string, model: string, maxInputTokens: number, calculateCosts: LlmCostFunction, oldModelIds?: string[]) {
-		super(displayName, CEREBRAS_SERVICE, model, maxInputTokens, calculateCosts, oldModelIds);
+		super({ displayName, service: CEREBRAS_SERVICE, modelId: model, maxInputTokens, calculateCosts, oldIds: oldModelIds });
 	}
 
 	override aiModel(): LanguageModelV2 {
@@ -90,11 +84,6 @@ export class CerebrasLLM extends AiLLM<OpenAIProvider> {
 	}
 
 	protected override apiKey(): string | undefined {
-		let envKey: string | undefined;
-		if (CEREBRAS_KEYS.length) {
-			envKey = CEREBRAS_KEYS[cerebrasKeyIndex];
-			if (++cerebrasKeyIndex > CEREBRAS_KEYS.length) cerebrasKeyIndex = 0;
-		}
-		return currentUser()?.llmConfig.cerebrasKey?.trim() || envKey;
+		return currentUser()?.llmConfig.cerebrasKey?.trim() || cerebrasKeyRotator.next();
 	}
 }

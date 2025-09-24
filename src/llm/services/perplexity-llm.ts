@@ -76,7 +76,7 @@ export function perplexityDeepResearchLLM(): LLM {
 
 export class PerplexityLLM extends AiLLM<PerplexityProvider> {
 	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, PERPLEXITY_SERVICE, model, maxOutputTokens, calculateCosts);
+		super({ displayName, service: PERPLEXITY_SERVICE, modelId: model, maxInputTokens: maxOutputTokens, calculateCosts });
 	}
 
 	protected override apiKey(): string {

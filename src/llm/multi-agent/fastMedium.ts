@@ -17,11 +17,17 @@ export class FastMediumLLM extends BaseLLM {
 	private readonly gemini: LLM;
 
 	constructor() {
-		super('Fast Medium (Qwen3 235b (Cerebras) - GPT-5 Mini - Gemini 2.5 Flash)', 'multi', 'fast-medium', 0, () => ({
-			inputCost: 0,
-			outputCost: 0,
-			totalCost: 0,
-		}));
+		super({
+			displayName: 'Fast Medium (Qwen3 235b (Cerebras) - GPT-5 Mini - Gemini 2.5 Flash)',
+			service: 'multi',
+			modelId: 'fast-medium',
+			maxInputTokens: 0,
+			calculateCosts: () => ({
+				inputCost: 0,
+				outputCost: 0,
+				totalCost: 0,
+			}),
+		});
 		this.providers = [cerebrasQwen3_235b_Thinking(), openaiGPT5mini(), vertexGemini_2_5_Flash({ thinking: 'high' })];
 		this.cerebras = this.providers[0]!;
 		this.openai = this.providers[1]!;

@@ -51,7 +51,13 @@ export class ConfidentDiverseDebateLLM extends BaseLLM {
 	) {
 		// The model ID string here is a conceptual representation
 		const modelId = `CDD:${primaryLLMFactory().getModel()}|${debateLLMFactories.map((f) => f().getModel()).join('+')}|${mediatorLLMFactory().getModel()}`;
-		super(name, 'CDD', modelId, 200_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+		super({
+			displayName: name,
+			service: 'CDD',
+			modelId,
+			maxInputTokens: 200_000,
+			calculateCosts: () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
+		});
 
 		this.primaryLLM = primaryLLMFactory();
 		this.debateLLMs = debateLLMFactories.map((factory) => factory());
@@ -65,7 +71,7 @@ export class ConfidentDiverseDebateLLM extends BaseLLM {
 	}
 
 	override getModel(): string {
-		return this.model; // Returns the conceptual ID
+		return this.modelId; // Returns the conceptual ID
 	}
 
 	protected override supportsGenerateTextFromMessages(): boolean {

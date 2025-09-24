@@ -8,7 +8,7 @@ export const FIREWORKS_SERVICE = 'fireworks';
 
 export class Fireworks extends AiLLM<OpenAIProvider> {
 	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
-		super(displayName, FIREWORKS_SERVICE, model, maxOutputTokens, calculateCosts);
+		super({ displayName, service: FIREWORKS_SERVICE, modelId: model, maxInputTokens: maxOutputTokens, calculateCosts });
 	}
 
 	protected apiKey(): string | undefined {

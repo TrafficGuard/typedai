@@ -1,6 +1,7 @@
 import { type GoogleGenerativeAIProvider, createGoogleGenerativeAI } from '@ai-sdk/google';
 import { costPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
+import { createEnvKeyRotator } from '#llm/services/key-rotation';
 import type { LLM, LlmCostFunction } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 
@@ -29,30 +30,18 @@ export function Gemini_2_5_Flash_Lite(): LLM {
 	return new GeminiLLM('Gemini 2.5 Flash Lite (Gemini)', 'gemini-2.5-flash-lite-preview-06-17', 1_000_000, costPerMilTokens(0.1, 0.4));
 }
 
-const GEMINI_KEYS: string[] = [];
-if (process.env.GEMINI_API_KEY) GEMINI_KEYS.push(process.env.GEMINI_API_KEY);
-for (let i = 2; i <= 9; i++) {
-	const key = process.env[`GEMINI_API_KEY_${i}`];
-	if (key) GEMINI_KEYS.push(key);
-	else break;
-}
-let geminiKeyIndex = 0;
+const geminiKeyRotator = createEnvKeyRotator('GEMINI_API_KEY');
 
 /**
  * Gemini AI models
  */
 class GeminiLLM extends AiLLM<GoogleGenerativeAIProvider> {
 	constructor(displayName: string, model: string, maxInputToken: number, costFunction: LlmCostFunction, oldModelIds: string[] = []) {
-		super(displayName, GEMINI_SERVICE, model, maxInputToken, costFunction, oldModelIds);
+		super({ displayName, service: GEMINI_SERVICE, modelId: model, maxInputTokens: maxInputToken, calculateCosts: costFunction, oldIds: oldModelIds });
 	}
 
 	protected apiKey(): string | undefined {
-		let envKey: string | undefined;
-		if (GEMINI_KEYS.length) {
-			envKey = GEMINI_KEYS[geminiKeyIndex];
-			if (++geminiKeyIndex > GEMINI_KEYS.length) geminiKeyIndex = 0;
-		}
-		return currentUser()?.llmConfig.geminiKey || envKey || process.env.GEMINI_API_KEY;
+		return currentUser()?.llmConfig.geminiKey?.trim() || geminiKeyRotator.next();
 	}
 
 	provider(): GoogleGenerativeAIProvider {

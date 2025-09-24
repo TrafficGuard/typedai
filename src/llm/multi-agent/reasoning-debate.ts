@@ -158,14 +158,19 @@ export class ReasonerDebateLLM extends BaseLLM {
 	 * @param name
 	 */
 	constructor(modelIds = '', providedMediator?: () => LLM, providedDebateLLMs?: Array<() => LLM>, name?: string) {
-		super(name ?? '(MoA)', 'MAD', modelIds, 200_000, () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }));
+		super({
+			displayName: name ?? '(MoA)',
+			service: 'MAD',
+			modelId: modelIds,
+			maxInputTokens: 200_000,
+			calculateCosts: () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
+		});
 		if (providedMediator) this.mediator = providedMediator();
 		if (providedDebateLLMs) {
 			this.llms = providedDebateLLMs.map((factory) => factory());
 			// this.model = this.llms.map((llm) => llm.)
 		}
 		if (modelIds?.includes('|')) {
-			this.model = modelIds;
 			try {
 				const parts = modelIds.split('|');
 				if (parts.length > 1) {

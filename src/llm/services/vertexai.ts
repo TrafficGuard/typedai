@@ -65,7 +65,7 @@ class VertexLLM extends AiLLM<GoogleVertexProvider> {
 		oldIds?: string[],
 		defaultOptions?: GenerateTextOptions,
 	) {
-		super(displayName, VERTEX_SERVICE, model, maxInputToken, calculateCosts, oldIds, defaultOptions);
+		super({ displayName, service: VERTEX_SERVICE, modelId: model, maxInputTokens: maxInputToken, calculateCosts, oldIds, defaultOptions });
 	}
 
 	protected apiKey(): string | undefined {

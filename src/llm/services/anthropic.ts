@@ -57,7 +57,7 @@ export function ClaudeLLMs(): AgentLLMs {
 
 export class Anthropic extends AiLLM<AnthropicProvider> {
 	constructor(displayName: string, model: string, calculateCosts: LlmCostFunction, oldIds?: string[]) {
-		super(displayName, ANTHROPIC_SERVICE, model, 200_000, calculateCosts, oldIds);
+		super({ displayName, service: ANTHROPIC_SERVICE, modelId: model, maxInputTokens: 200_000, calculateCosts, oldIds });
 	}
 
 	protected apiKey(): string | undefined {
