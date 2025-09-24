@@ -8,7 +8,7 @@ RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::AllowInsecureReposit
 
 # make g++ gcc build-essential are needed for node-gyp
 RUN apt-get install -y curl make g++ gcc build-essential git && \
-    curl -sL https://deb.nodesource.com/setup_20.x -o nodesource_setup.sh && \
+    curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh && \
     bash ./nodesource_setup.sh && \
     apt-get install -y nodejs && \
     rm nodesource_setup.sh && \
@@ -45,4 +45,4 @@ RUN git config --global --add safe.directory /home/typedai
 ENV NODE_ENV=production
 ENV PORT=8080
 EXPOSE 8080
-CMD [ "pnpm", "run", "start" ]
+CMD [ "node", "-r", "ts-node/register", "--env-file=variables/.env", "src/index.ts" ]
