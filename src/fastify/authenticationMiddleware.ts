@@ -19,6 +19,11 @@ export function singleUserMiddleware(req: FastifyRequest, _res: any, next: () =>
 }
 
 export function jwtAuthMiddleware(req: FastifyRequest, reply: FastifyReply, done: () => void): void {
+	// Allow CORS preflight
+	if (req.method === 'OPTIONS') {
+		done();
+		return;
+	}
 	// Skip auth for public endpoints
 	if (req.raw.url?.startsWith(WEBHOOKS_BASE_PATH) || req.raw.url === DEFAULT_HEALTHCHECK || req.raw.url?.startsWith(API_ROUTES.AUTH_ROUTE_PREFIX)) {
 		done();
@@ -54,7 +59,7 @@ export function jwtAuthMiddleware(req: FastifyRequest, reply: FastifyReply, done
 
 export function googleIapMiddleware(req: FastifyRequest, reply: FastifyReply, next: () => void): void {
 	// It would be nicer if the health-check was earlier in the chain. Maybe when nextauthjs integration is done.
-	if (req.raw.url?.startsWith(WEBHOOKS_BASE_PATH) || req.raw.url === DEFAULT_HEALTHCHECK) {
+	if (req.method === 'OPTIONS' || req.raw.url?.startsWith(WEBHOOKS_BASE_PATH) || req.raw.url === DEFAULT_HEALTHCHECK) {
 		next();
 		return;
 	}

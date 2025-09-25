@@ -426,7 +426,6 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 
 			const firstTokenTime = 0;
 
-			console.log('streaming...');
 			const result = aiStreamText({
 				model: this.aiModel(),
 				messages,

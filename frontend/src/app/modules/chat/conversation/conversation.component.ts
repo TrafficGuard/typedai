@@ -43,7 +43,7 @@ import { MarkdownFormatDialogComponent } from './markdown-format-dialog/markdown
 import { Chat, ChatMessage, NEW_CHAT_ID } from 'app/modules/chat/chat.types';
 import { Attachment } from 'app/modules/message.types';
 import { MarkdownModule, MarkdownService, MarkedRenderer, provideMarkdown } from 'ngx-markdown';
-import { EMPTY, Observable, Subject, catchError, combineLatest, distinctUntilChanged, from, interval, switchMap, tap } from 'rxjs';
+import { EMPTY, Observable, Subject, Subscription, catchError, combineLatest, distinctUntilChanged, from, interval, switchMap, tap } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { v4 as uuidv4 } from 'uuid';
 import { LlmInfo, UserContentExt } from '#shared/llm/llm.model';
@@ -101,7 +101,8 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	drawerMode: WritableSignal<'over' | 'side'> = signal('side');
 	drawerOpened: WritableSignal<boolean> = signal(false);
 
-	sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane')
+	sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane');
+	private streamSub: Subscription | null = null;
 
 	llmsSignal: Signal<LlmInfo[]>;
 	llmId: WritableSignal<string | undefined> = signal(undefined);
@@ -586,6 +587,12 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	 * Handles both new chat creation and message sending in existing chats
 	 */
 	async sendMessage(): Promise<void> {
+		// If streaming is in progress, clicking send acts as "Stop"
+		if (this.generating() && this.streamSub) {
+			this.stopStreaming();
+			return;
+		}
+
 		const chatStateBeforeSend = this.chat();
 
 		// Capture raw input values BEFORE any processing or clearing
@@ -622,31 +629,31 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			// Prepare payload
 			const userContentPayload: UserContentExt = await attachmentsAndTextToUserContentExt(originalAttachments, trimmedMessageTextForAPI);
 
-			// Optimistic UI update for AI's pending message
-			const aiGeneratingMessageEntry: ChatMessage = {
-				id: uuidv4(), content: '.', textContent: '.', isMine: false, generating: true,
-				createdAt: new Date().toISOString(),
-			};
-			this.generatingAIMessage.set(aiGeneratingMessageEntry);
-			this._scrollToBottom();
-
 			const baseChatOptions = currentUser.chat && typeof currentUser.chat === 'object' ? currentUser.chat : {};
 			const options = { ...baseChatOptions, thinking: this.llmHasThinkingLevels() ? this.thinkingLevel() : undefined };
 			const serviceTierPayload = this.llmSupportsServiceTiers() ? this.serviceTier() : undefined;
 			const enableReformat = this.autoReformatEnabled();
 
 			let apiCall: Observable<any>;
-			// Use chatStateBeforeSend to determine if chat is new/existing, as this.chat() might change
 			const chatForAPICall = chatStateBeforeSend;
+			// We stream for both new and existing chats
+			const isStreaming = true;
 
 			if (!chatForAPICall || chatForAPICall.id === NEW_CHAT_ID) {
-				apiCall = this._chatService.createChat(userContentPayload, currentLlmId, options, enableReformat, serviceTierPayload);
+				apiCall = this._chatService.createChatStreaming(userContentPayload, currentLlmId, options, enableReformat, serviceTierPayload);
 			} else {
-				// Pass originalAttachments for UI purposes if service needs it for its own optimistic updates
-				apiCall = this._chatService.sendMessage(chatForAPICall.id, userContentPayload, currentLlmId, options, originalAttachments, enableReformat, serviceTierPayload);
+				apiCall = this._chatService.sendMessageStreaming(
+					chatForAPICall.id,
+					userContentPayload,
+					currentLlmId,
+					options,
+					originalAttachments,
+					enableReformat,
+					serviceTierPayload,
+				);
 			}
 
-			apiCall.subscribe({
+			const sub = apiCall.subscribe({
 				next: (newOrUpdatedChat?: Chat) => {
 					if (newOrUpdatedChat && (!chatForAPICall || chatForAPICall.id === NEW_CHAT_ID)) {
 						this.router.navigate([`/ui/chat/${newOrUpdatedChat.id}`]).catch(console.error);
@@ -662,7 +669,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 					if (currentChat) {
 						// Find the last message sent by the user that is still marked as 'sending'.
 						// We search from the end of the array for performance and correctness.
-						const optimisticMessage = [...(currentChat.messages || [])].reverse().find(m => m.isMine && m.status === 'sending');
+						const optimisticMessage = [...(currentChat.messages || [])].reverse().find((m) => m.isMine && m.status === 'sending');
 
 						if (optimisticMessage) {
 							// Call the new service method to update the status locally.
@@ -681,6 +688,9 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 					this.generating.set(false);
 					this.generatingAIMessage.set(null);
 					this.sendIcon.set('heroicons_outline:paper-airplane');
+					if (isStreaming) {
+						this.streamSub = null;
+					}
 				},
 				complete: () => {
 					this.generating.set(false);
@@ -694,21 +704,38 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 					if (draftChatIdToClear) {
 						this._localStorageService.clearDraftMessage(draftChatIdToClear);
 					}
+					if (isStreaming) {
+						this.streamSub = null;
+					}
 				},
 			});
+			if (isStreaming) {
+				this.streamSub = sub;
+			}
 		} catch (prepareError) {
 			// Handle errors from pre-API call async operations (e.g., attachmentsAndTextToUserContentExt)
 			console.error('Error preparing message for sending:', prepareError);
 			this._snackBar.open('Failed to prepare message. Please try again.', 'Close', { duration: 5000, panelClass: ['error-snackbar'] });
 
 			// Restore input and attachments (since they were cleared optimistically)
-            this.messageInput.nativeElement.value = originalMessageText;
-            this.selectedAttachments.set(originalAttachments);
-            this._triggerResizeAndScroll(); // Resize after restoring
+			this.messageInput.nativeElement.value = originalMessageText;
+			this.selectedAttachments.set(originalAttachments);
+			this._triggerResizeAndScroll(); // Resize after restoring
 
 			// Reset generating states
 			this.generating.set(false);
 			this.generatingAIMessage.set(null); // If it was set before the error
+			this.sendIcon.set('heroicons_outline:paper-airplane');
+		}
+	}
+
+	private stopStreaming(): void {
+		try {
+			this.streamSub?.unsubscribe();
+		} finally {
+			this.streamSub = null;
+			this.generating.set(false);
+			this.generatingAIMessage.set(null);
 			this.sendIcon.set('heroicons_outline:paper-airplane');
 		}
 	}

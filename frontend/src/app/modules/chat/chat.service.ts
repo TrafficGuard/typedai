@@ -28,6 +28,7 @@ import {
 } from 'app/modules/chat/chat.types';
 import { Attachment, TextContent } from 'app/modules/message.types';
 import { LanguageModelV2Source } from '@ai-sdk/provider';
+import { environment } from '#environments/environment';
 
 // Helper function to convert File to base64 string (extracting only the data part)
 async function fileToBase64(file: File): Promise<string> {
@@ -515,6 +516,564 @@ export class ChatServiceClient {
 				return throwError(() => error);
 			})
 		);
+	}
+
+	/**
+	 * Streaming send message using Server-Sent Events (SSE).
+	 * - Optimistically appends the user's message.
+	 * - Adds a placeholder assistant message and updates it as text deltas arrive.
+	 * - On finish, marks the assistant message as sent and updates timestamps/caches.
+	 */
+	sendMessageStreaming(
+		chatId: string,
+		userContent: UserContentExt,
+		llmId: string,
+		options?: CallSettings,
+		attachmentsForUI?: Attachment[],
+		autoReformat?: boolean,
+		serviceTier?: 'default' | 'flex' | 'priority',
+	): Observable<void> {
+		// Handle placeholder/new chat by using the streaming chat creation flow
+		if (!chatId?.trim() || chatId === NEW_CHAT_ID) {
+			return this.createChatStreaming(userContent, llmId, options, autoReformat, serviceTier, attachmentsForUI).pipe(
+				mapTo(undefined),
+			);
+		}
+
+		// Prepare payload (same as non-streaming)
+		const payload: ChatMessagePayload = {
+			llmId,
+			userContent,
+			options: { ...(options ?? {}), serviceTier },
+			autoReformat: autoReformat ?? false,
+		};
+
+		// Optimistically add user's message
+		const { text: derivedTextFromUserContent } = userContentExtToAttachmentsAndText(userContent);
+		const userMessageEntry: ChatMessage = {
+			id: uuidv4(),
+			content: userContent,
+			textContent: derivedTextFromUserContent,
+			isMine: true,
+			fileAttachments: attachmentsForUI?.filter((att) => att.type === 'file') || [],
+			imageAttachments: attachmentsForUI?.filter((att) => att.type === 'image') || [],
+			createdAt: new Date().toISOString(),
+			status: 'sending',
+			llmId,
+		};
+		const assistantMessageId = uuidv4();
+		const assistantPlaceholder: ChatMessage = {
+			id: assistantMessageId,
+			content: '',
+			textContent: '',
+			isMine: false,
+			generating: true,
+			status: 'sending',
+			createdAt: new Date().toISOString(),
+			llmId,
+		};
+
+		const updateStateWithMessages = (updater: (messages: ChatMessage[]) => ChatMessage[]) => {
+			const currentChatState = this._chatState();
+			if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
+				this._chatState.set({
+					status: 'success',
+					data: {
+						...currentChatState.data,
+						messages: updater([...(currentChatState.data.messages || [])]),
+					},
+				});
+			}
+		};
+
+		updateStateWithMessages((existing) => [...existing, userMessageEntry, assistantPlaceholder]);
+
+		// Move chat to top of list immediately
+		const bumpChatInLists = () => {
+			const currentChatsState = this._chatsState();
+			if (currentChatsState.status === 'success') {
+				const chatIndex = currentChatsState.data.findIndex((c) => c.id === chatId);
+				if (chatIndex !== -1) {
+					const newChats = [...currentChatsState.data];
+					const updated = { ...newChats[chatIndex], updatedAt: Date.now() };
+					newChats.splice(chatIndex, 1);
+					newChats.unshift(updated);
+					this._chatsState.set({ status: 'success', data: newChats });
+				}
+			}
+			if (this._cachedChats) {
+				const chatIndex = this._cachedChats.findIndex((c) => c.id === chatId);
+				if (chatIndex !== -1) {
+					const newCached = [...this._cachedChats];
+					const updated = { ...newCached[chatIndex], updatedAt: Date.now() };
+					newCached.splice(chatIndex, 1);
+					newCached.unshift(updated);
+					this._cachedChats = newCached;
+				}
+			}
+		};
+		bumpChatInLists();
+
+		return new Observable<void>((subscriber) => {
+			const controller = new AbortController();
+			// Build from shared API route to avoid mismatches
+			const url = `${environment.apiBaseUrl.replace('/api/', '')}${CHAT_API.sendMessage.pathTemplate.replace(':chatId', chatId )}?stream=1`;
+
+			let accumulatedText = '';
+			let accumulatedReasoning = '';
+			let accumulatedSources: LanguageModelV2Source[] = [];
+
+			fetch(url, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Accept: 'text/event-stream',
+				},
+				body: JSON.stringify(payload),
+				signal: controller.signal,
+				credentials: 'include',
+			})
+				.then(async (response) => {
+					if (!response.ok || !response.body) {
+						throw new Error(`Streaming request failed with status ${response.status}`);
+					}
+					const reader = response.body.getReader();
+					const decoder = new TextDecoder('utf-8');
+					let buffer = '';
+
+					const applyAssistantDelta = (delta: string) => {
+						if (!delta) return;
+						accumulatedText += delta;
+						const currentChatState = this._chatState();
+						if (currentChatState.status !== 'success' || currentChatState.data.id !== chatId) return;
+						const messages = currentChatState.data.messages || [];
+						const updated = messages.map((m) => {
+							if (m.id !== assistantMessageId) return m;
+							const newText = (m.textContent || '') + delta;
+							return {
+								...m,
+								content: newText,
+								textContent: newText,
+							};
+						});
+						this._chatState.set({
+							status: 'success',
+							data: {
+								...currentChatState.data,
+								messages: updated,
+							},
+						});
+					};
+
+					for (;;) {
+						const { done, value } = await reader.read();
+						if (done) break;
+						buffer += decoder.decode(value, { stream: true });
+
+						// Parse SSE events (split by double newline)
+						let idx: number;
+						while ((idx = buffer.indexOf('\n\n')) !== -1) {
+							const rawEvent = buffer.slice(0, idx);
+							buffer = buffer.slice(idx + 2);
+
+							// Extract data lines
+							const lines = rawEvent.split('\n');
+							const dataLines = lines.filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trim());
+							if (dataLines.length === 0) continue;
+
+							try {
+								const dataStr = dataLines.join('\n');
+								const event = JSON.parse(dataStr);
+								if (event?.type === 'text-delta' || event?.type === 'text') {
+									applyAssistantDelta(event.text || '');
+								} else if (event?.type === 'reasoning-delta' || event?.type === 'reasoning') {
+									const delta = event.text || '';
+									if (delta) {
+										accumulatedReasoning += delta;
+										const currentChatState = this._chatState();
+										if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
+											const messages = currentChatState.data.messages || [];
+											const updated = messages.map((m) => (m.id === assistantMessageId ? { ...m, reasoning: accumulatedReasoning } : m));
+											this._chatState.set({
+												status: 'success',
+												data: { ...currentChatState.data, messages: updated },
+											});
+										}
+									}
+								} else if (event?.type === 'source') {
+									// event contains a source item. Push into message.sources for rendering.
+									const source = { ...event };
+									accumulatedSources.push(source as LanguageModelV2Source);
+									const currentChatState = this._chatState();
+									if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
+										const messages = currentChatState.data.messages || [];
+										const updated = messages.map((m) => (m.id === assistantMessageId ? { ...m, sources: [...(m.sources || []), source] } : m));
+										this._chatState.set({
+											status: 'success',
+											data: { ...currentChatState.data, messages: updated },
+										});
+									}
+								} else if (event?.type === 'finish') {
+									// Mark assistant as complete (sent)
+									const currentChatState = this._chatState();
+									if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
+										const updated = (currentChatState.data.messages || []).map((m) =>
+											m.id === assistantMessageId
+												? { ...m, generating: false, status: 'sent' as const, reasoning: accumulatedReasoning || m.reasoning, sources: accumulatedSources.length ? accumulatedSources : m.sources }
+												: m,
+										);
+										this._chatState.set({
+											status: 'success',
+											data: { ...currentChatState.data, messages: updated, updatedAt: Date.now() },
+										});
+									}
+								} else if (event?.type === 'error') {
+									throw new Error(event.message || 'Streaming error');
+								}
+							} catch (e) {
+								console.error('Failed to parse stream event', e);
+							}
+						}
+					}
+				})
+				.then(() => {
+					subscriber.complete();
+				})
+				.catch((error) => {
+					const isAbort = error && (error.name === 'AbortError' || (typeof error.message === 'string' && /aborted|abort/i.test(error.message)));
+					if (isAbort) {
+						// Finalize assistant message with whatever text we have so far
+						const currentChatState = this._chatState();
+						if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
+							const messages = currentChatState.data.messages || [];
+							const updated = messages.map((m) => {
+								if (m.id === assistantMessageId) {
+									return {
+										...m,
+										generating: false,
+										status: 'sent' as const,
+										textContent: accumulatedText,
+										content: accumulatedText,
+										reasoning: accumulatedReasoning || m.reasoning,
+										sources: accumulatedSources.length ? accumulatedSources : m.sources,
+									};
+								}
+								// If the user's optimistic message is still 'sending', set it to 'sent'
+								if (m.id === userMessageEntry.id && m.status === 'sending') {
+									return { ...m, status: 'sent' as const };
+								}
+								return m;
+							});
+							this._chatState.set({
+								status: 'success',
+								data: { ...currentChatState.data, messages: updated, updatedAt: Date.now() },
+							});
+						}
+						// Bump chat in lists so it sorts to the top with the partial response
+						const bump = () => {
+							const currentChatsState = this._chatsState();
+							if (currentChatsState.status === 'success') {
+								const idx = currentChatsState.data.findIndex((c) => c.id === chatId);
+								if (idx !== -1) {
+									const arr = [...currentChatsState.data];
+									const updated = { ...arr[idx], updatedAt: Date.now() };
+									arr.splice(idx, 1);
+									arr.unshift(updated);
+									this._chatsState.set({ status: 'success', data: arr });
+								}
+							}
+							if (this._cachedChats) {
+								const idx = this._cachedChats.findIndex((c) => c.id === chatId);
+								if (idx !== -1) {
+									const arr = [...this._cachedChats];
+									const updated = { ...arr[idx], updatedAt: Date.now() };
+									arr.splice(idx, 1);
+									arr.unshift(updated);
+									this._cachedChats = arr;
+								}
+							}
+						};
+						bump();
+						// Treat user-cancel as a clean completion (not an error)
+						subscriber.complete();
+						return;
+					}
+
+					console.error('Streaming sendMessage error:', error);
+
+					// Non-abort error: remove assistant placeholder and mark user message as failed
+					const currentChatState = this._chatState();
+					if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
+						const messages = currentChatState.data.messages || [];
+						const updated = messages
+							.filter((m) => m.id !== assistantMessageId)
+							.map((m) => (m.id === userMessageEntry.id ? { ...m, status: 'failed_to_send' as const } : m));
+						this._chatState.set({
+							status: 'success',
+							data: { ...currentChatState.data, messages: updated },
+						});
+					}
+					subscriber.error(error);
+				});
+
+			return () => controller.abort();
+		});
+	}
+
+	/**
+	 * Streaming creation of a new chat with SSE.
+	 * Emits a Chat object via subscriber.next(...) when the server allocates and returns chat-created.
+	 */
+	createChatStreaming(
+		userContent: UserContentExt,
+		llmId: string,
+		options?: CallSettings,
+		autoReformat?: boolean,
+		serviceTier?: 'default' | 'flex' | 'priority',
+		attachmentsForUI?: Attachment[],
+	): Observable<Chat | void> {
+		const payload: ChatMessagePayload = {
+			llmId,
+			userContent,
+			options: { ...(options ?? {}), serviceTier },
+			autoReformat: autoReformat ?? false,
+		};
+
+		let accumulatedText = '';
+		let accumulatedReasoning = '';
+		let accumulatedSources: LanguageModelV2Source[] = [];
+		let createdChatId: string | null = null;
+
+		const { text: derivedTextFromUserContent } = userContentExtToAttachmentsAndText(userContent);
+		const userMessageEntry: ChatMessage = {
+			id: uuidv4(),
+			content: userContent,
+			textContent: derivedTextFromUserContent,
+			isMine: true,
+			fileAttachments: attachmentsForUI?.filter((att) => att.type === 'file') || [],
+			imageAttachments: attachmentsForUI?.filter((att) => att.type === 'image') || [],
+			createdAt: new Date().toISOString(),
+			status: 'sending',
+			llmId,
+		};
+		const assistantMessageId = uuidv4();
+		const assistantPlaceholder: ChatMessage = {
+			id: assistantMessageId,
+			content: '',
+			textContent: '',
+			isMine: false,
+			generating: true,
+			status: 'sending',
+			createdAt: new Date().toISOString(),
+			llmId,
+		};
+
+		// Update NEW_CHAT_ID state with optimistic messages
+		const updateStateWithMessages = (updater: (messages: ChatMessage[]) => ChatMessage[]) => {
+			const currentChatState = this._chatState();
+			if (currentChatState.status === 'success' && currentChatState.data.id === NEW_CHAT_ID) {
+				this._chatState.set({
+					status: 'success',
+					data: { ...currentChatState.data, messages: updater([...(currentChatState.data.messages || [])]) },
+				});
+			}
+		};
+		updateStateWithMessages((existing) => [...existing, userMessageEntry, assistantPlaceholder]);
+
+		return new Observable<Chat | void>((subscriber) => {
+			const controller = new AbortController();
+			const url = `${environment.apiBaseUrl.replace('/api/', '')}${CHAT_API.createChat.pathTemplate}?stream=1`;
+
+			fetch(url, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+				body: JSON.stringify(payload),
+				signal: controller.signal,
+				credentials: 'include',
+			})
+				.then(async (response) => {
+					if (!response.ok || !response.body) {
+						throw new Error(`Streaming request failed with status ${response.status}`);
+					}
+					const reader = response.body.getReader();
+					const decoder = new TextDecoder('utf-8');
+					let buffer = '';
+
+					const applyAssistantDelta = (delta: string) => {
+						if (!delta) return;
+						accumulatedText += delta;
+						const currentChatState = this._chatState();
+						if (currentChatState.status !== 'success') return;
+						const messages = currentChatState.data.messages || [];
+						const updated = messages.map((m) => {
+							if (m.id !== assistantMessageId) return m;
+							const newText = (m.textContent || '') + delta;
+							return { ...m, content: newText, textContent: newText };
+						});
+						this._chatState.set({ status: 'success', data: { ...currentChatState.data, messages: updated } });
+					};
+
+					for (;;) {
+						const { done, value } = await reader.read();
+						if (done) break;
+						buffer += decoder.decode(value, { stream: true });
+						let idx: number;
+						while ((idx = buffer.indexOf('\n\n')) !== -1) {
+							const rawEvent = buffer.slice(0, idx);
+							buffer = buffer.slice(idx + 2);
+							const lines = rawEvent.split('\n');
+							const dataLines = lines.filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trim());
+							if (dataLines.length === 0) continue;
+							try {
+								const dataStr = dataLines.join('\n');
+								const event = JSON.parse(dataStr);
+								if (event?.type === 'chat-created' && event?.id) {
+									createdChatId = event.id as string;
+									// Update current chat id locally and emit to caller so it can navigate
+									const currentChatState = this._chatState();
+									if (currentChatState.status === 'success' && currentChatState.data.id === NEW_CHAT_ID) {
+										this._chatState.set({ status: 'success', data: { ...currentChatState.data, id: createdChatId } });
+									}
+									subscriber.next({ id: createdChatId, title: '', updatedAt: Date.now(), userId: '', shareable: false } as unknown as Chat);
+									// Maintain preview lists
+									if (this._cachedChats) {
+										const previews = [{ id: createdChatId, title: '', updatedAt: Date.now(), userId: '', shareable: false } as Chat, ...this._cachedChats];
+										this._cachedChats = previews;
+									}
+									const cs = this._chatsState();
+									if (cs.status === 'success') {
+										const previews = [{ id: createdChatId, title: '', updatedAt: Date.now(), userId: '', shareable: false } as Chat, ...cs.data];
+										this._chatsState.set({ status: 'success', data: previews });
+									}
+								} else if (event?.type === 'text-delta' || event?.type === 'text') {
+									applyAssistantDelta(event.text || '');
+								} else if (event?.type === 'reasoning-delta' || event?.type === 'reasoning') {
+									const delta = event.text || '';
+									if (delta) {
+										accumulatedReasoning += delta;
+										const currentChatState = this._chatState();
+										if (currentChatState.status === 'success') {
+											const messages = currentChatState.data.messages || [];
+											const updated = messages.map((m) => (m.id === assistantMessageId ? { ...m, reasoning: accumulatedReasoning } : m));
+											this._chatState.set({ status: 'success', data: { ...currentChatState.data, messages: updated } });
+										}
+									}
+								} else if (event?.type === 'source') {
+									const source = { ...event };
+									accumulatedSources.push(source as LanguageModelV2Source);
+									const currentChatState = this._chatState();
+									if (currentChatState.status === 'success') {
+										const messages = currentChatState.data.messages || [];
+										const updated = messages.map((m) => (m.id === assistantMessageId ? { ...m, sources: [...(m.sources || []), source] } : m));
+										this._chatState.set({ status: 'success', data: { ...currentChatState.data, messages: updated } });
+									}
+								} else if (event?.type === 'finish') {
+									const maybeTitle: string | undefined = typeof event.title === 'string' ? event.title : undefined;
+									const maybeId: string | undefined = typeof event.id === 'string' ? event.id : undefined;
+
+									const currentChatState = this._chatState();
+									if (currentChatState.status === 'success') {
+										const updatedMsgs = (currentChatState.data.messages || []).map((m) =>
+											m.id === assistantMessageId
+												? {
+													...m,
+													generating: false,
+													status: 'sent' as const,
+													reasoning: accumulatedReasoning || m.reasoning,
+													sources: accumulatedSources.length ? accumulatedSources : m.sources,
+												}
+												: m,
+										);
+
+										const finalId = createdChatId || maybeId || currentChatState.data.id;
+
+										this._chatState.set({
+											status: 'success',
+											data: {
+												...currentChatState.data,
+												id: finalId,
+												title: maybeTitle ?? currentChatState.data.title,
+												messages: updatedMsgs,
+												updatedAt: Date.now(),
+											},
+										});
+
+										// Update previews in both in-memory caches
+										if (maybeTitle) {
+											const updatePreview = (arr: Chat[] | null | undefined) => {
+												if (!arr) return arr;
+												const idx = arr.findIndex((c) => c.id === finalId);
+												if (idx === -1) return arr;
+												const copy = [...arr];
+												copy[idx] = { ...copy[idx], title: maybeTitle, updatedAt: Date.now() };
+												return copy;
+											};
+
+											// _chatsState
+											const cs = this._chatsState();
+											if (cs.status === 'success') {
+												const updated = updatePreview(cs.data);
+												if (updated) this._chatsState.set({ status: 'success', data: updated });
+											}
+											// _cachedChats
+											if (this._cachedChats) {
+												this._cachedChats = updatePreview(this._cachedChats) || this._cachedChats;
+											}
+										}
+									}
+								} else if (event?.type === 'error') {
+									throw new Error(event.message || 'Streaming error');
+								}
+							} catch (e) {
+								console.error('Failed to parse stream event', e);
+							}
+						}
+					}
+				})
+				.then(() => subscriber.complete())
+				.catch((error) => {
+					const isAbort = error && (error.name === 'AbortError' || (typeof error.message === 'string' && /aborted|abort/i.test(error.message)));
+					if (isAbort) {
+						const currentChatState = this._chatState();
+						if (currentChatState.status === 'success') {
+							const messages = currentChatState.data.messages || [];
+							const updated = messages.map((m) => {
+								if (m.id === assistantMessageId) {
+									return {
+										...m,
+										generating: false,
+										status: 'sent' as const,
+										textContent: accumulatedText,
+										content: accumulatedText,
+										reasoning: accumulatedReasoning || m.reasoning,
+										sources: accumulatedSources.length ? accumulatedSources : m.sources,
+									};
+								}
+								if (m.id === userMessageEntry.id && m.status === 'sending') {
+									return { ...m, status: 'sent' as const };
+								}
+								return m;
+							});
+							this._chatState.set({
+								status: 'success',
+								data: { ...currentChatState.data, messages: updated, updatedAt: Date.now(), id: createdChatId || currentChatState.data.id },
+							});
+						}
+						subscriber.complete();
+						return;
+					}
+					console.error('Streaming createChat error:', error);
+					// Remove assistant placeholder, mark user as failed
+					const currentChatState = this._chatState();
+					if (currentChatState.status === 'success') {
+						const messages = currentChatState.data.messages || [];
+						const updated = messages.filter((m) => m.id !== assistantMessageId).map((m) => (m.id === userMessageEntry.id ? { ...m, status: 'failed_to_send' as const } : m));
+						this._chatState.set({ status: 'success', data: { ...currentChatState.data, messages: updated } });
+					}
+					subscriber.error(error);
+				});
+			return () => controller.abort();
+		});
 	}
 
 	regenerateMessage(chatId: string, userContent: UserContentExt, llmId: string, historyTruncateIndex: number, options?: CallSettings): Observable<void> {
