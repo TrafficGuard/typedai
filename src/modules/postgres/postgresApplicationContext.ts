@@ -4,7 +4,7 @@ import { PostgresCodeReviewService } from '#modules/postgres/postgresCodeReviewS
 import { PostgresCodeTaskRepository } from '#modules/postgres/postgresCodeTaskRepository';
 import { PostgresLlmCallService } from '#modules/postgres/postgresLlmCallService';
 import { PostgresPromptsService } from '#modules/postgres/postgresPromptsService';
-import { ensureUsersTableExists } from '#modules/postgres/schemaUtils';
+import { ensureAllTablesExist, ensureUsersTableExists } from '#modules/postgres/schemaUtils';
 import { PostgresAgentStateService } from './postgresAgentStateService';
 import { PostgresChatService } from './postgresChatService';
 import { PostgresFunctionCacheService } from './postgresFunctionCacheService';
@@ -21,7 +21,7 @@ export function postgresApplicationContext(): ApplicationContext {
 		promptsService: new PostgresPromptsService(),
 		codeTaskRepository: new PostgresCodeTaskRepository(),
 		init: async () => {
-			await ensureUsersTableExists(db);
+			await ensureAllTablesExist(db);
 		},
 	};
 }

@@ -1,8 +1,8 @@
 import { runCodeTaskRepositoryTests } from '#codeTask/codeTaskRepository.test';
 import { PostgresCodeTaskRepository } from '#modules/postgres/postgresCodeTaskRepository';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { db } from './db'; // <-- Add this import
-import { ensureCodeTaskTablesExist } from './schemaUtils';
+import { db } from './db';
+import { ensureAllTablesExist, ensureCodeTaskTablesExist } from './schemaUtils';
 
 describe('PostgresCodeTaskRepository', () => {
 	setupConditionalLoggerOutput();
@@ -15,7 +15,7 @@ describe('PostgresCodeTaskRepository', () => {
 		() => new PostgresCodeTaskRepository(),
 		async () => {
 			// This is the beforeEachHook for the describe block *inside* runCodeTaskRepositoryTests.
-			await ensureCodeTaskTablesExist(); // <-- Ensure tables are created
+			await ensureAllTablesExist(); // <-- Ensure tables are created
 			// Clear the tables before each test execution managed by runCodeTaskRepositoryTests.
 			await db.deleteFrom('code_task_sessions').execute(); // <-- Clear code_task_sessions
 			await db.deleteFrom('code_task_presets').execute(); // <-- Clear code_task_presets

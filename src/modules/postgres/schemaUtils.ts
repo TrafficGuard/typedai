@@ -1,5 +1,5 @@
 import { type Kysely, sql } from 'kysely';
-import { type Database, db } from './db'; // Import db here
+import { type Database, db } from './db';
 
 export async function ensureUsersTableExists(dbInstance: Kysely<Database>): Promise<void> {
 	await dbInstance.schema
@@ -117,9 +117,9 @@ export async function ensureAgentIterationsTableExists(dbInstance: Kysely<Databa
 		.execute();
 }
 
-export async function ensureCodeTaskTablesExist(): Promise<void> {
+export async function ensureCodeTaskTablesExist(dbInstance: Kysely<Database>): Promise<void> {
 	// Code Tasks Table
-	await db.schema
+	await dbInstance.schema
 		.createTable('code_task_sessions')
 		.ifNotExists()
 		.addColumn('id', 'text', (col) => col.primaryKey())
@@ -255,4 +255,14 @@ export async function ensurePromptsTablesExist(dbInstance: Kysely<Database> = db
 		// FK → prompt_groups.id, cascade on delete
 		.addForeignKeyConstraint('prompt_revisions_group_fk', ['prompt_group_id'], 'prompt_groups', ['id'], (cb) => cb.onDelete('cascade'))
 		.execute();
+}
+
+export async function ensureAllTablesExist(dbInstance: Kysely<Database> = db): Promise<void> {
+	await ensureUsersTableExists(dbInstance);
+	await ensureChatsTableExists(dbInstance);
+	await ensureAgentContextsTableExists(dbInstance);
+	await ensureAgentIterationsTableExists(dbInstance);
+	await ensureCodeTaskTablesExist(dbInstance);
+	await ensureLlmCallsTableExists(dbInstance);
+	await ensurePromptsTablesExist(dbInstance);
 }
