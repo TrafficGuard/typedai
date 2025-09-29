@@ -1,0 +1,14 @@
+onlyBuiltDependencies:
+  - '@biomejs/biome'
+  - '@firebase/util'
+  - '@swc/core'
+  - bcrypt
+  - es5-ext
+  - esbuild
+  - faiss-node
+  - protobufjs
+  - puppeteer
+  - re2
+  - tree-sitter
+  - tree-sitter-javascript
+  - tree-sitter-typescript
