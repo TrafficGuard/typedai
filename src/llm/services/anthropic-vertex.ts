@@ -13,7 +13,7 @@ export const ANTHROPIC_VERTEX_SERVICE = 'anthropic-vertex';
 export function anthropicVertexLLMRegistry(): Record<string, () => LLM> {
 	return {
 		[`${ANTHROPIC_VERTEX_SERVICE}:claude-3-5-haiku`]: Claude3_5_Haiku_Vertex,
-		[`${ANTHROPIC_VERTEX_SERVICE}:claude-sonnet-4`]: Claude4_Sonnet_Vertex,
+		[`${ANTHROPIC_VERTEX_SERVICE}:claude-sonnet-4-5@20250929`]: Claude4_5_Sonnet_Vertex,
 		[`${ANTHROPIC_VERTEX_SERVICE}:claude-opus-4-1@20250805`]: Claude4_1_Opus_Vertex,
 	};
 }
@@ -26,8 +26,8 @@ export function Claude4_1_Opus_Vertex(): LLM {
 }
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude/sonnet-4
-export function Claude4_Sonnet_Vertex(): LLM {
-	return new AnthropicVertexLLM('Claude 4 Sonnet (Vertex)', 'claude-sonnet-4', 200_000, anthropicCostFunction(3, 15));
+export function Claude4_5_Sonnet_Vertex(): LLM {
+	return new AnthropicVertexLLM('Claude 4.5 Sonnet (Vertex)', 'claude-sonnet-4-5@20250929', 200_000, anthropicCostFunction(3, 15), ['claude-sonnet-4']);
 }
 
 export function Claude3_5_Haiku_Vertex(): LLM {
@@ -56,8 +56,8 @@ export function anthropicCostFunction(inputMil: number, outputMil: number): LlmC
 export function ClaudeVertexLLMs(): AgentLLMs {
 	return {
 		easy: Claude3_5_Haiku_Vertex(),
-		medium: Claude4_Sonnet_Vertex(),
-		hard: Claude4_Sonnet_Vertex(),
+		medium: Claude4_5_Sonnet_Vertex(),
+		hard: Claude4_5_Sonnet_Vertex(),
 		xhard: Claude4_1_Opus_Vertex(),
 	};
 }
@@ -94,7 +94,7 @@ class AnthropicVertexLLM extends AiLLM<GoogleVertexAnthropicProvider> {
 			project = currentUser()?.llmConfig.vertexProjectId || project || envVar('GCLOUD_PROJECT');
 		}
 
-		const location = currentUser()?.llmConfig.vertexRegion || process.env.GCLOUD_CLAUDE_REGION || envVar('GCLOUD_REGION');
+		const location = 'global'; //currentUser()?.llmConfig.vertexRegion || process.env.GCLOUD_CLAUDE_REGION || envVar('GCLOUD_REGION');
 		this.aiProvider ??= createVertexAnthropic({
 			project: project,
 			location,

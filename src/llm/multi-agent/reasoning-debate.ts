@@ -1,8 +1,8 @@
 import { BaseLLM } from '#llm/base-llm';
 import { getLLM } from '#llm/llmFactory';
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
-import { anthropicClaude4_Sonnet } from '#llm/services/anthropic';
-import { Claude4_1_Opus_Vertex, Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { anthropicClaude4_5_Sonnet } from '#llm/services/anthropic';
+import { Claude4_1_Opus_Vertex, Claude4_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { deepinfraDeepSeekR1 } from '#llm/services/deepinfra';
 import { openaiGPT5 } from '#llm/services/openai';
 import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
@@ -92,7 +92,7 @@ export function MAD_Balanced4(): LLM {
 	return new ReasonerDebateLLM(
 		'Balanced4',
 		vertexGemini_2_5_Pro,
-		[vertexGemini_2_5_Pro, xai_Grok4, openaiGPT5, Claude4_Sonnet_Vertex],
+		[vertexGemini_2_5_Pro, xai_Grok4, openaiGPT5, Claude4_5_Sonnet_Vertex],
 		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Grok 4, o3, Sonnet 4)',
 	);
 }
@@ -101,7 +101,7 @@ export function MAD_Vertex(): LLM {
 	return new ReasonerDebateLLM(
 		'Vertex',
 		vertexGemini_2_5_Pro,
-		[vertexGemini_2_5_Pro, vertexGemini_2_5_Pro, Claude4_Sonnet_Vertex],
+		[vertexGemini_2_5_Pro, vertexGemini_2_5_Pro, Claude4_5_Sonnet_Vertex],
 		'MAD:Vertex multi-agent debate (Gemini 2.5 Pro x2, Sonnet 4)',
 	);
 }
@@ -109,8 +109,8 @@ export function MAD_Vertex(): LLM {
 export function MAD_Anthropic(): LLM {
 	return new ReasonerDebateLLM(
 		'Anthropic',
-		anthropicClaude4_Sonnet,
-		[anthropicClaude4_Sonnet, anthropicClaude4_Sonnet, anthropicClaude4_Sonnet],
+		anthropicClaude4_5_Sonnet,
+		[anthropicClaude4_5_Sonnet, anthropicClaude4_5_Sonnet, anthropicClaude4_5_Sonnet],
 		'MAD:Anthropic multi-agent debate (Sonnet 4 x3)',
 	);
 }

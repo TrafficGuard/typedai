@@ -2,7 +2,7 @@ import { FastEasyLLM } from '#llm/multi-agent/fastEasy';
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
 import { MAD_Anthropic, MAD_Balanced, MAD_Fast, MAD_Grok, MAD_OpenAI, MAD_Vertex } from '#llm/multi-agent/reasoning-debate';
 // import { MAD_Balanced, MAD_Vertex, MAD_Anthropic, MAD_OpenAI, MAD_Grok, MAD_Fast } from '#llm/multi-agent/reasoning-debate';
-import { Claude3_5_Haiku, anthropicClaude4_Sonnet } from '#llm/services/anthropic';
+import { Claude3_5_Haiku, anthropicClaude4_5_Sonnet } from '#llm/services/anthropic';
 import { vertexGemini_2_5_Flash, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/agent/agent.model';
@@ -39,7 +39,7 @@ export function defaultLLMs(): AgentLLMs {
 	const medium: LLM | undefined = mediumLLMs.find((llm) => llm.isConfigured());
 	if (!medium) throw new Error('No default medium LLM configured');
 
-	const hardLLMs = [openaiGPT5(), vertexGemini_2_5_Pro(), Gemini_2_5_Pro(), xai_Grok4(), anthropicClaude4_Sonnet()];
+	const hardLLMs = [openaiGPT5(), vertexGemini_2_5_Pro(), Gemini_2_5_Pro(), xai_Grok4(), anthropicClaude4_5_Sonnet()];
 	const hard: LLM | undefined = hardLLMs.find((llm) => llm.isConfigured());
 	if (!hard) throw new Error('No default hard LLM configured');
 

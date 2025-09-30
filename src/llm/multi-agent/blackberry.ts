@@ -1,5 +1,5 @@
 import { BaseLLM } from '#llm/base-llm';
-import { Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude4_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { fireworksLlama3_405B } from '#llm/services/fireworks';
 import { openaiGPT5 } from '#llm/services/openai';
 import { logger } from '#o11y/logger';
@@ -65,8 +65,8 @@ const MIND_OVER_DATA_SYS_PROMPT = `When addressing a problem, employ "Comparativ
 `;
 
 export class Blackberry extends BaseLLM {
-	llms: LLM[] = [Claude4_Sonnet_Vertex(), openaiGPT5(), Claude4_Sonnet_Vertex()];
-	mediator: LLM = Claude4_Sonnet_Vertex();
+	llms: LLM[] = [Claude4_5_Sonnet_Vertex(), openaiGPT5(), Claude4_5_Sonnet_Vertex()];
+	mediator: LLM = Claude4_5_Sonnet_Vertex();
 
 	constructor() {
 		super({
