@@ -172,6 +172,7 @@ const LlmMessageBaseSchema = Type.Object({
 	llmId: Type.Optional(Type.String()),
 	cache: Type.Optional(Type.Literal('ephemeral')),
 	providerOptions: Type.Optional(Type.Record(Type.String(), Type.Any())),
+	llmCallId: Type.Optional(Type.String()),
 });
 // Note: LlmMessageSpecificFieldsSchema should be replaced by LlmMessageBaseSchema or removed if all fields are now role-specific.
 

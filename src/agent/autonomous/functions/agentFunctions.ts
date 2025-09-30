@@ -21,7 +21,7 @@ export class Agent {
 	 */
 	@func()
 	async completed(note: string): Promise<void> {
-		await this.saveMemory('Agent_competed_note', note);
+		await this.saveMemory('Agent_competed_note', note ?? '<none>');
 		logger.info(`Agent completed. Note: ${note}`);
 	}
 

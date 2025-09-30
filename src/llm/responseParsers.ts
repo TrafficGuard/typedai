@@ -3,6 +3,61 @@ import { logger } from '#o11y/logger';
 import type { FunctionCalls } from '#shared/llm/llm.model';
 
 /**
+ * Recursively parses a DOM node's children into a JavaScript object.
+ * This handles nested objects and correctly creates arrays for repeated tags.
+ * @param node The parent DOM node to parse.
+ * @returns An object representation of the node's children.
+ */
+function parseParameters(node: Element): Record<string, any> {
+	const params: Record<string, any> = {};
+	if (!node || !node.childNodes) {
+		return params;
+	}
+
+	for (let i = 0; i < node.childNodes.length; i++) {
+		const child = node.childNodes[i];
+		// Skip non-element nodes (like text nodes containing only whitespace)
+		if (child.nodeType !== 1) continue;
+
+		const element = child as Element;
+		const key = element.tagName;
+
+		// Recursively parse children if it's a complex object with element children, otherwise get text content
+		const isComplex = Array.from(element.childNodes).some((c) => c.nodeType === 1);
+		const value = isComplex ? parseParameters(element) : (element.textContent?.trim() ?? '');
+
+		// Check if the key already exists to handle arrays
+		if (Object.prototype.hasOwnProperty.call(params, key)) {
+			// If key already exists, convert it to an array or push to it
+			if (!Array.isArray(params[key])) {
+				params[key] = [params[key]]; // Convert to array
+			}
+			params[key].push(value);
+		} else {
+			params[key] = value;
+		}
+	}
+
+	// This post-processing step simplifies nested array structures.
+	// e.g., { fileEdits: { fileEdit: [...] } } becomes { fileEdits: [...] }
+	// e.g., { deleteFiles: { filePath: [...] } } becomes { deleteFiles: [...] }
+	for (const key in params) {
+		const value = params[key];
+		if (typeof value === 'object' && !Array.isArray(value) && value !== null) {
+			const innerKeys = Object.keys(value);
+			if (innerKeys.length === 1) {
+				const innerValue = value[innerKeys[0]!];
+				if (Array.isArray(innerValue)) {
+					params[key] = innerValue;
+				}
+			}
+		}
+	}
+
+	return params;
+}
+
+/**
  * Extracts the function call details from an LLM response.
  * The XML will be in the format described in the xml-agent-system-prompt files
  * @param response
@@ -21,32 +76,13 @@ export function parseFunctionCallsXml(response: string): FunctionCalls {
 
 	const functionCalls = doc.getElementsByTagName('function_call');
 	for (let i = 0; i < functionCalls.length; i++) {
-		const functionCall = functionCalls[i]!;
+		const functionCallNode = functionCalls[i]!;
 
-		const functionName = functionCall.getElementsByTagName('function_name')[0]!.textContent!;
-		const parameters: { [key: string]: string } = {};
-		const params = functionCall.getElementsByTagName('parameters')[0];
-		if (params) {
-			const nodeList: NodeList = params.childNodes;
-			for (const node of Object.values(nodeList)) {
-				// if node is an element
-				if (node.nodeType !== 1) continue;
-				const param = node as Element;
+		const functionName = functionCallNode.getElementsByTagName('function_name')[0]!.textContent!;
+		const parametersNode = functionCallNode.getElementsByTagName('parameters')[0];
 
-				if (param.tagName === 'parameter') {
-					const paramName = param.getElementsByTagName('name')[0]!.textContent!.trim();
-					const paramValue = param.getElementsByTagName('value')[0]!.textContent!.trim();
-					// const param = params[j];
-					// const paramName = param.tagName;
-					// const paramValue = param.textContent;
-					parameters[paramName] = paramValue;
-				} else {
-					const paramName = param.tagName;
-					const paramValue = param.textContent ?? '';
-					parameters[paramName] = paramValue;
-				}
-			}
-		}
+		const parameters = parametersNode ? parseParameters(parametersNode) : {};
+
 		functionCallsHolder.functionCalls.push({
 			function_name: functionName,
 			parameters: parameters,

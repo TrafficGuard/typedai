@@ -35,15 +35,17 @@ export function Claude3_5_Haiku_Vertex(): LLM {
 }
 
 export function anthropicCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
-	return (inputTokens: number, outputTokens: number, usage: any) => {
-		const anthropicUsage = usage.anthropic;
+	return (inputTokens: number, outputTokens: number, cachedInputTokens: number, usage: any) => {
+		const anthropicUsage = usage?.anthropic;
+		console.log(usage);
+		console.log(anthropicUsage);
 		const inputCost =
 			(inputTokens * inputMil) / 1_000_000 +
-			(anthropicUsage.cacheCreationInputTokens * inputMil * 1.25) / 1_000_000 +
-			(anthropicUsage.cacheReadInputTokens * inputMil * 0.1) / 1_000_000;
+			(anthropicUsage?.cacheCreationInputTokens ?? 0 * inputMil * 1.25) / 1_000_000 +
+			(cachedInputTokens * inputMil * 0.1) / 1_000_000;
 		const outputCost = (outputTokens * outputMil) / 1_000_000;
 		logger.debug(
-			`Anthropic usage. Input: ${inputTokens}. Cache creation: ${anthropicUsage.cacheCreationInputTokens}. Cache read: ${anthropicUsage.cacheReadInputTokens}. Output: ${outputTokens}`,
+			`Anthropic usage. Input: ${inputTokens}. Cache creation: ${anthropicUsage?.cacheCreationInputTokens}. Cache read: ${anthropicUsage?.cacheReadInputTokens}. Output: ${outputTokens}`,
 		);
 		return {
 			inputCost,

@@ -29,12 +29,12 @@ export function Claude3_5_Haiku(): LLM {
 }
 
 function anthropicCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
-	return (inputTokens: number, outputTokens: number, usage: any) => {
-		const metadata = usage as { anthropic: { cacheCreationInputTokens: number; cacheReadInputTokens: number } };
+	return (inputTokens: number, outputTokens: number, cachedInputTokens: number, usage: any) => {
+		const metadata = usage as { anthropic: { cacheCreationInputTokens: number } };
 		const inputCost =
 			(inputTokens * inputMil) / 1_000_000 +
-			(metadata.anthropic.cacheCreationInputTokens * inputMil * 1.25) / 1_000_000 +
-			(metadata.anthropic.cacheReadInputTokens * inputMil * 0.1) / 1_000_000;
+			(metadata?.anthropic?.cacheCreationInputTokens ?? 0 * inputMil * 1.25) / 1_000_000 +
+			(cachedInputTokens * inputMil * 0.1) / 1_000_000;
 		const outputCost = (outputTokens * outputMil) / 1_000_000;
 		return {
 			inputCost,
@@ -50,8 +50,8 @@ export function ClaudeLLMs(): AgentLLMs {
 	return {
 		easy: Claude3_5_Haiku(),
 		medium: sonnet4,
-		hard: opus,
-		xhard: new MultiLLM([opus], 3),
+		hard: sonnet4,
+		xhard: new MultiLLM([sonnet4], 3),
 	};
 }
 

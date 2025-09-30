@@ -198,6 +198,8 @@ interface LlmMessageBase {
 	stats?: GenerationStats | undefined;
 	/** Provider-specific options for the message. */
 	providerOptions?: Record<string, any> | undefined;
+	// The ID of the LLM call that generated this message
+	llmCallId?: string;
 }
 
 // Discriminated union for LlmMessage
@@ -473,6 +475,7 @@ export type LlmCostFunction = (
 	promptTokens: number,
 	completionTokens: number,
 	cachedInputTokens: number,
+	usage?: any,
 ) => { inputCost: number; outputCost: number; totalCost: number };
 
 export interface LlmInfo {

@@ -10,7 +10,7 @@ import { openaiGPT5mini } from '#llm/services/openai';
 import { perplexityLLM } from '#llm/services/perplexity-llm';
 import { sambanovaDeepseekR1, sambanovaLlama3_3_70b, sambanovaLlama3_3_70b_R1_Distill } from '#llm/services/sambanova';
 import { togetherDeepSeekR1_0528_tput } from '#llm/services/together';
-import { vertexGemini_2_0_Flash_Lite, vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
+import { vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import type { LlmMessage } from '#shared/llm/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { anthropicClaude4_1_Opus, anthropicClaude4_5_Sonnet } from './anthropic';
@@ -250,6 +250,19 @@ describe('LLMs', () => {
 				expect(response.toLowerCase()).to.include('blue');
 			});
 
+			it('should stream text', async () => {
+				const response = await llm.streamText(
+					SKY_PROMPT,
+					(chunk) => {
+						expect(chunk.type).to.equal('text-delta');
+						if (chunk.type === 'text-delta') {
+							expect(chunk.text).to.include('blue');
+						}
+					},
+					{ temperature: 0, id: 'test' },
+				);
+			});
+
 			it('should handle image attachments', async () => {
 				const response = await llm.generateText(IMAGE_BASE64_PROMPT, { temperature: 0, id: 'test' });
 				expect(response.toLowerCase()).to.include('elephant');
@@ -266,12 +279,7 @@ describe('LLMs', () => {
 			expect(response.toLowerCase()).to.include('blue');
 		});
 
-		it('Gemini 2.0 Flash Lite should generateText', async () => {
-			const response = await vertexGemini_2_0_Flash_Lite().generateText(SKY_PROMPT, { temperature: 0.1, id: 'test' });
-			expect(response.toLowerCase()).to.include('blue');
-		});
-
-		it.skip('Gemini 2.5 Flash Lite should generateText', async () => {
+		it('Gemini 2.5 Flash Lite should generateText', async () => {
 			const response = await vertexGemini_2_5_Flash_Lite().generateText(SKY_PROMPT, { temperature: 0.1, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});

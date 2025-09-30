@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
 import { type AgentExecution } from '#agent/agentExecutions';
-import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
+import {
+	buildFileSystemTreePrompt,
+	buildFunctionCallHistoryPrompt,
+	buildMemoryPrompt,
+	buildToolStatePrompt,
+	updateFunctionSchemas,
+} from '#agent/agentPromptUtils';
 import { FUNCTION_OUTPUT_THRESHOLD, summariseLongFunctionOutput, summarizeFunctionOutput } from '#agent/agentUtils';
 import { runAgentCompleteHandler } from '#agent/autonomous/agentCompletion';
 import { formatFunctionError, formatFunctionResult } from '#agent/autonomous/autonomousAgentRunner';
@@ -81,7 +87,9 @@ export async function runXmlAgent(agent: AgentContext): Promise<AgentExecution> 
 				try {
 					hitlCounters = await checkHumanInTheLoop(hitlCounters, agent, agentStateService);
 
-					const filePrompt = await buildToolStatePrompt();
+					const fileSystemTreePrompt = await buildFileSystemTreePrompt();
+					const toolStatePrompt = await buildToolStatePrompt();
+					const filePrompt = fileSystemTreePrompt + toolStatePrompt;
 
 					if (!currentPrompt.includes('<function_call_history>')) {
 						currentPrompt = buildFunctionCallHistoryPrompt('history') + (await buildMemoryPrompt()) + filePrompt + currentPrompt;
@@ -105,6 +113,8 @@ export async function runXmlAgent(agent: AgentContext): Promise<AgentExecution> 
 						};
 					} catch (e) {
 						// Should just catch parse error
+						logger.info('AGENT LOOP ERROR:');
+						logger.info(e);
 						const retryPrompt = `${currentPrompt}\nNote: Your previous response did not contain the response in the required format of <response><function_calls>...</function_calls></response>. You must reply in the correct response format.`;
 						llmResponse = await agentLLM.generateText(systemPromptWithFunctions, retryPrompt, {
 							id: 'generateFunctionCalls-retryError',
@@ -116,7 +126,7 @@ export async function runXmlAgent(agent: AgentContext): Promise<AgentExecution> 
 						};
 					}
 					currentPrompt = buildFunctionCallHistoryPrompt('history') + (await buildMemoryPrompt()) + filePrompt + userRequestXml + functionResponse.textResponse;
-					const functionCalls = functionResponse.functions.functionCalls;
+					let functionCalls = functionResponse.functions.functionCalls;
 
 					if (!functionCalls.length) {
 						// Re-try once with an addition to the prompt that there was no function calls,
@@ -136,7 +146,7 @@ export async function runXmlAgent(agent: AgentContext): Promise<AgentExecution> 
 						// retrying
 						currentPrompt =
 							buildFunctionCallHistoryPrompt('history') + (await buildMemoryPrompt()) + filePrompt + userRequestXml + functionCallResponse.textResponse;
-						const functionCalls = functionCallResponse.functions.functionCalls;
+						functionCalls = functionCallResponse.functions.functionCalls;
 						if (!functionCalls.length) {
 							throw new Error('Found no function invocations');
 						}
