@@ -9,7 +9,7 @@ import { GitLab } from '#functions/scm/gitlab';
 import { FileSystemList } from '#functions/storage/fileSystemList';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { MultiLLM } from '#llm/multi-llm';
-import { Claude4_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude4_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
 import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
