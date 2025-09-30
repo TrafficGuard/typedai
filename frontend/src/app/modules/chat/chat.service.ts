@@ -122,6 +122,17 @@ export class ChatServiceClient {
 	private _cachedChats: Chat[] | null = null;
 	private _cachePopulated = signal(false); // To track if cache has data
 
+	// Transient storage for initial message to send after navigating to the created chat
+	private _pendingInitialMessage: {
+		chatId?: string;
+		userContent: UserContentExt;
+		attachmentsForUI?: Attachment[];
+		llmId: string;
+		options?: CallSettings;
+		autoReformat?: boolean;
+		serviceTier?: 'default' | 'flex' | 'priority';
+	} | null = null;
+
 	// Computed signals for backward compatibility
 	readonly chat = computed(() => {
 		const state = this._chatState();
@@ -181,86 +192,6 @@ export class ChatServiceClient {
 				return EMPTY;
 			}),
 			map(() => void 0),
-		);
-	}
-
-	createChat(userContent: UserContentExt, llmId: string, options?: CallSettings, autoReformat?: boolean, serviceTier?: 'default' | 'flex' | 'priority'): Observable<Chat> {
-		let optimisticId: string | undefined; // Declare optimisticId
-
-		// userContent is already prepared by the component
-		const payload: ChatMessagePayload = {
-			llmId,
-			userContent,
-			options: { ...options, serviceTier },
-			autoReformat: autoReformat ?? false,
-		};
-
-		// Optimistic update logic for NEW_CHAT_ID
-		const currentNewChatState = this._chatState();
-		if (currentNewChatState.status === 'success' && currentNewChatState.data.id === NEW_CHAT_ID) {
-			optimisticId = uuidv4();
-			const { attachments: optimisticUiAttachments, text: derivedTextFromUserContent } = userContentExtToAttachmentsAndText(userContent);
-			const userMessageEntry: ChatMessage = {
-				id: optimisticId,
-				content: userContent,
-				textContent: derivedTextFromUserContent,
-				fileAttachments: optimisticUiAttachments.filter((att) => att.type === 'file'),
-				imageAttachments: optimisticUiAttachments.filter((att) => att.type === 'image'),
-				isMine: true,
-				createdAt: new Date().toISOString(),
-				status: 'sending',
-				llmId: llmId, // Store the llmId used for the call
-			};
-			this._chatState.set({
-				status: 'success',
-				data: {
-					...currentNewChatState.data,
-					messages: [...(currentNewChatState.data.messages || []), userMessageEntry],
-				},
-			});
-		}
-		// End of optimistic update logic
-
-		// Returns Observable<Static<typeof ChatModelSchema>>
-		return callApiRoute(this._httpClient, CHAT_API.createChat, { body: payload }).pipe(
-			map((newApiChat: ApiChatModel) => {
-				const uiChat: Chat = {
-					...newApiChat, // Spread properties like id, title, userId, shareable, parentId, rootId, updatedAt
-					messages: newApiChat.messages.map((msg) => convertMessage(msg as ApiLlmMessage)), // msg is Static<LlmMessageSchema>
-				};
-				// Optimistically update cache
-				if (this._cachedChats) {
-					this._cachedChats = [uiChat, ...this._cachedChats];
-				}
-				const currentChatsState = this._chatsState();
-				if (currentChatsState.status === 'success') {
-					this._chatsState.set({
-						status: 'success',
-						data: [uiChat, ...currentChatsState.data],
-					});
-				}
-				this._chatState.set({ status: 'success', data: uiChat });
-				optimisticId = undefined; // Clear optimisticId on success path, as server data replaces it
-				return uiChat;
-			}),
-			catchError((error) => {
-				const currentNewChatStateOnError = this._chatState();
-				if (currentNewChatStateOnError.status === 'success' &&
-					currentNewChatStateOnError.data.id === NEW_CHAT_ID &&
-					optimisticId) {
-					const messages = currentNewChatStateOnError.data.messages || [];
-					const updatedMessages = messages.filter(m => m.id !== optimisticId);
-					this._chatState.set({
-						status: 'success',
-						data: {
-							...currentNewChatStateOnError.data,
-							messages: updatedMessages,
-						},
-					});
-				}
-				optimisticId = undefined; // Clear optimisticId on error path
-				return throwError(() => error);
-			})
 		);
 	}
 
@@ -533,11 +464,8 @@ export class ChatServiceClient {
 		autoReformat?: boolean,
 		serviceTier?: 'default' | 'flex' | 'priority',
 	): Observable<void> {
-		// Handle placeholder/new chat by using the streaming chat creation flow
 		if (!chatId?.trim() || chatId === NEW_CHAT_ID) {
-			return this.createChatStreaming(userContent, llmId, options, autoReformat, serviceTier, attachmentsForUI).pipe(
-				mapTo(undefined),
-			);
+			return throwError(() => new Error('Chat must be created before streaming. Create the chat, navigate to /ui/chat/:id, then call sendMessageStreaming.'));
 		}
 
 		// Prepare payload (same as non-streaming)
@@ -615,9 +543,10 @@ export class ChatServiceClient {
 		bumpChatInLists();
 
 		return new Observable<void>((subscriber) => {
-			const controller = new AbortController();
+			const controller = new AbortController(); // AbortController is no longer used for unsubscribe
 			// Build from shared API route to avoid mismatches
-			const url = `${environment.apiBaseUrl.replace('/api/', '')}${CHAT_API.sendMessage.pathTemplate.replace(':chatId', chatId )}?stream=1`;
+			const base = environment.apiBaseUrl.replace(/\/api\/?$/, '');
+			const url = `${base}${CHAT_API.sendMessage.pathTemplate.replace(':chatId', chatId)}?stream=1`;
 
 			let accumulatedText = '';
 			let accumulatedReasoning = '';
@@ -713,13 +642,78 @@ export class ChatServiceClient {
 											data: { ...currentChatState.data, messages: updated },
 										});
 									}
+								} else if (event?.type === 'stats') {
+									const stats = event.stats;
+									if (stats) {
+										const currentChatState = this._chatState();
+										if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
+											const messages = currentChatState.data.messages || [];
+											const updated = messages.map((m) =>
+												m.id === assistantMessageId
+													? {
+														...m,
+														stats,
+														// Prefer server time if present
+														createdAt: stats.requestTime ? new Date(stats.requestTime).toISOString() : m.createdAt,
+														// Keep llmId consistent if server provided it
+														llmId: stats.llmId || m.llmId,
+													}
+													: m,
+											);
+											this._chatState.set({
+												status: 'success',
+												data: { ...currentChatState.data, messages: updated },
+											});
+										}
+									}
+								} else if (event?.type === 'title') {
+									const title = (event.title || '').toString();
+									if (title) {
+										// Update current chat
+										const currentChatState = this._chatState();
+										if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
+											this._chatState.set({
+												status: 'success',
+												data: { ...currentChatState.data, title },
+											});
+										}
+										// Update chat in visible list
+										const currentChatsState = this._chatsState();
+										if (currentChatsState.status === 'success') {
+											const idx = currentChatsState.data.findIndex((c) => c.id === chatId);
+											if (idx !== -1) {
+												const arr = [...currentChatsState.data];
+												arr[idx] = { ...arr[idx], title };
+												this._chatsState.set({ status: 'success', data: arr });
+											}
+										}
+										// Update cached list
+										if (this._cachedChats) {
+											const idx = this._cachedChats.findIndex((c) => c.id === chatId);
+											if (idx !== -1) {
+												const arr = [...this._cachedChats];
+												arr[idx] = { ...arr[idx], title };
+												this._cachedChats = arr;
+											}
+										}
+									}
 								} else if (event?.type === 'finish') {
 									// Mark assistant as complete (sent)
 									const currentChatState = this._chatState();
 									if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
 										const updated = (currentChatState.data.messages || []).map((m) =>
 											m.id === assistantMessageId
-												? { ...m, generating: false, status: 'sent' as const, reasoning: accumulatedReasoning || m.reasoning, sources: accumulatedSources.length ? accumulatedSources : m.sources }
+												? {
+													...m,
+													generating: false,
+													status: 'sent' as const,
+													reasoning: accumulatedReasoning || m.reasoning,
+													sources: accumulatedSources.length ? accumulatedSources : m.sources,
+													// NEW: accept stats if the server included them on finish
+													stats: event.stats || m.stats,
+													createdAt: event.stats?.requestTime ? new Date(event.stats.requestTime).toISOString() : m.createdAt,
+													llmId: event.stats?.llmId || m.llmId,
+												}
 												: m,
 										);
 										this._chatState.set({
@@ -816,265 +810,13 @@ export class ChatServiceClient {
 					subscriber.error(error);
 				});
 
-			return () => controller.abort();
+			return () => {
+				// Intentionally do not abort on unsubscribe (e.g., route navigation).
+				// Allow the SSE stream to complete so assistant response continues.
+			};
 		});
 	}
 
-	/**
-	 * Streaming creation of a new chat with SSE.
-	 * Emits a Chat object via subscriber.next(...) when the server allocates and returns chat-created.
-	 */
-	createChatStreaming(
-		userContent: UserContentExt,
-		llmId: string,
-		options?: CallSettings,
-		autoReformat?: boolean,
-		serviceTier?: 'default' | 'flex' | 'priority',
-		attachmentsForUI?: Attachment[],
-	): Observable<Chat | void> {
-		const payload: ChatMessagePayload = {
-			llmId,
-			userContent,
-			options: { ...(options ?? {}), serviceTier },
-			autoReformat: autoReformat ?? false,
-		};
-
-		let accumulatedText = '';
-		let accumulatedReasoning = '';
-		let accumulatedSources: LanguageModelV2Source[] = [];
-		let createdChatId: string | null = null;
-
-		const { text: derivedTextFromUserContent } = userContentExtToAttachmentsAndText(userContent);
-		const userMessageEntry: ChatMessage = {
-			id: uuidv4(),
-			content: userContent,
-			textContent: derivedTextFromUserContent,
-			isMine: true,
-			fileAttachments: attachmentsForUI?.filter((att) => att.type === 'file') || [],
-			imageAttachments: attachmentsForUI?.filter((att) => att.type === 'image') || [],
-			createdAt: new Date().toISOString(),
-			status: 'sending',
-			llmId,
-		};
-		const assistantMessageId = uuidv4();
-		const assistantPlaceholder: ChatMessage = {
-			id: assistantMessageId,
-			content: '',
-			textContent: '',
-			isMine: false,
-			generating: true,
-			status: 'sending',
-			createdAt: new Date().toISOString(),
-			llmId,
-		};
-
-		// Update NEW_CHAT_ID state with optimistic messages
-		const updateStateWithMessages = (updater: (messages: ChatMessage[]) => ChatMessage[]) => {
-			const currentChatState = this._chatState();
-			if (currentChatState.status === 'success' && currentChatState.data.id === NEW_CHAT_ID) {
-				this._chatState.set({
-					status: 'success',
-					data: { ...currentChatState.data, messages: updater([...(currentChatState.data.messages || [])]) },
-				});
-			}
-		};
-		updateStateWithMessages((existing) => [...existing, userMessageEntry, assistantPlaceholder]);
-
-		return new Observable<Chat | void>((subscriber) => {
-			const controller = new AbortController();
-			const url = `${environment.apiBaseUrl.replace('/api/', '')}${CHAT_API.createChat.pathTemplate}?stream=1`;
-
-			fetch(url, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-				body: JSON.stringify(payload),
-				signal: controller.signal,
-				credentials: 'include',
-			})
-				.then(async (response) => {
-					if (!response.ok || !response.body) {
-						throw new Error(`Streaming request failed with status ${response.status}`);
-					}
-					const reader = response.body.getReader();
-					const decoder = new TextDecoder('utf-8');
-					let buffer = '';
-
-					const applyAssistantDelta = (delta: string) => {
-						if (!delta) return;
-						accumulatedText += delta;
-						const currentChatState = this._chatState();
-						if (currentChatState.status !== 'success') return;
-						const messages = currentChatState.data.messages || [];
-						const updated = messages.map((m) => {
-							if (m.id !== assistantMessageId) return m;
-							const newText = (m.textContent || '') + delta;
-							return { ...m, content: newText, textContent: newText };
-						});
-						this._chatState.set({ status: 'success', data: { ...currentChatState.data, messages: updated } });
-					};
-
-					for (;;) {
-						const { done, value } = await reader.read();
-						if (done) break;
-						buffer += decoder.decode(value, { stream: true });
-						let idx: number;
-						while ((idx = buffer.indexOf('\n\n')) !== -1) {
-							const rawEvent = buffer.slice(0, idx);
-							buffer = buffer.slice(idx + 2);
-							const lines = rawEvent.split('\n');
-							const dataLines = lines.filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trim());
-							if (dataLines.length === 0) continue;
-							try {
-								const dataStr = dataLines.join('\n');
-								const event = JSON.parse(dataStr);
-								if (event?.type === 'chat-created' && event?.id) {
-									createdChatId = event.id as string;
-									// Update current chat id locally and emit to caller so it can navigate
-									const currentChatState = this._chatState();
-									if (currentChatState.status === 'success' && currentChatState.data.id === NEW_CHAT_ID) {
-										this._chatState.set({ status: 'success', data: { ...currentChatState.data, id: createdChatId } });
-									}
-									subscriber.next({ id: createdChatId, title: '', updatedAt: Date.now(), userId: '', shareable: false } as unknown as Chat);
-									// Maintain preview lists
-									if (this._cachedChats) {
-										const previews = [{ id: createdChatId, title: '', updatedAt: Date.now(), userId: '', shareable: false } as Chat, ...this._cachedChats];
-										this._cachedChats = previews;
-									}
-									const cs = this._chatsState();
-									if (cs.status === 'success') {
-										const previews = [{ id: createdChatId, title: '', updatedAt: Date.now(), userId: '', shareable: false } as Chat, ...cs.data];
-										this._chatsState.set({ status: 'success', data: previews });
-									}
-								} else if (event?.type === 'text-delta' || event?.type === 'text') {
-									applyAssistantDelta(event.text || '');
-								} else if (event?.type === 'reasoning-delta' || event?.type === 'reasoning') {
-									const delta = event.text || '';
-									if (delta) {
-										accumulatedReasoning += delta;
-										const currentChatState = this._chatState();
-										if (currentChatState.status === 'success') {
-											const messages = currentChatState.data.messages || [];
-											const updated = messages.map((m) => (m.id === assistantMessageId ? { ...m, reasoning: accumulatedReasoning } : m));
-											this._chatState.set({ status: 'success', data: { ...currentChatState.data, messages: updated } });
-										}
-									}
-								} else if (event?.type === 'source') {
-									const source = { ...event };
-									accumulatedSources.push(source as LanguageModelV2Source);
-									const currentChatState = this._chatState();
-									if (currentChatState.status === 'success') {
-										const messages = currentChatState.data.messages || [];
-										const updated = messages.map((m) => (m.id === assistantMessageId ? { ...m, sources: [...(m.sources || []), source] } : m));
-										this._chatState.set({ status: 'success', data: { ...currentChatState.data, messages: updated } });
-									}
-								} else if (event?.type === 'finish') {
-									const maybeTitle: string | undefined = typeof event.title === 'string' ? event.title : undefined;
-									const maybeId: string | undefined = typeof event.id === 'string' ? event.id : undefined;
-
-									const currentChatState = this._chatState();
-									if (currentChatState.status === 'success') {
-										const updatedMsgs = (currentChatState.data.messages || []).map((m) =>
-											m.id === assistantMessageId
-												? {
-													...m,
-													generating: false,
-													status: 'sent' as const,
-													reasoning: accumulatedReasoning || m.reasoning,
-													sources: accumulatedSources.length ? accumulatedSources : m.sources,
-												}
-												: m,
-										);
-
-										const finalId = createdChatId || maybeId || currentChatState.data.id;
-
-										this._chatState.set({
-											status: 'success',
-											data: {
-												...currentChatState.data,
-												id: finalId,
-												title: maybeTitle ?? currentChatState.data.title,
-												messages: updatedMsgs,
-												updatedAt: Date.now(),
-											},
-										});
-
-										// Update previews in both in-memory caches
-										if (maybeTitle) {
-											const updatePreview = (arr: Chat[] | null | undefined) => {
-												if (!arr) return arr;
-												const idx = arr.findIndex((c) => c.id === finalId);
-												if (idx === -1) return arr;
-												const copy = [...arr];
-												copy[idx] = { ...copy[idx], title: maybeTitle, updatedAt: Date.now() };
-												return copy;
-											};
-
-											// _chatsState
-											const cs = this._chatsState();
-											if (cs.status === 'success') {
-												const updated = updatePreview(cs.data);
-												if (updated) this._chatsState.set({ status: 'success', data: updated });
-											}
-											// _cachedChats
-											if (this._cachedChats) {
-												this._cachedChats = updatePreview(this._cachedChats) || this._cachedChats;
-											}
-										}
-									}
-								} else if (event?.type === 'error') {
-									throw new Error(event.message || 'Streaming error');
-								}
-							} catch (e) {
-								console.error('Failed to parse stream event', e);
-							}
-						}
-					}
-				})
-				.then(() => subscriber.complete())
-				.catch((error) => {
-					const isAbort = error && (error.name === 'AbortError' || (typeof error.message === 'string' && /aborted|abort/i.test(error.message)));
-					if (isAbort) {
-						const currentChatState = this._chatState();
-						if (currentChatState.status === 'success') {
-							const messages = currentChatState.data.messages || [];
-							const updated = messages.map((m) => {
-								if (m.id === assistantMessageId) {
-									return {
-										...m,
-										generating: false,
-										status: 'sent' as const,
-										textContent: accumulatedText,
-										content: accumulatedText,
-										reasoning: accumulatedReasoning || m.reasoning,
-										sources: accumulatedSources.length ? accumulatedSources : m.sources,
-									};
-								}
-								if (m.id === userMessageEntry.id && m.status === 'sending') {
-									return { ...m, status: 'sent' as const };
-								}
-								return m;
-							});
-							this._chatState.set({
-								status: 'success',
-								data: { ...currentChatState.data, messages: updated, updatedAt: Date.now(), id: createdChatId || currentChatState.data.id },
-							});
-						}
-						subscriber.complete();
-						return;
-					}
-					console.error('Streaming createChat error:', error);
-					// Remove assistant placeholder, mark user as failed
-					const currentChatState = this._chatState();
-					if (currentChatState.status === 'success') {
-						const messages = currentChatState.data.messages || [];
-						const updated = messages.filter((m) => m.id !== assistantMessageId).map((m) => (m.id === userMessageEntry.id ? { ...m, status: 'failed_to_send' as const } : m));
-						this._chatState.set({ status: 'success', data: { ...currentChatState.data, messages: updated } });
-					}
-					subscriber.error(error);
-				});
-			return () => controller.abort();
-		});
-	}
 
 	regenerateMessage(chatId: string, userContent: UserContentExt, llmId: string, historyTruncateIndex: number, options?: CallSettings): Observable<void> {
 		if (!chatId?.trim() || !llmId?.trim()) {
@@ -1255,6 +997,26 @@ export class ChatServiceClient {
 		);
 	}
 
+	createEmptyChat(): Observable<Chat> {
+		return callApiRoute(this._httpClient, CHAT_API.createChat).pipe(
+			map((apiChat: ApiChatModel) => {
+				const uiChat: Chat = {
+					...apiChat,
+					messages: (apiChat.messages || []).map((msg) => convertMessage(msg as ApiLlmMessage)),
+				};
+				// Optimistically add to cache/list previews
+				if (this._cachedChats) {
+					this._cachedChats = [uiChat, ...this._cachedChats];
+				}
+				const currentChatsState = this._chatsState();
+				if (currentChatsState.status === 'success') {
+					this._chatsState.set({ status: 'success', data: [uiChat, ...currentChatsState.data] });
+				}
+				return uiChat;
+			}),
+		);
+	}
+
 	createChatFromLlmCall(llmCallId: string): Observable<Chat> {
         const payload: CreateChatFromLlmCallPayload = {llmCallId};
         return callApiRoute(this._httpClient, CHAT_API.createChatFromLlmCall, {body: payload}).pipe(
@@ -1278,6 +1040,69 @@ export class ChatServiceClient {
             })
         );
     }
+
+	setPendingInitialMessage(data: {
+		chatId?: string;
+		userContent: UserContentExt;
+		attachmentsForUI?: Attachment[];
+		llmId: string;
+		options?: CallSettings;
+		autoReformat?: boolean;
+		serviceTier?: 'default' | 'flex' | 'priority';
+	}): void {
+		this._pendingInitialMessage = { ...data };
+	}
+
+	consumePendingInitialMessage(expectedChatId?: string): {
+		chatId?: string;
+		userContent: UserContentExt;
+		attachmentsForUI?: Attachment[];
+		llmId: string;
+		options?: CallSettings;
+		autoReformat?: boolean;
+		serviceTier?: 'default' | 'flex' | 'priority';
+	} | null {
+		if (!this._pendingInitialMessage) return null;
+		if (expectedChatId && this._pendingInitialMessage.chatId !== expectedChatId) {
+			// Do not consume if not for this chat
+			return null;
+		}
+		const data = this._pendingInitialMessage;
+		this._pendingInitialMessage = null;
+		return data;
+	}
+
+	setLocalChatTitle(chatId: string, title: string): void {
+		// Update current chat if active
+		const currentChatState = this._chatState();
+		if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
+			this._chatState.set({
+				status: 'success',
+				data: { ...currentChatState.data, title },
+			});
+		}
+
+		// Update visible list
+		const currentChatsState = this._chatsState();
+		if (currentChatsState.status === 'success') {
+			const idx = currentChatsState.data.findIndex((c) => c.id === chatId);
+			if (idx !== -1) {
+				const arr = [...currentChatsState.data];
+				arr[idx] = { ...arr[idx], title };
+				this._chatsState.set({ status: 'success', data: arr });
+			}
+		}
+
+		// Update cached list
+		if (this._cachedChats) {
+			const idx = this._cachedChats.findIndex((c) => c.id === chatId);
+			if (idx !== -1) {
+				const arr = [...this._cachedChats];
+				arr[idx] = { ...arr[idx], title };
+				this._cachedChats = arr;
+			}
+		}
+	}
 
 	public updateMessageStatus(chatId: string, messageId: string, status: 'failed_to_send'): void {
 		const currentChatState = this._chatState();

@@ -75,8 +75,6 @@ export class PostgresChatService implements ChatService {
 			chat.updatedAt = Date.now();
 		}
 
-		if (!chat.title) throw new Error('chat title is required');
-
 		// Try to update first (only if an id is supplied). If no row was
 		// touched we fall back to an insert – this lets callers pass a
 		// pre-allocated id on the first write.

@@ -1,7 +1,7 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendBadRequest } from '#fastify/index';
 import { getLLM } from '#llm/llmFactory';
-import { defaultLLMs } from '#llm/services/defaultLlms';
+import { defaultLLMs, summaryLLM } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { registerApiRoute } from '#routes/routeUtils';
 import { CHAT_API } from '#shared/chat/chat.api';
@@ -21,6 +21,9 @@ export async function sendMessageRoute(fastify: AppFastifyInstance): Promise<voi
 		const chat: Chat = await fastify.chatService.loadChat(chatId);
 		if (chat.userId !== currentUser().id) return sendBadRequest(reply, 'Unauthorized to send message to this chat');
 
+		const isFirstMessage = chat.messages.length === 0;
+		const firstMessageTextForTitle = contentText(currentUserContent);
+
 		let llmInstance: LLM;
 		try {
 			llmInstance = getLLM(llmId);
@@ -29,6 +32,7 @@ export async function sendMessageRoute(fastify: AppFastifyInstance): Promise<voi
 		}
 		if (!llmInstance.isConfigured()) return sendBadRequest(reply, `LLM ${llmInstance.getId()} is not configured`);
 
+		// Streaming branch: honor Accept: text/event-stream or ?stream=1
 		const wantsStream =
 			(typeof req.headers.accept === 'string' && req.headers.accept.includes('text/event-stream')) || ((req as any).query && (req as any).query.stream === '1');
 
@@ -104,6 +108,26 @@ export async function sendMessageRoute(fastify: AppFastifyInstance): Promise<voi
 				reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
 			};
 
+			// Generate chat title in parallel on first message and stream it to client
+			if (isFirstMessage && (!chat.title || chat.title.trim() === '')) {
+				(async () => {
+					try {
+						const title = await summaryLLM().generateText(
+							`<message>\n${firstMessageTextForTitle}\n</message>\n\nYour task is to create a short title in a few words for the conversation. Respond only with the title, nothing else.`,
+							{ id: 'chat-title' },
+						);
+						const trimmed = (title || '').trim();
+						if (trimmed) {
+							chat.title = trimmed;
+							await fastify.chatService.saveChat(chat);
+							sse({ type: 'title', title: chat.title });
+						}
+					} catch (e) {
+						logger.error({ err: e, chatId }, 'Failed to generate chat title');
+					}
+				})();
+			}
+
 			let aggregatedText = '';
 			let finished = false;
 			// Persist partial on client disconnect
@@ -139,6 +163,9 @@ export async function sendMessageRoute(fastify: AppFastifyInstance): Promise<voi
 					},
 					llmOptions,
 				);
+
+				// Stream stats to client so UI can show message info
+				sse({ type: 'stats', stats });
 
 				// Append assistant message and save chat
 				const responseMessage: LlmMessage = { role: 'assistant', content: aggregatedText, stats };

@@ -58,7 +58,6 @@ export class FirestoreChatService implements ChatService {
 
 	@span()
 	async saveChat(chat: Chat): Promise<Chat> {
-		if (!chat.title) throw new Error('chat title is required');
 		if (!chat.userId) chat.userId = randomUUID();
 		if (chat.userId !== currentUser().id) throw new Error(`chat userId ${chat.userId} is invalid. Should be ${currentUser().id}`);
 

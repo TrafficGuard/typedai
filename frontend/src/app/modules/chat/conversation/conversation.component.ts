@@ -301,6 +301,54 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
 				// Update previousChatId for the next run
 				this.previousChatId = currentChatId;
+
+				// If there is a pending initial message for this chat, start streaming it now
+				const pending = currentChat ? this._chatService.consumePendingInitialMessage(currentChat.id) : null;
+				if (pending) {
+					if (!currentChat.title || currentChat.title.trim() === '') {
+						const { text } = userContentExtToAttachmentsAndText(pending.userContent);
+						const previewTitle = this.makeTitleFromText(text || '');
+						if (previewTitle) {
+							this._chatService.setLocalChatTitle(currentChat.id, previewTitle);
+						}
+					}
+					const sub = this._chatService
+						.sendMessageStreaming(
+							pending.chatId!,
+							pending.userContent,
+							pending.llmId,
+							pending.options,
+							pending.attachmentsForUI,
+							pending.autoReformat,
+							pending.serviceTier,
+						)
+						.subscribe({
+							error: (error) => {
+								console.error('Error sending initial message via streaming API:', error);
+								this._snackBar.open('Failed to send message. Please try again.', 'Close', { duration: 5000, panelClass: ['error-snackbar'] });
+								const cur = this.chat();
+								if (cur) {
+									const optimisticMessage = [...(cur.messages || [])].reverse().find((m) => m.isMine && m.status === 'sending');
+									if (optimisticMessage) {
+										this._chatService.updateMessageStatus(cur.id, optimisticMessage.id, 'failed_to_send');
+									}
+								}
+								this.generating.set(false);
+								this.generatingAIMessage.set(null);
+								this.sendIcon.set('heroicons_outline:paper-airplane');
+								this.streamSub = null;
+							},
+							complete: () => {
+								this.generating.set(false);
+								this.generatingAIMessage.set(null);
+								this.sendIcon.set('heroicons_outline:paper-airplane');
+								this._scrollToBottom();
+								this._localStorageService.clearDraftMessage(currentChat.id);
+								this.streamSub = null;
+							},
+						});
+					this.streamSub = sub;
+				}
 			});
 
 		// Watch for user profile changes and update LLM selector
@@ -640,7 +688,47 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			const isStreaming = true;
 
 			if (!chatForAPICall || chatForAPICall.id === NEW_CHAT_ID) {
-				apiCall = this._chatService.createChatStreaming(userContentPayload, currentLlmId, options, enableReformat, serviceTierPayload);
+				const sub = this._chatService.createEmptyChat().subscribe({
+					next: (createdChat) => {
+						this._chatService.setPendingInitialMessage({
+							chatId: createdChat.id,
+							userContent: userContentPayload,
+							attachmentsForUI: originalAttachments,
+							llmId: currentLlmId,
+							options,
+							autoReformat: enableReformat,
+							serviceTier: serviceTierPayload,
+						});
+						// Set a local placeholder title from the initial text
+						const previewTitle = this.makeTitleFromText(originalMessageText);
+						if (previewTitle) {
+							this._chatService.setLocalChatTitle(createdChat.id, previewTitle);
+						}
+						this.router.navigate([`/ui/chat/${createdChat.id}`]).catch(console.error);
+					},
+					error: (error) => {
+						console.error('Error creating empty chat via API:', error);
+						this._snackBar.open('Failed to create chat. Please try again.', 'Close', { duration: 5000, panelClass: ['error-snackbar'] });
+
+						// Restore input and attachments
+						this.messageInput.nativeElement.value = originalMessageText;
+						this.selectedAttachments.set(originalAttachments);
+						this._triggerResizeAndScroll(); // Resize after restoring
+
+						// Reset generating states
+						this.generating.set(false);
+						this.generatingAIMessage.set(null);
+						this.sendIcon.set('heroicons_outline:paper-airplane');
+						if (isStreaming) {
+							this.streamSub = null;
+						}
+					},
+					complete: () => {
+						// No-op: streaming will begin after navigation when chat loads
+					},
+				});
+				this.streamSub = sub;
+				return;
 			} else {
 				apiCall = this._chatService.sendMessageStreaming(
 					chatForAPICall.id,
@@ -785,6 +873,18 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		} else {
 		  this._scrollToCaret();
 		}
+	}
+
+	/**
+	 * Scroll so that the caret is visible (bottom-align if needed).
+	 * This method is designed to be called after the textarea has potentially resized.
+	 */
+	private makeTitleFromText(text: string): string {
+		const t = (text || '').trim();
+		if (!t) return '';
+		const firstLine = (t.split(/\r?\n/).find((l) => l.trim().length > 0) ?? t).trim();
+		const maxLen = 80;
+		return firstLine.length > maxLen ? firstLine.slice(0, maxLen).trimEnd() + '…' : firstLine;
 	}
 
 	/**
