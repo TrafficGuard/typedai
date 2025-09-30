@@ -46,6 +46,7 @@ import { MarkdownModule, MarkdownService, MarkedRenderer, provideMarkdown } from
 import { EMPTY, Observable, Subject, Subscription, catchError, combineLatest, distinctUntilChanged, from, interval, switchMap, tap } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { v4 as uuidv4 } from 'uuid';
+import type { ThinkingLevel, GenerateTextOptions } from '#shared/llm/llm.model';
 import { LlmInfo, UserContentExt } from '#shared/llm/llm.model';
 import { UserProfile } from '#shared/user/user.model';
 import { FuseConfirmationService } from '../../../../@fuse/services/confirmation';
@@ -650,7 +651,7 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
 		if (trimmedMessageTextForAPI === '' && originalAttachments.length === 0) return;
 
-		const currentUser = this.userService.userProfile() as UserProfile; // Added UserProfile type
+		const currentUser = this.userService.userProfile();
 		if (!currentUser) {
 			this._snackBar.open('User data not loaded. Cannot send message.', 'Close', { duration: 3000 });
 			return;
@@ -677,8 +678,17 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 			// Prepare payload
 			const userContentPayload: UserContentExt = await attachmentsAndTextToUserContentExt(originalAttachments, trimmedMessageTextForAPI);
 
-			const baseChatOptions = currentUser.chat && typeof currentUser.chat === 'object' ? currentUser.chat : {};
-			const options = { ...baseChatOptions, thinking: this.llmHasThinkingLevels() ? this.thinkingLevel() : undefined };
+			const rawThinking = this.llmHasThinkingLevels() ? this.thinkingLevel() : 'off';
+			const thinking = (rawThinking === 'off' ? 'none' : rawThinking) as ThinkingLevel;
+
+			const raw = currentUser.chat && typeof currentUser.chat === 'object' ? currentUser.chat : {};
+			const baseChatOptions: Partial<GenerateTextOptions> = {
+				temperature: raw.temperature,
+				topP: raw.topP,
+				presencePenalty: raw.presencePenalty,
+				frequencyPenalty: raw.frequencyPenalty,
+			};
+			const options: Partial<GenerateTextOptions> = { ...baseChatOptions, thinking };
 			const serviceTierPayload = this.llmSupportsServiceTiers() ? this.serviceTier() : undefined;
 			const enableReformat = this.autoReformatEnabled();
 

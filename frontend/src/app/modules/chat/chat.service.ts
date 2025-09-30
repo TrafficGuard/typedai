@@ -15,8 +15,7 @@ import {
 	RegenerateMessagePayload,
 	CreateChatFromLlmCallPayload,
 } from '#shared/chat/chat.schema';
-import { LlmMessage as ApiLlmMessage, AssistantContentExt, ReasoningPart } from '#shared/llm/llm.model';
-import { CallSettings, FilePartExt, ImagePartExt, TextPart, UserContentExt } from '#shared/llm/llm.model';
+import { LlmMessage as ApiLlmMessage, AssistantContentExt, ReasoningPart, CallSettings, FilePartExt, ImagePartExt, TextPart, UserContentExt, GenerateTextOptions } from '#shared/llm/llm.model';
 
 import { callApiRoute } from 'app/core/api-route';
 import { createApiEntityState, createApiListState } from 'app/core/api-state.types';
@@ -41,6 +40,32 @@ async function fileToBase64(file: File): Promise<string> {
 		};
 		reader.onerror = (error) => reject(error);
 	});
+}
+
+function sanitizeCallSettings(options?: Partial<GenerateTextOptions>): Partial<GenerateTextOptions> | undefined {
+	if (!options) return undefined;
+	const {
+		temperature,
+		topP,
+		maxOutputTokens,
+		presencePenalty,
+		frequencyPenalty,
+		providerOptions,
+		type,
+		id,
+		thinking,
+	} = options as any;
+	const sanitized: Partial<GenerateTextOptions> = {};
+	if (temperature !== undefined) sanitized.temperature = temperature;
+	if (topP !== undefined) sanitized.topP = topP;
+	if (maxOutputTokens !== undefined) sanitized.maxOutputTokens = maxOutputTokens;
+	if (presencePenalty !== undefined) sanitized.presencePenalty = presencePenalty;
+	if (frequencyPenalty !== undefined) sanitized.frequencyPenalty = frequencyPenalty;
+	if (providerOptions !== undefined) sanitized.providerOptions = providerOptions;
+	if (type !== undefined) sanitized.type = type;
+	if (id !== undefined) sanitized.id = id;
+	if (thinking !== undefined) sanitized.thinking = thinking;
+	return sanitized;
 }
 
 // Helper function to prepare UserContentExt payload for API calls
@@ -128,7 +153,7 @@ export class ChatServiceClient {
 		userContent: UserContentExt;
 		attachmentsForUI?: Attachment[];
 		llmId: string;
-		options?: CallSettings;
+		options?: Partial<GenerateTextOptions>;
 		autoReformat?: boolean;
 		serviceTier?: 'default' | 'flex' | 'priority';
 	} | null = null;
@@ -325,129 +350,6 @@ export class ChatServiceClient {
 		this._chatState.set({ status: 'idle' });
 	}
 
-	sendMessage(
-		chatId: string,
-		userContent: UserContentExt,
-		llmId: string,
-		options?: CallSettings,
-		attachmentsForUI?: Attachment[],
-		autoReformat?: boolean,
-		serviceTier?: 'default' | 'flex' | 'priority',
-	): Observable<void> {
-		let optimisticMessageId: string | undefined; // Declare optimisticMessageId
-
-		// userContent is already prepared by the component
-		const payload: ChatMessagePayload = {
-			llmId,
-			userContent,
-			options: { ...options, serviceTier },
-			autoReformat: autoReformat ?? false,
-		};
-
-		// Locally add user's message immediately for responsiveness
-		const { text: derivedTextFromUserContent } = userContentExtToAttachmentsAndText(userContent);
-		const userMessageEntry: ChatMessage = {
-			id: uuidv4(), // Add unique ID for optimistic update
-			content: userContent,
-			textContent: derivedTextFromUserContent,
-			isMine: true,
-			fileAttachments: attachmentsForUI?.filter((att) => att.type === 'file') || [],
-			imageAttachments: attachmentsForUI?.filter((att) => att.type === 'image') || [],
-			createdAt: new Date().toISOString(),
-			status: 'sending', // Add status
-			llmId: llmId, // Store the llmId used for the call
-		};
-		optimisticMessageId = userMessageEntry.id; // Capture the ID
-
-		const currentChatState = this._chatState();
-		if (currentChatState.status === 'success') {
-			this._chatState.set({
-				status: 'success',
-				data: {
-					...currentChatState.data,
-					messages: [...(currentChatState.data.messages || []), userMessageEntry],
-				},
-			});
-		}
-
-		// Returns Observable<Static<typeof LlmMessageSchema>>
-		return callApiRoute(this._httpClient, CHAT_API.sendMessage, { pathParams: { chatId }, body: payload }).pipe(
-			tap((apiLlmMessage) => {
-				// apiLlmMessage is Static<LlmMessageSchema>
-				const aiChatMessage = convertMessage(apiLlmMessage as ApiLlmMessage);
-
-				const currentChatStateAfterApi = this._chatState(); // Renamed to avoid conflict
-				if (currentChatStateAfterApi.status === 'success') {
-					let messages = [...(currentChatStateAfterApi.data.messages || [])];
-					// Update status of the optimistic message to 'sent'
-					messages = messages.map(m =>
-						m.id === optimisticMessageId ? { ...m, status: 'sent' as const } : m
-					);
-					messages.push(aiChatMessage); // Add the new AI message
-
-					this._chatState.set({
-						status: 'success',
-						data: {
-							...currentChatStateAfterApi.data,
-							messages: messages,
-							updatedAt: Date.now(),
-						},
-					});
-				}
-				optimisticMessageId = undefined; // Clear on success
-
-				// Update the chat in the main list as well
-				const currentChatsState = this._chatsState();
-				if (currentChatsState.status === 'success') {
-					const chatIndex = currentChatsState.data.findIndex((c) => c.id === chatId);
-					if (chatIndex !== -1) {
-						const newChats = [...currentChatsState.data];
-						const updatedChatInList = { ...newChats[chatIndex] };
-						updatedChatInList.updatedAt = Date.now();
-						newChats[chatIndex] = updatedChatInList;
-						newChats.splice(chatIndex, 1);
-						newChats.unshift(updatedChatInList);
-						this._chatsState.set({ status: 'success', data: newChats });
-					}
-				}
-
-				// Update the chat in the cached list as well
-				if (this._cachedChats) {
-					const chatIndex = this._cachedChats.findIndex((c) => c.id === chatId);
-					if (chatIndex !== -1) {
-						const newCachedChats = [...this._cachedChats];
-						const updatedChatInList = { ...newCachedChats[chatIndex] };
-						// Use the same timestamp logic as for _chatsState, typically Date.now() or from response
-						updatedChatInList.updatedAt = Date.now();
-						newCachedChats[chatIndex] = updatedChatInList;
-
-						// Move to top
-						newCachedChats.splice(chatIndex, 1);
-						newCachedChats.unshift(updatedChatInList);
-						this._cachedChats = newCachedChats;
-					}
-				}
-			}),
-			mapTo(undefined),
-			catchError((error) => {
-				const currentChatStateOnError = this._chatState();
-				if (currentChatStateOnError.status === 'success' && optimisticMessageId) {
-					const messages = currentChatStateOnError.data.messages || [];
-					// Remove the optimistic message that failed to send
-					const updatedMessages = messages.filter(m => m.id !== optimisticMessageId);
-					this._chatState.set({
-						status: 'success',
-						data: {
-							...currentChatStateOnError.data,
-							messages: updatedMessages,
-						},
-					});
-				}
-				optimisticMessageId = undefined; // Clear on error
-				return throwError(() => error);
-			})
-		);
-	}
 
 	/**
 	 * Streaming send message using Server-Sent Events (SSE).
@@ -459,7 +361,7 @@ export class ChatServiceClient {
 		chatId: string,
 		userContent: UserContentExt,
 		llmId: string,
-		options?: CallSettings,
+		options?: Partial<GenerateTextOptions>,
 		attachmentsForUI?: Attachment[],
 		autoReformat?: boolean,
 		serviceTier?: 'default' | 'flex' | 'priority',
@@ -468,11 +370,18 @@ export class ChatServiceClient {
 			return throwError(() => new Error('Chat must be created before streaming. Create the chat, navigate to /ui/chat/:id, then call sendMessageStreaming.'));
 		}
 
-		// Prepare payload (same as non-streaming)
+		// Sanitize CallSettings before placing into payload to avoid invalid keys (e.g., defaultLLM, enabledLLMs).
+		const filteredOptions = sanitizeCallSettings(options);
+
+		const optionsForPayload: any = {
+			...(filteredOptions ?? {}),
+			...(serviceTier ? { serviceTier } : {}),
+		};
 		const payload: ChatMessagePayload = {
 			llmId,
 			userContent,
-			options: { ...(options ?? {}), serviceTier },
+			// Always send options object; it can be empty, schema fields are optional
+			options: optionsForPayload,
 			autoReformat: autoReformat ?? false,
 		};
 
@@ -543,7 +452,8 @@ export class ChatServiceClient {
 		bumpChatInLists();
 
 		return new Observable<void>((subscriber) => {
-			const controller = new AbortController(); // AbortController is no longer used for unsubscribe
+			let paused = false; // Local "paused" flag for UI updates
+			const controller = new AbortController();
 			// Build from shared API route to avoid mismatches
 			const base = environment.apiBaseUrl.replace(/\/api\/?$/, '');
 			const url = `${base}${CHAT_API.sendMessage.pathTemplate.replace(':chatId', chatId)}?stream=1`;
@@ -571,7 +481,7 @@ export class ChatServiceClient {
 					let buffer = '';
 
 					const applyAssistantDelta = (delta: string) => {
-						if (!delta) return;
+						if (!delta || paused) return; // Short-circuit if paused
 						accumulatedText += delta;
 						const currentChatState = this._chatState();
 						if (currentChatState.status !== 'success' || currentChatState.data.id !== chatId) return;
@@ -619,6 +529,10 @@ export class ChatServiceClient {
 									const delta = event.text || '';
 									if (delta) {
 										accumulatedReasoning += delta;
+										if (paused) {
+											/* still accumulate for final state */
+											continue;
+										}
 										const currentChatState = this._chatState();
 										if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
 											const messages = currentChatState.data.messages || [];
@@ -633,6 +547,7 @@ export class ChatServiceClient {
 									// event contains a source item. Push into message.sources for rendering.
 									const source = { ...event };
 									accumulatedSources.push(source as LanguageModelV2Source);
+									if (paused) continue; // Short-circuit if paused
 									const currentChatState = this._chatState();
 									if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
 										const messages = currentChatState.data.messages || [];
@@ -644,27 +559,29 @@ export class ChatServiceClient {
 									}
 								} else if (event?.type === 'stats') {
 									const stats = event.stats;
-									if (stats) {
-										const currentChatState = this._chatState();
-										if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
-											const messages = currentChatState.data.messages || [];
-											const updated = messages.map((m) =>
-												m.id === assistantMessageId
-													? {
-														...m,
-														stats,
-														// Prefer server time if present
-														createdAt: stats.requestTime ? new Date(stats.requestTime).toISOString() : m.createdAt,
-														// Keep llmId consistent if server provided it
-														llmId: stats.llmId || m.llmId,
-													}
-													: m,
-											);
-											this._chatState.set({
-												status: 'success',
-												data: { ...currentChatState.data, messages: updated },
-											});
-										}
+									if (!stats) continue;
+									if (paused) {
+										/* still capture to apply on finish */ continue;
+									} // Short-circuit if paused
+									const currentChatState = this._chatState();
+									if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
+										const messages = currentChatState.data.messages || [];
+										const updated = messages.map((m) =>
+											m.id === assistantMessageId
+												? {
+													...m,
+													stats,
+													// Prefer server time if present
+													createdAt: stats.requestTime ? new Date(stats.requestTime).toISOString() : m.createdAt,
+													// Keep llmId consistent if server provided it
+													llmId: stats.llmId || m.llmId,
+												}
+												: m,
+										);
+										this._chatState.set({
+											status: 'success',
+											data: { ...currentChatState.data, messages: updated },
+										});
 									}
 								} else if (event?.type === 'title') {
 									const title = (event.title || '').toString();
@@ -709,8 +626,7 @@ export class ChatServiceClient {
 													status: 'sent' as const,
 													reasoning: accumulatedReasoning || m.reasoning,
 													sources: accumulatedSources.length ? accumulatedSources : m.sources,
-													// NEW: accept stats if the server included them on finish
-													stats: event.stats || m.stats,
+													stats: event.stats || m.stats, // the server should include stats on finish
 													createdAt: event.stats?.requestTime ? new Date(event.stats.requestTime).toISOString() : m.createdAt,
 													llmId: event.stats?.llmId || m.llmId,
 												}
@@ -811,8 +727,8 @@ export class ChatServiceClient {
 				});
 
 			return () => {
-				// Intentionally do not abort on unsubscribe (e.g., route navigation).
-				// Allow the SSE stream to complete so assistant response continues.
+				// Do not abort the network request; just pause UI deltas
+				paused = true;
 			};
 		});
 	}
@@ -889,99 +805,18 @@ export class ChatServiceClient {
 	}
 
 	sendAudioMessage(chatId: string, llmId: string, audio: Blob, options?: CallSettings): Observable<void> {
-		// userContent will be prepared by prepareUserContentPayload
 		return from(prepareUserContentPayload('', undefined, audio)).pipe(
-			switchMap((userContent) => {
-				// userContent is UserContentExt
-				const payload: ChatMessagePayload = { llmId, userContent, options };
-
-				// Optimistic update for user's audio message (placeholder)
-				const audioUserMessage: ChatMessage = {
-					id: uuidv4(),
-					content: userContent, // Use the prepared content
-					textContent: 'Audio message sent...', // Placeholder text
-					isMine: true,
-					createdAt: new Date().toISOString(),
-				};
-
-				const currentChatState = this._chatState();
-				if (currentChatState.status === 'success') {
-					this._chatState.set({
-						status: 'success',
-						data: {
-							...currentChatState.data,
-							messages: [...(currentChatState.data.messages || []), audioUserMessage],
-						},
-					});
-				}
-
-				// Returns Observable<Static<typeof LlmMessageSchema>>
-				return callApiRoute(this._httpClient, CHAT_API.sendMessage, { pathParams: { chatId }, body: payload }).pipe(
-					tap((apiLlmMessage) => {
-						// apiLlmMessage is Static<LlmMessageSchema>
-						const aiChatMessage = convertMessage(apiLlmMessage as ApiLlmMessage);
-
-						const currentChatState = this._chatState();
-						if (currentChatState.status === 'success') {
-							// Replace the placeholder audio message
-							const messagesWithoutPlaceholder = currentChatState.data.messages.filter((m) => m.id !== audioUserMessage.id);
-							this._chatState.set({
-								status: 'success',
-								data: {
-									...currentChatState.data,
-									messages: [...messagesWithoutPlaceholder, aiChatMessage],
-									updatedAt: Date.now(),
-								},
-							});
-						}
-
-						// Update chat in the main list
-						const currentChatsState = this._chatsState();
-						if (currentChatsState.status === 'success') {
-							const chatIndex = currentChatsState.data.findIndex((c) => c.id === chatId);
-							if (chatIndex !== -1) {
-								const newChats = [...currentChatsState.data];
-								const updatedChatInList = { ...newChats[chatIndex] };
-								updatedChatInList.updatedAt = Date.now();
-								newChats[chatIndex] = updatedChatInList;
-								newChats.splice(chatIndex, 1);
-								newChats.unshift(updatedChatInList);
-								this._chatsState.set({ status: 'success', data: newChats });
-							}
-						}
-						// Update the chat in the cached list as well
-						if (this._cachedChats) {
-							const chatIndex = this._cachedChats.findIndex((c) => c.id === chatId);
-							if (chatIndex !== -1) {
-								const newCachedChats = [...this._cachedChats];
-								const updatedChatInList = { ...newCachedChats[chatIndex] };
-								updatedChatInList.updatedAt = Date.now();
-								newCachedChats[chatIndex] = updatedChatInList;
-
-								newCachedChats.splice(chatIndex, 1);
-								newCachedChats.unshift(updatedChatInList);
-								this._cachedChats = newCachedChats;
-							}
-						}
-					}),
-					mapTo(undefined),
-					catchError((error) => {
-						console.error('Error sending audio message:', error);
-						// Revert optimistic update
-						const currentChatState = this._chatState();
-						if (currentChatState.status === 'success') {
-							this._chatState.set({
-								status: 'success',
-								data: {
-									...currentChatState.data,
-									messages: currentChatState.data.messages.filter((m) => m.id !== audioUserMessage.id),
-								},
-							});
-						}
-						return throwError(() => new Error('Failed to send audio message'));
-					}),
-				);
-			}),
+			switchMap((userContent) =>
+				this.sendMessageStreaming(
+					chatId,
+					userContent,
+					llmId,
+					options,
+					/* attachmentsForUI */ undefined,
+					/* autoReformat */ false,
+					/* serviceTier */ undefined,
+				),
+			),
 		);
 	}
 
@@ -1046,7 +881,7 @@ export class ChatServiceClient {
 		userContent: UserContentExt;
 		attachmentsForUI?: Attachment[];
 		llmId: string;
-		options?: CallSettings;
+		options?: Partial<GenerateTextOptions>;
 		autoReformat?: boolean;
 		serviceTier?: 'default' | 'flex' | 'priority';
 	}): void {
@@ -1058,7 +893,7 @@ export class ChatServiceClient {
 		userContent: UserContentExt;
 		attachmentsForUI?: Attachment[];
 		llmId: string;
-		options?: CallSettings;
+		options?: Partial<GenerateTextOptions>;
 		autoReformat?: boolean;
 		serviceTier?: 'default' | 'flex' | 'priority';
 	} | null {
