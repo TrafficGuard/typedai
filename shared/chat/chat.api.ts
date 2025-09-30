@@ -26,7 +26,6 @@ export const CHAT_API = {
 	}),
 	createChat: defineApiRoute('POST', `${CHAT_BASE}/new`, {
 		schema: {
-			body: ChatMessageSendSchema,
 			response: {
 				// Assuming 201 Created for new resources
 				201: ChatModelSchema, // Or 200 if preferred
