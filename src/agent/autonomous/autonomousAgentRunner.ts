@@ -244,7 +244,7 @@ export async function resumeCompleted(agentId: string, executionId: string, inst
 /**
  * Restart a chatbot agent that was in the completed state
  */
-export async function resumeCompletedWithUpdatedUserRequest(agentId: string, executionId: string, userRequest: string): Promise<void> {
+export async function resumeCompletedWithUpdatedUserRequest(agentId: string, executionId: string, userRequest: string): Promise<AgentExecution> {
 	const agent = await appContext().agentStateService.load(agentId);
 	if (!agent) throw new Error(`Agent ${agentId} not found to resume`);
 	if (agent.executionId !== executionId) throw new Error('Invalid executionId. Agent has already been resumed');
@@ -254,7 +254,7 @@ export async function resumeCompletedWithUpdatedUserRequest(agentId: string, exe
 
 	agent.state = 'agent';
 	await appContext().agentStateService.save(agent);
-	await _startAgent(agent);
+	return await _startAgent(agent);
 }
 
 export async function provideFeedback(agentId: string, executionId: string, feedback: string): Promise<void> {

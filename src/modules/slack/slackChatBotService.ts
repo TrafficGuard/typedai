@@ -212,7 +212,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 					await (await this.api()).addReaction(event.channel, event.ts, 'robot_face::boom');
 					return;
 				}
-				await (await this.api()).removeReaction(event.channel, event.ts, 'robot_face');
+				await this.api().removeReaction(event.channel, event.ts, 'robot_face');
 				return;
 			} catch (e) {
 				logger.error(e, 'Error handling new Slack thread');
@@ -231,7 +231,8 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 
 			if (!agent) {
 				logger.info(`Starting new agent for thread ${threadId}`);
-				this.startAgentForThread(threadId, event.channel, prompt, _event.ts);
+				const exec = await this.startAgentForThread(threadId, event.channel, prompt, _event.ts);
+				await exec.execution;
 			} else if (isAgentExecuting(agentId)) {
 				logger.info(`Adding message to agent ${agentId}`);
 				agent.pendingMessages.push(_event.text);
@@ -239,7 +240,8 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 				return;
 			} else {
 				logger.info(`Resuming completed agent ${agentId}`);
-				await resumeCompletedWithUpdatedUserRequest(agentId, agent.executionId, prompt);
+				const exec = await resumeCompletedWithUpdatedUserRequest(agentId, agent.executionId, prompt);
+				await exec.execution;
 			}
 			await this.api().removeReaction(event.channel, event.ts, 'robot_face');
 		}
