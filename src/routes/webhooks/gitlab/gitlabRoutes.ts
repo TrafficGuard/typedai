@@ -5,20 +5,15 @@ import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { type RunWorkflowConfig } from '#agent/autonomous/runAgentTypes';
 import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
-import { appContext } from '#app/applicationContext';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { send, sendSuccess } from '#fastify/index';
-import { Git } from '#functions/scm/git';
 import { GitLab } from '#functions/scm/gitlab';
 import { GitLabCodeReview } from '#functions/scm/gitlabCodeReview';
-import { FileSystemList } from '#functions/storage/fileSystemList';
-import { Perplexity } from '#functions/web/perplexity';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { runAsUser } from '#user/userContext';
-import { envVar } from '#utils/env-var';
 import { envVarHumanInLoopSettings } from '../../../cli/cliHumanInLoop';
 import { getAgentUser } from '../webhookAgentUser';
 
@@ -60,14 +55,14 @@ async function handlePipelineEvent(event: any) {
 	const fullProjectPath = event.project.path_with_namespace;
 	const user = event.user;
 	const miid = event.merge_request?.iid;
-	let failedLogs: Record<string, string> = {};
+	let failedLogs = '';
 
 	const gitlabId = `${fullProjectPath}:${miid ?? gitRef}`;
 
 	if (event.status === 'success') {
 		// check if there is a CodeTask and notify it of a successful build
 	} else {
-		failedLogs = await new GitLab().getFailedJobLogs(event.project.id, event.object_attributes.iid);
+		failedLogs = await new GitLab().getMergeRequestPipelineFailedJobLogs(event.project.id, event.object_attributes.iid);
 		for (const [k, v] of Object.entries(failedLogs)) {
 			const lines = v.split('\n').length;
 			const tokens = await countTokens(v);
