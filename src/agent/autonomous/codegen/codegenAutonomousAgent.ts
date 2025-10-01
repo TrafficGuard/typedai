@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
 import { type PyodideInterface, loadPyodide } from 'pyodide';
 import type { AgentExecution } from '#agent/agentExecutions';
@@ -93,8 +94,23 @@ export async function runCodeGenAgent(agent: AgentContext): Promise<AgentExecuti
 	return { agentId: agent.agentId, execution: executionWithCleanup };
 }
 
+function getSystemPrompt(): string {
+	let promptPath = join(process.cwd(), 'src/agent/autonomous/codegen/codegen-agent-system-prompt');
+	if (existsSync(promptPath)) {
+		return readFileSync(promptPath).toString();
+	}
+	logger.info(`${promptPath} does not exist`);
+	// promptPath = fileURLToPath(new URL('./codegen-agent-system-prompt', import.meta.url)); // ES module way
+	promptPath = join(__dirname, 'codegen-agent-system-prompt');
+	if (existsSync(promptPath)) {
+		return readFileSync(promptPath).toString();
+	}
+	throw new Error(`${promptPath} does not exist`);
+}
+
 async function runAgentExecution(agent: AgentContext, span: Span): Promise<string> {
-	codegenSystemPrompt ??= readFileSync('src/agent/autonomous/codegen/codegen-agent-system-prompt').toString();
+	codegenSystemPrompt ??= getSystemPrompt();
+
 	agent.traceId = span.spanContext().traceId;
 	span.setAttributes({
 		initialPrompt: agent.inputPrompt,
