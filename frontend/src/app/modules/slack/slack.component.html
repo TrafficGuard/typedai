@@ -4,10 +4,10 @@
         <h1 class="text-3xl font-medium tracking-tight leading-none">Slack</h1>
         <div class="flex items-center gap-3">
             <div class="flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium"
-                 [class]="isRunning ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'">
+                 [class]="isRunning() ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'">
                 <div class="w-2 h-2 rounded-full" 
-                     [class]="isRunning ? 'bg-green-500' : 'bg-red-500'"></div>
-                {{ isRunning ? 'Running' : 'Stopped' }}
+                     [class]="isRunning() ? 'bg-green-500' : 'bg-red-500'"></div>
+                {{ isRunning() ? 'Running' : 'Stopped' }}
             </div>
         </div>
     </div>
@@ -17,21 +17,25 @@
         <div class="p-8 text-center">
             <!-- Bot Status Icon -->
             <mat-icon 
-                [svgIcon]="isRunning ? 'heroicons_outline:play' : 'heroicons_outline:stop'" 
+                [svgIcon]="isRunning() ? 'heroicons_outline:play' : 'heroicons_outline:stop'" 
                 class="!w-16 !h-16 mb-4"
-                [class]="isRunning ? 'text-green-500' : 'text-gray-400'">
+                [class]="isRunning() ? 'text-green-500' : 'text-gray-400'">
             </mat-icon>
             
             <!-- Title and Description -->
             <h2 class="text-xl font-medium mb-2">Slack Chatbot Control</h2>
             <p class="text-secondary mb-8">Start or stop your Slack chatbot integration</p>
+
+            <div class="mb-4 text-sm text-red-600" *ngIf="errorMessage() as error">
+                {{ error }}
+            </div>
             
             <!-- Control Buttons -->
             <div class="flex flex-col sm:flex-row gap-4 max-w-sm mx-auto">
                 <button 
                     mat-flat-button 
                     color="primary"
-                    [disabled]="isRunning"
+                    [disabled]="!canStart() || isBusy()"
                     (click)="startBot()"
                     class="flex-1"
                     data-testid="start-bot-btn">
@@ -42,13 +46,17 @@
                 <button 
                     mat-stroked-button 
                     color="warn"
-                    [disabled]="!isRunning"
+                    [disabled]="!canStop() || isBusy()"
                     (click)="stopBot()"
                     class="flex-1"
                     data-testid="stop-bot-btn">
                     <mat-icon svgIcon="heroicons_outline:stop"></mat-icon>
                     <span class="ml-2">Stop Bot</span>
                 </button>
+            </div>
+
+            <div class="flex justify-center mt-6" *ngIf="isBusy()">
+                <mat-progress-spinner diameter="32" mode="indeterminate"></mat-progress-spinner>
             </div>
 
             <!-- Last Action Info 

@@ -267,10 +267,11 @@ export class MockLLM extends BaseLLM {
 				};
 			}
 		}
-		if (!responseFn) {
-			// Default response so tests that do not queue a commit-message still pass
+		if (!responseFn && opts?.id === 'autoCommitMessage') {
+			// // Default response so tests that do not queue a commit-message still pass
 			responseFn = async () => 'Applied LLM-generated edits';
 		}
+		if (!responseFn) throw new Error(`MockLLM: No more responses configured for generateText. Call count: ${this.getCallCount()}`);
 
 		const responseText = await responseFn();
 		const assistantMessage: LlmMessage = { role: 'assistant', content: responseText };

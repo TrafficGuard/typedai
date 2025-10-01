@@ -266,7 +266,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 					model: this.aiModel(),
 					messages,
 					temperature: combinedOpts.temperature,
-					topP: combinedOpts.topP,
+					// topP: combinedOpts.topP, Claude models fail with `temperature` and `top_p` cannot both be specified for this model. Please use only one.
 					topK: combinedOpts.topK,
 					// Not supported by Grok4
 					// frequencyPenalty: combinedOpts.frequencyPenalty,
@@ -284,6 +284,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 					result.usage.inputTokens ?? 0,
 					result.usage.outputTokens ?? 0,
 					result.usage.cachedInputTokens ?? 0,
+					result.usage,
 				);
 				const cost = Number.isNaN(totalCost) ? 0 : totalCost;
 
@@ -430,7 +431,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				model: this.aiModel(),
 				messages,
 				temperature: combinedOpts?.temperature,
-				topP: combinedOpts?.topP,
+				// topP: combinedOpts?.topP, // anthropic '`temperature` and `top_p` cannot both be specified for this model. Please use only one.'
 				stopSequences: combinedOpts?.stopSequences,
 				experimental_transform: smoothStream(),
 			});
@@ -528,7 +529,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				logger.error(e);
 			}
 
-			if (finishReason !== 'stop') throw new Error(`Unexpected finish reason ${finishReason}`);
+			if (finishReason !== 'stop') throw new Error(`Unexpected finish reason: ${finishReason}`);
 
 			return stats;
 		});

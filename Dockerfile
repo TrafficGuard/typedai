@@ -6,43 +6,63 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Update package lists without signature verification to avoid "At least one invalid signature was encountered." on debian repos
 RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update
 
-# make g++ gcc build-essential are needed for node-gyp
-RUN apt-get install -y curl make g++ gcc build-essential git && \
-    curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh && \
-    bash ./nodesource_setup.sh && \
-    apt-get install -y nodejs && \
-    rm nodesource_setup.sh && \
-    npm install -g pnpm
+# 1) Base OS deps (git, toolchain for node-gyp, curl, CA certs)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      git \
+      build-essential \
+      gcc \
+      g++ \
+      make \
+    && rm -rf /var/lib/apt/lists/*
 
-ENV user=typedai
-ENV homedir=/home/typedai/
+# 2) Node.js 22 via NodeSource
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+  && apt-get update && apt-get install -y --no-install-recommends nodejs \
+  && rm -rf /var/lib/apt/lists/*
 
-RUN useradd --create-home -g users typedai
-WORKDIR $homedir
+# 3) Enable corepack and pin pnpm
+RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 
-RUN mkdir ".husky"
-COPY .husky/install.mjs .husky/install.mjs
+# 4) Create non-root user and group
+ARG APP_USER=typedai
+ARG APP_GROUP=typedai
+ARG APP_HOME=/home/${APP_USER}
+RUN groupadd -r ${APP_GROUP} && useradd -r -m -g ${APP_GROUP} ${APP_USER}
 
-COPY package*.json pnpm-lock.yaml ./
-RUN pnpm install
+WORKDIR ${APP_HOME}
 
-COPY . .
+# 5) Copy only lock/manifests (layer caching), and husky install script if used during install
+COPY --chown=${APP_USER}:${APP_GROUP} package*.json pnpm-lock.yaml ./
+RUN mkdir -p .husky
+COPY --chown=${APP_USER}:${APP_GROUP} .husky/install.mjs .husky/install.mjs
 
-# Download the tiktokenizer model, which is written to node_modules/@microsoft/tiktokenizer/model,
-# as the root user, as the typedai user can't write to node_modules
+# 6) Install dependencies as non-root so node_modules is owned by the app user
+USER ${APP_USER}
+RUN pnpm config set store-dir ${APP_HOME}/.pnpm-store
+RUN pnpm install --frozen-lockfile
+
+# 7) Copy the rest of the project (including .git, if present) with proper ownership
+USER root
+COPY --chown=${APP_USER}:${APP_GROUP} . .
+
+# 8) Switch back to non-root user for all remaining steps and runtime
+USER ${APP_USER}
+
+# Optional: allow Git to operate in APP_HOME (not strictly needed if ownership matches, but harmless)
+RUN git config --global --add safe.directory ${APP_HOME}
+
+# 9) Project-specific prefetch/build steps (now writable by ${APP_USER}
+# Download the tiktokenizer model, which is written to node_modules/@microsoft/tiktokenizer/model
 RUN pnpm run initTiktokenizer
-
-USER $user
-
-RUN mkdir .typedai
-# Generate the function schemas
+RUN mkdir -p ${APP_HOME}/.typedai
+# Generate the function schemas json files
 RUN pnpm run functionSchemas
 
-# Needed to avoid the error "fatal: detected dubious ownership in repository at '/home/typedai'" when running git commands
-# as the application files are owned by the root user so an agent (which runs as the typedai user) can't modify them.
-RUN git config --global --add safe.directory /home/typedai
-
+# 10) Runtime configuration
 ENV NODE_ENV=production
 ENV PORT=8080
 EXPOSE 8080
-CMD [ "node", "-r", "ts-node/register", "--env-file=variables/.env", "src/index.ts" ]
+
+CMD ["node", "-r", "ts-node/register", "--env-file=variables/.env", "src/index.ts"]

@@ -875,10 +875,10 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 		if (this._autosize) {
 		  this._ngZone.runOutsideAngular(() => {
 			setTimeout(() => {
-			  this._autosize.resizeToFitContent(true);
+			  this._autosize?.resizeToFitContent(true);
 			  // Delay scroll slightly to ensure resize completes
 			  setTimeout(() => this._scrollToCaret(), 50);
-			}, 0);
+			}, 10);
 		  });
 		} else {
 		  this._scrollToCaret();

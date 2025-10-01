@@ -98,7 +98,7 @@ xdescribe('ChatsComponent', () => {
 			);
 		});
 
-		mockChatService.createChat.and.returnValue(of({ id: 'new-chat-default', title: 'Default New Chat', updatedAt: Date.now(), messages: [] }));
+		mockChatService.createEmptyChat.and.returnValue(of({ id: 'new-chat-default', title: 'Default New Chat', updatedAt: Date.now(), messages: [] }));
 		mockChatService.deleteChat.and.returnValue(of(void 0));
 
 		await TestBed.configureTestingModule({
@@ -327,7 +327,7 @@ xdescribe('ChatsComponent', () => {
 		it('should navigate to the new chat route', fakeAsync(() => {
 			component.startNewChat();
 			// No API call should be made
-			expect(mockChatService.createChat).not.toHaveBeenCalled();
+			expect(mockChatService.createEmptyChat).not.toHaveBeenCalled();
 			// Should navigate to the NEW_CHAT_ID route
 			expect(mockRouter.navigate).toHaveBeenCalledWith(['./', NEW_CHAT_ID], { relativeTo: mockActivatedRoute });
 			// isCreatingChat signal is removed, no state to check

@@ -130,7 +130,7 @@ export class GitLabCodeReview {
 
 			if (!reviewResult.comments || !reviewResult.comments.length) continue;
 
-			console.log(reviewResult.task.codeWithLineNums);
+			logger.info(reviewResult.task.codeWithLineNums);
 
 			for (const comment of reviewResult.comments) {
 				logger.info({ comment }, `Adding review comment for "${reviewResult.task.config.title}" in ${reviewResult.task.filePath} [comment]`);
@@ -151,10 +151,10 @@ export class GitLabCodeReview {
 				};
 				Object.keys(position).forEach((key) => position[key] === undefined && delete position[key]);
 				const positionOptions = position.newLine ? { position } : undefined;
-				console.log(positionOptions);
+				logger.info(positionOptions);
 				try {
-					// const discussion = await this.api().MergeRequestDiscussions.create(gitlabProjectId, mergeRequestIId, comment.comment, positionOptions);
-					// console.log(discussion)
+					const discussion = await this.api().MergeRequestDiscussions.create(gitlabProjectId, mergeRequestIId, comment.comment, positionOptions);
+					logger.info(discussion);
 				} catch (e) {
 					const message = e.cause?.description || e.message;
 					logger.warn(

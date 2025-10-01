@@ -24,9 +24,29 @@ export class CodeFunctions {
 	}
 
 	/**
-	 * Compiles the project using the compile command from the .typedai.json config file
+	 * Compiles, lints and runs tests the project using the commands from the .typedai.json config file
 	 */
 	@func()
+	async compileFormatLintTest(): Promise<string> {
+		await this.compile();
+		const projectInfo = await getProjectInfo();
+		if (!projectInfo) throw new Error(`No ${AI_INFO_FILENAME} available`);
+		for (const cmd of projectInfo.format ?? []) {
+			const result = await execCommand(cmd);
+			failOnError(`Failed to format the project (command: ${cmd})`, result);
+		}
+		for (const cmd of projectInfo.staticAnalysis ?? []) {
+			const result = await execCommand(cmd);
+			failOnError(`Failed to run static analysis on the project (command: ${cmd})`, result);
+		}
+		await this.test();
+		return 'Project successfully compiled, formatted, linted and tested';
+	}
+
+	/**
+	 * Compiles the project using the compile command from the .typedai.json config file
+	 */
+	// @func()
 	async compile(): Promise<string> {
 		const projectInfo = await getProjectInfo();
 		if (!projectInfo) throw new Error(`No ${AI_INFO_FILENAME} available`);
@@ -41,7 +61,7 @@ export class CodeFunctions {
 	/**
 	 * Test the project using the test command from the project config file
 	 */
-	@func()
+	// @func()
 	async test(): Promise<string> {
 		const projectInfo = await getProjectInfo();
 		if (!projectInfo) throw new Error(`No ${AI_INFO_FILENAME} available`);
@@ -58,6 +78,30 @@ export class CodeFunctions {
 		}
 		return `Project successfully tested calling "${projectInfo.test.join(' && ')}"`;
 	}
+
+	// /**
+	//  * Runs a single frontend test
+	//  * @param specFilePath the path to the spec file to test (relative to the /frontend folder)
+	//  */
+	// @func()
+	// async runSingleFrontendTest(specFilePath: string): Promise<string> {
+	// 	const cmd = `npm run env:test && npx ng test --include="${specFilePath}" --no-watch --browsers=ChromeHeadless`;
+	// 	const result = await execCommand(cmd, { workingDirectory: 'frontend' });
+	// 	failOnError(`Failure running tests (command: ${cmd})`, result);
+	// 	return `Tests successfully run for "${specFilePath}"`;
+	// }
+
+	// /**
+	//  * Runs `npm run swebench -- --instance-id=django__django-15467`
+	//  * @returns the output of the swebench command
+	//  */
+	// @func()
+	// async runSweBench(): Promise<string> {
+	// 	const cmd = 'npm run swebench -- --instance-id=django__django-15467';
+	// 	const result = await execCommand(cmd, { workingDirectory: process.env.TYPEDAI_HOME });
+	// 	failOnError(`Failure running swebench: ${cmd}`, result);
+	// 	return result.stdout;
+	// }
 
 	/**
 	 * Searches across files under the current working directory to provide an answer to the query

@@ -17,8 +17,33 @@
 // } from '#shared/chat/chat.schema';
 // import { UserContentExt } from '#shared/llm/llm.model';
 // import { LlmMessageSchema } from '#shared/llm/llm.schema';
-// import { ChatServiceClient } from './chat.service';
-// import { convertMessage } from './chat.service'; // For direct testing if needed, or rely on service methods
+ // import { ChatServiceClient } from './chat.service';
+ // import { convertMessage } from './chat.service'; // For direct testing if needed, or rely on service methods
+
+import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { ChatServiceClient } from './chat.service';
+import { CHAT_API } from '#shared/chat/chat.api';
+
+describe('ChatServiceClient - createEmptyChat', () => {
+	let service: ChatServiceClient;
+	let httpMock: HttpTestingController;
+
+	beforeEach(() => {
+		TestBed.configureTestingModule({
+			imports: [HttpClientTestingModule],
+			providers: [ChatServiceClient],
+		});
+		service = TestBed.inject(ChatServiceClient);
+		httpMock = TestBed.inject(HttpTestingController);
+	});
+
+	afterEach(() => {
+		httpMock.verify();
+	});
+
+	it(('should'), () => {})
+});
 
 // // Helper to create a minimal valid API LLM Message (Static<typeof LlmMessageSchema>)
 // // LlmMessageSchema: role, content, stats (optional, but convertMessage uses it)
@@ -68,7 +93,14 @@
 // 		});
 // 		service = TestBed.inject(ChatServiceClient);
 // 		httpMock = TestBed.inject(HttpTestingController);
-// 	});
+	xdescribe('createEmptyChat flow', () => {
+		it('should create an empty chat (201) and return Chat model, then stream first message on conversation view', () => {
+			// Scaffold: this test will be implemented to verify the 3-step flow:
+			// 1) createEmptyChat -> returns chat id
+			// 2) navigate to /ui/chat/:id
+			// 3) ConversationComponent consumes pending message and calls sendMessageStreaming
+		});
+	});
 
 // 	afterEach(() => {
 // 		httpMock.verify(); // Make sure that there are no outstanding requests
