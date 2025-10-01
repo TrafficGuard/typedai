@@ -23,7 +23,7 @@ export abstract class AbstractSCM implements SourceControlManagement {
 			targetPath = targetDirectory;
 		} else {
 			const scmType = this.getScmType(); // Use a local variable for scmType
-			const basePath = agent?.useSharedRepos ? join(systemDir(), scmType) : join(agentStorageDir(), scmType);
+			const basePath = !agent || agent.useSharedRepos ? join(systemDir(), scmType) : join(agentStorageDir(), scmType);
 			targetPath = join(basePath, projectPathWithNamespace);
 		}
 		await fs.mkdir(targetPath, { recursive: true });
