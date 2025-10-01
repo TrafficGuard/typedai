@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { getSecret } from 'src/config/secretConfig';
+import { logger } from '#o11y/logger';
 
 export interface SlackConfig {
 	hasSupportDocs: boolean;
@@ -23,7 +24,7 @@ export function slackConfig(): SlackConfig {
 function createSlackConfig(): SlackConfig {
 	const supportDocsLocalPath = process.env.SLACK_SUPPORT_DOCS_LOCAL_PATH?.trim() || '';
 	const hasLocalDocs = Boolean(supportDocsLocalPath && existsSync(supportDocsLocalPath));
-	return {
+	const config: SlackConfig = {
 		hasSupportDocs: hasLocalDocs || Boolean(process.env.SLACK_SUPPORT_DOCS_PROJECT?.trim()),
 		supportDocsLocalPath: supportDocsLocalPath,
 		supportDocsProject: process.env.SLACK_SUPPORT_DOCS_PROJECT ?? '',
@@ -34,4 +35,18 @@ function createSlackConfig(): SlackConfig {
 		appToken: getSecret('SLACK_APP_TOKEN'),
 		channels: process.env.SLACK_CHANNELS?.split(',')?.map((s) => s.trim()) || [],
 	};
+	const maskedConfig: SlackConfig = {
+		hasSupportDocs: config.hasSupportDocs,
+		supportDocsProject: config.supportDocsProject,
+		supportDocsLocalPath: config.supportDocsLocalPath,
+		socketMode: config.socketMode,
+		autoStart: config.autoStart,
+		channels: config.channels,
+		// secrets
+		botToken: config.botToken?.substring(0, 5),
+		signingSecret: config.signingSecret?.substring(0, 5),
+		appToken: config.appToken?.substring(0, 5),
+	};
+	logger.info({ config: maskedConfig }, 'Slack config');
+	return config;
 }
