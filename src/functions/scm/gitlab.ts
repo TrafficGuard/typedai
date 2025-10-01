@@ -12,6 +12,7 @@ import type { BranchSchema } from '@gitbeaker/rest';
 import type { DeepPartial } from 'ai';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { AbstractSCM } from '#functions/scm/abstractSCM';
+import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import type { GitProject } from '#shared/scm/git.model';
@@ -328,12 +329,13 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 
 	/**
 	 * Gets the logs from the jobs which have failed in a pipeline
-	 * @param gitlabProjectId Either the full path or the numeric id
-	 * @param mergeRequestIId The merge request IID. Can get this from the URL of the merge request.
+	 * @param gitlabProjectId GitLab project full path or the numeric id
+	 * @param mergeRequestIId The merge request IID. Can get this from the URL of the merge request. https://<gitlab-host>/<group>/[<sub-group>/]<project>/-/merge_requests/<mergeRequestIId>
 	 * @returns A Record with the job name as the key and the logs as the value.
 	 */
 	@func()
-	async getFailedJobLogs(gitlabProjectId: string | number, mergeRequestIId: number): Promise<Record<string, string>> {
+	async getMergeRequestPipelineFailedJobLogs(gitlabProjectId: string | number, mergeRequestIId: number): Promise<string> {
+		logger.info({ gitlabProjectId, mergeRequestIId }, 'Getting pipelines');
 		const pipelines = await this.api().MergeRequests.allPipelines(gitlabProjectId, mergeRequestIId);
 		if (pipelines.length === 0) throw new Error('No pipelines for the merge request');
 
@@ -343,13 +345,23 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 
 		if (latestPipeline.status !== 'failed' && latestPipeline.status !== 'blocked') throw new Error('Pipeline is not failed or blocked');
 
+		logger.info({ gitlabProjectId, pipelineId: latestPipeline.id }, 'Getting jobs');
 		const jobs: JobSchema[] = await this.api().Jobs.all(gitlabProjectId, { pipelineId: latestPipeline.id });
 		const failedJobs = jobs.filter((job) => job.status === 'failed' && job.allow_failure === false);
 
-		const jobLogs: Record<string, string> = {};
+		let jobLogs = '';
 		for (const job of failedJobs) {
-			jobLogs[job.name] = await this.getJobLogs(gitlabProjectId, job.id.toString());
+			logger.info({ gitlabProjectId, pipelineId: latestPipeline.id, jobId: job.id }, 'Getting job logs');
+			let logs = await this.getJobLogs(gitlabProjectId, job.id.toString());
+
+			// If the logs are longer than ~12,000 tokens, truncate them.
+			// Take the first 15,000 characters and the last 35,000 characters
+			if (logs.length > 50000) {
+				logs = `${logs.slice(0, 15000)}\n(truncated)...\n${logs.slice(-35000)}`;
+			}
+			jobLogs += `<job-logs job-name="${job.name}">\n${logs}\n</job-logs>`;
 		}
+		logger.info(`Failed job logs (${await countTokens(jobLogs)} tokens)`);
 		return jobLogs;
 	}
 
@@ -390,23 +402,58 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 		const job = await this.api().Jobs.show(project.id, Number(jobId));
 
 		const commitDetails: CommitDiffSchema[] = await this.api().Commits.showDiff(projectPath, job.commit.id);
-		return commitDetails.map((commitDiff) => commitDiff.diff).join('\n');
+		let commitDiff = `<commit id="${job.commit.short_id}" author="${job.commit.author_name} - ${job.commit.author_email}">\n<commit:title>${job.commit.title}</commit:title>\n<commit:description>\n${job.commit.message}\n</commit:description>\n`;
+		for (const commitDetail of commitDetails) {
+			let attributes = '';
+			if (commitDetail.old_path && commitDetail.old_path !== commitDetail.new_path) attributes += `old_path="${commitDetail.old_path}" `;
+			if (commitDetail.new_path) attributes += `path="${commitDetail.new_path}" `;
+			if (commitDetail.diff_type) attributes += `type="${commitDetail.diff_type}" `;
+			if (commitDetail.renamed_file) attributes += 'renamed ';
+			if (commitDetail.new_file) attributes += 'new_file ';
+			if (commitDetail.deleted_file) attributes += 'deleted ';
+
+			commitDiff += `<commit:diff ${attributes}>\n`;
+
+			let diff = commitDetail.diff;
+			const path = commitDetail.new_path ?? commitDetail.old_path ?? '';
+
+			if (
+				path.endsWith('package-lock.json') ||
+				path.endsWith('yarn.lock') ||
+				path.endsWith('pnpm-lock.yaml') ||
+				path.endsWith('requirements.txt') ||
+				path.endsWith('pyproject.toml') ||
+				path.endsWith('poetry.lock')
+			) {
+				if (diff.length > 4000) diff = `${diff.slice(0, 4000)}\n(truncated)`;
+			}
+
+			commitDiff += `${diff}\n</commit:diff>\n`;
+		}
+		commitDiff += '</commit>';
+		const tokens = await countTokens(commitDiff);
+		logger.info({ projectId: projectPath, jobId, tokens }, `Retrieved job commit diff (${tokens} tokens)`);
+		return commitDiff;
 	}
 
 	/**
 	 * Gets the logs for a CI/CD job
-	 * @param projectIdOrProjectPath full path or numeric id
-	 * @param jobId the job id
+	 * @param projectIdOrProjectPath GitLab projectId. Either the full path (group(s) and project id) or the numeric id
+	 * @param jobId the job id. Can get this from a job URL in the format https://<gitlab-host>/<group>/[<sub-group>/]<project>/-/jobs/<jobId>
 	 */
 	@func()
 	async getJobLogs(projectIdOrProjectPath: string | number, jobId: string | number): Promise<string> {
-		if (!projectIdOrProjectPath) throw new Error('Parameter "projectPath" must be truthy');
+		if (!projectIdOrProjectPath) throw new Error('Parameter "projectIdOrProjectPath" must be truthy');
 		if (!jobId) throw new Error('Parameter "jobId" must be truthy');
 
 		const project = await this.api().Projects.show(projectIdOrProjectPath);
 		const job = await this.api().Jobs.show(project.id, Number(jobId));
 
-		return await this.api().Jobs.showLog(project.id, job.id);
+		const logs = await this.api().Jobs.showLog(project.id, job.id);
+		const tokens = await countTokens(logs);
+		logger.info({ projectId: projectIdOrProjectPath, jobId, tokens }, `Retrieved job logs (${tokens} tokens)`);
+
+		return logs;
 	}
 
 	/**
