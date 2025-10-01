@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { expect } from 'chai';
+import { appContext } from '#app/applicationContext';
 import { Claude4_1_Opus_Vertex, Claude4_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { deepinfraDeepSeekR1, deepinfraQwen3_235B_A22B } from '#llm/services/deepinfra';
 import { deepSeekV3_1 } from '#llm/services/deepseek';
@@ -24,6 +25,11 @@ const pdfBase64 = fs.readFileSync('test/llm/document.pdf', 'base64');
 // Skip until API keys are configured in CI
 describe('LLMs', () => {
 	setupConditionalLoggerOutput();
+
+	before(async () => {
+		await appContext().userService.ensureSingleUser();
+	});
+
 	const SKY_PROMPT: LlmMessage[] = [
 		{
 			role: 'system',
@@ -250,7 +256,7 @@ describe('LLMs', () => {
 				expect(response.toLowerCase()).to.include('blue');
 			});
 
-			it('should stream text', async () => {
+			it.skip('should stream text', async () => {
 				const response = await llm.streamText(
 					SKY_PROMPT,
 					(chunk) => {

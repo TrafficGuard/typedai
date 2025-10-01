@@ -42,6 +42,7 @@ export function vertexGemini_2_5_Flash(defaultOpts?: GenerateTextOptions): LLM {
 // https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash-lite
 export function vertexGemini_2_5_Flash_Lite(): LLM {
 	return new VertexLLM('Gemini 2.5 Flash Lite', 'gemini-2.5-flash-lite-preview-09-2025', 1_000_000, costPerMilTokens(0.01, 0.4), [
+		'gemini-2.5-flash-lite',
 		'gemini-2.0-flash-lite-preview-02-05',
 		'gemini-2.5-flash-lite-preview-06-17',
 	]);
@@ -87,8 +88,8 @@ class VertexLLM extends AiLLM<GoogleVertexProvider> {
 		// console.log(`Configuring vertex provider with ${project}`);
 		let location = currentUser()?.llmConfig.vertexRegion || envVar('GCLOUD_REGION');
 		// Currently a note at https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash-lite states that the model is only available in global location
-		if (this.getId().includes('gemini-2.5-flash-lite')) {
-			logger.info('Setting global location for flash-lite');
+		if (this.getId().includes('gemini-2.5-flash')) {
+			logger.info('Setting global location for flash');
 			location = 'global';
 		}
 		this.aiProvider ??= createVertex({
