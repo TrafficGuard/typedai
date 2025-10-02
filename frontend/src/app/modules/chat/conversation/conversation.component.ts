@@ -105,6 +105,9 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 	sendIcon: WritableSignal<string> = signal('heroicons_outline:paper-airplane');
 	private streamSub: Subscription | null = null;
 
+	private pendingAnchorId: string | null = null;
+	private scrolledToAnchor = false;
+
 	llmsSignal: Signal<LlmInfo[]>;
 	llmId: WritableSignal<string | undefined> = signal(undefined);
 	defaultChatLlmId = computed(() => (this.userService.userProfile()?.chat?.defaultLLM));
@@ -410,6 +413,26 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 
 				/* LLM does *not* support thinking ➜ force OFF */
 				if (!supportsThinking && currentLevel !== 'off') this.thinkingLevel.set('off');
+			});
+
+		// Capture #fragment and trigger scroll when available
+		this.route.fragment
+			.pipe(takeUntilDestroyed(this.destroyRef))
+			.subscribe((frag) => {
+				this.pendingAnchorId = frag || null;
+				this.scrolledToAnchor = false;
+				if (this.pendingAnchorId) {
+					this.tryScrollToAnchor();
+				}
+			});
+
+		// Retry scrolling when displayed messages change (e.g., after async load)
+		toObservable(this.displayedMessages)
+			.pipe(takeUntilDestroyed(this.destroyRef))
+			.subscribe(() => {
+				if (this.pendingAnchorId && !this.scrolledToAnchor) {
+					this.tryScrollToAnchor();
+				}
 			});
 	}
 
@@ -862,6 +885,32 @@ export class ConversationComponent implements OnInit, OnDestroy, AfterViewInit {
 				const chatElement = this._elementRef.nativeElement.querySelector('.conversation-container');
 				if (chatElement) {
 					chatElement.scrollTop = chatElement.scrollHeight;
+				}
+			}, 0);
+		});
+	}
+
+	private tryScrollToAnchor(): void {
+		const id = this.pendingAnchorId;
+		if (!id || this.scrolledToAnchor) return;
+
+		this._ngZone.runOutsideAngular(() => {
+			// Allow DOM to render before attempting
+			setTimeout(() => {
+				const container = this._elementRef.nativeElement.querySelector('.conversation-container') as HTMLElement | null;
+				if (!container) return;
+
+				// Query by id within the container
+				const target = container.querySelector(`#${id}`) as HTMLElement | null;
+				if (target) {
+					// Smooth scroll the nearest scrollable ancestor (container)
+					target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+					this.scrolledToAnchor = true;
+				} else {
+					// If not yet rendered, try again shortly
+					setTimeout(() => {
+						if (!this.scrolledToAnchor) this.tryScrollToAnchor();
+					}, 200);
 				}
 			}, 0);
 		});

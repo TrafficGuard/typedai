@@ -70,6 +70,7 @@
                         ) {
                             <div
                                 [attr.data-testid]="'msg-'+message.id"
+                                [attr.id]="message.id"
                                 class="flex flex-col"
                                 [ngClass]="{
                                     'max-width': 'w-400',
