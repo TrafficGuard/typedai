@@ -69,6 +69,7 @@ export async function main(): Promise<void> {
 
 	console.log('Resume this agent by running:');
 	console.log(`ai agent -r=${execution.agentId}`);
+	console.log(`https://localhost:4200/ui/agent/${execution.agentId}`);
 }
 
 async function resumeAgent(agent: AgentContext, resumeAgentId: string, initialPrompt: string) {

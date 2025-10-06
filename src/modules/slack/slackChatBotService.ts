@@ -16,10 +16,10 @@ import { type AgentCompleted, type AgentContext } from '#shared/agent/agent.mode
 import type { User } from '#shared/user/user.model';
 import { runAsUser } from '#user/userContext';
 import type { ChatBotService } from '../../chatBot/chatBotService';
+import { SupportKnowledgebase } from '../../functions/supportKnowledgebase';
 import { SlackAPI } from './slackApi';
 import { slackConfig } from './slackConfig';
 import { textToBlocks } from './slackMessageFormatter';
-import { SlackSupportBotFunctions } from './slackSupportBotFunctions';
 
 let slackApp: App<StringIndexed> | undefined;
 
@@ -248,7 +248,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 	}
 
 	async startAgentForThread(threadId: string, channel: string, prompt: string, replyTs?: string): Promise<AgentExecution> {
-		const supportFuncs = new SlackSupportBotFunctions();
+		const supportFuncs = new SupportKnowledgebase();
 
 		return await startAgent({
 			type: 'autonomous',

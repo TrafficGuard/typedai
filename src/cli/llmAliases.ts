@@ -5,7 +5,7 @@ import { cerebrasQwen3_235b_Thinking, cerebrasQwen3_Coder } from '#llm/services/
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { openaiGPT5, openaiGPT5flex, openaiGPT5mini, openaiGPT5nano, openaiGPT5priority } from '#llm/services/openai';
 import { perplexityDeepResearchLLM, perplexityLLM, perplexityReasoningProLLM } from '#llm/services/perplexity-llm';
-import { xai_Grok4 } from '#llm/services/xai';
+import { xai_Grok4, xai_Grok4_Fast_Instruct, xai_Grok4_Fast_Reasoning } from '#llm/services/xai';
 import { LLM } from '#shared/llm/llm.model';
 
 export const LLM_CLI_ALIAS: Record<string, () => LLM> = {
@@ -16,7 +16,6 @@ export const LLM_CLI_ALIAS: Record<string, () => LLM> = {
 	fm: () => new FastMediumLLM(),
 	f: cerebrasQwen3_235b_Thinking,
 	cc: cerebrasQwen3_Coder,
-	x: xai_Grok4,
 	g5: openaiGPT5,
 	g5p: openaiGPT5priority,
 	g5f: openaiGPT5flex,
@@ -30,4 +29,7 @@ export const LLM_CLI_ALIAS: Record<string, () => LLM> = {
 	pp1: perplexityLLM,
 	pp2: perplexityReasoningProLLM,
 	pp3: perplexityDeepResearchLLM,
+	x: xai_Grok4,
+	xf: xai_Grok4_Fast_Instruct,
+	xfr: xai_Grok4_Fast_Reasoning,
 };

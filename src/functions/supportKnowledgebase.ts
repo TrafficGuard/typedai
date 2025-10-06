@@ -1,13 +1,31 @@
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { GitLab } from '#functions/scm/gitlab';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { defaultLLMs } from '#llm/services/defaultLlms';
-import { slackConfig } from './slackConfig';
+
+let docsPath: string | undefined;
+
+async function docsProjectPath(): Promise<string> {
+	if (!docsPath) {
+		const supportDocsLocalPath = process.env.SUPPORT_DOCS_LOCAL_PATH?.trim() || '';
+		const hasLocalDocs = Boolean(supportDocsLocalPath && existsSync(supportDocsLocalPath));
+		const hasSupportDocs = hasLocalDocs || Boolean(process.env.SUPPORT_DOCS_PROJECT?.trim());
+		if (!hasSupportDocs) {
+			docsPath = '';
+		} else if (supportDocsLocalPath) {
+			docsPath = supportDocsLocalPath;
+		} else {
+			docsPath = await new GitLab().cloneProject(process.env.SUPPORT_DOCS_PROJECT ?? '');
+		}
+	}
+	return docsPath;
+}
 
 @funcClass(__filename)
-export class SlackSupportBotFunctions {
+export class SupportKnowledgebase {
 	/**
 	 * @returns the core documentation which must be known to resolve support requests
 	 */
@@ -45,11 +63,4 @@ You may only quote information from the knowledgebase wrapped in XML tags.
 Do not output any other content. Skip small talk.`;
 		return await defaultLLMs().medium.generateText(prompt, { id: 'Support KB search' });
 	}
-}
-
-async function docsProjectPath(): Promise<string> {
-	const config = slackConfig();
-	if (!config.hasSupportDocs) return '';
-	if (config.supportDocsLocalPath) return config.supportDocsLocalPath;
-	return await new GitLab().cloneProject(config.supportDocsProject);
 }

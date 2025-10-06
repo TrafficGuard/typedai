@@ -16,6 +16,7 @@ import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { runAsUser } from '#user/userContext';
 import { envVarHumanInLoopSettings } from '../../../cli/cliHumanInLoop';
 import { getAgentUser } from '../webhookAgentUser';
+import { handleNoteEvent } from './gitlabNoteHandler';
 
 const basePath = '/api/webhooks';
 
@@ -38,6 +39,9 @@ export async function gitlabRoutes(fastify: AppFastifyInstance): Promise<void> {
 					break;
 				case 'merge_request':
 					await handleMergeRequestEvent(event);
+					break;
+				case 'note':
+					await handleNoteEvent(event);
 					break;
 			}
 		});

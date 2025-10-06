@@ -55,6 +55,11 @@ export function stateNotificationMessage(agent: AgentContext): string {
 	}
 }
 
+/**
+ * When the agent is in completed/hitl-feedback state then we expect the last function call to have been Agent_completed or AgentFeedback_requestFeedback
+ * @param agent
+ * @returns
+ */
 export function getLastFunctionCallArg(agent: AgentContext): any {
 	if (agent.functionCallHistory.length === 0) return undefined;
 	const lastCall = agent.functionCallHistory.slice(-1)![0]!;

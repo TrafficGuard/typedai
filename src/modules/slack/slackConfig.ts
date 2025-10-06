@@ -1,11 +1,7 @@
-import { existsSync } from 'node:fs';
 import { getSecret } from 'src/config/secretConfig';
 import { logger } from '#o11y/logger';
 
 export interface SlackConfig {
-	hasSupportDocs: boolean;
-	supportDocsProject: string;
-	supportDocsLocalPath: string;
 	socketMode: boolean;
 	autoStart: boolean;
 	botToken: string;
@@ -22,12 +18,7 @@ export function slackConfig(): SlackConfig {
 }
 
 function createSlackConfig(): SlackConfig {
-	const supportDocsLocalPath = process.env.SLACK_SUPPORT_DOCS_LOCAL_PATH?.trim() || '';
-	const hasLocalDocs = Boolean(supportDocsLocalPath && existsSync(supportDocsLocalPath));
 	const config: SlackConfig = {
-		hasSupportDocs: hasLocalDocs || Boolean(process.env.SLACK_SUPPORT_DOCS_PROJECT?.trim()),
-		supportDocsLocalPath: supportDocsLocalPath,
-		supportDocsProject: process.env.SLACK_SUPPORT_DOCS_PROJECT ?? '',
 		socketMode: Boolean(process.env.SLACK_SOCKET_MODE?.trim()),
 		autoStart: Boolean(process.env.SLACK_AUTO_START?.trim()),
 		botToken: getSecret('SLACK_BOT_TOKEN'),
@@ -36,9 +27,6 @@ function createSlackConfig(): SlackConfig {
 		channels: process.env.SLACK_CHANNELS?.split(',')?.map((s) => s.trim()) || [],
 	};
 	const maskedConfig: SlackConfig = {
-		hasSupportDocs: config.hasSupportDocs,
-		supportDocsProject: config.supportDocsProject,
-		supportDocsLocalPath: config.supportDocsLocalPath,
 		socketMode: config.socketMode,
 		autoStart: config.autoStart,
 		channels: config.channels,

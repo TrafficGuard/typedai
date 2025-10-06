@@ -17,6 +17,7 @@ import { FileSystemList } from '#functions/storage/fileSystemList';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { FileSystemWrite } from '#functions/storage/fileSystemWrite';
 import { LocalFileStore } from '#functions/storage/localFileStore';
+import { SupportKnowledgebase } from '#functions/supportKnowledgebase';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import { SlackAPI } from '#modules/slack/slackApi';
@@ -62,6 +63,7 @@ const FUNCTIONS = [
 	CustomFunctions,
 	GoogleCalendar,
 	SlackAPI,
+	SupportKnowledgebase,
 
 	// Add your own classes below this line
 ];

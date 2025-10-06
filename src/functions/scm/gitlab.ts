@@ -92,7 +92,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 		return this._config;
 	}
 
-	private api() {
+	api() {
 		this._gitlab ??= new GitlabApi({
 			host: `https://${this.config().host}`,
 			token: this.config().token,
@@ -371,21 +371,41 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 	// @cacheRetry({ scope: 'execution' })
 	@span()
 	async getMergeRequestDiffs(gitlabProjectId: string | number, mergeRequestIId: number): Promise<string> {
-		const diffs: MergeRequestDiffSchema[] = await this.api().MergeRequests.allDiffs(gitlabProjectId, mergeRequestIId, { perPage: 20 });
-		let result = '<git-diffs>';
+		const diffSchemas: MergeRequestDiffSchema[] = await this.api().MergeRequests.allDiffs(gitlabProjectId, mergeRequestIId, { perPage: 20 });
+		return `<mr-diff>\n${this.formatDiffs(diffSchemas)}\n</mr-diff>`;
+	}
 
-		for (const fileDiff of diffs) {
-			// Strip out the deleted lines in the diff
-			// Then remove the + character, so we're
-			// left with the current code.
-			const diff = fileDiff.diff;
-			// .split('\n')
-			// .filter((line) => !line.startsWith('-'))
-			// .map((line) => (line.startsWith('+') ? line.slice(1) : line))
-			// .join('\n');
-			result += `<diff path="${fileDiff.new_path}">\n${diff}\n</diff>\n`;
+	formatDiffs(diffSchemas: CommitDiffSchema[] | MergeRequestDiffSchema[]): string {
+		let fileDiffs = '';
+
+		for (const diffSchema of diffSchemas) {
+			let attributes = '';
+			if (diffSchema.old_path && diffSchema.old_path !== diffSchema.new_path) attributes += `old_path="${diffSchema.old_path}" `;
+			if (diffSchema.new_path) attributes += `path="${diffSchema.new_path}" `;
+			if (diffSchema.diff_type) attributes += `type="${diffSchema.diff_type}" `;
+			if (diffSchema.renamed_file) attributes += 'renamed ';
+			if (diffSchema.new_file) attributes += 'new_file ';
+			if (diffSchema.deleted_file) attributes += 'deleted ';
+
+			fileDiffs += `<diff ${attributes}>\n`;
+
+			let diff = diffSchema.diff;
+			const path = diffSchema.new_path ?? diffSchema.old_path ?? '';
+
+			if (
+				path.endsWith('package-lock.json') ||
+				path.endsWith('yarn.lock') ||
+				path.endsWith('pnpm-lock.yaml') ||
+				path.endsWith('requirements.txt') ||
+				path.endsWith('pyproject.toml') ||
+				path.endsWith('poetry.lock')
+			) {
+				if (diff.length > 4000) diff = `${diff.slice(0, 4000)}\n(truncated)`;
+			}
+
+			fileDiffs += `${diff}\n</diff>\n`;
 		}
-		return result;
+		return fileDiffs;
 	}
 
 	/**
@@ -401,36 +421,10 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 		const project = await this.api().Projects.show(projectPath);
 		const job = await this.api().Jobs.show(project.id, Number(jobId));
 
-		const commitDetails: CommitDiffSchema[] = await this.api().Commits.showDiff(projectPath, job.commit.id);
+		const diffSchemas: CommitDiffSchema[] = await this.api().Commits.showDiff(projectPath, job.commit.id);
 		let commitDiff = `<commit id="${job.commit.short_id}" author="${job.commit.author_name} - ${job.commit.author_email}">\n<commit:title>${job.commit.title}</commit:title>\n<commit:description>\n${job.commit.message}\n</commit:description>\n`;
-		for (const commitDetail of commitDetails) {
-			let attributes = '';
-			if (commitDetail.old_path && commitDetail.old_path !== commitDetail.new_path) attributes += `old_path="${commitDetail.old_path}" `;
-			if (commitDetail.new_path) attributes += `path="${commitDetail.new_path}" `;
-			if (commitDetail.diff_type) attributes += `type="${commitDetail.diff_type}" `;
-			if (commitDetail.renamed_file) attributes += 'renamed ';
-			if (commitDetail.new_file) attributes += 'new_file ';
-			if (commitDetail.deleted_file) attributes += 'deleted ';
 
-			commitDiff += `<commit:diff ${attributes}>\n`;
-
-			let diff = commitDetail.diff;
-			const path = commitDetail.new_path ?? commitDetail.old_path ?? '';
-
-			if (
-				path.endsWith('package-lock.json') ||
-				path.endsWith('yarn.lock') ||
-				path.endsWith('pnpm-lock.yaml') ||
-				path.endsWith('requirements.txt') ||
-				path.endsWith('pyproject.toml') ||
-				path.endsWith('poetry.lock')
-			) {
-				if (diff.length > 4000) diff = `${diff.slice(0, 4000)}\n(truncated)`;
-			}
-
-			commitDiff += `${diff}\n</commit:diff>\n`;
-		}
-		commitDiff += '</commit>';
+		commitDiff += `${this.formatDiffs(diffSchemas)}</commit>`;
 		const tokens = await countTokens(commitDiff);
 		logger.info({ projectId: projectPath, jobId, tokens }, `Retrieved job commit diff (${tokens} tokens)`);
 		return commitDiff;
