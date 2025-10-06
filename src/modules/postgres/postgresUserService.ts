@@ -46,6 +46,7 @@ export class PostgresUserService extends AbstractUserService {
 			email: user.email!, // Assumes email is validated to be present before this call
 			name: user.name ?? null,
 			enabled: user.enabled ?? true,
+			admin: user.admin ?? false,
 			password_hash: user.passwordHash ?? null,
 			hil_budget: user.hilBudget ?? 0,
 			hil_count: user.hilCount ?? 0,
