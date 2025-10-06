@@ -247,7 +247,7 @@ export class GitHub extends AbstractSCM implements SourceControlManagement {
 	 * @returns the file system path where the repository is located. You will need to call FileSystem_setWorkingDirectory() with this result to work with the project.
 	 */
 	@func()
-	async cloneProject(projectPathWithNamespace: string, branchOrCommit?: string, targetDirectory?: string): Promise<string> {
+	async cloneProject(projectPathWithNamespace: string, branchOrCommit?: string, targetDirectory?: string | null): Promise<string> {
 		return await this.cloneGitProject(projectPathWithNamespace, this.config().token, 'github.com', branchOrCommit, targetDirectory);
 	}
 

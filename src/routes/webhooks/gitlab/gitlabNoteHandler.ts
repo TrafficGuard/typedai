@@ -1,3 +1,4 @@
+import { AgentExecution } from '#agent/agentExecutions';
 import { getLastFunctionCallArg } from '#agent/autonomous/agentCompletion';
 import { startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import { Jira } from '#functions/jira';
@@ -57,15 +58,16 @@ class GitLabNoteCompletedHandler implements AgentCompleted {
 	}
 }
 
-export async function handleNoteEvent(event: any) {
+export async function handleNoteEvent(event: any): Promise<AgentExecution | null> {
 	const note = event.object_attributes;
 	const project = event.project;
 	const user = event.user;
+
 	const userName = user.name ?? user.username ?? '<unknown-user>';
 	const mergeRequest = event.merge_request;
 
-	if (!note?.note || !mergeRequest || !project) return;
-	if (!note.note.includes(AGENT_TAG)) return;
+	if (!note?.note || !mergeRequest || !project) return null;
+	if (!note.note.includes(AGENT_TAG)) return null;
 
 	const discussionId: string | undefined = note.discussion_id ?? (await findDiscussionIdByNoteId(project.id, mergeRequest.iid, note.id)) ?? undefined;
 
@@ -118,7 +120,7 @@ export async function handleNoteEvent(event: any) {
 	try {
 		const exec = await startAgent({
 			type: 'autonomous',
-			subtype: 'gitlab-support',
+			subtype: 'codegen',
 			agentName: `GitLab MR !${mergeRequest.iid} - ${project.path_with_namespace}`,
 			initialPrompt,
 			llms: defaultLLMs(),
@@ -129,6 +131,7 @@ export async function handleNoteEvent(event: any) {
 					projectId: project.id,
 					projectPath: project.path_with_namespace,
 					mergeRequestIid: mergeRequest.iid,
+					branch: mergeRequest.source_branch,
 					noteId: note.id,
 					webUrl: mergeRequest.url,
 				},
@@ -141,7 +144,9 @@ export async function handleNoteEvent(event: any) {
 
 		// Do not await exec.execution to avoid blocking webhook response; completion will post back via handler
 		logger.info({ agentId: exec.agentId }, `Started GitLab MR support agent for !${mergeRequest.iid}`);
+		return exec;
 	} catch (e) {
 		logger.error(e, `Failed to start GitLab MR support agent for project ${project.id}, MR !${mergeRequest.iid}`);
+		return null;
 	}
 }

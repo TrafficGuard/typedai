@@ -12,11 +12,17 @@ import { getProjectInfo } from '#swe/projectDetection';
 import { execCommand, failOnError } from '#utils/exec';
 
 export abstract class AbstractSCM implements SourceControlManagement {
-	async cloneGitProject(projectPathWithNamespace: string, token: string, host: string, branchOrCommit?: string, targetDirectory?: string): Promise<string> {
+	async cloneGitProject(
+		projectPathWithNamespace: string,
+		token: string,
+		host: string,
+		branchOrCommit?: string | null,
+		targetDirectory?: string | null,
+	): Promise<string> {
 		if (!projectPathWithNamespace) throw new Error('Parameter "projectPathWithNamespace" must be truthy');
 
-		const fss = getFileSystem();
 		const agent: AgentContext | undefined = agentContext();
+		const fss = agent?.fileSystem ?? getFileSystem();
 
 		let targetPath: string;
 		if (targetDirectory) {
@@ -116,7 +122,7 @@ export abstract class AbstractSCM implements SourceControlManagement {
 			}
 			// If a specific branchOrCommit was requested for a fresh clone, check it out.
 			if (branchOrCommit) {
-				logger.info(`Switching to specified branch/commit: ${branchOrCommit} after clone.`);
+				logger.info(`Switching repo at ${targetPath} to specified branch/commit: ${branchOrCommit} after clone.`);
 				// Use fss.getVcs().switchToBranch which is more robust.
 				// Need to temporarily set CWD for fss.getVcs() if it relies on it.
 				const currentWorkingDir = fss.getWorkingDirectory();

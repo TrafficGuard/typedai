@@ -18,7 +18,7 @@ import {
 } from '#shared/agent/agent.model';
 import type { AgentContextSchema } from '#shared/agent/agent.schema';
 import { NotAllowed, NotFound } from '#shared/errors';
-import { currentUser } from '#user/userContext';
+import { currentUser, isSingleUser } from '#user/userContext';
 import { firestoreDb } from './firestore';
 
 /**
@@ -141,8 +141,9 @@ export class FirestoreAgentStateService implements AgentContextService {
 		// Extract owner id whether the field is stored as a string or an object
 		const ownerId = typeof firestoreData.user === 'string' ? firestoreData.user : firestoreData.user?.id;
 
-		if (ownerId !== currentUser().id) {
-			logger.warn({ agentId, currentUserId: currentUser().id, ownerId: ownerId }, 'Attempt to load agent not owned by current user.');
+		const user = currentUser();
+		if (ownerId !== user.id && !user.admin) {
+			logger.warn({ agentId, currentUserId: user.id, ownerId: ownerId }, 'Attempt to load agent not owned by current user.');
 			throw new NotAllowed(`Access denied to agent ${agentId}.`);
 		}
 
@@ -162,11 +163,11 @@ export class FirestoreAgentStateService implements AgentContextService {
 		const currentUserId = currentUser().id;
 		const metadataFieldPath = `metadata.${key}`;
 
-		const querySnapshot = await this.db.collection('AgentContext').where('user', '==', currentUserId).where(metadataFieldPath, '==', value).limit(1).get();
+		const query = this.db.collection('AgentContext');
+		if (!currentUser().admin) query.where('user', '==', currentUser().id); // Filter by user first
+		const querySnapshot = await query.where(metadataFieldPath, '==', value).limit(1).get();
 
-		if (querySnapshot.empty) {
-			return null;
-		}
+		if (querySnapshot.empty) return null;
 
 		const docSnap = querySnapshot.docs[0];
 		const firestoreData = docSnap.data();
@@ -186,9 +187,9 @@ export class FirestoreAgentStateService implements AgentContextService {
 
 	@span()
 	async list(): Promise<AgentContextPreview[]> {
-		const querySnapshot = await this.db
-			.collection('AgentContext')
-			.where('user', '==', currentUser().id)
+		const query = this.db.collection('AgentContext');
+		if (!currentUser().admin) query.where('user', '==', currentUser().id); // Filter by user first
+		const querySnapshot = await query
 			.select(...AGENT_PREVIEW_KEYS)
 			.orderBy('lastUpdate', 'desc')
 			.limit(50)
@@ -208,9 +209,9 @@ export class FirestoreAgentStateService implements AgentContextService {
 		// NOTE: Firestore requires the first orderBy clause to be on the field used in an inequality filter (like 'not-in').
 		// Therefore, we order by 'state' first, then by 'lastUpdate'. This ensures the query works reliably,
 		// although the primary desired sort order is by 'lastUpdate'.
-		const querySnapshot = await this.db
-			.collection('AgentContext')
-			.where('user', '==', currentUser().id) // Filter by user first
+		const query = this.db.collection('AgentContext');
+		if (!currentUser().admin) query.where('user', '==', currentUser().id); // Filter by user first
+		const querySnapshot = await query
 			.where('state', 'not-in', terminalStates) // Use 'not-in' to exclude multiple terminal states
 			.select(...AGENT_PREVIEW_KEYS) // Ensure this select uses previewKeys
 			.orderBy('state') // Order by the inequality filter field first (Firestore requirement)
@@ -256,7 +257,9 @@ export class FirestoreAgentStateService implements AgentContextService {
 	@span()
 	async delete(ids: string[]): Promise<void> {
 		if (ids.length === 0) return;
-		const userId = currentUser().id;
+		const user = currentUser();
+		const userId = user.id;
+		const isAdmin = user.admin;
 
 		// First load all agents to handle parent-child relationships and ownership/state checks
 		let agents = await Promise.all(
@@ -267,6 +270,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 					const docSnap = await docRef.get();
 					if (!docSnap.exists) return null;
 					const data = docSnap.data()!;
+					if (data.user !== userId && !isAdmin) return null;
 					return {
 						agentId: id,
 						user: data.user,
@@ -285,7 +289,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 			.filter((agent): agent is Partial<AgentContext> => !!agent) // Filter out nulls (non-existent ids)
 			.filter((agent) => {
 				const ownerId = typeof agent.user === 'string' ? agent.user : agent.user?.id;
-				return ownerId === userId;
+				return ownerId === userId || isAdmin;
 			})
 			.filter((agent) => !agent.state || !isExecuting(agent as AgentContext)) // Can only delete non-executing agents (handle potentially missing state)
 			.filter((agent) => !agent.parentAgentId); // Only delete parent agents. Child agents are deleted with the parent agent.
@@ -312,6 +316,8 @@ export class FirestoreAgentStateService implements AgentContextService {
 		const agent = await this.load(agentId); // This will throw NotAllowed if necessary
 		if (!agent) throw new NotFound(`Agent with ID ${agentId} not found.`);
 
+		const user = currentUser();
+		if (!user.admin && agent.user.id !== user.id) throw new Error(`Access denied to update functions for agent ${agentId}`);
 		// Agent is guaranteed to exist and be owned by the current user here
 
 		agent.functions = new LlmFunctionsImpl();

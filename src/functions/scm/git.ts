@@ -1,4 +1,4 @@
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
@@ -14,12 +14,19 @@ export class Git implements VersionControlSystem {
 
 	constructor(private fileSystem: IFileSystemService = getFileSystem()) {}
 
+	opts() {
+		// If we're running a script without an agent context, we want to use the script's filesystem working directory, and not default to the process.cwd() in execCommand
+		return {
+			workingDirectory: agentContext()?.fileSystem?.getWorkingDirectory() ?? this.fileSystem.getWorkingDirectory(),
+		};
+	}
+
 	/**
 	 * Executes the 'git remote get-url origin' command to find the remote URL.
 	 * @returns The git origin URL.
 	 */
 	async getGitOriginUrl(): Promise<string> {
-		const statusResult = await execCommand('git remote get-url origin');
+		const statusResult = await execCommand('git remote get-url origin', this.opts());
 		failOnError('Failed to get git origin URL.', statusResult);
 		return statusResult.stdout.trim();
 	}
@@ -32,7 +39,7 @@ export class Git implements VersionControlSystem {
 	// @func()
 	async addAllTrackedAndCommit(commitMessage: string): Promise<void> {
 		// If nothing has changed then return
-		const execResult = await execCommand('git status --porcelain');
+		const execResult = await execCommand('git status --porcelain', this.opts());
 		// Check if stdout is empty, indicating no changes.
 		// Also ensure the command itself didn't fail (though typically it won't for status).
 		if (execResult.exitCode === 0 && execResult.stdout.trim().length === 0) {
@@ -60,7 +67,7 @@ export class Git implements VersionControlSystem {
 
 		const filesToCheck = files.map((file) => `"${file}"`).join(' ');
 		// Check if the specified files have any uncommitted changes
-		const statusResult = await execCommand(`git status --porcelain ${filesToCheck}`);
+		const statusResult = await execCommand(`git status --porcelain ${filesToCheck}`, this.opts());
 		failOnError(`Failed to get git status for files: ${files.join(', ')}`, statusResult);
 
 		if (statusResult.stdout.trim().length === 0) {
@@ -69,11 +76,11 @@ export class Git implements VersionControlSystem {
 		}
 
 		const filesToAdd = files.map((file) => `"${file}"`).join(' ');
-		const addResult = await execCommand(`git add ${filesToAdd}`);
+		const addResult = await execCommand(`git add ${filesToAdd}`, this.opts());
 		failOnError(`Failed to add files for commit: ${files.join(', ')}`, addResult);
 
 		// The fix is to execute a specific commit command that targets only the added files.
-		const commitResult = await execCommand(`git commit -m ${arg(commitMessage)} -- ${filesToAdd}`);
+		const commitResult = await execCommand(`git commit -m ${arg(commitMessage)} -- ${filesToAdd}`, this.opts());
 		// Pre-commit hooks may make call lint/commit commands with characters for colours etc
 		commitResult.stdout = formatAnsiWithMarkdownLinks(commitResult.stdout);
 		failOnError(`Failed to commit changes for files: ${files.join(', ')}`, commitResult);
@@ -96,7 +103,7 @@ export class Git implements VersionControlSystem {
 		if (commitSha !== undefined && commitSha !== null) {
 			commitSha = commitSha.trim();
 		}
-		const { stdout } = await execCommand(`git diff --name-status ${commitSha ?? 'HEAD^'}..HEAD`);
+		const { stdout } = await execCommand(`git diff --name-status ${commitSha ?? 'HEAD^'}..HEAD`, this.opts());
 		logger.debug(`getAddedFiles:\n${stdout}`);
 		// Output is in the format
 		// A       etc/newFile
@@ -108,18 +115,19 @@ export class Git implements VersionControlSystem {
 	}
 
 	async init(): Promise<void> {
-		const originUrl = await execCommand('git config --get remote.origin.url');
+		const originUrl = await execCommand('git config --get remote.origin.url', this.opts());
+		failOnError('Unable to get git origin URL', originUrl);
 	}
 
 	async getHeadSha(): Promise<string> {
-		const execResult = await execCommand('git rev-parse HEAD');
+		const execResult = await execCommand('git rev-parse HEAD', this.opts());
 		failOnError('Unable to get current commit sha', execResult);
 		return execResult.stdout.trim();
 	}
 
 	@span()
 	async getBranchName(): Promise<string> {
-		const { exitCode, stdout, stderr } = await execCommand('git rev-parse --abbrev-ref HEAD');
+		const { exitCode, stdout, stderr } = await execCommand('git rev-parse --abbrev-ref HEAD', this.opts());
 		if (exitCode > 0) throw new Error(`${stdout}\n${stderr}`);
 		return stdout.trim();
 	}
@@ -142,7 +150,7 @@ export class Git implements VersionControlSystem {
 			: // attempt to guess the source branch and find its merge-base with HEAD
 				"git --no-pager diff $(git merge-base HEAD $(git for-each-ref --format='%(refname)' refs/heads/ | grep -v $(git symbolic-ref HEAD))) HEAD";
 
-		const result = await execCommand(command);
+		const result = await execCommand(command, this.opts());
 
 		// Ensure failOnError handles potential errors from merge-base (if refs don't exist/relate) or diff
 		failOnError(`Error getting diff against base '${baseRef}'`, result);
@@ -155,7 +163,7 @@ export class Git implements VersionControlSystem {
 	 */
 	@func()
 	async getStagedDiff(): Promise<string> {
-		const result = await execCommand('git diff --staged');
+		const result = await execCommand('git diff --staged', this.opts());
 		failOnError('Failed to get staged diff.', result);
 		return result.stdout;
 	}
@@ -166,7 +174,7 @@ export class Git implements VersionControlSystem {
 	 */
 	@func()
 	async getStagedFiles(): Promise<string[]> {
-		const result = await execCommand('git diff --staged --name-only');
+		const result = await execCommand('git diff --staged --name-only', this.opts());
 		failOnError('Failed to get list of staged files.', result);
 
 		// The output is a newline-separated list of files.
@@ -186,7 +194,7 @@ export class Git implements VersionControlSystem {
 	async createBranch(branchName: string): Promise<boolean> {
 		this.previousBranch = await this.getBranchName();
 
-		const { stdout, stderr, exitCode } = await execCommand(`git branch ${branchName}`);
+		const { stdout, stderr, exitCode } = await execCommand(`git branch ${branchName}`, this.opts());
 		if (exitCode === 0) {
 			return true;
 		}
@@ -199,30 +207,75 @@ export class Git implements VersionControlSystem {
 	}
 
 	/**
-	 *
+	 * Switches to a branch, checking if it exists locally or remotely
 	 * @param branchName
 	 */
 	@span({ branch: 0 })
 	async switchToBranch(branchName: string): Promise<void> {
 		this.previousBranch = await this.getBranchName();
-		const { stderr, exitCode } = await execCommand(`git switch -c ${branchName}`);
-		if (exitCode > 0 && stderr?.includes('already exists')) {
-			logger.info(`Branch ${branchName} already exists. Switching to it`);
-			const { stdout, stderr, exitCode } = await execCommand(`git switch ${branchName}`);
-			if (exitCode > 0) throw new Error(`${stdout}\n${stderr}`);
+
+		// First, check if the branch exists locally
+		const localBranchCheck = await execCommand(`git rev-parse --verify ${branchName}`, this.opts());
+
+		if (localBranchCheck.exitCode === 0) {
+			// Branch exists locally, just switch to it
+			const switchResult = await execCommand(`git switch ${branchName}`, this.opts());
+			failOnError(`Failed to switch to existing local branch ${branchName}`, switchResult);
+			logger.info(`Switched to existing local branch ${branchName}`);
+			return;
 		}
+
+		// Branch doesn't exist locally, check if it exists on remote
+		const remoteBranchCheck = await execCommand(`git ls-remote --heads origin ${branchName}`, this.opts());
+
+		if (remoteBranchCheck.exitCode === 0 && remoteBranchCheck.stdout.trim().length > 0) {
+			// Branch exists on remote, create local tracking branch
+			const trackResult = await execCommand(`git switch --track origin/${branchName}`, this.opts());
+			failOnError(`Failed to create tracking branch for origin/${branchName}`, trackResult);
+			logger.info(`Created local tracking branch ${branchName} from origin/${branchName}`);
+			return;
+		}
+
+		// Branch doesn't exist locally or remotely, create new local branch
+		const createResult = await execCommand(`git switch -c ${branchName}`, this.opts());
+		failOnError(`Failed to create new branch ${branchName}`, createResult);
+		logger.info(`Created new local branch ${branchName}`);
 	}
 
 	@span()
 	async pull(): Promise<void> {
 		const branchName = await this.getBranchName();
-		const { stdout, stderr, exitCode } = await execCommand('git pull');
+
+		// Check if the current branch has tracking information
+		const trackingCheck = await execCommand('git rev-parse --abbrev-ref @{upstream}', this.opts());
+
+		if (trackingCheck.exitCode !== 0) {
+			// No tracking branch set up
+			logger.warn(`Branch ${branchName} has no upstream tracking. Attempting to set up tracking with origin/${branchName}`);
+
+			// Check if the branch exists on remote
+			const remoteBranchCheck = await execCommand(`git ls-remote --heads origin ${branchName}`, this.opts());
+
+			if (remoteBranchCheck.exitCode === 0 && remoteBranchCheck.stdout.trim().length > 0) {
+				// Remote branch exists, set up tracking
+				const setUpstreamResult = await execCommand(`git branch --set-upstream-to=origin/${branchName}`, this.opts());
+				failOnError(`Failed to set upstream for ${branchName}`, setUpstreamResult);
+				logger.info(`Set upstream tracking for ${branchName} to origin/${branchName}`);
+			} else {
+				// Remote branch doesn't exist, can't pull
+				logger.info(`Branch ${branchName} doesn't exist on remote. Skipping pull.`);
+				return;
+			}
+		}
+
+		// Now pull
+		const { stdout, stderr, exitCode } = await execCommand('git pull', this.opts());
 		if (exitCode > 0) throw new Error(`Error pulling changes for ${branchName}.\n${stdout}\n${stderr}`);
 	}
 
 	@span()
 	async mergeChangesIntoLatestCommit(files: string[]): Promise<void> {
-		const result = await execCommand(`git add ${files.map((file) => `"${file}"`).join(' ')} && git commit --amend --no-edit`);
+		const result = await execCommand(`git add ${files.map((file) => `"${file}"`).join(' ')} && git commit --amend --no-edit`, this.opts());
 		failOnError(`Failed to amend current commit with outstanding changes to ${files.join(' ')}`, result);
 	}
 
@@ -234,7 +287,7 @@ export class Git implements VersionControlSystem {
 	async commit(commitMessage: string): Promise<void> {
 		const cwd = this.fileSystem.getWorkingDirectory();
 		try {
-			const result = await execCommand(`git commit -m ${arg(commitMessage)}`);
+			const result = await execCommand(`git commit -m ${arg(commitMessage)}`, this.opts());
 			failOnError('Error committing changes to Git', result);
 		} catch (error) {
 			logger.error(error);
@@ -253,7 +306,7 @@ export class Git implements VersionControlSystem {
 
 		// Get the last N commit hashes
 		const getCommitsCmd = `git log -n ${n} --pretty=format:"%H"`;
-		const commitsResult = await execCommand(getCommitsCmd);
+		const commitsResult = await execCommand(getCommitsCmd, this.opts());
 		failOnError('Failed to get recent commits', commitsResult);
 
 		const commitHashes = commitsResult.stdout.split('\n');
@@ -261,7 +314,7 @@ export class Git implements VersionControlSystem {
 		for (const hash of commitHashes) {
 			// Get commit details
 			const commitDetailsCmd = `git show -s --format="%s%n%n%b" ${hash}`;
-			const detailsResult = await execCommand(commitDetailsCmd);
+			const detailsResult = await execCommand(commitDetailsCmd, this.opts());
 			failOnError(`Failed to get details for commit ${hash}`, detailsResult);
 
 			const [title, ...descriptionLines] = detailsResult.stdout.split('\n');
@@ -269,7 +322,7 @@ export class Git implements VersionControlSystem {
 
 			// Get commit diffs
 			const diffCmd = `git show ${hash} --name-only --pretty=format:""`;
-			const diffResult = await execCommand(diffCmd);
+			const diffResult = await execCommand(diffCmd, this.opts());
 			failOnError(`Failed to get diffs for commit ${hash}`, diffResult);
 
 			const changedFiles = diffResult.stdout.split('\n').filter((file) => file.trim() !== '');
@@ -277,7 +330,7 @@ export class Git implements VersionControlSystem {
 
 			for (const file of changedFiles) {
 				const fileContentCmd = `git show ${hash}:${file}`;
-				const fileContentResult = await execCmd(fileContentCmd);
+				const fileContentResult = await execCommand(fileContentCmd, this.opts());
 
 				if (fileContentResult.exitCode === 0) {
 					diffs.set(file, fileContentResult.stdout);
@@ -293,7 +346,7 @@ export class Git implements VersionControlSystem {
 	}
 
 	async isDirty(path: string): Promise<boolean> {
-		const result = await execCommand(`git status --porcelain "${path}"`);
+		const result = await execCommand(`git status --porcelain "${path}"`, this.opts());
 		failOnError(`Error checking if ${path} is dirty`, result);
 		return result.stdout.trim().length > 0;
 	}
@@ -302,18 +355,18 @@ export class Git implements VersionControlSystem {
 	 * @returns if the repository has any uncommitted changes.
 	 */
 	async isRepoDirty(): Promise<boolean> {
-		const result = await execCommand('git status --porcelain');
+		const result = await execCommand('git status --porcelain', this.opts());
 		failOnError('Error checking if repository is dirty', result);
 		return result.stdout.trim().length > 0;
 	}
 
 	async revertFile(filePath: string): Promise<void> {
-		const { exitCode, stdout, stderr } = await execCommand(`git restore "${filePath}"`);
+		const { exitCode, stdout, stderr } = await execCommand(`git restore "${filePath}"`, this.opts());
 		if (exitCode > 0) logger.warn(`Error reverting ${filePath}: ${stdout} ${stderr}`);
 	}
 
 	async stashChanges(): Promise<void> {
-		const { exitCode, stdout, stderr } = await execCommand('git stash -u');
+		const { exitCode, stdout, stderr } = await execCommand('git stash -u', this.opts());
 		if (exitCode > 0) logger.warn(`Error stashing changes: ${stdout} ${stderr}`);
 	}
 }

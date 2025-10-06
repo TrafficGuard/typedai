@@ -49,6 +49,7 @@ export const UserSchema = Type.Object({
 	name: Type.String(),
 	email: Type.String(),
 	enabled: Type.Boolean(),
+	admin: Type.Optional(Type.Boolean()),
 	passwordHash: Type.Optional(Type.String()),
 	createdAt: Type.Date(),
 	lastLoginAt: Type.Optional(Type.Date()),

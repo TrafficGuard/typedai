@@ -47,6 +47,7 @@ export interface User {
 	name: string;
 	email: string;
 	enabled: boolean;
+	admin?: boolean;
 	passwordHash?: string; // Stored hash, not exposed to frontend
 	createdAt: Date;
 	lastLoginAt?: Date;
