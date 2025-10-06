@@ -58,8 +58,7 @@ export class FirestoreChatService implements ChatService {
 
 	@span()
 	async saveChat(chat: Chat): Promise<Chat> {
-		if (!chat.userId) chat.userId = randomUUID();
-		if (chat.userId !== currentUser().id) throw new Error(`chat userId ${chat.userId} is invalid. Should be ${currentUser().id}`);
+		if (!chat.userId) throw new Error('chat.userId is required');
 
 		if (!chat.id) chat.id = randomUUID();
 		if (chat.updatedAt === undefined) {
@@ -68,6 +67,15 @@ export class FirestoreChatService implements ChatService {
 
 		try {
 			const docRef = this.db.doc(`Chats/${chat.id}`);
+			const existingDoc = await docRef.get();
+
+			// If updating an existing chat, enforce ownership check
+			if (existingDoc.exists) {
+				const existing = existingDoc.data()!;
+				if (existing.userId !== chat.userId) {
+					throw new Error('Not authorized to modify this chat');
+				}
+			}
 
 			await docRef.set(chat, { merge: true });
 			return chat;
