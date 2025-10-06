@@ -18,9 +18,9 @@ export async function getAgentDetailsRoute(fastify: AppFastifyInstance): Promise
 			const response: AgentContextApi = serializeContext(agentContext);
 			reply.sendJSON(response);
 		} catch (error) {
+			logger.error(error, `Error loading details for agent ${agentId} [error]`);
 			if (error instanceof NotFound) return sendNotFound(reply, error.message);
 			if (error instanceof NotAllowed) return send(reply, 403, { error: error.message });
-			logger.error(error, `Error loading details for agent ${agentId} [error]`);
 			return send(reply, 500, { error: 'Failed to load agent details' });
 		}
 	});

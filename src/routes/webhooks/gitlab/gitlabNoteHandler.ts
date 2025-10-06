@@ -10,7 +10,6 @@ import { PublicWeb } from '#functions/web/web';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { AgentCompleted, AgentContext } from '#shared/agent/agent.model';
-import { envVarHumanInLoopSettings } from '../../../cli/cliHumanInLoop';
 
 const AGENT_TAG = '@typedai';
 
@@ -22,13 +21,7 @@ async function findDiscussionIdByNoteId(projectId: string | number, mrIid: numbe
 	return null;
 }
 
-class GitLabNoteCompletedHandler implements AgentCompleted {
-	constructor(
-		private projectId: string | number,
-		private mergeRequestIid: number,
-		private discussionId: string,
-		private inReplyToNoteId: number,
-	) {}
+export class GitLabNoteCompletedHandler implements AgentCompleted {
 	agentCompletedHandlerId(): string {
 		return 'gitlab-note';
 	}
@@ -50,10 +43,14 @@ class GitLabNoteCompletedHandler implements AgentCompleted {
 		}
 		if (!message || !message.trim()) return;
 
+		const gitlabMeta = agent.metadata.gitlab;
+
 		try {
-			await new GitLab().api().MergeRequestDiscussions.addNote(this.projectId, this.mergeRequestIid, this.discussionId, this.inReplyToNoteId, message);
+			await new GitLab()
+				.api()
+				.MergeRequestDiscussions.addNote(gitlabMeta.projectId, gitlabMeta.mergeRequestIid, gitlabMeta.discussionId, gitlabMeta.inReplyToNoteId, message);
 		} catch (e) {
-			logger.error(e, `Failed to post MR note for project ${this.projectId}, MR !${this.mergeRequestIid}`);
+			logger.error(e, `Failed to post MR note for project ${gitlabMeta.projectId}, MR !${gitlabMeta.mergeRequestIid}`);
 		}
 	}
 }
@@ -132,13 +129,17 @@ export async function handleNoteEvent(event: any): Promise<AgentExecution | null
 					projectPath: project.path_with_namespace,
 					mergeRequestIid: mergeRequest.iid,
 					branch: mergeRequest.source_branch,
+					discussionId,
 					noteId: note.id,
 					webUrl: mergeRequest.url,
 				},
 			},
-			completedHandler: new GitLabNoteCompletedHandler(project.id, mergeRequest.iid, discussionId!, note.id),
+			completedHandler: new GitLabNoteCompletedHandler(),
 			useSharedRepos: true,
-			humanInLoop: envVarHumanInLoopSettings(),
+			humanInLoop: {
+				budget: 5,
+				count: 15,
+			},
 			initialMemory,
 		});
 

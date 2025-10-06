@@ -321,7 +321,10 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 
 				// Convert to AssistantContentExt
 				const assistantMsg = result.response.messages.find((msg) => msg.role === 'assistant');
-				if (!assistantMsg) throw new Error('No assistant message found');
+				if (!assistantMsg) {
+					logger.info({ messages: result.response.messages, stats }, 'Response messages (no assistant)');
+					throw new Error('No assistant message found');
+				}
 				const assistantContent: AssistantContentExt = [];
 				if (Array.isArray(assistantMsg?.content)) {
 					for (const content of assistantMsg.content) {
@@ -425,7 +428,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 
 			const requestTime = Date.now();
 
-			const firstTokenTime = 0;
+			let firstTokenTime = 0;
 
 			const result = aiStreamText({
 				model: this.aiModel(),
@@ -437,11 +440,13 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 			});
 
 			for await (const part of result.fullStream) {
+				if (!firstTokenTime) firstTokenTime = Date.now();
 				onChunkCallback(part);
 			}
 
 			const [usage, finishReason, metadata, response] = await Promise.all([result.usage, result.finishReason, result.providerMetadata, result.response]);
 			const finish = Date.now();
+			if (!firstTokenTime) firstTokenTime = finish;
 			const { inputCost, outputCost, totalCost } = this.calculateCosts(usage.inputTokens ?? 0, usage.outputTokens ?? 0, usage.cachedInputTokens ?? 0);
 
 			addCost(totalCost);
