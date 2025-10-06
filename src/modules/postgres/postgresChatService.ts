@@ -85,7 +85,7 @@ export class PostgresChatService implements ChatService {
 				...chat,
 				updatedAt: Date.now(), // force new timestamp on updates
 			});
-			row = await db.updateTable('chats').set(updateData).where('id', '=', chat.id).where('user_id', '=', currentUserId).returningAll().executeTakeFirst();
+			row = await db.updateTable('chats').set(updateData).where('id', '=', chat.id).returningAll().executeTakeFirst();
 		}
 
 		// If the chat id exists but belongs to someone else, forbid update

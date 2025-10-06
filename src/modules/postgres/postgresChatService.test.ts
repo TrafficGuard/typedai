@@ -1,3 +1,4 @@
+import { expect } from 'chai';
 import { runChatServiceTests } from '#chat/chatService.test';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { db } from './db';
@@ -32,4 +33,29 @@ describe('PostgresChatService', () => {
 	});
 
 	runChatServiceTests(() => new PostgresChatService());
+
+	it('should persist assistant response after update', async () => {
+		const service = new PostgresChatService();
+
+		// Create an initial chat for the current user
+		const created = await service.saveChat({
+			title: 'Test chat',
+			updatedAt: Date.now(),
+			shareable: false,
+			messages: [],
+		} as any);
+
+		// Append a user and an assistant message, then save
+		const userMsg = { role: 'user', content: 'Hello' } as any;
+		const assistantMsg = { role: 'assistant', content: 'Hi there' } as any;
+
+		const updated = { ...created, messages: [userMsg, assistantMsg] };
+		await service.saveChat(updated);
+
+		// Reload and verify messages were persisted
+		const reloaded = await service.loadChat(created.id);
+		expect(reloaded.messages).to.have.length(2);
+		expect(reloaded.messages[0]).to.deep.equal(userMsg);
+		expect(reloaded.messages[1]).to.deep.equal(assistantMsg);
+	});
 });
