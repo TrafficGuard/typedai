@@ -59,6 +59,7 @@ export class MongoUserService extends AbstractUserService {
 			name: userProps.name,
 			email: userProps.email,
 			enabled: userProps.enabled,
+			admin: userProps.admin,
 			passwordHash: userProps.passwordHash, // Undefined if not in doc, matches User model
 			createdAt: userProps.createdAt, // Assumed to be Date object from driver
 			lastLoginAt: userProps.lastLoginAt, // Assumed to be Date object or undefined
@@ -84,6 +85,7 @@ export class MongoUserService extends AbstractUserService {
 			name: user.name ?? '',
 			email: user.email,
 			enabled: user.enabled ?? true,
+			admin: user.admin ?? false,
 			passwordHash: user.passwordHash,
 			createdAt: user.createdAt ?? new Date(),
 			lastLoginAt: user.lastLoginAt ?? new Date(),
@@ -158,6 +160,7 @@ export class MongoUserService extends AbstractUserService {
 				name: userProps.name,
 				email: userProps.email,
 				enabled: userProps.enabled,
+				admin: userProps.admin,
 				passwordHash: userProps.passwordHash, // This can be undefined in the User model
 				createdAt: userProps.createdAt, // MongoDB driver typically converts BSON Date to JS Date
 				lastLoginAt: userProps.lastLoginAt, // Can be undefined

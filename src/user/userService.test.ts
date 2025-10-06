@@ -63,6 +63,11 @@ export function runUserServiceTests(
 			}
 		});
 
+		describe('#admin', () => {
+			// should load admin value
+			// only admins can create admins
+		});
+
 		describe('#getUser', () => {
 			it('should retrieve an existing user by ID', async () => {
 				const userData = createUserWithDefaults({ name: 'Specific User' });

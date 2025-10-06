@@ -125,6 +125,7 @@ export interface UsersTable {
 	name: string | null;
 	email: string; // Should be unique
 	enabled: boolean; // Default true
+	admin: boolean; // Default false
 	password_hash: string | null;
 	hil_budget: number; // Default 0
 	hil_count: number; // Default 0

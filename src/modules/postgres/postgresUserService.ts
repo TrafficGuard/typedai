@@ -27,6 +27,7 @@ export class PostgresUserService extends AbstractUserService {
 			name: row.name ?? '',
 			email: row.email,
 			enabled: row.enabled,
+			admin: row.admin,
 			passwordHash: row.password_hash ?? undefined,
 			createdAt: new Date(row.created_at),
 			lastLoginAt: row.last_login_at ? new Date(row.last_login_at) : undefined,
@@ -64,6 +65,7 @@ export class PostgresUserService extends AbstractUserService {
 
 		if (Object.hasOwn(updates, 'name')) dbUpdate.name = updates.name ?? null;
 		if (Object.hasOwn(updates, 'enabled')) dbUpdate.enabled = updates.enabled;
+		if (Object.hasOwn(updates, 'admin')) dbUpdate.admin = updates.admin;
 		if (Object.hasOwn(updates, 'passwordHash')) dbUpdate.password_hash = updates.passwordHash ?? null;
 		if (Object.hasOwn(updates, 'hilBudget')) dbUpdate.hil_budget = updates.hilBudget;
 		if (Object.hasOwn(updates, 'hilCount')) dbUpdate.hil_count = updates.hilCount;
