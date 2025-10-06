@@ -22,8 +22,8 @@ export class GoogleCloud {
 
 	/**
 	 * Query resource information by executing the gcloud command line tool. This must ONLY be used for querying information, and MUST NOT update or modify resources.
-	 * Must have the --project=<projectId> argument.
-	 * @param gcloudQueryCommand The gcloud query command to execute
+	 * If the command supports the --project=<projectId> argument then it MUST be included.
+	 * @param gcloudQueryCommand The gcloud query command to execute (incuding --project=<projectId> if allowed)
 	 * @returns the console output if the exit code is 0, else throws the console output
 	 */
 	@func()
@@ -38,7 +38,8 @@ export class GoogleCloud {
 		}
 
 		let isQuery = false;
-		for (const i of [2, 3, 4]) {
+		for (const i of [2, 3, 4, 5]) {
+			if (!args[i]) break;
 			if (args[i].startsWith('list') || args[i] === 'describe' || args[i] === 'get-iam-policy' || args[i] === 'read') isQuery = true;
 		}
 
@@ -52,8 +53,9 @@ export class GoogleCloud {
 	}
 
 	/**
-	 * Runs a gcloud command which make changes to cloud resources. The command will be validated by a human reviewer. Must have the --project=<projectId> argument.
-	 * @param gcloudModifyCommand The gcloud command to execute
+	 * Runs a gcloud command which make changes to cloud resources. The command will be validated by a human reviewer.
+	 * If the command supports the --project=<projectId> argument then it must be included.
+	 * @param gcloudModifyCommand The gcloud command to execute (incuding --project=<projectId> if allowed)
 	 * @returns the console output if the exit code is 0, else throws the console output or human review rejection reason
 	 */
 	@func()
