@@ -32,11 +32,11 @@ export function quotaRetry(options: Partial<QuotaRetryOptions> = {}) {
 					}
 					return result;
 				} catch (e: any) {
-					// gRPC code 8 is RESOURCE_EXHAUSTED, HTTP 429 is Too Many Requests
-					if (e.code === 8 || e.code === 429) {
+					// gRPC code 8 is RESOURCE_EXHAUSTED, HTTP 429 is Too Many Requests. 500 Internal server error
+					if (e.code === 8 || e.code === 429 || e.code === 500) {
 						if (attempt < retries) {
 							const backoff = initialBackoffMs * 2 ** (attempt - 1);
-							logger.warn({ code: e.code, message: e.message, methodName, attempt, backoff }, 'Quota exceeded, will retry...');
+							logger.warn({ code: e.code, message: e.message, methodName, attempt, backoff }, 'Internal Error/Quota exceeded, will retry...');
 							await sleep(backoff);
 							continue;
 						}

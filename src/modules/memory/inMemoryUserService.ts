@@ -5,7 +5,7 @@ export const SINGLE_USER_ID = 'user';
 
 const singleUser: User = {
 	enabled: false,
-	admin: true,
+	admin: false,
 	name: 'John Doe',
 	hilBudget: 0,
 	hilCount: 0,

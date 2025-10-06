@@ -1,6 +1,7 @@
-import { cerebrasQwen3_32b } from '#llm/services/cerebras';
+import { cerebrasGptOss_120b } from '#llm/services/cerebras';
 import { groqLlama4_Scout } from '#llm/services/groq';
-import { vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite } from '#llm/services/vertexai';
+import { openaiGPT5nano } from '#llm/services/openai';
+import { vertexGemini_2_5_Flash_Lite } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { type GenerateTextOptions, type LLM, type LlmMessage, messageContentIfTextOnly, messageText } from '#shared/llm/llm.model';
@@ -15,10 +16,12 @@ export class FastEasyLLM extends BaseLLM {
 	private readonly providers: LLM[];
 	private readonly groqScout: LLM;
 	private readonly gemini: LLM;
+	private readonly openaiGPT5nano: LLM;
+	private readonly cerebrasGptOss_120b: LLM;
 
 	constructor() {
 		super({
-			displayName: 'Fast Easy (Groq Llama Scout - Gemini 2.5 Flash)',
+			displayName: 'Fast Easy (Cerebras GPT OSS 120B - Groq Llama Scout - Gemini 2.5 Flash)',
 			service: 'multi',
 			modelId: 'fast-easy',
 			maxInputTokens: 0,
@@ -29,9 +32,12 @@ export class FastEasyLLM extends BaseLLM {
 			}),
 		});
 		// Define the providers and their priorities. Lower number = higher priority
-		this.providers = [groqLlama4_Scout(), vertexGemini_2_5_Flash()]; // , vertexGemini_2_5_Flash_Lite()
-		this.groqScout = this.providers[0]!;
-		this.gemini = this.providers[1]!;
+
+		this.groqScout = groqLlama4_Scout();
+		this.gemini = vertexGemini_2_5_Flash_Lite();
+		this.openaiGPT5nano = openaiGPT5nano();
+		this.cerebrasGptOss_120b = cerebrasGptOss_120b();
+		this.providers = [this.cerebrasGptOss_120b, this.groqScout, this.gemini, this.openaiGPT5nano];
 
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}
@@ -49,26 +55,30 @@ export class FastEasyLLM extends BaseLLM {
 		return messageText(message);
 	}
 
-	async useGroqScout(messages: ReadonlyArray<LlmMessage>): Promise<boolean> {
-		// if(console.log) return false;
-		if (!this.groqScout.isConfigured()) return false;
+	override async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
+		let nonTextContent = false;
 		let text = '';
 		for (const msg of messages) {
 			const msgText: string | null = messageContentIfTextOnly(msg);
-			if (msgText === null) return false;
+			if (msgText === null) {
+				nonTextContent = true;
+				break;
+			}
 			text += `${msgText}\n`;
 		}
-		const tokens = await countTokens(text);
-		return tokens < this.groqScout.getMaxInputTokens();
-	}
-
-	override async _generateMessage(messages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<LlmMessage> {
-		try {
-			if (await this.useGroqScout(messages)) return await this.groqScout.generateMessage(messages, opts);
-		} catch (e) {
-			logger.warn(e, `Error calling ${this.groqScout.getId()}`);
+		if (nonTextContent) {
+			if (this.gemini.isConfigured()) return await this.gemini.generateMessage(messages, opts);
+			if (this.openaiGPT5nano.isConfigured()) return await this.openaiGPT5nano.generateMessage(messages, opts);
+			throw new Error('No configured LLMs for non-text content');
 		}
-		return await this.gemini.generateMessage(messages, opts);
+
+		const tokens = await countTokens(text);
+
+		if (this.cerebrasGptOss_120b.isConfigured() && tokens < this.cerebrasGptOss_120b.getMaxInputTokens())
+			return await this.cerebrasGptOss_120b.generateMessage(messages, opts);
+		if (this.groqScout.isConfigured() && tokens < this.groqScout.getMaxInputTokens()) return await this.groqScout.generateMessage(messages, opts);
+
+		throw new Error('No configured LLMs for text content');
 
 		// for (const llm of this.providers) {
 		// 	if (!llm.isConfigured()) {

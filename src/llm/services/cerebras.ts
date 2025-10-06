@@ -16,7 +16,7 @@ export function cerebrasLLMRegistry(): Record<string, () => LLM> {
 		'cerebras:qwen-3-235b-a22b-instruct-2507': () => cerebrasQwen3_235b_Instruct(),
 		'cerebras:qwen-3-235b-a22b-thinking-2507': () => cerebrasQwen3_235b_Thinking(),
 		'cerebras:qwen-3-coder-480b': () => cerebrasQwen3_Coder(),
-		'cerebras:llama-4-maverick-17b-128e-instruct': () => cerebrasLlamaMaverick(),
+		'cerebras:gpt-oss-120b': () => cerebrasGptOss_120b(),
 	};
 }
 
@@ -51,9 +51,12 @@ export function cerebrasQwen3_Coder(): LLM {
 	return new CerebrasLLM('Qwen3 Coder (Cerebras)', 'qwen-3-coder-480b', 131_000, costPerMilTokens(2, 2), ['qwen-3-235b-a22b']);
 }
 
-// https://inference-docs.cerebras.ai/models/llama-4-maverick
-export function cerebrasLlamaMaverick(): LLM {
-	return new CerebrasLLM('Llama Maverick (Cerebras)', 'llama-4-maverick-17b-128e-instruct', 32_000, costPerMilTokens(0.2, 0.6), ['llama3.1-8b']);
+// https://inference-docs.cerebras.ai/models/gpt-oss-120b
+export function cerebrasGptOss_120b(): LLM {
+	return new CerebrasLLM('GPT OSS 120B (Cerebras)', 'gpt-oss-120b', 131_000, costPerMilTokens(0.35, 0.75), [
+		'llama-4-maverick-17b-128e-instruct',
+		'llama3.1-8b',
+	]);
 }
 
 const cerebrasKeyRotator = createEnvKeyRotator('CEREBRAS_API_KEY');

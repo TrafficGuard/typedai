@@ -29,8 +29,10 @@ export function runAsUser<T>(user: User, fn: () => T): T {
 	return userContextStorage.run(user, fn as any) as T;
 }
 
+const _singleUser: boolean = !process.env.AUTH || process.env.AUTH === 'single_user';
+
 export function isSingleUser(): boolean {
-	return !process.env.AUTH || process.env.AUTH === 'single_user';
+	return _singleUser;
 }
 
 /**
