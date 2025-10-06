@@ -1,10 +1,10 @@
 import { expect } from 'chai';
 import { runChatServiceTests } from '#chat/chatService.test';
+import { firestoreDb } from '#firestore/firestore';
 import { FirestoreChatService } from '#firestore/firestoreChatService';
 import { resetFirestoreEmulator } from '#firestore/resetFirestoreEmulator';
-import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { firestoreDb } from '#firestore/firestore';
 import { type Chat } from '#shared/chat/chat.model';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 describe('FirestoreChatService', () => {
 	setupConditionalLoggerOutput();
@@ -16,6 +16,7 @@ describe('FirestoreChatService', () => {
 			const service = new FirestoreChatService();
 
 			const chat: Chat = {
+				id: 'test-chat-1',
 				userId: 'test-user-1',
 				shareable: false,
 				title: '',
@@ -43,6 +44,7 @@ describe('FirestoreChatService', () => {
 			const service = new FirestoreChatService();
 
 			const chat: Chat = {
+				id: 'test-chat-2',
 				userId: 'owner-1',
 				shareable: false,
 				title: '',
