@@ -101,7 +101,7 @@ export async function handleNoteEvent(event: any): Promise<AgentExecution | null
 		'Request:',
 		noteText,
 		'',
-		'Use the available tools (GitLab, Jira, web search) as needed to answer accurately and concisely.',
+		'Use the available tools (GitLab, Jira, web search) as needed to answer accurately and concisely. Respond professionally and to the point',
 	].join('\n');
 
 	const initialMemory = {

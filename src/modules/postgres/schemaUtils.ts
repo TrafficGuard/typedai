@@ -9,6 +9,7 @@ export async function ensureUsersTableExists(dbInstance: Kysely<Database>): Prom
 		.addColumn('name', 'text')
 		.addColumn('email', 'text', (col) => col.notNull().unique())
 		.addColumn('enabled', 'boolean', (col) => col.notNull().defaultTo(true))
+		.addColumn('admin', 'boolean', (col) => col.notNull().defaultTo(false))
 		.addColumn('password_hash', 'text')
 		.addColumn('hil_budget', 'integer', (col) => col.notNull().defaultTo(0))
 		.addColumn('hil_count', 'integer', (col) => col.notNull().defaultTo(0))
