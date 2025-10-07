@@ -59,6 +59,7 @@ export const testUser: User = {
 	name: 'John Doe',
 	email: 'test@example.com',
 	enabled: true,
+	admin: false,
 	createdAt: new Date(Date.now() - 86400000), // Yesterday
 	lastLoginAt: new Date(),
 	hilBudget: 1.5,
@@ -73,6 +74,7 @@ export const otherUser: User = {
 	name: 'John Doe',
 	email: 'other@example.com',
 	enabled: true,
+	admin: false,
 	createdAt: new Date(Date.now() - 172800000), // Day before yesterday
 	lastLoginAt: new Date(Date.now() - 3600000), // Hour ago
 	hilBudget: 0.5,

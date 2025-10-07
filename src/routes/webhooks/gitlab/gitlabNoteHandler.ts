@@ -1,3 +1,4 @@
+import { WebhookBaseNoteEventSchema, WebhookMergeRequestNoteEventSchema } from '@gitbeaker/core';
 import { AgentExecution } from '#agent/agentExecutions';
 import { getLastFunctionCallArg } from '#agent/autonomous/agentCompletion';
 import { startAgent } from '#agent/autonomous/autonomousAgentRunner';
@@ -10,6 +11,8 @@ import { PublicWeb } from '#functions/web/web';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { AgentCompleted, AgentContext } from '#shared/agent/agent.model';
+import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
+import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 
 const AGENT_TAG = '@typedai';
 
@@ -55,21 +58,26 @@ export class GitLabNoteCompletedHandler implements AgentCompleted {
 	}
 }
 
-export async function handleNoteEvent(event: any): Promise<AgentExecution | null> {
+// Need to get url added into the gitbeaker type
+export type MergeRequestNoteEvent = WebhookMergeRequestNoteEventSchema & { merge_request: { url: string } } & {
+	object_attributes: { discussion_id: string | null; description: string };
+};
+
+export async function handleMergeRequestNoteEvent(event: MergeRequestNoteEvent): Promise<AgentExecution | null> {
 	const note = event.object_attributes;
+	const noteText = note.note ?? note.description;
+	// Only action if the AI agent has been tagged
+	if (!noteText.includes(AGENT_TAG)) return null;
+
 	const project = event.project;
 	const user = event.user;
-
 	const userName = user.name ?? user.username ?? '<unknown-user>';
 	const mergeRequest = event.merge_request;
 
-	if (!note?.note || !mergeRequest || !project) return null;
-	if (!note.note.includes(AGENT_TAG)) return null;
+	const discussionId: string | undefined =
+		event.object_attributes.discussion_id ?? (await findDiscussionIdByNoteId(project.id, mergeRequest.iid, note.id)) ?? undefined;
 
-	const discussionId: string | undefined = note.discussion_id ?? (await findDiscussionIdByNoteId(project.id, mergeRequest.iid, note.id)) ?? undefined;
-
-	const mergeRequestDetails = `Title: ${mergeRequest.title}\nURL: ${mergeRequest.url}\nSource branch: ${mergeRequest.source_branch}\nTarget branch: ${mergeRequest.target_branch}`;
-	const noteText = note.note.trim();
+	const mergeRequestDetails = `Project: ${project.path_with_namespace}\nTitle: ${mergeRequest.title}\nSource branch: ${mergeRequest.source_branch}\nTarget branch: ${mergeRequest.target_branch}`;
 
 	const supportFuncs = new SupportKnowledgebase();
 	const coreDocs = await supportFuncs.getCoreDocumentation().catch(() => '');
@@ -94,9 +102,9 @@ export async function handleNoteEvent(event: any): Promise<AgentExecution | null
 
 	const initialPrompt = [
 		`You are an AI support agent (${AGENT_TAG} is your username tag) responding to a GitLab Merge Request comment.`,
-		`User: ${userName}${user?.username ? ` (@${user.username})` : ''}`,
+		`Comment by user: ${userName}${user?.username ? ` (@${user.username})` : ''}`,
 		`GitLab Project: ${project.path_with_namespace}`,
-		`MR: ${mergeRequest.url} (!${mergeRequest.iid})`,
+		`MR IID: ${mergeRequest.iid}`,
 		'',
 		'Request:',
 		noteText,
@@ -121,7 +129,7 @@ export async function handleNoteEvent(event: any): Promise<AgentExecution | null
 			agentName: `GitLab MR !${mergeRequest.iid} - ${project.path_with_namespace}`,
 			initialPrompt,
 			llms: defaultLLMs(),
-			functions: [GitLab, Jira, Perplexity, PublicWeb, LlmTools, SupportKnowledgebase],
+			functions: [GitLab, Jira, Perplexity, PublicWeb, LlmTools, SupportKnowledgebase, LiveFiles, FileSystemTree],
 			systemPrompt,
 			metadata: {
 				gitlab: {

@@ -6,7 +6,8 @@ import type { User } from '#shared/user/user.model';
 import { runAsUser } from '#user/userContext';
 
 export const SINGLE_USER: User = {
-	enabled: false,
+	enabled: true,
+	admin: false,
 	hilBudget: 0,
 	hilCount: 0,
 	llmConfig: {},
@@ -27,6 +28,7 @@ export const USER_A: User = {
 	name: 'User A',
 	email: 'usera@example.com',
 	enabled: true,
+	admin: false,
 	hilBudget: 0,
 	hilCount: 0,
 	llmConfig: {},
@@ -44,6 +46,7 @@ export const USER_B: User = {
 	name: 'User B',
 	email: 'userb@example.com',
 	enabled: true,
+	admin: false,
 	hilBudget: 0,
 	hilCount: 0,
 	llmConfig: {},

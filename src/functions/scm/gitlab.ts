@@ -286,7 +286,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 	 * @param mergeRequestIId The merge request IID. Can be found in the URL to a pipeline
 	 */
 	@func()
-	async getLatestMergeRequestPipeline(gitlabProjectId: string | number, mergeRequestIId: number): Promise<PipelineWithJobs | null> {
+	async getMergeRequestLatestPipeline(gitlabProjectId: string | number, mergeRequestIId: number): Promise<PipelineWithJobs | null> {
 		// allPipelines<E extends boolean = false>(projectId: string | number, mergerequestIId: number, options?: Sudo & ShowExpanded<E>): Promise<GitlabAPIResponse<Pick<PipelineSchema, 'id' | 'sha' | 'ref' | 'status'>[], C, E, void>>;
 		const pipelines = await this.api().MergeRequests.allPipelines(gitlabProjectId, mergeRequestIId);
 		if (pipelines.length === 0) return null;
@@ -330,6 +330,39 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 	/**
 	 * Gets the logs from the jobs which have failed in a pipeline
 	 * @param gitlabProjectId GitLab project full path or the numeric id
+	 * @param pipelineId The pipelineId. Can be determined from the URL of a pipeline. https://<gitlab-host>/<group>/[<sub-group>/]<project>/-/pipelines/<pipelineId>
+	 * @returns A Record with the job name as the key and the logs as the value.
+	 */
+	@func()
+	async getPipelineFailedJobLogs(gitlabProjectId: string | number, pipelineId: number): Promise<string> {
+		logger.info({ gitlabProjectId, pipelineId }, 'Getting pipeline');
+		const pipeline = await this.api().Pipelines.show(gitlabProjectId, pipelineId);
+
+		if (pipeline.status !== 'failed' && pipeline.status !== 'blocked') throw new Error(`Pipeline status is not failed or blocked. Status: ${pipeline.status}`);
+
+		logger.info({ gitlabProjectId, pipelineId: pipeline.id }, 'Getting jobs');
+		const jobs: JobSchema[] = await this.api().Jobs.all(gitlabProjectId, { pipelineId: pipeline.id });
+		const failedJobs = jobs.filter((job) => job.status === 'failed' && job.allow_failure === false);
+
+		let jobLogs = '';
+		for (const job of failedJobs) {
+			logger.info({ gitlabProjectId, pipelineId: pipeline.id, jobId: job.id }, 'Getting job logs');
+			let logs = await this.getJobLogs(gitlabProjectId, job.id.toString());
+
+			// If the logs are longer than ~12,000 tokens, truncate them.
+			// Take the first 15,000 characters and the last 35,000 characters
+			if (logs.length > 50000) {
+				logs = `${logs.slice(0, 15000)}\n(truncated)...\n${logs.slice(-35000)}`;
+			}
+			jobLogs += `<job-logs job-name="${job.name}">\n${logs}\n</job-logs>`;
+		}
+		logger.info(`Failed job logs (${await countTokens(jobLogs)} tokens)`);
+		return jobLogs;
+	}
+
+	/**
+	 * Gets the logs from the jobs which have failed in the latest pipeline of a merge request
+	 * @param gitlabProjectId GitLab project full path or the numeric id
 	 * @param mergeRequestIId The merge request IID. Can get this from the URL of the merge request. https://<gitlab-host>/<group>/[<sub-group>/]<project>/-/merge_requests/<mergeRequestIId>
 	 * @returns A Record with the job name as the key and the logs as the value.
 	 */
@@ -343,26 +376,7 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 		const latestPipeline = pipelines.at(0);
 		if (!latestPipeline) throw new Error('No pipelines for the merge request');
 
-		if (latestPipeline.status !== 'failed' && latestPipeline.status !== 'blocked') throw new Error('Pipeline is not failed or blocked');
-
-		logger.info({ gitlabProjectId, pipelineId: latestPipeline.id }, 'Getting jobs');
-		const jobs: JobSchema[] = await this.api().Jobs.all(gitlabProjectId, { pipelineId: latestPipeline.id });
-		const failedJobs = jobs.filter((job) => job.status === 'failed' && job.allow_failure === false);
-
-		let jobLogs = '';
-		for (const job of failedJobs) {
-			logger.info({ gitlabProjectId, pipelineId: latestPipeline.id, jobId: job.id }, 'Getting job logs');
-			let logs = await this.getJobLogs(gitlabProjectId, job.id.toString());
-
-			// If the logs are longer than ~12,000 tokens, truncate them.
-			// Take the first 15,000 characters and the last 35,000 characters
-			if (logs.length > 50000) {
-				logs = `${logs.slice(0, 15000)}\n(truncated)...\n${logs.slice(-35000)}`;
-			}
-			jobLogs += `<job-logs job-name="${job.name}">\n${logs}\n</job-logs>`;
-		}
-		logger.info(`Failed job logs (${await countTokens(jobLogs)} tokens)`);
-		return jobLogs;
+		return this.getPipelineFailedJobLogs(gitlabProjectId, latestPipeline.id);
 	}
 
 	/**

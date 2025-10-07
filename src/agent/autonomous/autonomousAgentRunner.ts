@@ -9,6 +9,7 @@ import { appContext } from '#app/applicationContext';
 import { FUNC_SEP } from '#functionSchema/functions';
 import { Git } from '#functions/scm/git';
 import { GitHub } from '#functions/scm/github';
+import { GitLab } from '#functions/scm/gitlab';
 import { logger } from '#o11y/logger';
 import type { AgentContext } from '#shared/agent/agent.model';
 import type { FunctionCallResult } from '#shared/llm/llm.model';
@@ -53,15 +54,7 @@ async function _startAgent(agent: AgentContext): Promise<AgentExecution> {
 
 	await checkRepoHomeAndWorkingDirectory(agent);
 
-	const metadata = agent.metadata ?? {};
-	const githubProject = metadata.github?.repository;
-	if (githubProject) {
-		runAsUser(agent.user, async () => {
-			const repoPath = await new GitHub().cloneProject(githubProject);
-			agent.fileSystem!.setWorkingDirectory(repoPath);
-			if (metadata.github.branch) await new Git().switchToBranch(metadata.github.branch);
-		});
-	}
+	await initialiseMetadataRepository(agent);
 
 	switch (agent.subtype) {
 		case 'xml':
@@ -79,6 +72,48 @@ async function _startAgent(agent: AgentContext): Promise<AgentExecution> {
 		delete agentExecutions[agent.agentId];
 	});
 	return execution;
+}
+
+async function initialiseMetadataRepository(agent: AgentContext) {
+	const metadata = agent.metadata ?? {};
+	let hasRepo = false;
+	let branch: string | undefined;
+
+	let gitProject = metadata.github?.repository;
+	if (gitProject) {
+		hasRepo = true;
+		await runAsUser(agent.user, async () => {
+			branch = metadata.github.branch;
+			const repoPath = await new GitHub().cloneProject(gitProject, branch);
+			agent.fileSystem!.setWorkingDirectory(repoPath);
+		});
+	}
+	gitProject = metadata.gitlab?.projectPath;
+	if (gitProject) {
+		hasRepo = true;
+		await runAsUser(agent.user, async () => {
+			branch = metadata.gitlab.branch;
+			const repoPath = await new GitLab().cloneProject(gitProject, branch);
+			agent.fileSystem!.setWorkingDirectory(repoPath);
+		});
+	}
+	// If an agent has switched a shared repo from the main/master branch, then switch it back
+	if (agent.useSharedRepos && hasRepo && !branch) {
+		const git = new Git();
+		const currentBranch = await git.getBranchName();
+		if (currentBranch !== 'main' && currentBranch !== 'master') {
+			logger.warn(`Shared repo ${gitProject} is not on branch main or master, switching back`);
+			try {
+				await git.switchToBranch('main');
+			} catch (e) {
+				try {
+					await git.switchToBranch('master');
+				} catch (e) {
+					logger.warn({ metadata }, 'Couldnt restore branch to `main` or `master`', e);
+				}
+			}
+		}
+	}
 }
 
 export async function startAgentAndWaitForCompletion(config: RunAgentConfig): Promise<string> {

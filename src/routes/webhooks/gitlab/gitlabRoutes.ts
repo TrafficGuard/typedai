@@ -1,3 +1,10 @@
+import {
+	WebhookBaseNoteEventSchema,
+	WebhookJobEventSchema,
+	WebhookMergeRequestEventSchema,
+	WebhookMergeRequestNoteEventSchema,
+	WebhookPipelineEventSchema,
+} from '@gitbeaker/core';
 import { Type } from '@sinclair/typebox';
 import type { FastifyReply } from 'fastify';
 import { startAgent } from '#agent/autonomous/autonomousAgentRunner';
@@ -12,11 +19,14 @@ import { GitLabCodeReview } from '#functions/scm/gitlabCodeReview';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
+import { withSpan } from '#o11y/trace';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { runAsUser } from '#user/userContext';
 import { envVarHumanInLoopSettings } from '../../../cli/cliHumanInLoop';
 import { getAgentUser } from '../webhookAgentUser';
-import { handleNoteEvent } from './gitlabNoteHandler';
+import { handleBuildJobEvent } from './gitlabJobHandler';
+import { MergeRequestNoteEvent, handleMergeRequestNoteEvent } from './gitlabNoteHandler';
+import { handlePipelineEvent } from './gitlabPipelineHandler';
 
 const basePath = '/api/webhooks';
 
@@ -29,80 +39,29 @@ export async function gitlabRoutes(fastify: AppFastifyInstance): Promise<void> {
 	fastify.post(`${basePath}/gitlab`, { schema: { body: Type.Object({}, { additionalProperties: true }) } }, async (req, reply) => {
 		const event = req.body as any;
 		const objectKind = event.object_kind;
-		logger.info(event, `Gitlab webhook ${objectKind}`);
+		logger.info({ event }, `Gitlab webhook ${objectKind}`);
 
-		const user = await getAgentUser();
-		runAsUser(user, async () => {
-			switch (objectKind) {
-				case 'pipeline':
-					await handlePipelineEvent(event);
-					break;
-				case 'merge_request':
-					await handleMergeRequestEvent(event);
-					break;
-				case 'note':
-					await handleNoteEvent(event);
-					break;
-			}
+		await withSpan('gitlab-webhook', async () => {
+			const user = await getAgentUser();
+			runAsUser(user, async () => {
+				switch (objectKind) {
+					case 'build':
+						await handleBuildJobEvent(event as WebhookJobEventSchema);
+						break;
+					case 'pipeline':
+						await handlePipelineEvent(event as WebhookPipelineEventSchema);
+						break;
+					case 'merge_request':
+						await handleMergeRequestEvent(event as WebhookMergeRequestEventSchema);
+						break;
+					case 'note':
+						if (event.merge_request) await handleMergeRequestNoteEvent(event as MergeRequestNoteEvent);
+						break;
+				}
+			});
+			send(reply, 200);
 		});
-
-		send(reply, 200);
 	});
-}
-
-/**
- * https://docs.gitlab.com/user/project/integrations/webhook_events/#pipeline-events
- * @param event
- */
-async function handlePipelineEvent(event: any) {
-	const gitRef = event.ref;
-	const fullProjectPath = event.project.path_with_namespace;
-	const user = event.user;
-	const miid = event.merge_request?.iid;
-	let failedLogs = '';
-
-	const gitlabId = `${fullProjectPath}:${miid ?? gitRef}`;
-
-	if (event.status === 'success') {
-		// check if there is a CodeTask and notify it of a successful build
-	} else {
-		failedLogs = await new GitLab().getMergeRequestPipelineFailedJobLogs(event.project.id, event.object_attributes.iid);
-		for (const [k, v] of Object.entries(failedLogs)) {
-			const lines = v.split('\n').length;
-			const tokens = await countTokens(v);
-			logger.info(`Failed pipeline job ${k}. Log size: ${tokens} tokens. ${lines} lines.`);
-			if (tokens > 50000) {
-				// ~50k tokens
-				// TODO use flash to reduce the size, or just remove the middle section
-			}
-		}
-	}
-
-	// TODO if this is the first time a job has failed, analyse the logs to see if it looks like it could be a transient timeout failure. If so re-try the job once, otherwise let the failure go through to tne regular processing.
-
-	const summary = {
-		project: fullProjectPath,
-		gitRef,
-		mergeIId: miid,
-		user: user,
-		status: event.status,
-		failedLogs,
-	};
-
-	// Need the firestore index
-	// const agent = await appContext().agentStateService.findByMetadata('gitlab', gitlabId);
-
-	// TODO could get the project pipeline file,
-
-	// if (!agent) {
-	// await startAgent({
-	// 	initialPrompt: '',
-	// 	subtype: 'gitlab-pipeline',
-	// 	agentName: `GitLab ${gitlabId} pipeline`,
-	// 	type: 'autonomous',
-	// 	functions: [Git, LiveFiles, GitLab, CodeEditingAgent, Perplexity, FileSystemTree, FileSystemList],
-	// });
-	// }
 }
 
 /**
@@ -125,6 +84,11 @@ async function handleMergeRequestEvent(event: any) {
 		humanInLoop: envVarHumanInLoopSettings(),
 	};
 
+	// If the MR is approved and there are unchecked checkboxes, then add a comment to the MR to ask for the checkboxes to be checked
+	// if (event.object_attributes.state === 'approved' && hasUnchecked(event.object_attributes.description)) {
+	// 	await new GitLab().addComment(event.project.id, event.object_attributes.iid, 'Please check the checkboxes');
+	// }
+
 	const mergeRequestId = `project:${event.project.name}, miid:${event.object_attributes.iid}, MR:"${event.object_attributes.title}"`;
 
 	await runWorkflowAgent(config, async (context) => {
@@ -136,4 +100,26 @@ async function handleMergeRequestEvent(event: any) {
 			})
 			.catch((error) => logger.error(error, `Error reviewing merge request ${mergeRequestId}. Message: ${error.message} [error]`));
 	});
+}
+
+const CHECKBOXES_START = '<!-- required-checkboxes-start -->';
+const CHECKBOXES_END = '<!-- required-checkboxes-end -->';
+
+/**
+ * Checks if the MR description contains unchecked checkboxes
+ * @param description
+ * @returns
+ */
+export function hasUnchecked(description: string): boolean {
+	if (!description) return false;
+	const regexp = new RegExp(`${CHECKBOXES_START}((\\s|\\S)*?)${CHECKBOXES_END}`, 'gs');
+	const matches: string[] = [];
+	let match: RegExpExecArray | null = null;
+
+	// biome-ignore lint/suspicious/noAssignInExpressions: ignore
+	while ((match = regexp.exec(description)) !== null) matches.push(`${match[1]}`);
+
+	if (matches.length) return matches.some((el) => hasUnchecked(el));
+
+	return description.includes('[ ]');
 }
