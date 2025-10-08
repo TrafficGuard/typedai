@@ -5,6 +5,7 @@ import type {
 	ImagePart as AiImagePart, // Renamed
 	AssistantContent,
 	CoreMessage,
+	FinishReason,
 	GenerateTextResult,
 	ToolCallPart as ModelToolCallPart, // Corrected import: ModelToolCallPart is an alias for ToolCallPart
 	ToolContent as ModelToolContent, // Alias to avoid conflict if we re-export
@@ -184,6 +185,7 @@ export interface GenerationStats {
 	reasoningTokens?: number | undefined;
 	cost?: number | null;
 	llmId: string;
+	finishReason?: FinishReason;
 }
 
 // Base properties common to all LlmMessage variants
@@ -398,6 +400,9 @@ export interface LLM {
 
 	/** The maximum number of input tokens */
 	getMaxInputTokens(): number;
+
+	/** The maximum number of output tokens */
+	getMaxOutputTokens(): number | undefined;
 
 	/**
 	 * @param text

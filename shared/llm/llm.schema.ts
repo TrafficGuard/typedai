@@ -1,5 +1,6 @@
 import { LanguageModelV2Source } from '@ai-sdk/provider';
 import { type Static, Type } from '@sinclair/typebox';
+import { FinishReason } from 'ai';
 import type {
 	AssistantContent,
 	CallSettings,
@@ -128,6 +129,20 @@ export const ToolContentSchema = Type.Array(ToolResultSchema, { $id: 'ToolConten
 // type ToolLlmContent = Extract<LlmMessage, { role: 'tool' }>['content'];
 const _ToolContentCheck: AreTypesFullyCompatible<ToolContent, Static<typeof ToolContentSchema>> = true;
 
+export const FinishReasonSchema = Type.Union(
+	[
+		Type.Literal('stop'),
+		Type.Literal('length'),
+		Type.Literal('content-filter'),
+		Type.Literal('tool-calls'),
+		Type.Literal('error'),
+		Type.Literal('other'),
+		Type.Literal('unknown'),
+	],
+	{ $id: 'FinishReason' },
+);
+const _FinishReasonCheck: AreTypesFullyCompatible<FinishReason, Static<typeof FinishReasonSchema>> = true;
+
 export const GenerationStatsSchema = Type.Object({
 	requestTime: Type.Number(),
 	timeToFirstToken: Type.Number(),
@@ -138,6 +153,7 @@ export const GenerationStatsSchema = Type.Object({
 	reasoningTokens: Type.Optional(Type.Number()),
 	cost: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
 	llmId: Type.String(),
+	finishReason: Type.Optional(FinishReasonSchema),
 });
 const _GenerationStatsCheck: AreTypesFullyCompatible<GenerationStats, Static<typeof GenerationStatsSchema>> = true;
 

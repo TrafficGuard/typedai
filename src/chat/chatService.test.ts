@@ -62,14 +62,14 @@ export const USER_B: User = {
 export function runChatServiceTests(createService: () => ChatService, beforeEachHook: () => Promise<void> | void = () => {}): void {
 	let service: ChatService;
 
-	async function expectError(promise: Promise<any>, partialMessage?: string) {
+	async function expectError(promise: Promise<any>, code?: string) {
 		try {
 			await promise;
 			expect.fail('Expected promise to reject but it resolved.');
 		} catch (error: any) {
 			expect(error).to.be.an('Error');
-			if (partialMessage) {
-				expect(error.message).to.include(partialMessage);
+			if (code) {
+				expect(error).to.have.property('code', code);
 			}
 		}
 	}
@@ -266,7 +266,7 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 			});
 
 			await runAsUser(USER_B, async () => {
-				await expectError(service.loadChat(chatAId), 'Chat not visible');
+				await expectError(service.loadChat(chatAId), 'UNAUTHORIZED');
 			});
 		});
 
@@ -294,7 +294,7 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 					title: 'Attempted Update by B',
 					// userId remains USER_A.id
 				};
-				await expectError(service.saveChat(chatToAttemptUpdate));
+				await expectError(service.saveChat(chatToAttemptUpdate), 'UNAUTHORIZED');
 			});
 		});
 
@@ -315,7 +315,7 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 			});
 
 			await runAsUser(USER_B, async () => {
-				await expectError(service.deleteChat(chatAId), 'Not authorized');
+				await expectError(service.deleteChat(chatAId), 'UNAUTHORIZED');
 			});
 		});
 
@@ -375,4 +375,65 @@ export function runChatServiceTests(createService: () => ChatService, beforeEach
 			});
 		});
 	});
+
+	it(
+		'should prevent changing chat owner on update (preserve original owner or reject)',
+		runWithTestUser(async () => {
+			const chatId = `owner-test-${Date.now()}`;
+			const chat: Chat = {
+				id: chatId,
+				userId: SINGLE_USER_ID,
+				shareable: false,
+				title: 'Owner test',
+				updatedAt: Date.now(),
+				messages: [{ role: 'user', content: 'Yo', time: Date.now() } as any],
+				parentId: undefined,
+				rootId: undefined,
+			};
+
+			await service.saveChat(chat);
+			const originalUserId = chat.userId;
+			(chat as any).userId = 'some-other-user';
+
+			let threw = false;
+			try {
+				await service.saveChat(chat);
+			} catch (e: any) {
+				threw = true;
+				expect(e).to.have.property('code', 'UNAUTHORIZED');
+			}
+
+			const reloaded = await service.loadChat(chat.id);
+			expect(reloaded.userId).to.equal(originalUserId);
+		}),
+	);
+
+	it(
+		'should persist assistant response after update',
+		runWithTestUser(async () => {
+			const created = await service.saveChat({
+				id: `persist-update-${Date.now()}`,
+				userId: SINGLE_USER_ID,
+				title: 'Test chat',
+				updatedAt: Date.now(),
+				shareable: false,
+				messages: [],
+				parentId: undefined,
+				rootId: undefined,
+			} as any);
+
+			const userMsg = { role: 'user', content: 'Hello' } as any;
+			const assistantMsg = { role: 'assistant', content: 'Hi there' } as any;
+
+			const updated = { ...created, messages: [userMsg, assistantMsg] };
+			await service.saveChat(updated).catch(() => {
+				/* Some implementations may reject if not needed; persistence is verified via load */
+			});
+
+			const reloaded = await service.loadChat(created.id);
+			expect(reloaded.messages).to.have.length(2);
+			expect(reloaded.messages[0]).to.deep.equal(userMsg);
+			expect(reloaded.messages[1]).to.deep.equal(assistantMsg);
+		}),
+	);
 }

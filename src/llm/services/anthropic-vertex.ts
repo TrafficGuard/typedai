@@ -20,18 +20,21 @@ export function anthropicVertexLLMRegistry(): Record<string, () => LLM> {
 
 // Supported image types image/jpeg', 'image/png', 'image/gif' or 'image/webp'
 
+// https://cloud.google.com/vertex-ai/generative-ai/pricing#claude-models
+
 // https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude/opus-4-1
 export function Claude4_1_Opus_Vertex(): LLM {
-	return new AnthropicVertexLLM('Claude 4.1 Opus (Vertex)', 'claude-opus-4-1@20250805', 200_000, anthropicCostFunction(15, 75), ['claude-opus-4']);
+	return new AnthropicVertexLLM('Claude 4.1 Opus (Vertex)', 'claude-opus-4-1@20250805', 200_000, 32_000, anthropicCostFunction(15, 75), ['claude-opus-4']);
 }
 
-// https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude/sonnet-4
+// https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude/sonnet-4-5
 export function Claude4_5_Sonnet_Vertex(): LLM {
-	return new AnthropicVertexLLM('Claude 4.5 Sonnet (Vertex)', 'claude-sonnet-4-5@20250929', 200_000, anthropicCostFunction(3, 15), ['claude-sonnet-4']);
+	return new AnthropicVertexLLM('Claude 4.5 Sonnet (Vertex)', 'claude-sonnet-4-5@20250929', 200_000, 64_000, anthropicCostFunction(3, 15), ['claude-sonnet-4']);
 }
 
+// https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude/haiku-3-5
 export function Claude3_5_Haiku_Vertex(): LLM {
-	return new AnthropicVertexLLM('Claude 3.5 Haiku (Vertex)', 'claude-3-5-haiku@20241022', 200_000, anthropicCostFunction(1, 5));
+	return new AnthropicVertexLLM('Claude 3.5 Haiku (Vertex)', 'claude-3-5-haiku@20241022', 200_000, 8_192, anthropicCostFunction(1, 5));
 }
 
 export function anthropicCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
@@ -79,8 +82,8 @@ let gcloudProjectIndex = 0;
  * Vertex AI models - Gemini
  */
 class AnthropicVertexLLM extends AiLLM<GoogleVertexAnthropicProvider> {
-	constructor(displayName: string, model: string, maxInputToken: number, calculateCosts: LlmCostFunction, oldIds?: string[]) {
-		super({ displayName, service: ANTHROPIC_VERTEX_SERVICE, modelId: model, maxInputTokens: maxInputToken, calculateCosts, oldIds });
+	constructor(displayName: string, model: string, maxInputToken: number, maxOutputTokens: number, calculateCosts: LlmCostFunction, oldIds?: string[]) {
+		super({ displayName, service: ANTHROPIC_VERTEX_SERVICE, modelId: model, maxInputTokens: maxInputToken, maxOutputTokens, calculateCosts, oldIds });
 	}
 
 	protected apiKey(): string | undefined {

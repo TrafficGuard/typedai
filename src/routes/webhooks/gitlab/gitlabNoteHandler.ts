@@ -2,6 +2,8 @@ import { WebhookBaseNoteEventSchema, WebhookMergeRequestNoteEventSchema } from '
 import { AgentExecution } from '#agent/agentExecutions';
 import { getLastFunctionCallArg } from '#agent/autonomous/agentCompletion';
 import { startAgent } from '#agent/autonomous/autonomousAgentRunner';
+import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
+import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { Jira } from '#functions/jira';
 import { LlmTools } from '#functions/llmTools';
 import { GitLab } from '#functions/scm/gitlab';
@@ -11,8 +13,6 @@ import { PublicWeb } from '#functions/web/web';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { AgentCompleted, AgentContext } from '#shared/agent/agent.model';
-import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
-import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 
 const AGENT_TAG = '@typedai';
 

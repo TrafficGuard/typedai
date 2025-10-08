@@ -481,6 +481,51 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 		}
 	}
 
+	/**
+	 * Retrieves the raw contents of a single file from a GitLab repository using a web UI blob URL.
+	 *
+	 * @param url The GitLab blob URL in the format: https://<host>/<project-path>/-/blob/<ref>/<file-path>
+	 *            Example: https://gitlab.internal.company.com/engineering/services/user-service/-/blob/main/src/model/user.ts
+	 * @returns The raw file contents as a string
+	 * @throws Error if the URL format is invalid or the file cannot be retrieved
+	 */
+	@func()
+	async getSingleFileContents(url: string): Promise<string> {
+		const blobMarker = '/-/blob/';
+		const blobIndex = url.indexOf(blobMarker);
+
+		if (blobIndex === -1)
+			throw new Error(`Invalid GitLab blob URL format. Expected format: https://<host>/<project-path>/-/blob/<ref>/<file-path>. Received: ${url}`);
+
+		// Extract project path (everything between https://<host>/ and /-/blob/)
+		const urlBeforeBlob = url.substring(0, blobIndex);
+		const hostEndIndex = urlBeforeBlob.indexOf('/', 8); // Skip 'https://'
+
+		if (hostEndIndex === -1) throw new Error(`Could not extract project path from URL: ${url}`);
+
+		const projectPath = urlBeforeBlob.substring(hostEndIndex + 1);
+
+		// Extract ref and file path (everything after /-/blob/)
+		const afterBlob = url.substring(blobIndex + blobMarker.length);
+		const refEndIndex = afterBlob.indexOf('/');
+
+		if (refEndIndex === -1) throw new Error(`Could not extract ref and file path from URL: ${url}`);
+
+		const ref = afterBlob.substring(0, refEndIndex);
+		const filePath = afterBlob.substring(refEndIndex + 1);
+
+		if (!projectPath || !ref || !filePath) throw new Error(`Failed to parse GitLab URL. Project: "${projectPath}", Ref: "${ref}", File: "${filePath}"`);
+
+		logger.info({ projectPath, ref, filePath }, 'Fetching file contents from GitLab');
+		try {
+			const contents = await this.api().RepositoryFiles.showRaw(projectPath, filePath, ref);
+			return Buffer.isBuffer(contents) ? contents.toString('utf-8') : (contents as string);
+		} catch (error: any) {
+			logger.error(error, `Failed to fetch file from GitLab: ${projectPath}/${filePath}@${ref}`);
+			throw new Error(`Failed to fetch file from GitLab: ${error.message}`);
+		}
+	}
+
 	// 	/**
 	// 	 *
 	// 	 * @param from The start of the time range to get events for

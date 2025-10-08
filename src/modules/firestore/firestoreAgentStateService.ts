@@ -37,11 +37,8 @@ export class FirestoreAgentStateService implements AgentContextService {
 			logger.warn({ agentId: state.agentId }, `Input prompt is greater than ${MAX_PROPERTY_SIZE} bytes and might be truncated by Firestore`);
 		}
 		const serialized = serializeContext(state);
-		// // Always persist a simple string so that ownership checks work reliably
-		// serialized.user =
-		// 	typeof serialized.user === 'object' && serialized.user !== null
-		// 		? (serialized.user as User).id
-		// 		: (serialized.user ?? (typeof state.user === 'string' ? state.user : state.user.id));
+		// Always persist a simple string so that ownership checks work reliably with Firestore equality filters
+		serialized.user = typeof state.user === 'string' ? state.user : state.user.id;
 		serialized.lastUpdate = Date.now();
 
 		// Add this validation step
@@ -163,8 +160,9 @@ export class FirestoreAgentStateService implements AgentContextService {
 		const currentUserId = currentUser().id;
 		const metadataFieldPath = `metadata.${key}`;
 
-		const query = this.db.collection('AgentContext');
-		if (!currentUser().admin) query.where('user', '==', currentUser().id); // Filter by user first
+		// Firestore queries are immutable; reassign when adding filters
+		let query: FirebaseFirestore.Query = this.db.collection('AgentContext');
+		if (!currentUser().admin) query = query.where('user', '==', currentUserId); // Filter by user first
 		const querySnapshot = await query.where(metadataFieldPath, '==', value).limit(1).get();
 
 		if (querySnapshot.empty) return null;
@@ -187,8 +185,9 @@ export class FirestoreAgentStateService implements AgentContextService {
 
 	@span()
 	async list(): Promise<AgentContextPreview[]> {
-		const query = this.db.collection('AgentContext');
-		if (!currentUser().admin) query.where('user', '==', currentUser().id); // Filter by user first
+		// Firestore queries are immutable; reassign when adding filters
+		let query: FirebaseFirestore.Query = this.db.collection('AgentContext');
+		if (!currentUser().admin) query = query.where('user', '==', currentUser().id); // Filter by user first
 		const querySnapshot = await query
 			.select(...AGENT_PREVIEW_KEYS)
 			.orderBy('lastUpdate', 'desc')
@@ -209,8 +208,9 @@ export class FirestoreAgentStateService implements AgentContextService {
 		// NOTE: Firestore requires the first orderBy clause to be on the field used in an inequality filter (like 'not-in').
 		// Therefore, we order by 'state' first, then by 'lastUpdate'. This ensures the query works reliably,
 		// although the primary desired sort order is by 'lastUpdate'.
-		const query = this.db.collection('AgentContext');
-		if (!currentUser().admin) query.where('user', '==', currentUser().id); // Filter by user first
+		// Firestore queries are immutable; reassign when adding filters
+		let query: FirebaseFirestore.Query = this.db.collection('AgentContext');
+		if (!currentUser().admin) query = query.where('user', '==', currentUser().id); // Filter by user first
 		const querySnapshot = await query
 			.where('state', 'not-in', terminalStates) // Use 'not-in' to exclude multiple terminal states
 			.select(...AGENT_PREVIEW_KEYS) // Ensure this select uses previewKeys

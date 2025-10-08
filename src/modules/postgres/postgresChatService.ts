@@ -4,8 +4,8 @@ import type { ChatService } from '#chat/chatService';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { CHAT_PREVIEW_KEYS, type Chat, type ChatList, type ChatPreview } from '#shared/chat/chat.model';
-import type { LlmMessage } from '#shared/llm/llm.model';
 import { InvalidRequest, NotFound, Unauthorized } from '#shared/errors';
+import type { LlmMessage } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { type ChatsTable, type Database, db } from './db';
 

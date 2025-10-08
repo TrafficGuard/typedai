@@ -8,9 +8,9 @@ import {
 	type CoreMessage,
 	type GenerateTextResult,
 	type TextStreamPart,
-	generateText as aiGenerateText,
-	streamText as aiStreamText,
+	generateText,
 	smoothStream,
+	streamText,
 } from 'ai';
 import { addCost, agentContext } from '#agent/agentContextLocalStorage';
 import { cloneAndTruncateBuffers } from '#agent/trimObject';
@@ -38,6 +38,9 @@ import {
 import type { LlmCall } from '#shared/llmCall/llmCall.model';
 import { errorToString } from '#utils/errors';
 import { quotaRetry } from '#utils/quotaRetry';
+
+type GenerateTextArgs = Parameters<typeof generateText>[0];
+type StreamTextArgs = Parameters<typeof streamText>[0];
 
 // Helper to convert DataContent | URL to string for our UI-facing models
 function convertDataContentToString(content: string | URL | Uint8Array | ArrayBuffer | Buffer | undefined): string {
@@ -225,7 +228,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				model: this.getServiceModelId(),
 				configModelId: this.getModel(),
 				service: this.service,
-				// userId: currentUser().id,
+				// userId: currentUser().id, // was having depedency issues importing currentUser. might be ok now after some refactorings
 				description,
 				opts: JSON.stringify(combinedOpts),
 			});
@@ -236,7 +239,6 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				const promptPreview = lastMessageText.length > 50 ? `${lastMessageText.slice(0, 50)}...` : lastMessageText;
 				console.log(new Error(`No generateMessage id provided. (${promptPreview})`));
 			}
-			// logger.info(`LLM call ${combinedOpts.id} using ${this.getId()}`);
 
 			const createLlmCallRequest: CreateLlmRequest = {
 				messages: cloneAndTruncateBuffers(llmMessages),
@@ -251,6 +253,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 			try {
 				llmCall = await appContext().llmCallService.saveRequest(createLlmCallRequest);
 			} catch (e) {
+				// If the initial save fails then we'll just save it later with the response
 				llmCall = {
 					...createLlmCallRequest,
 					id: randomUUID(),
@@ -258,11 +261,9 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				};
 			}
 
-			console.log(providerOptions);
-
 			const requestTime = Date.now();
 			try {
-				const result: GenerateTextResult<any, any> = await aiGenerateText({
+				const args: GenerateTextArgs = {
 					model: this.aiModel(),
 					messages,
 					temperature: combinedOpts.temperature,
@@ -275,23 +276,24 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 					maxRetries: combinedOpts.maxRetries,
 					maxOutputTokens: combinedOpts.maxOutputTokens,
 					providerOptions,
-				});
+					abortSignal: combinedOpts.abortSignal,
+				};
+				// Messages can be large so just log the reference to the LlmCall its saved in
+				logger.info({ args: { ...args, messages: `LlmCall:${llmCall.id}` } }, `Generating text - ${opts?.id}`);
+
+				const result: GenerateTextResult<any, any> = await generateText(args);
 
 				const responseText = result.text;
 				const finishTime = Date.now();
+				const usage = result.usage;
 
-				const { inputCost, outputCost, totalCost } = this.calculateCosts(
-					result.usage.inputTokens ?? 0,
-					result.usage.outputTokens ?? 0,
-					result.usage.cachedInputTokens ?? 0,
-					result.usage,
-				);
+				const { inputCost, outputCost, totalCost } = this.calculateCosts(usage.inputTokens ?? 0, usage.outputTokens ?? 0, usage.cachedInputTokens ?? 0, usage);
 				const cost = Number.isNaN(totalCost) ? 0 : totalCost;
 
 				if (result.finishReason === 'length') {
 					logger.info(
 						{ opts: combinedOpts },
-						`LLM finished due to length. ${this.getId()} Output tokens: ${result.usage.outputTokens}. Opts Max Output Tokens: ${combinedOpts.maxOutputTokens}. LLM CallId ${llmCall.id}`,
+						`LLM finished due to length. ${this.getId()} Output tokens: ${usage.outputTokens}. Opts Max Output Tokens: ${combinedOpts.maxOutputTokens}. LLM CallId ${llmCall.id}`,
 					);
 				}
 
@@ -302,21 +304,22 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				llmCall.timeToFirstToken = finishTime - requestTime;
 				llmCall.totalTime = finishTime - requestTime;
 				llmCall.cost = cost;
-				llmCall.inputTokens = result.usage.inputTokens;
-				llmCall.outputTokens = result.usage.outputTokens;
+				llmCall.inputTokens = usage.inputTokens;
+				llmCall.outputTokens = usage.outputTokens;
 
 				addCost(cost);
 
 				const stats: GenerationStats = {
 					llmId: this.getId(),
 					cost,
-					inputTokens: result.usage.inputTokens ?? 0,
-					outputTokens: result.usage.outputTokens ?? 0,
-					cachedInputTokens: result.usage.cachedInputTokens,
-					reasoningTokens: result.usage.reasoningTokens,
+					inputTokens: usage.inputTokens ?? 0,
+					outputTokens: usage.outputTokens ?? 0,
+					cachedInputTokens: usage.cachedInputTokens,
+					reasoningTokens: usage.reasoningTokens,
 					requestTime,
 					timeToFirstToken: llmCall.timeToFirstToken,
 					totalTime: llmCall.totalTime,
+					finishReason: result.finishReason,
 				};
 
 				// Convert to AssistantContentExt
@@ -370,8 +373,10 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				llmCall.messages = [...llmCall.messages, cloneAndTruncateBuffers(message)];
 
 				span.setAttributes({
-					inputChars: prompt.length,
-					outputChars: responseText.length,
+					inputTokens: usage.inputTokens,
+					outputTokens: usage.outputTokens,
+					cachedInputTokens: usage.cachedInputTokens,
+					reasoningTokens: usage.reasoningTokens,
 					response: responseText,
 					inputCost,
 					outputCost,
@@ -418,26 +423,40 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				service: this.service,
 			});
 
-			const llmCallSave: Promise<LlmCall> = appContext().llmCallService.saveRequest({
+			const createLlmCallRequest: CreateLlmRequest = {
 				messages: llmMessages,
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
 				callStack: callStack(),
 				settings: combinedOpts,
-			});
+			};
+			let llmCall: LlmCall;
+			try {
+				llmCall = await appContext().llmCallService.saveRequest(createLlmCallRequest);
+			} catch (e) {
+				// If the initial save fails then we'll just save it later with the response
+				llmCall = {
+					...createLlmCallRequest,
+					id: randomUUID(),
+					requestTime: Date.now(),
+				};
+			}
 
 			const requestTime = Date.now();
 
 			let firstTokenTime = 0;
 
-			const result = aiStreamText({
+			const args: StreamTextArgs = {
 				model: this.aiModel(),
 				messages,
+				abortSignal: combinedOpts?.abortSignal,
 				temperature: combinedOpts?.temperature,
 				// topP: combinedOpts?.topP, // anthropic '`temperature` and `top_p` cannot both be specified for this model. Please use only one.'
 				stopSequences: combinedOpts?.stopSequences,
 				experimental_transform: smoothStream(),
-			});
+			};
+			logger.info({ args: { ...args, messages: `LlmCall:${llmCall.id}` } }, `Streaming text - ${opts?.id}`);
+			const result = streamText(args);
 
 			for await (const part of result.fullStream) {
 				if (!firstTokenTime) firstTokenTime = Date.now();
@@ -451,8 +470,6 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 
 			addCost(totalCost);
 
-			const llmCall: LlmCall = await llmCallSave;
-
 			const stats: GenerationStats = {
 				llmId: this.getId(),
 				cost: totalCost,
@@ -460,10 +477,10 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				outputTokens: usage.outputTokens ?? 0,
 				totalTime: finish - requestTime,
 				timeToFirstToken: firstTokenTime - requestTime,
+				finishReason,
 				requestTime,
 			};
 
-			// messages =
 			const responseMessage = response.messages[0]!;
 			let assistantResponseMessageContent: AssistantContentExt;
 
@@ -523,6 +540,8 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 			span.setAttributes({
 				inputTokens: usage.inputTokens,
 				outputTokens: usage.outputTokens,
+				cachedInputTokens: usage.cachedInputTokens,
+				reasoningTokens: usage.reasoningTokens,
 				inputCost,
 				outputCost,
 				totalCost,

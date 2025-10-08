@@ -325,6 +325,7 @@ export class MockLLM extends BaseLLM {
 				requestTime,
 				timeToFirstToken,
 				totalTime: llmCall.totalTime,
+				finishReason: 'stop',
 			};
 
 			llmCall.messages = [...llmCall.messages, assistantMessage];

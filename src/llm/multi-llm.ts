@@ -16,8 +16,6 @@ Gemini (2...) could be great for this with the context caching reducing the cost
  * Not properly tested yet
  */
 export class MultiLLM extends BaseLLM {
-	maxOutputTokens: number;
-
 	constructor(
 		private llms: LLM[],
 		private callsPerLLM = 1,
@@ -33,7 +31,6 @@ export class MultiLLM extends BaseLLM {
 				totalCost: 0,
 			}),
 		});
-		this.maxOutputTokens = Math.min(...llms.map((llm) => llm.getMaxInputTokens()));
 	}
 
 	override async _generateText(systemPrompt: string | undefined, userPrompt: string, opts?: GenerateTextOptions): Promise<string> {
@@ -50,10 +47,6 @@ export class MultiLLM extends BaseLLM {
 		const index = Number.parseInt(response) - 1; // sub 1 as responses are indexed from 1 in the prompt
 		logger.info(`Best response was from ${calls[index]!.model}`);
 		return messageText(responses[index]!);
-	}
-
-	override getMaxInputTokens(): number {
-		return this.maxOutputTokens;
 	}
 }
 

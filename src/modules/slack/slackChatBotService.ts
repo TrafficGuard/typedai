@@ -46,6 +46,8 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 
 	private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
 	private agentUser!: User;
+	private botUserId: string | undefined;
+	private botMentionCache: Map<string, boolean> = new Map(); // Cache bot mentions by thread
 
 	api(): SlackAPI {
 		this.slackApi ??= new SlackAPI();
@@ -105,7 +107,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 
 		// TODO remove reaction from message it replied to
 
-		/* Only add thread_ts if we’re in a real thread.
+		/* Only add thread_ts if we're in a real thread.
 			 - In a channel: event.thread_ts is set for replies
 			 - In the App DM: event.thread_ts is undefined  */
 		// if (agent.metadata.thread_ts) {
@@ -127,6 +129,8 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 		slackApp = undefined;
 		this.status = 'disconnected';
 		this.channels.clear();
+		this.botUserId = undefined;
+		this.botMentionCache.clear();
 	}
 
 	async initSlack(): Promise<void> {
@@ -149,6 +153,15 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 
 		this.channels = new Set(config.channels);
 
+		// Get bot user ID for mention detection
+		try {
+			const authResult = await slackApp.client.auth.test();
+			this.botUserId = authResult.user_id;
+			logger.info({ botUserId: this.botUserId }, 'Bot user ID retrieved');
+		} catch (error) {
+			logger.error(error, 'Failed to get bot user ID');
+		}
+
 		if (config.socketMode) {
 			// Listen for messages in channels
 			slackApp.event('message', async ({ event, say }) => {
@@ -157,7 +170,10 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 
 			slackApp.event('app_mention', async ({ event, say }) => {
 				logger.info({ event }, 'app_mention received');
-				// TODO if not in a channel we are subscribed to, then get the thread messages and reply to it
+				// Cache that the bot was mentioned in this thread
+				const threadTs = (event as any).thread_ts || event.ts;
+				const cacheKey = `${event.channel}-${threadTs}`;
+				this.botMentionCache.set(cacheKey, true);
 			});
 			logger.info('Registered Slack event listeners');
 		}
@@ -178,6 +194,34 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 		});
 	}
 
+	private messageMentionsBot(messageText: string): boolean {
+		if (!this.botUserId || !messageText) return false;
+		return messageText.includes(`<@${this.botUserId}>`);
+	}
+
+	private async isBotMentionedInThread(channel: string, threadTs: string): Promise<boolean> {
+		const cacheKey = `${channel}-${threadTs}`;
+		// Check cache first
+		if (this.botMentionCache.has(cacheKey)) return this.botMentionCache.get(cacheKey)!;
+
+		if (!this.botUserId) {
+			logger.warn('Bot user ID not available for mention detection');
+			return false;
+		}
+
+		try {
+			const messages = await this.fetchThreadMessages(channel, threadTs);
+			// Check if any message in the thread mentions the bot
+			const mentioned = messages.some((msg: any) => this.messageMentionsBot(msg.text));
+			// Cache the result
+			this.botMentionCache.set(cacheKey, mentioned);
+			return mentioned;
+		} catch (error) {
+			logger.error(error, 'Error checking for bot mention in thread');
+			return false;
+		}
+	}
+
 	private async processMessage(event: KnownEventFromType<'message'>, say: SayFn) {
 		// biomejs formatter changes event['property'] to event.property which doesn't compile
 		const _event: any = event;
@@ -188,12 +232,32 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 		if (event.subtype === 'message_changed') return;
 		if (event.subtype === 'channel_join') return;
 
-		if (!this.channels.has(event.channel) && event.channel_type !== 'im') {
-			logger.info(`Channel ${event.channel} not configured`);
-			return;
+		const messageText = _event.text;
+		const isConfiguredChannel = this.channels.has(event.channel);
+		const isDM = event.channel_type === 'im';
+		const currentMessageMentionsBot = this.messageMentionsBot(messageText);
+
+		// Quick check: if it's not a configured channel, not a DM, and current message doesn't mention bot
+		if (!isConfiguredChannel && !isDM && !currentMessageMentionsBot) {
+			// If it's a reply in a thread, check if bot was mentioned earlier in the thread
+			if (_event.thread_ts) {
+				const botMentionedInThread = await this.isBotMentionedInThread(event.channel, _event.thread_ts);
+				if (!botMentionedInThread) {
+					logger.info(`Ignoring message in channel ${event.channel} - not configured, not a DM, and bot not mentioned`);
+					return;
+				}
+			} else {
+				logger.info(`Ignoring message in channel ${event.channel} - not configured, not a DM, and bot not mentioned`);
+				return;
+			}
 		}
 
-		const messageText = _event.text;
+		// Cache bot mention if current message mentions bot
+		if (currentMessageMentionsBot) {
+			const threadTs = _event.thread_ts || event.ts;
+			const cacheKey = `${event.channel}-${threadTs}`;
+			this.botMentionCache.set(cacheKey, true);
+		}
 
 		// In regular channels if the message is not a reply in a thread, then we will start a new agent to handle the first message in the thread
 		if (!_event.thread_ts) {

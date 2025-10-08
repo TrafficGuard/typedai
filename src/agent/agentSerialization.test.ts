@@ -59,6 +59,7 @@ describe('serializeContext', () => {
 		getModel: sinon.stub() as any,
 		getDisplayName: sinon.stub() as any,
 		getMaxInputTokens: sinon.stub() as any,
+		getMaxOutputTokens: sinon.stub() as any,
 		countTokens: sinon.stub() as any,
 		isConfigured: sinon.stub() as any,
 		getOldModels: sinon.stub().returns([]),

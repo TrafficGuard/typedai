@@ -11,7 +11,9 @@ export function openAiLLMRegistry(): Record<string, () => LLM> {
 		'openai:gpt-5': () => openaiGPT5(),
 		'openai:gpt-5-mini': () => openaiGPT5mini(),
 		'openai:gpt-5-nano': () => openaiGPT5nano(),
-		'openai:gpt-5-chat': () => openaiGPT5chat(),
+		'openai:gpt-5-codex': () => openaiGPT5codex(),
+		'openai:gpt-5-pro': () => openaiGPT5pro(),
+		// 'openai:gpt-5-chat': () => openaiGPT5chat(),
 	};
 }
 
@@ -36,6 +38,8 @@ function costPerMilTokens(inputMil: number, outputMil: number): LlmCostFunction 
 	};
 }
 
+// pricing, max input/output token etc at https://platform.openai.com/docs/models/compare
+
 export function openaiGPT5flex(): LLM {
 	return openaiGPT5('flex');
 }
@@ -45,7 +49,7 @@ export function openaiGPT5priority(): LLM {
 }
 
 export function openaiGPT5(serviceTier?: 'auto' | 'flex' | 'priority'): LLM {
-	return new OpenAI('GPT5', 'gpt-5', 'gpt-5', costPerMilTokens(1.25, 10), 200_000, ['o3', 'gpt-4.1'], serviceTier);
+	return new OpenAI('GPT5', 'gpt-5', 'gpt-5', costPerMilTokens(1.25, 10), 200_000, 128_000, ['o3', 'gpt-4.1'], serviceTier);
 }
 
 export function openaiGPT5miniFlex(): LLM {
@@ -53,16 +57,24 @@ export function openaiGPT5miniFlex(): LLM {
 }
 
 export function openaiGPT5mini(serviceTier?: 'auto' | 'flex' | 'priority'): LLM {
-	return new OpenAI('GPT5 mini', 'gpt-5-mini', 'gpt-5-mini', costPerMilTokens(0.25, 2), 200_000, ['gpt-4.1-mini', 'o3-mini', 'o4-mini'], serviceTier);
+	return new OpenAI('GPT5 mini', 'gpt-5-mini', 'gpt-5-mini', costPerMilTokens(0.25, 2), 400_000, 128_000, ['gpt-4.1-mini', 'o3-mini', 'o4-mini'], serviceTier);
 }
 
 export function openaiGPT5nano(): LLM {
-	return new OpenAI('GPT5 nano', 'gpt-5-nano', 'gpt-5-nano', costPerMilTokens(0.05, 0.4), 200_000, ['gpt-4.1-nano', 'o3-nano', 'o4-mini']);
+	return new OpenAI('GPT5 nano', 'gpt-5-nano', 'gpt-5-nano', costPerMilTokens(0.05, 0.4), 400_000, 128_000, ['gpt-4.1-nano', 'o3-nano', 'o4-mini']);
 }
 
-export function openaiGPT5chat(): LLM {
-	return new OpenAI('GPT5 chat', 'gpt-5-chat', 'gpt-5-chat', costPerMilTokens(1.25, 10), 200_000, ['gpt-4.1']);
+export function openaiGPT5codex(): LLM {
+	return new OpenAI('GPT5 codex', 'gpt-5-codex', 'gpt-5-codex', costPerMilTokens(1.25, 10), 400_000, 128_000);
 }
+
+export function openaiGPT5pro(): LLM {
+	return new OpenAI('GPT5 pro', 'gpt-5-pro', 'gpt-5-pro', costPerMilTokens(15, 120), 400_000, 272_000);
+}
+
+// export function openaiGPT5chat(): LLM {
+// 	return new OpenAI('GPT5 chat', 'gpt-5-chat', 'gpt-5-chat', costPerMilTokens(1.25, 10), 128_000, 16_384, ['gpt-4.1']);
+// }
 
 const openaiKeyRotator = createEnvKeyRotator('OPENAI_API_KEY');
 
@@ -72,7 +84,8 @@ export class OpenAI extends AiLLM<OpenAIProvider> {
 		model: string,
 		serviceModelId: string,
 		calculateCosts: LlmCostFunction,
-		maxContext: number,
+		maxInputTokens: number,
+		maxOutputTokens: number,
 		oldIds?: string[],
 		serviceTier?: 'auto' | 'flex' | 'priority',
 	) {
@@ -81,7 +94,7 @@ export class OpenAI extends AiLLM<OpenAIProvider> {
 			service: OPENAI_SERVICE,
 			modelId: model,
 			serviceModelId: serviceModelId,
-			maxInputTokens: maxContext,
+			maxInputTokens,
 			calculateCosts,
 			oldIds,
 			defaultOptions: serviceTier

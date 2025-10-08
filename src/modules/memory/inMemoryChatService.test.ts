@@ -8,4 +8,6 @@ describe('InMemoryChatService', () => {
 		() => new InMemoryChatService(),
 		() => {},
 	);
+
+	// DO NOT add tests here. All tests must be in the shared ChatService test suite in chatService.test.ts
 });

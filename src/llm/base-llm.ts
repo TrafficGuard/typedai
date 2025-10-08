@@ -29,6 +29,7 @@ export interface BaseLlmConfig {
 	service: string;
 	modelId: string;
 	maxInputTokens: number;
+	maxOutputTokens?: number;
 	calculateCosts: LlmCostFunction;
 	oldIds?: string[];
 	/** The provider's native model identifier if different from modelId */
@@ -70,6 +71,7 @@ export abstract class BaseLLM implements LLM {
 	protected modelId: string;
 	protected serviceModelId?: string;
 	protected maxInputTokens: number;
+	protected maxOutputTokens?: number;
 	readonly calculateCosts: LlmCostFunction;
 	private oldIds: string[] = [];
 
@@ -79,6 +81,7 @@ export abstract class BaseLLM implements LLM {
 		this.modelId = cfg.modelId;
 		this.serviceModelId = cfg.serviceModelId;
 		this.maxInputTokens = cfg.maxInputTokens;
+		this.maxOutputTokens = cfg.maxOutputTokens;
 		this.calculateCosts = cfg.calculateCosts;
 		this.oldIds = cfg.oldIds ?? [];
 	}
@@ -231,6 +234,10 @@ export abstract class BaseLLM implements LLM {
 
 	getMaxInputTokens(): number {
 		return this.maxInputTokens;
+	}
+
+	getMaxOutputTokens(): number | undefined {
+		return this.maxOutputTokens;
 	}
 
 	isRetryableError(e: any): boolean {

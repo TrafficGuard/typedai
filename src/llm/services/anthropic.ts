@@ -17,15 +17,15 @@ export function anthropicLLMRegistry(): Record<string, () => LLM> {
 }
 
 export function anthropicClaude4_1_Opus(): LLM {
-	return new Anthropic('Claude 4.1 Opus (Anthropic)', 'claude-opus-4-1-20250805', anthropicCostFunction(15, 75), ['claude-opus-4-0']);
+	return new Anthropic('Claude 4.1 Opus (Anthropic)', 'claude-opus-4-1-20250805', 200_000, 32_000, anthropicCostFunction(15, 75), ['claude-opus-4-0']);
 }
 
 export function anthropicClaude4_5_Sonnet(): LLM {
-	return new Anthropic('Claude 4.5 Sonnet (Anthropic)', 'claude-sonnet-4-5-20250929', anthropicCostFunction(3, 15), ['claude-sonnet-4']);
+	return new Anthropic('Claude 4.5 Sonnet (Anthropic)', 'claude-sonnet-4-5-20250929', 200_000, 64_000, anthropicCostFunction(3, 15), ['claude-sonnet-4']);
 }
 
 export function Claude3_5_Haiku(): LLM {
-	return new Anthropic('Claude 3.5 Haiku', 'claude-3-5-haiku-20241022', anthropicCostFunction(1, 5));
+	return new Anthropic('Claude 3.5 Haiku', 'claude-3-5-haiku-20241022', 200_000, 8_192, anthropicCostFunction(1, 5));
 }
 
 function anthropicCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
@@ -56,8 +56,8 @@ export function ClaudeLLMs(): AgentLLMs {
 }
 
 export class Anthropic extends AiLLM<AnthropicProvider> {
-	constructor(displayName: string, model: string, calculateCosts: LlmCostFunction, oldIds?: string[]) {
-		super({ displayName, service: ANTHROPIC_SERVICE, modelId: model, maxInputTokens: 200_000, calculateCosts, oldIds });
+	constructor(displayName: string, model: string, maxInputTokens: number, maxOutputTokens: number, calculateCosts: LlmCostFunction, oldIds?: string[]) {
+		super({ displayName, service: ANTHROPIC_SERVICE, modelId: model, maxInputTokens, maxOutputTokens, calculateCosts, oldIds });
 	}
 
 	protected apiKey(): string | undefined {
