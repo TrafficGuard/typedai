@@ -1,4 +1,11 @@
-export class NotFound extends Error {}
+export class NotFound extends Error {
+	code = 'NOT_FOUND';
+
+	constructor(message: string) {
+		super(message);
+		this.name = 'NotFoundError';
+	}
+}
 
 export class FileNotFound extends Error {
 	code: string;
@@ -9,6 +16,11 @@ export class FileNotFound extends Error {
 	}
 }
 
-export class NotAllowed extends Error {}
+export class NotAllowed extends Error {
+	code = 'NOT_ALLOWED';
 
-export class InvalidRequest extends Error {}
+	constructor(message: string) {
+		super(message);
+		this.name = 'NotAllowed';
+	}
+}

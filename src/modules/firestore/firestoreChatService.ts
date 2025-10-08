@@ -25,7 +25,11 @@ export class FirestoreChatService implements ChatService {
 
 			if (!docSnap.exists) {
 				logger.warn(`Chat with id ${chatId} not found`);
-				throw new Error(`Chat with id ${chatId} not found`);
+				{
+					const err = new Error(`Chat with id ${chatId} not found`);
+					(err as any).code = 'NOT_FOUND';
+					throw err;
+				}
 			}
 
 			const data = docSnap.data()!;
@@ -47,7 +51,11 @@ export class FirestoreChatService implements ChatService {
 			}
 
 			if (!chat.shareable && chat.userId !== currentUser().id) {
-				throw new Error('Chat not visible.');
+				{
+					const err = new Error('Chat not visible.');
+					(err as any).code = 'UNAUTHORIZED';
+					throw err;
+				}
 			}
 			return chat;
 		} catch (error) {
@@ -58,7 +66,12 @@ export class FirestoreChatService implements ChatService {
 
 	@span()
 	async saveChat(chat: Chat): Promise<Chat> {
-		if (!chat.userId) throw new Error('chat.userId is required');
+		const userId = currentUser().id;
+		if (!chat.userId) {
+			const err = new Error('chat.userId is required');
+			(err as any).code = 'INVALID_REQUEST';
+			throw err;
+		}
 
 		if (!chat.id) chat.id = randomUUID();
 		if (chat.updatedAt === undefined) {
@@ -69,11 +82,26 @@ export class FirestoreChatService implements ChatService {
 			const docRef = this.db.doc(`Chats/${chat.id}`);
 			const existingDoc = await docRef.get();
 
-			// If updating an existing chat, enforce ownership check
+			// If updating an existing chat, enforce ownership using current user and prevent userId spoofing
 			if (existingDoc.exists) {
 				const existing = existingDoc.data()!;
-				if (existing.userId !== chat.userId) {
-					throw new Error('Not authorized to modify this chat');
+				if (existing.userId !== userId) {
+					{
+						const err = new Error('Not authorized to modify this chat');
+						(err as any).code = 'UNAUTHORIZED';
+						throw err;
+					}
+				}
+				// Preserve original owner on updates
+				chat.userId = existing.userId;
+			} else {
+				// Enforce ownership on create
+				if (chat.userId !== userId) {
+					{
+						const err = new Error('Not authorized to create this chat');
+						(err as any).code = 'UNAUTHORIZED';
+						throw err;
+					}
 				}
 			}
 
@@ -142,13 +170,21 @@ export class FirestoreChatService implements ChatService {
 
 			if (!docSnap.exists) {
 				logger.warn(`Chat with id ${chatId} not found`);
-				throw new Error(`Chat with id ${chatId} not found`);
+				{
+					const err = new Error(`Chat with id ${chatId} not found`);
+					(err as any).code = 'NOT_FOUND';
+					throw err;
+				}
 			}
 
 			const chatData = docSnap.data()!;
 			if (chatData.userId !== userId) {
 				logger.warn(`User ${userId} is not authorized to delete chat ${chatId}`);
-				throw new Error('Not authorized to delete this chat');
+				{
+					const err = new Error('Not authorized to delete this chat');
+					(err as any).code = 'UNAUTHORIZED';
+					throw err;
+				}
 			}
 
 			await docRef.delete();

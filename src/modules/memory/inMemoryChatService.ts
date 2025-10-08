@@ -24,11 +24,19 @@ export class InMemoryChatService implements ChatService {
 		const chat = this.chats.get(chatId);
 		if (!chat) {
 			logger.warn(`Chat with id ${chatId} not found`);
-			throw new Error(`Chat with id ${chatId} not found`);
+			{
+				const err = new Error(`Chat with id ${chatId} not found`);
+				(err as any).code = 'NOT_FOUND';
+				throw err;
+			}
 		}
 
 		if (!chat.shareable && chat.userId !== currentUserId) {
-			throw new Error('Chat not visible.');
+			{
+				const err = new Error('Chat not visible.');
+				(err as any).code = 'UNAUTHORIZED';
+				throw err;
+			}
 		}
 
 		return structuredClone(chat);
@@ -44,14 +52,22 @@ export class InMemoryChatService implements ChatService {
 		const currentUserId = currentUser().id;
 
 		// ---- basic validation --------------------------------
-		if (!chat.title) throw new Error('chat title is required');
+		if (!chat.title) {
+			const err = new Error('chat title is required');
+			(err as any).code = 'INVALID_REQUEST';
+			throw err;
+		}
 		if (!chat.id) chat.id = randomUUID();
 
 		const existing = this.chats.get(chat.id);
 
 		/* ------------------- UPDATE -------------------------- */
 		if (existing) {
-			if (existing.userId !== currentUserId) throw new Error('chat userId is invalid');
+			if (existing.userId !== currentUserId) {
+				const err = new Error('Not authorized to modify this chat');
+				(err as any).code = 'UNAUTHORIZED';
+				throw err;
+			}
 			chat.userId = existing.userId; // preserve owner
 			chat.updatedAt = Date.now();
 		} else {
@@ -108,12 +124,20 @@ export class InMemoryChatService implements ChatService {
 
 		if (!chat) {
 			logger.warn(`Chat with id ${chatId} not found`);
-			throw new Error(`Chat with id ${chatId} not found`);
+			{
+				const err = new Error(`Chat with id ${chatId} not found`);
+				(err as any).code = 'NOT_FOUND';
+				throw err;
+			}
 		}
 
 		if (chat.userId !== currentUserId) {
 			logger.warn(`User ${currentUserId} is not authorized to delete chat ${chatId}`);
-			throw new Error('Not authorized to delete this chat');
+			{
+				const err = new Error('Not authorized to delete this chat');
+				(err as any).code = 'UNAUTHORIZED';
+				throw err;
+			}
 		}
 
 		this.chats.delete(chatId);
