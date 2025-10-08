@@ -276,7 +276,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 					maxRetries: combinedOpts.maxRetries,
 					maxOutputTokens: combinedOpts.maxOutputTokens,
 					providerOptions,
-					abortSignal: combinedOpts.abortSignal,
+					// abortSignal: combinedOpts.abortSignal,
 				};
 				// Messages can be large so just log the reference to the LlmCall its saved in
 				logger.info({ args: { ...args, messages: `LlmCall:${llmCall.id}` } }, `Generating text - ${opts?.id}`);
@@ -449,7 +449,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 			const args: StreamTextArgs = {
 				model: this.aiModel(),
 				messages,
-				abortSignal: combinedOpts?.abortSignal,
+				// abortSignal: combinedOpts?.abortSignal,
 				temperature: combinedOpts?.temperature,
 				// topP: combinedOpts?.topP, // anthropic '`temperature` and `top_p` cannot both be specified for this model. Please use only one.'
 				stopSequences: combinedOpts?.stopSequences,
