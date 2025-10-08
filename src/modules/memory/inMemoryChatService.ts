@@ -4,6 +4,7 @@ import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import type { Chat, ChatList, ChatPreview } from '#shared/chat/chat.model';
 import type { LlmMessage } from '#shared/llm/llm.model';
+import { InvalidRequest, NotFound, Unauthorized } from '#shared/errors';
 import { currentUser } from '#user/userContext';
 
 /**
@@ -24,19 +25,11 @@ export class InMemoryChatService implements ChatService {
 		const chat = this.chats.get(chatId);
 		if (!chat) {
 			logger.warn(`Chat with id ${chatId} not found`);
-			{
-				const err = new Error(`Chat with id ${chatId} not found`);
-				(err as any).code = 'NOT_FOUND';
-				throw err;
-			}
+			throw new NotFound(`Chat with id ${chatId} not found`);
 		}
 
 		if (!chat.shareable && chat.userId !== currentUserId) {
-			{
-				const err = new Error('Chat not visible.');
-				(err as any).code = 'UNAUTHORIZED';
-				throw err;
-			}
+			throw new Unauthorized('Chat not visible.');
 		}
 
 		return structuredClone(chat);
@@ -53,9 +46,7 @@ export class InMemoryChatService implements ChatService {
 
 		// ---- basic validation --------------------------------
 		if (!chat.title) {
-			const err = new Error('chat title is required');
-			(err as any).code = 'INVALID_REQUEST';
-			throw err;
+			throw new InvalidRequest('chat title is required');
 		}
 		if (!chat.id) chat.id = randomUUID();
 
@@ -64,9 +55,7 @@ export class InMemoryChatService implements ChatService {
 		/* ------------------- UPDATE -------------------------- */
 		if (existing) {
 			if (existing.userId !== currentUserId) {
-				const err = new Error('Not authorized to modify this chat');
-				(err as any).code = 'UNAUTHORIZED';
-				throw err;
+				throw new Unauthorized('Not authorized to modify this chat');
 			}
 			chat.userId = existing.userId; // preserve owner
 			chat.updatedAt = Date.now();
@@ -124,20 +113,12 @@ export class InMemoryChatService implements ChatService {
 
 		if (!chat) {
 			logger.warn(`Chat with id ${chatId} not found`);
-			{
-				const err = new Error(`Chat with id ${chatId} not found`);
-				(err as any).code = 'NOT_FOUND';
-				throw err;
-			}
+			throw new NotFound(`Chat with id ${chatId} not found`);
 		}
 
 		if (chat.userId !== currentUserId) {
 			logger.warn(`User ${currentUserId} is not authorized to delete chat ${chatId}`);
-			{
-				const err = new Error('Not authorized to delete this chat');
-				(err as any).code = 'UNAUTHORIZED';
-				throw err;
-			}
+			throw new Unauthorized('Not authorized to delete this chat');
 		}
 
 		this.chats.delete(chatId);

@@ -5,6 +5,7 @@ import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { CHAT_PREVIEW_KEYS, type Chat, type ChatList, type ChatPreview } from '#shared/chat/chat.model';
 import type { LlmMessage } from '#shared/llm/llm.model';
+import { InvalidRequest, NotFound, Unauthorized } from '#shared/errors';
 import { currentUser } from '#user/userContext';
 import { type ChatsTable, type Database, db } from './db';
 
@@ -56,19 +57,11 @@ export class PostgresChatService implements ChatService {
 
 		if (!row) {
 			logger.warn(`Chat with id ${chatId} not found`);
-			{
-				const err = new Error(`Chat with id ${chatId} not found`);
-				(err as any).code = 'NOT_FOUND';
-				throw err;
-			}
+			throw new NotFound(`Chat with id ${chatId} not found`);
 		}
 		const chat = this.mapDbRowToChat(row);
 		if (!chat.shareable && chat.userId !== currentUserId) {
-			{
-				const err = new Error('Chat not visible.');
-				(err as any).code = 'UNAUTHORIZED';
-				throw err;
-			}
+			throw new Unauthorized('Chat not visible.');
 		}
 		return chat;
 	}
@@ -101,11 +94,7 @@ export class PostgresChatService implements ChatService {
 			const existsOtherUser = await db.selectFrom('chats').select('id').where('id', '=', chat.id).executeTakeFirst();
 
 			if (existsOtherUser) {
-				{
-					const err = new Error('Not authorized to modify this chat');
-					(err as any).code = 'UNAUTHORIZED';
-					throw err;
-				}
+				throw new Unauthorized('Not authorized to modify this chat');
 			}
 		}
 
@@ -168,18 +157,10 @@ export class PostgresChatService implements ChatService {
 			const existsAnyUser = await db.selectFrom('chats').select('id').where('id', '=', chatId).executeTakeFirst();
 			if (!existsAnyUser) {
 				logger.warn(`Chat with id ${chatId} not found for deletion.`);
-				{
-					const err = new Error(`Chat with id ${chatId} not found`);
-					(err as any).code = 'NOT_FOUND';
-					throw err;
-				}
+				throw new NotFound(`Chat with id ${chatId} not found`);
 			}
 			logger.warn(`User ${currentUserId} is not authorized to delete chat ${chatId}`);
-			{
-				const err = new Error('Not authorized to delete this chat');
-				(err as any).code = 'UNAUTHORIZED';
-				throw err;
-			}
+			throw new Unauthorized('Not authorized to delete this chat');
 		}
 
 		const result = await db.deleteFrom('chats').where('id', '=', chatId).where('user_id', '=', currentUserId).executeTakeFirst();

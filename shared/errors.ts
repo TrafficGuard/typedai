@@ -24,3 +24,19 @@ export class NotAllowed extends Error {
 		this.name = 'NotAllowed';
 	}
 }
+
+export class Unauthorized extends Error {
+	code = 'UNAUTHORIZED';
+	constructor(message: string) {
+		super(message);
+		this.name = 'Unauthorized';
+	}
+}
+
+export class InvalidRequest extends Error {
+	code = 'INVALID_REQUEST';
+	constructor(message: string) {
+		super(message);
+		this.name = 'InvalidRequest';
+	}
+}
