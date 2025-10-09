@@ -24,6 +24,11 @@ const singleUser: User = {
 export class InMemoryUserService extends AbstractUserService {
 	users: User[] = [singleUser];
 
+	constructor() {
+		super();
+		this.singleUser = singleUser;
+	}
+
 	async getUser(userId: string): Promise<User> {
 		const user = this.users.find((user) => user.id === userId);
 		if (!user) throw new Error(`No user found with ID ${userId}`);
