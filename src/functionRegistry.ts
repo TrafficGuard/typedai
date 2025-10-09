@@ -4,6 +4,7 @@ import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { BigQuery } from '#functions/cloud/google/bigquery';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { CommandLineInterface } from '#functions/commandLine';
+import { Confluence } from '#functions/confluence';
 import { CustomFunctions } from '#functions/customFunctions';
 import { DeepThink } from '#functions/deepThink';
 import { GoogleCalendar } from '#functions/googleCalendar';
@@ -50,6 +51,7 @@ const FUNCTIONS = [
 	CommandLineInterface,
 	GoogleCloud,
 	Jira,
+	Confluence,
 	Perplexity,
 	Slack,
 	SoftwareDeveloperAgent,

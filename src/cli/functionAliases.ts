@@ -3,6 +3,7 @@ import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { CommandLineInterface } from '#functions/commandLine';
+import { Confluence } from '#functions/confluence';
 import { CustomFunctions } from '#functions/customFunctions';
 import { Jira } from '#functions/jira';
 import { LlmTools } from '#functions/llmTools';
@@ -40,6 +41,7 @@ const functionAliases: Record<string, string> = {
 	gcp: GoogleCloud.name,
 	ts: TypescriptTools.name,
 	jira: Jira.name,
+	conf: Confluence.name,
 	live: LiveFiles.name,
 	gcloud: GoogleCloud.name,
 	custom: CustomFunctions.name,

@@ -9,8 +9,8 @@ import { initInMemoryApplicationContext } from '#app/applicationContext';
 import { cerebrasQwen3_Coder } from '#llm/services/cerebras';
 import { logger } from '#o11y/logger';
 import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
-import { MorphAPI } from '#swe/morph/morphApi';
 import { MorphEditor } from '#swe/morph/morphEditor';
+import { beep } from '#utils/beep';
 import { execCommand } from '#utils/exec';
 import { parseProcessArgs } from './cli';
 
@@ -32,14 +32,43 @@ async function main() {
 	startWatcher();
 }
 
-main().then(
-	() => console.log('done'),
-	(e) => console.error(e),
-);
-
 export function extractInstructionBlock(fileContents: string): string | null {
 	const match = fileContents.match(/@@@([\s\S]*?)@@/m);
 	return match ? match[1].trim() : null;
+}
+
+/**
+ * Rate limiter to prevent runaway loops
+ */
+class RateLimiter {
+	private callTimestamps: number[] = [];
+	private readonly maxCalls: number;
+	private readonly windowMs: number;
+
+	constructor(maxCalls = 5, windowSeconds = 10) {
+		this.maxCalls = maxCalls;
+		this.windowMs = windowSeconds * 1000;
+	}
+
+	canProcess(): boolean {
+		const now = Date.now();
+		// Remove timestamps outside the time window
+		this.callTimestamps = this.callTimestamps.filter((timestamp) => now - timestamp < this.windowMs);
+
+		if (this.callTimestamps.length >= this.maxCalls) {
+			return false;
+		}
+
+		this.callTimestamps.push(now);
+		return true;
+	}
+
+	getRemainingTime(): number {
+		if (this.callTimestamps.length === 0) return 0;
+		const oldestCall = this.callTimestamps[0];
+		const elapsed = Date.now() - oldestCall;
+		return Math.max(0, this.windowMs - elapsed);
+	}
 }
 
 /**
@@ -47,45 +76,90 @@ export function extractInstructionBlock(fileContents: string): string | null {
  */
 export function startWatcher(): void {
 	const opts = parseProcessArgs();
-	const watchPath = String(opts.flags.fs) || process.cwd();
+	const watchPath = opts.flags.fs ? String(opts.flags.fs) : process.cwd();
+
+	const debounceTimers = new Map<string, NodeJS.Timeout>();
+	const processingFiles = new Set<string>();
+	const rateLimiter = new RateLimiter(3, 10); // Max 3 calls per 10 seconds
 
 	const watcher = fs.watch(watchPath, { recursive: true }, async (event: WatchEventType, filename: string | null) => {
 		console.log(event, filename);
 		// Early exit if filename is null
 		if (!filename) return;
+		if (filename.endsWith('watch.ts') || filename.endsWith('watch.test.ts')) return; // don't edit this file or the test as there's always @@@ !!!
 		console.log(`${event} ${filename}`);
 
 		const filePath = path.join(watchPath, filename);
-		if (!fileExistsSync(filePath)) {
-			logger.info(`${filePath} doesn't exist`);
+
+		// Ignore if already processing this file
+		if (processingFiles.has(filePath)) {
+			console.log(`Skipping ${filePath} - already processing`);
 			return;
 		}
-		console.log(`Checking ${filePath}`);
-		try {
-			// const repoRoot = findRepoRoot(filePath);
-			const fileContents = await fs.promises.readFile(filePath, 'utf-8');
 
-			const instructions = extractInstructionBlock(fileContents);
-			if (!instructions) return;
-			console.log(`Extracted instructions: ${instructions}`);
-
-			let start = Date.now();
-			const codeEdits = await generateCodeEdits(fileContents, instructions);
-			const editsTime = Date.now() - start;
-			start = Date.now();
-			await new MorphEditor().editFile(filePath, instructions, codeEdits);
-			const morphTime = Date.now() - start;
-			console.log(`Edits: ${(editsTime / 1000).toFixed(1)}s, Morph: ${(morphTime / 1000).toFixed(1)}s`);
-			// Pass the prompt to the AiderCodeEditor
-			// logger.info('Running SearchReplaceCoder...');
-			// // TODO should include all imported files as readonly
-			// const result = await new SearchReplaceCoder(llms(), getFileSystem()).editFilesToMeetRequirements(prompt, [filePath], [], false);
-			// logger.info(result);
-			// Exit early after handling the first valid line
-			return;
-		} catch (error) {
-			console.error(`Error reading file ${filePath}:`, error);
+		// Clear existing timer for this file
+		const existingTimer = debounceTimers.get(filePath);
+		if (existingTimer) {
+			clearTimeout(existingTimer);
 		}
+
+		// Set new debounce timer
+		const timer = setTimeout(async () => {
+			debounceTimers.delete(filePath);
+
+			if (!fileExistsSync(filePath)) {
+				logger.info(`${filePath} doesn't exist`);
+				return;
+			}
+
+			// Check rate limit
+			if (!rateLimiter.canProcess()) {
+				const remainingMs = rateLimiter.getRemainingTime();
+				const remainingSecs = Math.ceil(remainingMs / 1000);
+				console.warn('⚠️  Rate limit exceeded! Too many edits in 10 seconds. Check for edit loops. Disabling watcher and exiting.');
+				watcher.close();
+				beep();
+				beep();
+				beep();
+				beep();
+				process.exit();
+			}
+
+			// Mark file as being processed
+			processingFiles.add(filePath);
+			console.log(`Checking ${filePath}`);
+			try {
+				// const repoRoot = findRepoRoot(filePath);
+				const fileContents = await fs.promises.readFile(filePath, 'utf-8');
+
+				const instructions = extractInstructionBlock(fileContents);
+				if (!instructions) return;
+				console.log(`Extracted instructions: ${instructions}`);
+				beep();
+				let start = Date.now();
+				const codeEdits = await generateCodeEdits(fileContents, instructions);
+				const editsTime = Date.now() - start;
+				start = Date.now();
+				await new MorphEditor().editFile(filePath, instructions, codeEdits);
+				const morphTime = Date.now() - start;
+				console.log(`Edits: ${(editsTime / 1000).toFixed(1)}s, Morph: ${(morphTime / 1000).toFixed(1)}s`);
+				beep();
+				// Pass the prompt to the AiderCodeEditor
+				// logger.info('Running SearchReplaceCoder...');
+				// // TODO should include all imported files as readonly
+				// const result = await new SearchReplaceCoder(llms(), getFileSystem()).editFilesToMeetRequirements(prompt, [filePath], [], false);
+				// logger.info(result);
+				// Exit early after handling the first valid line
+				return;
+			} catch (error) {
+				console.error(`Error reading file ${filePath}:`, error);
+			} finally {
+				// Always remove from processing set
+				processingFiles.delete(filePath);
+			}
+		}, 50);
+
+		debounceTimers.set(filePath, timer);
 	});
 
 	console.log(`Started watcher for ${watchPath}`);

@@ -67,20 +67,25 @@ export async function loadSecrets(sm?: SecretManager) {
 }
 
 /**
- * Returns the secret value for the given environment variable name. Values prefixed with secret:// are resolved from the SecretManager
+ * Returns the secret value for the given environment variable name. Values prefixed with secret:// are resolved from the SecretManager, otherwise the value is returned from process.env
  * @param name
  * @returns the resolved secret value
  * @throws Error if the secret manager is not initialized or the secret does not exist in the secret manager
  */
-export function getSecret(name: string): string {
-	// If we have it as an env var, return it
-	if (!process.env[name]?.startsWith(SECRET_PTR_PREFIX)) return process.env[name]!;
+export function getSecretEnvVar(name: string, defaultValue?: string): string {
+	// If its not a secret value then return it from the environment variables
+	if (!process.env[name]?.startsWith(SECRET_PTR_PREFIX)) {
+		const value = process.env[name];
+		if (!value && defaultValue === undefined) throw new Error(`No value for env var ${name}`);
+		if (!value) return defaultValue!;
+		return value;
+	}
 
-	if (hasSecretEnvVars && !initialized) throw new Error('Secret manager not initialized');
-	if (!hasSecret(name)) throw new Error(`Secret '${name}' not found in ${Array.from(secrets.keys())}`);
+	if (!initialized) throw new Error('Secret manager not initialized');
+	if (!secrets.has(name)) {
+		if (defaultValue !== undefined) return defaultValue;
+		throw new Error(`Secret '${name}' not found in ${Array.from(secrets.keys())}`);
+	}
+
 	return secrets.get(name)!;
-}
-
-export function hasSecret(name: string): boolean {
-	return secrets.has(name);
 }

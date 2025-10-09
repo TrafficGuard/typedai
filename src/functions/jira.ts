@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import axios, { type AxiosInstance } from 'axios';
+import { getSecretEnvVar } from 'src/config/secretConfig';
 import { llms } from '#agent/agentContextLocalStorage';
 import { agentStorageDir } from '#app/appDirs';
 import { func, funcClass } from '#functionSchema/functionDecorators';
@@ -17,16 +18,33 @@ export interface JiraConfig {
 	token: string;
 }
 
+interface JiraIssue {
+	id: string;
+	key: string;
+	fields: {
+		summary: string;
+		created: string; // ISO 8601 format
+		updated: string; // ISO 8601 format
+		creator?: { displayName: string };
+		assignee?: { displayName: string };
+	};
+}
+
 @funcClass(__filename)
 export class Jira {
 	instance: AxiosInstance | undefined;
+
+	private email(): string {
+		const config: JiraConfig = functionConfig(Jira) as JiraConfig;
+		return config.email || process.env.JIRA_EMAIL || currentUser()?.email || envVar('SINGLE_USER_EMAIL');
+	}
 
 	private axios(): AxiosInstance {
 		if (!this.instance) {
 			const config: JiraConfig = functionConfig(Jira) as JiraConfig;
 			const baseUrl = config.baseUrl || envVar('JIRA_BASE_URL');
-			const email = config.email || process.env.JIRA_EMAIL || currentUser()?.email;
-			const apiToken = config.token || envVar('JIRA_API_TOKEN');
+			const email = this.email();
+			const apiToken = config.token || getSecretEnvVar('JIRA_API_TOKEN');
 
 			if (!baseUrl) throw new Error('Jira baseUrl must be provided from the user profile or JIRA_BASE_URL environment variable');
 			if (!apiToken) throw new Error('Jira apiToken must be provided from the user profile or JIRA_API_TOKEN environment variable');
@@ -42,6 +60,23 @@ export class Jira {
 			});
 		}
 		return this.instance;
+	}
+
+	/**
+	 * Gets the key of a JIRA issue
+	 * @param {string} issueId - the numeric issue id (e.g. 73479)
+	 * @returns {Promise<string>} the issue key (e.g. XYZ-123)
+	 */
+	@func()
+	async getJiraKey(issueId: string): Promise<{ key: string; summary: string }> {
+		if (!issueId) throw new Error('issueId is required');
+		try {
+			const response = await this.axios().get(`/rest/api/latest/issue/${issueId}`);
+			return { key: response.data.key, summary: response.data.fields.summary };
+		} catch (error) {
+			logger.error(error, `Error fetching Jira ${issueId} description`);
+			throw error;
+		}
 	}
 
 	/**
@@ -214,6 +249,46 @@ export class Jira {
 			logger.error(error, `Error posting comment to Jira issue ${issueId}`);
 			throw error;
 		}
+	}
+
+	/**
+	 * Fetches Jira issues where the user performed key activities on a given day.
+	 * Supports: issue creation, comments, and worklogs.
+	 *
+	 * @param from - The start date in ISO, YYYY-MM-DD or YYYY/MM/DD format
+	 * @param to - The end date in ISO, YYYY-MM-DD or YYYY/MM/DD format
+	 * @returns Promise<JiraIssue[]> - Matching Jira issues
+	 */
+	public async getUserActivity(from: string, to: string): Promise<JiraIssue[]> {
+		const username = this.email();
+		// convert "2025-07-21" → "2025/07/21"
+		const dateFrom = from.substring(0, 10).replace(/-/g, '/');
+		const dateTo = to.substring(0, 10).replace(/-/g, '/');
+
+		const jql = `issuekey in updatedBy("${username}", "${dateFrom}", "${dateTo}")`;
+		logger.info(jql);
+		try {
+			const response = await this.axios().get('/rest/api/3/search/jql', {
+				params: {
+					jql,
+					maxResults: 100,
+					fields: 'key,summary',
+				},
+			});
+
+			return response.data.issues;
+		} catch (error: any) {
+			logger.error('Error fetching Jira activity:', error.response?.status ? error.response.data : error.message);
+			return [];
+		}
+	}
+
+	/**
+	 * Converts a Date object to the Jira-compatible date-time format (e.g., '2025-07-20')
+	 * Note: Jira expects dates without quotes in JQL, unless required by a filter.
+	 */
+	private formatJiraDateString(date: Date): string {
+		return date.toISOString().split('T')[0];
 	}
 
 	async getBacklog(boardId: string): Promise<any> {

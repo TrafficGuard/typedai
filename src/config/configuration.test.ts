@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { SecretManager, getSecret, loadSecrets } from './secretConfig';
+import { SecretManager, getSecretEnvVar, loadSecrets } from './secretConfig';
 
 class FakeSecretManager implements SecretManager {
 	constructor(private data: Map<string, string>) {}
@@ -22,6 +22,6 @@ describe('configuration', () => {
 
 		await loadSecrets(fake);
 
-		expect(getSecret('SLACK_BOT_TOKEN')).to.equal('xoxb-123');
+		expect(getSecretEnvVar('SLACK_BOT_TOKEN')).to.equal('xoxb-123');
 	});
 });
