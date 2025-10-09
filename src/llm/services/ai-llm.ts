@@ -189,15 +189,14 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				// }
 
 				// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
-				if (this.getService() === 'openai' && (this.getModel().startsWith('o') || this.getModel().includes('gpt5')))
-					providerOptions.openai = { reasoningEffort: combinedOpts.thinking };
+				if (this.getService() === 'openai' && this.getModel().includes('gpt5')) providerOptions.openai = { reasoningEffort: combinedOpts.thinking };
 				let thinkingBudget: number | undefined;
 				// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
 				// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
 				if (this.getModel().includes('claude-3-7') || this.getModel().includes('opus-4') || this.getModel().includes('sonnet-4')) {
-					if (combinedOpts.thinking === 'low') thinkingBudget = 1024;
-					if (combinedOpts.thinking === 'medium') thinkingBudget = 6000;
-					else if (combinedOpts.thinking === 'high') thinkingBudget = 13000;
+					if (combinedOpts.thinking === 'low') thinkingBudget = 3000;
+					if (combinedOpts.thinking === 'medium') thinkingBudget = 8192;
+					else if (combinedOpts.thinking === 'high') thinkingBudget = 21_333; // maximum without streaming
 					if (thinkingBudget) {
 						providerOptions.anthropic = {
 							thinking: { type: 'enabled', budgetTokens: thinkingBudget },
@@ -208,9 +207,10 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				}
 				// https://cloud.google.com/vertex-ai/generative-ai/docs/thinking#budget
 				else if (this.getId().includes('gemini-2.5')) {
-					if (combinedOpts.thinking === 'low') thinkingBudget = 8192;
-					else if (combinedOpts.thinking === 'medium') thinkingBudget = 16384;
-					else if (combinedOpts.thinking === 'high') thinkingBudget = 24576;
+					if (combinedOpts.thinking === 'low') thinkingBudget = 3000;
+					else if (combinedOpts.thinking === 'medium')
+						thinkingBudget = 8192; // default thinking budget for Gemini
+					else if (combinedOpts.thinking === 'high') thinkingBudget = 24_576;
 					if (thinkingBudget) {
 						providerOptions.google = {
 							thinkingConfig: {
@@ -325,7 +325,8 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				// Convert to AssistantContentExt
 				const assistantMsg = result.response.messages.find((msg) => msg.role === 'assistant');
 				if (!assistantMsg) {
-					logger.info({ messages: result.response.messages, stats }, 'Response messages (no assistant)');
+					logger.warn({ response: result.response, stats }, 'Response messages (no assistant)');
+					// Handling this error message in the quotaRetry decorator
 					throw new Error('No assistant message found');
 				}
 				const assistantContent: AssistantContentExt = [];

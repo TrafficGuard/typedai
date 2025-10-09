@@ -89,7 +89,6 @@ class VertexLLM extends AiLLM<GoogleVertexProvider> {
 		let location = currentUser()?.llmConfig.vertexRegion || envVar('GCLOUD_REGION');
 		// Currently a note at https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash-lite states that the model is only available in global location
 		if (this.getId().includes('gemini-2.5-flash')) {
-			logger.info('Setting global location for flash');
 			location = 'global';
 		}
 		this.aiProvider ??= createVertex({
