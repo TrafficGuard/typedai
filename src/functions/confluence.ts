@@ -174,7 +174,7 @@ export class Confluence {
 	}
 
 	async fetchAllPagesInSpace(spaceKey: string): Promise<ConfluencePage[]> {
-		const config: ConfluenceConfig = functionConfig(Confluence) as ConfluenceConfig;
+		const config: JiraConfig = functionConfig(Jira) as JiraConfig;
 		const baseUrl = config.baseUrl || envVar('JIRA_BASE_URL');
 		const apiToken = config.token || getSecretEnvVar('JIRA_API_TOKEN');
 
