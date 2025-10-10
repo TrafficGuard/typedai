@@ -486,7 +486,7 @@ export function runAgentStateServiceTests(
 
 			// Terminal states (should NOT be listed)
 			await service.save(createMockAgentContext(agentId(), { state: 'completed', lastUpdate: Date.now() - 600 }));
-			await service.save(createMockAgentContext(agentId(), { state: 'shutdown', lastUpdate: Date.now() - 700 }));
+			await service.save(createMockAgentContext(agentId(), { state: 'restart', lastUpdate: Date.now() - 700 }));
 			await service.save(createMockAgentContext(agentId(), { state: 'timeout', lastUpdate: Date.now() - 800 }));
 		});
 
@@ -518,7 +518,7 @@ export function runAgentStateServiceTests(
 
 			// Verify that no terminal states (including 'error' as per service impl) are included
 			contexts.forEach((ctx) => {
-				expect(ctx.state).to.not.be.oneOf(['completed', 'shutdown', 'timeout', 'error']);
+				expect(ctx.state).to.not.be.oneOf(['completed', 'restart', 'timeout', 'error']);
 				expect(ctx).to.include.keys(['agentId', 'state', 'lastUpdate']);
 			});
 		});
@@ -528,7 +528,7 @@ export function runAgentStateServiceTests(
 			service = createService(); // Recreate service after clearing
 			// Save only agents with terminal states
 			await service.save(createMockAgentContext(agentId(), { state: 'completed' }));
-			await service.save(createMockAgentContext(agentId(), { state: 'shutdown' }));
+			await service.save(createMockAgentContext(agentId(), { state: 'restart' }));
 			await service.save(createMockAgentContext(agentId(), { state: 'timeout' }));
 			await service.save(createMockAgentContext(agentId(), { state: 'error' })); // Also save an error state one
 

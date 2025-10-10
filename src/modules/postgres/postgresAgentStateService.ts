@@ -402,7 +402,7 @@ export class PostgresAgentStateService implements AgentContextService {
 
 	async listRunning(): Promise<AgentContextPreview[]> {
 		const userId = currentUser().id;
-		const terminalStates: AgentRunningState[] = ['completed', 'shutdown', 'timeout', 'error'];
+		const terminalStates: AgentRunningState[] = ['completed', 'restart', 'timeout', 'error'];
 		const rows = await this.db
 			.selectFrom('agent_contexts')
 			// Select only necessary columns for list view

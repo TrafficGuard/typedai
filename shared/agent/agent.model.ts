@@ -55,7 +55,7 @@ export interface AgentCompleted {
  * feedback - deprecated version of hitl_feedback
  * child_agents - stopped waiting for child agents to complete
  * completed - the agent has called the completed function.
- * shutdown - if the agent has stopped after being instructed by the system to pause (e.g. for server shutdown)
+ * restart - Before the server is restarted (for upgrade etc), running agents are stopped and set to 'restart' to indicate they should be restarted on the server restart.
  * timeout - for chat agents when there hasn't been a user input for a configured amount of time
  */
 export type AgentRunningState =
@@ -69,7 +69,7 @@ export type AgentRunningState =
 	| 'hitl_feedback'
 	| 'hitl_user'
 	| 'completed'
-	| 'shutdown'
+	| 'restart'
 	| 'child_agents'
 	| 'timeout';
 

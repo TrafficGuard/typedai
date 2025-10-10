@@ -129,18 +129,15 @@ export const ToolContentSchema = Type.Array(ToolResultSchema, { $id: 'ToolConten
 // type ToolLlmContent = Extract<LlmMessage, { role: 'tool' }>['content'];
 const _ToolContentCheck: AreTypesFullyCompatible<ToolContent, Static<typeof ToolContentSchema>> = true;
 
-export const FinishReasonSchema = Type.Union(
-	[
-		Type.Literal('stop'),
-		Type.Literal('length'),
-		Type.Literal('content-filter'),
-		Type.Literal('tool-calls'),
-		Type.Literal('error'),
-		Type.Literal('other'),
-		Type.Literal('unknown'),
-	],
-	{ $id: 'FinishReason' },
-);
+export const FinishReasonSchema = Type.Union([
+	Type.Literal('stop'),
+	Type.Literal('length'),
+	Type.Literal('content-filter'),
+	Type.Literal('tool-calls'),
+	Type.Literal('error'),
+	Type.Literal('other'),
+	Type.Literal('unknown'),
+]);
 const _FinishReasonCheck: AreTypesFullyCompatible<FinishReason, Static<typeof FinishReasonSchema>> = true;
 
 export const GenerationStatsSchema = Type.Object({

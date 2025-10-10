@@ -278,8 +278,8 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 					providerOptions,
 					// abortSignal: combinedOpts.abortSignal,
 				};
-				// Messages can be large so just log the reference to the LlmCall its saved in
-				logger.info({ args: { ...args, messages: `LlmCall:${llmCall.id}` } }, `Generating text - ${opts?.id}`);
+				// Messages can be large, and model property with schemas, so just log the reference to the LlmCall its saved in
+				logger.info({ args: { ...args, messages: `LlmCall:${llmCall.id}`, model: this.getId() } }, `Generating text - ${opts?.id}`);
 
 				const result: GenerateTextResult<any, any> = await generateText(args);
 

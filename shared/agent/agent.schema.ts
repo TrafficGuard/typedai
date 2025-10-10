@@ -25,7 +25,7 @@ export const AgentRunningStateSchema = Type.Union(
 		Type.Literal('hitl_feedback'),
 		Type.Literal('hitl_user'),
 		Type.Literal('completed'),
-		Type.Literal('shutdown'),
+		Type.Literal('restart'),
 		Type.Literal('child_agents'),
 		Type.Literal('timeout'),
 	],

@@ -239,7 +239,7 @@ export class MongoAgentContextService implements AgentContextService {
 	async listRunning(): Promise<AgentContextPreview[]> {
 		try {
 			const currentUserId = userContext.currentUser().id; // Get current user ID
-			const terminalStates: AgentRunningState[] = ['completed', 'error', 'shutdown', 'timeout'];
+			const terminalStates: AgentRunningState[] = ['completed', 'error', 'restart', 'timeout'];
 
 			const projection: Record<string, 0 | 1> = { _id: 0 };
 			(AGENT_PREVIEW_KEYS as unknown as Array<keyof AgentContext | '_id'>).forEach((key) => {

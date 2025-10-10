@@ -200,7 +200,7 @@ export class FirestoreAgentStateService implements AgentContextService {
 	async listRunning(): Promise<AgentContextPreview[]> {
 		// Define terminal states to exclude from the "running" list
 		// TODO this list should be defined in agent.model.ts
-		const terminalStates: AgentRunningState[] = ['completed', 'shutdown', 'timeout', 'error']; // Added 'error' as it's typically terminal
+		const terminalStates: AgentRunningState[] = ['completed', 'restart', 'timeout', 'error']; // Added 'error' as it's typically terminal
 		// NOTE: This query requires a composite index in Firestore.
 		// Example gcloud command:
 		// gcloud firestore indexes composite create --collection-group=AgentContext --query-scope=COLLECTION --field-config field-path=user,order=ASCENDING --field-config field-path=state,operator=NOT_IN --field-config field-path=lastUpdate,order=DESCENDING

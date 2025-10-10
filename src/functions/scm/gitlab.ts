@@ -1,4 +1,4 @@
-import type { EventSchema, Gitlab, JobSchema, SimpleProjectSchema, SimpleUserSchema } from '@gitbeaker/core';
+import type { DiscussionSchema, EventSchema, Gitlab, JobSchema, SimpleProjectSchema, SimpleUserSchema } from '@gitbeaker/core';
 import {
 	type CommitDiffSchema,
 	type CreateMergeRequestOptions,
@@ -462,6 +462,14 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 		logger.info({ projectId: projectIdOrProjectPath, jobId, tokens }, `Retrieved job logs (${tokens} tokens)`);
 
 		return logs;
+	}
+
+	async findDiscussionIdByNoteId(projectId: string | number, mergeRequestIid: number, noteId: number): Promise<DiscussionSchema | null> {
+		const discussions = await this.api().MergeRequestDiscussions.all(projectId, mergeRequestIid);
+		for (const d of discussions) {
+			if (d.notes?.some((n: any) => n.id === noteId)) return d;
+		}
+		return null;
 	}
 
 	/**

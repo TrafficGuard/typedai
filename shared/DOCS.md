@@ -68,6 +68,10 @@ If there is a compile failure on this line then there is a mismatch between the 
 
 The compile error `error TS2322: Type 'true' is not assignable to type 'false'` indicates a type mismatch.
 
+### Schema Ids
+
+Schema Ids only need to be provided to top level objects. When a schema is used as a property of another schema, the id is not needed, and can cause errors. 
+e.g. "FastifyError: Failed building the serialization schema for GET: /api/agent/details, due to error reference "SubEntity" resolves to more than one schema"
 
 ## APIs
 

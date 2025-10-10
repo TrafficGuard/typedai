@@ -73,7 +73,7 @@ export class InMemoryAgentStateService implements AgentContextService {
 
 	async listRunning(): Promise<AgentContextPreview[]> {
 		const allAgentPreviews = await this.list(); // This will now return AgentContextPreview[]
-		const terminalStates: AgentRunningState[] = ['completed', 'shutdown', 'timeout', 'error'];
+		const terminalStates: AgentRunningState[] = ['completed', 'restart', 'timeout', 'error'];
 		return allAgentPreviews.filter((preview) => !terminalStates.includes(preview.state));
 	}
 
