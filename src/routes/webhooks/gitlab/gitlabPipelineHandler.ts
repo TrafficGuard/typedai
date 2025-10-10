@@ -19,7 +19,7 @@ export async function handlePipelineEvent(event: WebhookPipelineEventSchema) {
 
 	if (pipeline.status === 'success') {
 		// check if there is a CodeTask and notify it of a successful build
-	} else {
+	} else if (pipeline.status !== 'running') {
 		const mergeRequest = event.merge_request; // may be null
 		if (mergeRequest) {
 			failedLogs = await new GitLab().getMergeRequestPipelineFailedJobLogs(event.project.id, mergeRequest.iid);
