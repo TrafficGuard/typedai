@@ -105,6 +105,9 @@ export async function sendMessageRoute(fastify: AppFastifyInstance): Promise<voi
 		};
 
 		// Generate chat title in parallel on first message and stream it to client
+		// NOTE: We don't save the chat here to avoid a race condition where this async
+		// operation could overwrite messages saved by subsequent requests. The title
+		// will be saved on the next chat operation (next message or chat details update).
 		if (isFirstMessage && (!chat.title || chat.title.trim() === '')) {
 			(async () => {
 				try {
@@ -115,8 +118,6 @@ export async function sendMessageRoute(fastify: AppFastifyInstance): Promise<voi
 					const trimmed = (title || '').trim();
 					if (trimmed) {
 						chat.title = trimmed;
-						chat.updatedAt = Date.now(); // Update updatedAt when saving title
-						await fastify.chatService.saveChat(chat);
 						sse({ type: 'title', title: chat.title });
 					}
 				} catch (e) {
