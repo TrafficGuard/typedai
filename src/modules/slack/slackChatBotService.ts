@@ -5,10 +5,12 @@ import { getLastFunctionCallArg } from '#agent/autonomous/agentCompletion';
 import { resumeCompletedWithUpdatedUserRequest, startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import { appContext } from '#app/applicationContext';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
+import { Confluence } from '#functions/confluence';
 import { Jira } from '#functions/jira';
 import { LlmTools } from '#functions/llmTools';
 import { GitLab } from '#functions/scm/gitlab';
 import { Perplexity } from '#functions/web/perplexity';
+import { PublicWeb } from '#functions/web/web';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { getAgentUser } from '#routes/webhooks/webhookAgentUser';
@@ -18,12 +20,12 @@ import { runAsUser } from '#user/userContext';
 import type { ChatBotService } from '../../chatBot/chatBotService';
 import { SupportKnowledgebase } from '../../functions/supportKnowledgebase';
 import { SlackAPI } from './slackApi';
+import { formatAsSlackBlocks } from './slackBlockFormatter';
 import { slackConfig } from './slackConfig';
-import { textToBlocks } from './slackMessageFormatter';
 
 let slackApp: App<StringIndexed> | undefined;
 
-const CHATBOT_FUNCTIONS: Array<new () => any> = [GitLab, GoogleCloud, Perplexity, LlmTools, Jira];
+const CHATBOT_FUNCTIONS: Array<new () => any> = [GitLab, GoogleCloud, PublicWeb, Perplexity, LlmTools, Jira, Confluence];
 
 /*
 There's a few steps involved with spotting a thread and then understanding the context of a message within it. Let's unspool them:
@@ -101,7 +103,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 		const params: any = {
 			channel: agent.metadata.slack.channel,
 			thread_ts: agent.metadata.slack.thread_ts,
-			blocks: textToBlocks(message),
+			blocks: await formatAsSlackBlocks(message),
 			text: message,
 		};
 
