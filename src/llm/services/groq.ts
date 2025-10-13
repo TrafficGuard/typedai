@@ -20,32 +20,27 @@ export function groqLLMRegistry(): Record<string, () => LLM> {
 // https://groq.com/pricing/
 // https://console.groq.com/docs/models
 
-// Qwen3 32B 131khttps://console.groq.com/docs/model/qwen3-32b
-// 16,384 max output tokens
+// https://console.groq.com/docs/model/qwen/qwen3-32b
 export function groqQwen3_32b(): LLM {
-	return new GroqLLM('Qwen3 32b (Groq)', 'qwen/qwen3-32b', 131_072, costPerMilTokens(0.29, 0.59));
+	return new GroqLLM('Qwen3 32b (Groq)', 'qwen/qwen3-32b', 131_072, 40_960, costPerMilTokens(0.29, 0.59));
 }
 
+// https://console.groq.com/docs/model/meta-llama/llama-4-scout-17b-16e-instruct
 export function groqLlama4_Scout(): LLM {
-	return new GroqLLM('Llama4 Scout (Groq)', 'meta-llama/llama-4-scout-17b-16e-instruct', 131_072, costPerMilTokens(0.11, 0.34));
+	return new GroqLLM('Llama4 Scout (Groq)', 'meta-llama/llama-4-scout-17b-16e-instruct', 131_072, 8_192, costPerMilTokens(0.11, 0.34));
 }
 
+// https://console.groq.com/docs/model/moonshotai/kimi-k2-instruct-0905
 export function groqKimiK2(): LLM {
-	return new GroqLLM(
-		'Kimi K2 (Groq)',
-		'moonshotai/kimi-k2-instruct',
-		// 16,384 max output tokens (from official Groq documentation)
-		16384,
-		costPerMilTokens(1.0, 3.0),
-	);
+	return new GroqLLM('Kimi K2 (Groq)', 'moonshotai/kimi-k2-instruct', 262_144, 16_384, costPerMilTokens(1.0, 3.0));
 }
 
 /**
  * https://wow.groq.com/
  */
 export class GroqLLM extends AiLLM<GroqProvider> {
-	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
-		super({ displayName, service: GROQ_SERVICE, modelId: model, maxInputTokens: maxOutputTokens, calculateCosts });
+	constructor(displayName: string, model: string, maxInputTokens: number, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
+		super({ displayName, service: GROQ_SERVICE, modelId: model, maxInputTokens, maxOutputTokens, calculateCosts });
 	}
 
 	override aiModel(): LanguageModelV2 {
