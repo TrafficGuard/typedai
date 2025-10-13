@@ -2,9 +2,9 @@ import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import axios, { type AxiosInstance } from 'axios';
 import { getSecretEnvVar } from 'src/config/secretConfig';
+import { llms } from '#agent/agentContextLocalStorage';
 import { agentStorageDir } from '#app/appDirs';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { functionConfig } from '#user/userContext';
 import { envVar } from '#utils/env-var';
@@ -62,12 +62,16 @@ export class Confluence {
 
 	// https://developer.atlassian.com/cloud/confluence/rest/v1/api-group-search/#api-wiki-rest-api-search-get
 	/**
-	 * Searches Confluence pages
+	 * Searches Confluence pages and pre-filters the results.
+	 * For example:
+	 * searchString: cloud-project-XYZ network
+	 * searchResultFilterQuery: Im looking for information specifically about the networking configuration of the cloud-project-XYZ
 	 * @param {string} searchString - the string to search for
+	 * @param {string} searchResultFilterQuery - the LLM generated query to filter the search results to
 	 * @returns {Promise<Array<{id: string, title: string, type: string, body: string, bodyTokens: number}>>}
 	 */
 	@func()
-	async search(searchString: string): Promise<Array<{ id: string; title: string; body: string; bodyTokens: number }>> {
+	async search(searchString: string, searchResultFilterQuery: string): Promise<Array<{ id: string; title: string; summary: string }>> {
 		if (!searchString) throw new Error('searchString is required');
 		// title ~ "release" OR text ~ "release"  (escape " in searchString)
 		searchString = searchString.replaceAll('"', '\\"');
@@ -75,22 +79,25 @@ export class Confluence {
 
 		try {
 			const response = await this.axios().get('/wiki/rest/api/content/search', {
-				params: { cql, expand: 'type,title,body.export_view' },
+				params: { cql, expand: 'type,title,body.export_view', limit: 10 },
 			});
-
+			console.log(`Found ${response.data.results.length} results for query: ${searchString}`);
 			const results = response.data.results.map((page: any) => ({
 				id: page.id,
 				title: page.title,
-				type: page.type,
-				body: turndownService.turndown(page.body.export_view.value),
-				bodyTokens: null,
+				// type: page.type,
+				summary: turndownService.turndown(page.body.export_view.value),
 			}));
-			const tokenPromises = results.map(async (page: any) => {
-				page.bodyTokens = await countTokens(page.body);
-			});
-			await Promise.all(tokenPromises);
 
-			return results;
+			const filterCalls = results.map(async (page: any) => {
+				const prompt = `<confluence-page>\n<page:id>${page.id}</page:id>\n<page:title>${page.title}</page:title>\n<page:body>\n${page.summary}\n</page:body>\n</confluence-page>\n\n<filter-query>\n${searchResultFilterQuery}\n</filter-query>\n\nFilter the confluence page contents to only include information that has some relevance to the query to reduce the number of tokens returned to the LLM performing the search\nWhere the page contents is highly relevant, return the page contents as is.\nWhere the page contents has some relevance, return extracts of the relevant sections and a short summary of the pages contents.\nWhere the page contents is not relevant, only return a short summary of the pages contents. Do not explain why or what is not relevant.\n`;
+				const summarizedBody = await llms().medium.generateText(prompt, { id: 'Confluence search result filter' });
+				page.summary = summarizedBody;
+				return page;
+			});
+			const filteredPages = await Promise.all(filterCalls);
+			logger.info({ filteredPages, searchResultFilterQuery }, `Returning filtered confluence search results for query: ${searchString}`);
+			return filteredPages;
 		} catch (error) {
 			logger.error(error, `Error searching Confluence: ${cql}`);
 			throw error;
