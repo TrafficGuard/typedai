@@ -90,7 +90,7 @@ export interface GenerateTextOptions extends CallSettings {
 /**
  * Options when generating text expecting JSON
  */
-export type GenerateJsonOptions = Omit<GenerateTextOptions, 'type'>;
+export type GenerateJsonOptions = Omit<GenerateTextOptions, 'type'> & { jsonSchema?: any };
 
 /*
 Types from the 'ai' package:
