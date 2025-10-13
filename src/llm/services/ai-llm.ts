@@ -23,6 +23,7 @@ import {
 	type AssistantContentExt,
 	type CoreContent,
 	type FilePartExt,
+	GenerateJsonOptions,
 	type GenerateTextOptions,
 	type GenerationStats,
 	type ImagePartExt,
@@ -170,57 +171,62 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 		});
 	}
 
+	configureOptions(opts: GenerateTextOptions) {
+		// Gemini Flash 2.0 thinking max is about 42
+		if (opts.topK && opts.topK > 40) opts.topK = 40;
+
+		opts.providerOptions ??= {};
+		const providerOptions: any = opts.providerOptions;
+		if (opts.thinking) {
+			// if (this.getService() === 'groq') {
+			// 	providerOptions.groq = { reasoningFormat: 'parsed' };
+			// }
+
+			// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
+			if (this.getService() === 'openai' && this.getModel().includes('gpt5')) providerOptions.openai = { reasoningEffort: opts.thinking };
+			let thinkingBudget: number | undefined;
+			// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
+			// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
+			if (this.getModel().includes('claude-3-7') || this.getModel().includes('opus-4') || this.getModel().includes('sonnet-4')) {
+				if (opts.thinking === 'low') thinkingBudget = 3000;
+				if (opts.thinking === 'medium') thinkingBudget = 8192;
+				else if (opts.thinking === 'high') thinkingBudget = 21_333; // maximum without streaming
+				if (thinkingBudget) {
+					providerOptions.anthropic = {
+						thinking: { type: 'enabled', budgetTokens: thinkingBudget },
+					};
+					opts.temperature = undefined; // temperature is not supported when thinking is enabled
+				}
+				// maxOutputTokens += budgetTokens;
+				// Streaming is required when max_tokens is greater than 21,333
+			}
+			// https://cloud.google.com/vertex-ai/generative-ai/docs/thinking#budget
+			else if (this.getId().includes('gemini-2.5')) {
+				if (opts.thinking === 'low') thinkingBudget = 3000;
+				else if (opts.thinking === 'medium')
+					thinkingBudget = 8192; // default thinking budget for Gemini
+				else if (opts.thinking === 'high') thinkingBudget = 24_576;
+				if (thinkingBudget) {
+					providerOptions.google = {
+						thinkingConfig: {
+							includeThoughts: true,
+							thinkingBudget,
+						},
+					};
+				}
+			}
+		}
+	}
+
 	@quotaRetry({ retries: 5, initialBackoffMs: 5000 })
-	override async _generateMessage(llmMessages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
+	override async _generateMessage(llmMessages: LlmMessage[], opts: GenerateTextOptions | GenerateJsonOptions = {}): Promise<LlmMessage> {
 		const combinedOpts = { ...this.defaultOptions, ...opts };
 		const description = combinedOpts.id ?? '';
 		return await withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
 			// The processMessages method now correctly returns CoreMessage[] and strips out reasoning parts
 			const messages: CoreMessage[] = this.processMessages(llmMessages);
 
-			// Gemini Flash 2.0 thinking max is about 42
-			if (combinedOpts.topK && combinedOpts.topK > 40) combinedOpts.topK = 40;
-
-			combinedOpts.providerOptions ??= {};
-			const providerOptions: any = combinedOpts.providerOptions;
-			if (combinedOpts.thinking) {
-				// if (this.getService() === 'groq') {
-				// 	providerOptions.groq = { reasoningFormat: 'parsed' };
-				// }
-
-				// https://sdk.vercel.ai/docs/guides/o3#refining-reasoning-effort
-				if (this.getService() === 'openai' && this.getModel().includes('gpt5')) providerOptions.openai = { reasoningEffort: combinedOpts.thinking };
-				let thinkingBudget: number | undefined;
-				// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
-				// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
-				if (this.getModel().includes('claude-3-7') || this.getModel().includes('opus-4') || this.getModel().includes('sonnet-4')) {
-					if (combinedOpts.thinking === 'low') thinkingBudget = 3000;
-					if (combinedOpts.thinking === 'medium') thinkingBudget = 8192;
-					else if (combinedOpts.thinking === 'high') thinkingBudget = 21_333; // maximum without streaming
-					if (thinkingBudget) {
-						providerOptions.anthropic = {
-							thinking: { type: 'enabled', budgetTokens: thinkingBudget },
-						};
-					}
-					// maxOutputTokens += budgetTokens;
-					// Streaming is required when max_tokens is greater than 21,333
-				}
-				// https://cloud.google.com/vertex-ai/generative-ai/docs/thinking#budget
-				else if (this.getId().includes('gemini-2.5')) {
-					if (combinedOpts.thinking === 'low') thinkingBudget = 3000;
-					else if (combinedOpts.thinking === 'medium')
-						thinkingBudget = 8192; // default thinking budget for Gemini
-					else if (combinedOpts.thinking === 'high') thinkingBudget = 24_576;
-					if (thinkingBudget) {
-						providerOptions.google = {
-							thinkingConfig: {
-								includeThoughts: true,
-								thinkingBudget,
-							},
-						};
-					}
-				}
-			}
+			this.configureOptions(combinedOpts);
 
 			const prompt = messages.map((m) => m.content).join('\n');
 			span.setAttributes({
@@ -249,17 +255,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				description,
 				settings: combinedOpts,
 			};
-			let llmCall: LlmCall;
-			try {
-				llmCall = await appContext().llmCallService.saveRequest(createLlmCallRequest);
-			} catch (e) {
-				// If the initial save fails then we'll just save it later with the response
-				llmCall = {
-					...createLlmCallRequest,
-					id: randomUUID(),
-					requestTime: Date.now(),
-				};
-			}
+			const llmCall: LlmCall = await this.saveLlmCallRequest(createLlmCallRequest);
 
 			const requestTime = Date.now();
 			try {
@@ -275,7 +271,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 					stopSequences: combinedOpts.stopSequences,
 					maxRetries: combinedOpts.maxRetries,
 					maxOutputTokens: combinedOpts.maxOutputTokens,
-					providerOptions,
+					providerOptions: combinedOpts.providerOptions,
 					// abortSignal: combinedOpts.abortSignal,
 				};
 				// Messages can be large, and model property with schemas, so just log the reference to the LlmCall its saved in
@@ -384,20 +380,12 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 					cost,
 				});
 
-				try {
-					await appContext().llmCallService.saveResponse(llmCall);
-				} catch (e) {
-					logger.warn(e, `Error saving LlmCall response ${e.message}`);
-				}
+				this.saveLlmCallResponse(llmCall);
 
 				return message;
 			} catch (error) {
 				llmCall.error = errorToString(error);
-				try {
-					await appContext().llmCallService.saveResponse(llmCall);
-				} catch (e) {
-					logger.warn(e, `Error saving LlmCall response with error ${e.message}`);
-				}
+				this.saveLlmCallResponse(llmCall);
 
 				span.recordException(error);
 				throw error;
@@ -409,12 +397,14 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 	override async streamText(
 		llmMessages: LlmMessage[],
 		onChunkCallback: (chunk: TextStreamPart<any>) => void,
-		opts?: GenerateTextOptions,
+		opts: GenerateTextOptions | GenerateJsonOptions = {},
 	): Promise<GenerationStats> {
 		const combinedOpts = { ...this.defaultOptions, ...opts };
 		return withActiveSpan(`streamText ${combinedOpts?.id ?? ''}`, async (span) => {
 			// The processMessages method now correctly returns CoreMessage[]
 			const messages: CoreMessage[] = this.processMessages(llmMessages);
+
+			this.configureOptions(combinedOpts);
 
 			const prompt = messages.map((m) => (typeof m.content === 'string' ? m.content : m.content.map((p) => ('text' in p ? p.text : '')).join(''))).join('\n');
 			span.setAttributes({
@@ -431,17 +421,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				callStack: callStack(),
 				settings: combinedOpts,
 			};
-			let llmCall: LlmCall;
-			try {
-				llmCall = await appContext().llmCallService.saveRequest(createLlmCallRequest);
-			} catch (e) {
-				// If the initial save fails then we'll just save it later with the response
-				llmCall = {
-					...createLlmCallRequest,
-					id: randomUUID(),
-					requestTime: Date.now(),
-				};
-			}
+			const llmCall: LlmCall = await this.saveLlmCallRequest(createLlmCallRequest);
 
 			const requestTime = Date.now();
 
@@ -548,15 +528,32 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				totalCost,
 			});
 
-			try {
-				await appContext().llmCallService.saveResponse(llmCall);
-			} catch (e) {
-				logger.error(e);
-			}
+			this.saveLlmCallResponse(llmCall);
 
 			if (finishReason !== 'stop') throw new Error(`Unexpected finish reason: ${finishReason}`);
 
 			return stats;
 		});
+	}
+
+	async saveLlmCallRequest(llmCall: CreateLlmRequest): Promise<LlmCall> {
+		try {
+			return await appContext().llmCallService.saveRequest(llmCall);
+		} catch (e) {
+			// If the initial save fails then we'll just save it later with the response
+			return {
+				...llmCall,
+				id: randomUUID(),
+				requestTime: Date.now(),
+			};
+		}
+	}
+
+	async saveLlmCallResponse(llmCall: LlmCall) {
+		try {
+			await appContext().llmCallService.saveResponse(llmCall);
+		} catch (e) {
+			logger.error(e);
+		}
 	}
 }
