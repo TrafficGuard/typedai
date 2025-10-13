@@ -28,8 +28,18 @@ function findRepoRoot(startFilePath: string): string {
 }
 
 async function main() {
-	initInMemoryApplicationContext();
-	startWatcher();
+	// timeout avoids ReferenceError: Cannot access 'RateLimiter' before initialization
+	setTimeout(() => {
+		initInMemoryApplicationContext();
+		startWatcher();
+	}, 100);
+}
+
+// Check for the runWatcher flag so tests don't start the watcher
+// package.json script
+// "watch": "    node --env-file=variables/local.env -r esbuild-register src/cli/watch.ts -- runWatcher",
+if (process.argv.includes('runWatcher')) {
+	main().catch(console.error);
 }
 
 export function extractInstructionBlock(fileContents: string): string | null {
@@ -112,21 +122,6 @@ export function startWatcher(): void {
 				return;
 			}
 
-			// Check rate limit
-			if (!rateLimiter.canProcess()) {
-				const remainingMs = rateLimiter.getRemainingTime();
-				const remainingSecs = Math.ceil(remainingMs / 1000);
-				console.warn('⚠️  Rate limit exceeded! Too many edits in 10 seconds. Check for edit loops. Disabling watcher and exiting.');
-				watcher.close();
-				beep();
-				beep();
-				beep();
-				beep();
-				process.exit();
-			}
-
-			// Mark file as being processed
-			processingFiles.add(filePath);
 			console.log(`Checking ${filePath}`);
 			try {
 				// const repoRoot = findRepoRoot(filePath);
@@ -134,6 +129,23 @@ export function startWatcher(): void {
 
 				const instructions = extractInstructionBlock(fileContents);
 				if (!instructions) return;
+
+				// Check rate limit
+				if (!rateLimiter.canProcess()) {
+					const remainingMs = rateLimiter.getRemainingTime();
+					const remainingSecs = Math.ceil(remainingMs / 1000);
+					console.warn('⚠️  Rate limit exceeded! Too many edits in 10 seconds. Check for edit loops. Disabling watcher and exiting.');
+					watcher.close();
+					beep();
+					beep();
+					beep();
+					beep();
+					process.exit();
+				}
+
+				// Mark file as being processed
+				processingFiles.add(filePath);
+
 				console.log(`Extracted instructions: ${instructions}`);
 				beep();
 				let start = Date.now();
@@ -226,7 +238,9 @@ async function generateCodeEdits(fileContents: string, instructions: string): Pr
 		'Return only the edit snippet.',
 	].join('\n');
 
-	let edits = await cerebrasQwen3_Coder().generateText(prompt, { temperature: 0.1, topP: 0, id: 'morph-edit' });
+	const cerebrasCoder = cerebrasQwen3_Coder();
+	const llm = cerebrasCoder.isConfigured() ? cerebrasCoder : llms().medium;
+	let edits = await llm.generateText(prompt, { temperature: 0.1, topP: 0, id: 'morph-edit' });
 
 	// Strip code fences if the model accidentally added them
 	const fenced = edits.match(/```(?:\w+)?\n([\s\S]*?)```/);
