@@ -80,9 +80,7 @@ describe('Perplexity Integration Tests', () => {
 			this.timeout(30000);
 
 			const result = await agentContextStorage.run(mockAgentContext, async () => {
-				return await perplexity.search('TypeScript 5.9 features', {
-					max_results: 5,
-				});
+				return await perplexity.webSearch('TypeScript 5.9 features');
 			});
 
 			expect(result).to.have.property('results');
@@ -101,40 +99,7 @@ describe('Perplexity Integration Tests', () => {
 			this.timeout(30000);
 
 			const result = await agentContextStorage.run(mockAgentContext, async () => {
-				return await perplexity.search(['Node.js performance', 'JavaScript async patterns'], {
-					max_results: 10,
-				});
-			});
-
-			expect(result.results).to.be.an('array');
-			expect(result.results.length).to.be.greaterThan(0);
-		});
-
-		it('should return snippets when requested', async function () {
-			this.timeout(30000);
-
-			const result = await agentContextStorage.run(mockAgentContext, async () => {
-				return await perplexity.search('React best practices 2025', {
-					max_results: 3,
-					return_snippets: true,
-				});
-			});
-
-			expect(result.results).to.be.an('array');
-			expect(result.results.length).to.be.greaterThan(0);
-
-			const resultsWithSnippets = result.results.filter((r) => r.snippet);
-			expect(resultsWithSnippets.length).to.be.greaterThan(0);
-		});
-
-		it('should support country filtering', async function () {
-			this.timeout(30000);
-
-			const result = await agentContextStorage.run(mockAgentContext, async () => {
-				return await perplexity.search('local tech events', {
-					max_results: 5,
-					country: 'US',
-				});
+				return await perplexity.webSearch(['Node.js performance', 'JavaScript async patterns']);
 			});
 
 			expect(result.results).to.be.an('array');
@@ -146,9 +111,7 @@ describe('Perplexity Integration Tests', () => {
 
 			await agentContextStorage.run(mockAgentContext, async () => {
 				try {
-					await perplexity.search('', {
-						max_results: 5,
-					});
+					await perplexity.webSearch('');
 					expect.fail('Should have thrown an error');
 				} catch (error) {
 					expect(error).to.exist;
