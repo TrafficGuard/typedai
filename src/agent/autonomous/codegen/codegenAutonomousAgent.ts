@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
 import { type PyodideInterface, loadPyodide } from 'pyodide';
 import type { AgentExecution } from '#agent/agentExecutions';
@@ -226,7 +227,6 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 						stopSequences,
 						temperature: AGENT_TEMPERATURE,
 						thinking: 'high',
-						maxOutputTokens: 32000,
 					});
 					agentPlanResponse = messageText(agentPlanResponseMessage);
 					pythonMainFnCode = extractPythonCode(agentPlanResponse);
@@ -237,7 +237,6 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 						stopSequences,
 						temperature: AGENT_TEMPERATURE,
 						thinking: 'high',
-						maxOutputTokens: 32000,
 					});
 					agentPlanResponse = messageText(agentPlanResponseMessage);
 					pythonMainFnCode = extractPythonCode(agentPlanResponse);
@@ -333,7 +332,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				}
 
 				const lastFunctionCall = agent.functionCallHistory.length ? agent.functionCallHistory[agent.functionCallHistory.length - 1] : null;
-				logger.info(`Last function call was ${lastFunctionCall?.function_name}`);
+				logger.debug(`Last function call was ${lastFunctionCall?.function_name}`);
 				// Check for agent completion or feedback request
 				if (lastFunctionCall?.function_name === AGENT_COMPLETED_NAME) {
 					logger.info(`Task completed: ${lastFunctionCall.parameters[AGENT_COMPLETED_PARAM_NAME]}`);
@@ -577,6 +576,7 @@ export function generatePythonWrapper(schemas: FunctionSchema[], generatedPython
 	let helperAndWrapperCode = `
 import sys
 import traceback # Keep traceback for JS call errors
+import asyncio
 
 try:
     from pyodide.ffi import JsProxy
@@ -600,6 +600,23 @@ def _try_shallow_convert_proxy(result, func_name_for_log: str):
     else:
         # If not a proxy (e.g., primitive), return directly
         return result
+
+# --- Concurrency helpers exposed to generated code (no explicit imports needed) ---
+async def gather(*aws, return_exceptions: bool = False):
+    """
+    Run multiple awaited operations in parallel and return their results.
+    Usage:
+        c1 = FuncA(...)
+        c2 = FuncB(...)
+        r1, r2 = await gather(c1, c2)
+    """
+    return await asyncio.gather(*aws, return_exceptions=return_exceptions)
+
+def create_task(coro):
+    """
+    Schedule a coroutine to run concurrently. Returns an asyncio.Task.
+    """
+    return asyncio.create_task(coro)
 
 `;
 
