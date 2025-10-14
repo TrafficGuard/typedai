@@ -1,6 +1,7 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { CodeTaskServiceImpl } from '#codeTask/codeTaskServiceImpl';
 import { sendServerError } from '#fastify/responses';
+import { logger } from '#o11y/logger';
 import { CODE_TASK_API } from '#shared/codeTask/codeTask.api';
 import { currentUser } from '#user/userContext';
 import { registerApiRoute } from '../routeUtils';
@@ -15,7 +16,7 @@ export async function createPresetRoute(fastify: AppFastifyInstance): Promise<vo
 			const newPreset = await codeTaskService.saveCodeTaskPreset(userId, name, config);
 			return reply.sendJSON(newPreset);
 		} catch (error: any) {
-			fastify.log.error(error, `Error creating Code task preset for user ${userId}`);
+			logger.error(error, `Error creating Code task preset for user ${userId}`);
 			return sendServerError(reply, error.message || 'Failed to create Code task preset');
 		}
 	});

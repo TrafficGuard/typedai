@@ -1,6 +1,7 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { CodeTaskServiceImpl } from '#codeTask/codeTaskServiceImpl';
-import { sendErrorResponse, sendNotFound, sendServerError } from '#fastify/responses';
+import { sendNotFound, sendServerError } from '#fastify/responses';
+import { logger } from '#o11y/logger';
 import { CODE_TASK_API } from '#shared/codeTask/codeTask.api';
 import { currentUser } from '#user/userContext';
 import { registerApiRoute } from '../routeUtils';
@@ -20,7 +21,7 @@ export async function generateDesignRoute(fastify: AppFastifyInstance): Promise<
 		// The service method or API definition should be reconciled.
 		const { instructions } = request.body; // As per CODE_TASK_API.generateDesign schema
 		if (instructions) {
-			fastify.log.warn(
+			logger.warn(
 				`Received 'instructions' for generateDesign API, but the current service method 'generateDetailedDesign' expects 'variations'. Instructions will be ignored. Service or API definition may need an update. Instructions: ${instructions}`,
 			);
 		}
@@ -31,7 +32,7 @@ export async function generateDesignRoute(fastify: AppFastifyInstance): Promise<
 			await codeTaskService.generateDetailedDesign(userId, codeTaskId);
 			return reply.sendJSON({ message: 'Design generation accepted and processing started.' });
 		} catch (error: any) {
-			fastify.log.error(error, `Error triggering design generation for codeTask ${codeTaskId}, user ${userId}`);
+			logger.error(error, `Error triggering design generation for codeTask ${codeTaskId}, user ${userId}`);
 			if (error.message?.includes('not found')) {
 				return sendNotFound(reply, `Code task with ID ${codeTaskId} not found`);
 			}

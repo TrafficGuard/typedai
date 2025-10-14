@@ -32,6 +32,7 @@
       "#agent/*": ["./src/agent/*"],
       "#chat/*": ["./src/chat/*"],
       "#codeTask/*": ["./src/codeTask/*"],
+      "#config/*": ["./src/config/*"],
       "#fastify/*": ["./src/fastify/*"],
       "#firestore/*": ["./src/modules/firestore/*"],
       "#functionSchema/*": ["./src/functionSchema/*"],

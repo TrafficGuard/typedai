@@ -1,6 +1,7 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { CodeTaskServiceImpl } from '#codeTask/codeTaskServiceImpl';
 import { sendNotFound, sendServerError } from '#fastify/responses';
+import { logger } from '#o11y/logger';
 import { CODE_TASK_API } from '#shared/codeTask/codeTask.api';
 import { currentUser } from '#user/userContext';
 import { registerApiRoute } from '../routeUtils';
@@ -17,7 +18,7 @@ export async function getFileContentRoute(fastify: AppFastifyInstance): Promise<
 			const content = await codeTaskService.getFileContent(userId, codeTaskId, filePath);
 			return reply.sendJSON({ content });
 		} catch (error: any) {
-			fastify.log.error(error, `Error getting file content for codeTask ${codeTaskId} (path: ${filePath}), user ${userId}`);
+			logger.error(error, `Error getting file content for codeTask ${codeTaskId} (path: ${filePath}), user ${userId}`);
 			if (error.message?.includes('not found') || error.name === 'ENOENT' /* For fs errors */) {
 				return sendNotFound(reply, `File or CodeTask not found: ${filePath}`);
 			}

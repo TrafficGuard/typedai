@@ -1,4 +1,4 @@
-import { getSecretEnvVar } from 'src/config/secretConfig';
+import { getSecretEnvVar } from '#config/secretConfig';
 import { logger } from '#o11y/logger';
 
 export interface SlackConfig {

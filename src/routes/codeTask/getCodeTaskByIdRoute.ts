@@ -1,6 +1,7 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { CodeTaskServiceImpl } from '#codeTask/codeTaskServiceImpl';
 import { sendNotFound, sendServerError } from '#fastify/responses';
+import { logger } from '#o11y/logger';
 import { CODE_TASK_API } from '#shared/codeTask/codeTask.api';
 import { currentUser } from '#user/userContext';
 import { registerApiRoute } from '../routeUtils';
@@ -17,7 +18,7 @@ export async function getCodeTaskByIdRoute(fastify: AppFastifyInstance): Promise
 
 			return reply.sendJSON(codeTask);
 		} catch (error: any) {
-			fastify.log.error(error, `Error getting Code task ${codeTaskId} for user ${userId}`);
+			logger.error(error, `Error getting Code task ${codeTaskId} for user ${userId}`);
 			return sendServerError(reply, error.message || 'Failed to retrieve Code task');
 		}
 	});

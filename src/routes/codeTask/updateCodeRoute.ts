@@ -1,6 +1,7 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { CodeTaskServiceImpl } from '#codeTask/codeTaskServiceImpl';
-import { sendErrorResponse, sendNotFound, sendServerError } from '#fastify/responses';
+import { sendNotFound, sendServerError } from '#fastify/responses';
+import { logger } from '#o11y/logger';
 import { CODE_TASK_API } from '#shared/codeTask/codeTask.api';
 import { currentUser } from '#user/userContext';
 import { registerApiRoute } from '../routeUtils';
@@ -17,7 +18,7 @@ export async function updateCodeRoute(fastify: AppFastifyInstance): Promise<void
 			await codeTaskService.updateCodeWithComments(userId, codeTaskId, data);
 			return reply.sendJSON({});
 		} catch (error: any) {
-			fastify.log.error(error, `Error triggering code update for codeTask ${codeTaskId}, user ${userId}`);
+			logger.error(error, `Error triggering code update for codeTask ${codeTaskId}, user ${userId}`);
 			if (error.message?.includes('not found')) return sendNotFound(reply, `Code task with ID ${codeTaskId} not found`);
 			return sendServerError(reply, error.message || 'Failed to trigger code update');
 		}

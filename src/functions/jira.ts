@@ -1,9 +1,9 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import axios, { type AxiosInstance } from 'axios';
-import { getSecretEnvVar } from 'src/config/secretConfig';
 import { llms } from '#agent/agentContextLocalStorage';
 import { agentStorageDir } from '#app/appDirs';
+import { getSecretEnvVar } from '#config/secretConfig';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { getJiraIssueType } from '#functions/jiraIssueType';
 import { logger } from '#o11y/logger';

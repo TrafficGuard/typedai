@@ -1,6 +1,7 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { CodeTaskServiceImpl } from '#codeTask/codeTaskServiceImpl';
 import { sendBadRequest, sendNotFound, sendServerError } from '#fastify/responses';
+import { logger } from '#o11y/logger';
 import { CODE_TASK_API } from '#shared/codeTask/codeTask.api';
 import { currentUser } from '#user/userContext';
 import { registerApiRoute } from '../routeUtils';
@@ -17,7 +18,7 @@ export async function getRepoBranchesRoute(fastify: AppFastifyInstance): Promise
 			const branches = await codeTaskService.getBranchList(userId, codeTaskId, providerType, projectId);
 			return reply.sendJSON(branches);
 		} catch (error: any) {
-			fastify.log.error(error, `Error getting branches for codeTask ${codeTaskId}, repo ${projectId} (provider: ${providerType}), user ${userId}`);
+			logger.error(error, `Error getting branches for codeTask ${codeTaskId}, repo ${projectId} (provider: ${providerType}), user ${userId}`);
 			if (error.message?.includes('not found')) {
 				return sendNotFound(reply, `Code task or repository not found: ${error.message}`);
 			}

@@ -80,7 +80,7 @@ export class GitLabCodeReview {
 	}
 
 	@span()
-	async reviewMergeRequest(gitlabProjectId: string | number, mergeRequestIId: number): Promise<void> {
+	async createMergeRequestReviewTasks(gitlabProjectId: string | number, mergeRequestIId: number): Promise<CodeReviewTask[]> {
 		const mergeRequest: ExpandedMergeRequestSchema = await this.api().MergeRequests.show(gitlabProjectId, mergeRequestIId);
 		const diffs: MergeRequestDiffSchema[] = await this.getDiffs(gitlabProjectId, mergeRequestIId);
 		const codeReviewService = appContext().codeReviewService;
@@ -91,7 +91,9 @@ export class GitLabCodeReview {
 		// Load the hashes of the diffs we've already reviewed
 		const reviewCache: CodeReviewFingerprintCache = await codeReviewService.getMergeRequestReviewCache(gitlabProjectId, mergeRequestIId);
 
-		logger.info(`Reviewing MR "${mergeRequest.title}" in project "${projectPath}" (${mergeRequest.web_url}) with ${codeReviewConfigs.length} configs`);
+		logger.info(
+			`Checking for review tasks for MR "${mergeRequest.title}" in project "${projectPath}" (${mergeRequest.web_url}) with ${codeReviewConfigs.length} configs`,
+		);
 
 		const codeReviewTasks: CodeReviewTask[] = [];
 
@@ -114,6 +116,19 @@ export class GitLabCodeReview {
 			}
 		}
 		logger.info(`Found ${codeReviewTasks.length} review tasks needing LLM analysis.`);
+		return codeReviewTasks;
+	}
+
+	@span()
+	async processMergeRequestCodeReviewTasks(gitlabProjectId: string | number, mergeRequestIId: number, codeReviewTasks: CodeReviewTask[]): Promise<void> {
+		const mergeRequest: ExpandedMergeRequestSchema = await this.api().MergeRequests.show(gitlabProjectId, mergeRequestIId);
+		const codeReviewService = appContext().codeReviewService;
+		const project = await this.gitlabSCM().getProject(gitlabProjectId);
+		const projectPath = project.fullPath;
+		// Load the hashes of the diffs we've already reviewed
+		const reviewCache: CodeReviewFingerprintCache = await codeReviewService.getMergeRequestReviewCache(gitlabProjectId, mergeRequestIId);
+
+		logger.info(`Reviewing MR "${mergeRequest.title}" in project "${projectPath}" (${mergeRequest.web_url}) with ${codeReviewTasks.length} review tasks`);
 		if (!codeReviewTasks.length) return;
 
 		// Perform LLM Reviews

@@ -30,7 +30,7 @@ export async function handleBuildJobEvent(event: WebhookJobEventSchema) {
 		cicdStatsService.saveJobResult(jobInfo).catch((e) => logger.error(e, 'Error saving CICD stats'));
 	}
 
-	if (event.build_allow_failure || status === 'success' || status === 'running' || status === 'pending' || status === 'created' || status === 'cancelled') {
+	if (event.build_allow_failure || status === 'success' || status === 'running' || status === 'pending' || status === 'created' || status === 'canceled') {
 		return;
 	}
 

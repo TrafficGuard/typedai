@@ -1,6 +1,7 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { CodeTaskServiceImpl } from '#codeTask/codeTaskServiceImpl';
 import { sendBadRequest, sendNotFound, sendServerError } from '#fastify/responses';
+import { logger } from '#o11y/logger';
 import { CODE_TASK_API } from '#shared/codeTask/codeTask.api';
 import type { UpdateCodeTaskData } from '#shared/codeTask/codeTask.model';
 import { currentUser } from '#user/userContext';
@@ -26,7 +27,7 @@ export async function updateCodeTaskRoute(fastify: AppFastifyInstance): Promise<
 			if (error.message?.includes('not found')) {
 				return sendNotFound(reply, `Code task with ID ${codeTaskId} not found for update`);
 			}
-			fastify.log.error(error, `Error updating Code task ${codeTaskId} for user ${userId}`);
+			logger.error(error, `Error updating Code task ${codeTaskId} for user ${userId}`);
 			return sendServerError(reply, error.message || 'Failed to update Code task');
 		}
 	});

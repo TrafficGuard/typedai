@@ -1,6 +1,7 @@
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { CodeTaskServiceImpl } from '#codeTask/codeTaskServiceImpl';
-import { sendErrorResponse, sendNotFound, sendServerError } from '#fastify/responses';
+import { sendNotFound, sendServerError } from '#fastify/responses';
+import { logger } from '#o11y/logger';
 import { CODE_TASK_API } from '#shared/codeTask/codeTask.api';
 import { currentUser } from '#user/userContext';
 import { registerApiRoute } from '../routeUtils';
@@ -21,7 +22,7 @@ export async function updateDesignRoute(fastify: AppFastifyInstance): Promise<vo
 			await codeTaskService.updateDesign(userId, codeTaskId, design);
 			return reply.sendJSON({ message: 'Design update accepted and processing started.' });
 		} catch (error: any) {
-			fastify.log.error(error, `Error triggering design update for codeTask ${codeTaskId}, user ${userId}`);
+			logger.error(error, `Error triggering design update for codeTask ${codeTaskId}, user ${userId}`);
 			if (error.message?.includes('not found')) {
 				return sendNotFound(reply, `Code task with ID ${codeTaskId} not found`);
 			}

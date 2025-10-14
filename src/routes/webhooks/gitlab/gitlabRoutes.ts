@@ -71,9 +71,20 @@ export async function gitlabRoutes(fastify: AppFastifyInstance): Promise<void> {
 async function handleMergeRequestEvent(event: any) {
 	if (event.object_attributes?.draft) return;
 
-	const runAsUser = await getAgentUser();
+	// If the MR is approved and there are unchecked checkboxes, then add a comment to the MR to ask for the checkboxes to be checked
+	// if (event.object_attributes.state === 'approved' && hasUnchecked(event.object_attributes.description)) {
+	// 	await new GitLab().addComment(event.project.id, event.object_attributes.iid, 'Please check the task list checkboxes');
+	// }
 
-	// Code review agent
+	const mergeRequestId = `project:${event.project.name}, miid:${event.object_attributes.iid}, MR:"${event.object_attributes.title}"`;
+	const gitlabCodeReview = new GitLabCodeReview();
+
+	const codeReviewTasks = await gitlabCodeReview.createMergeRequestReviewTasks(event.project.id, event.object_attributes.iid);
+
+	if (!codeReviewTasks.length) return;
+
+	// Start the code review agent
+	const runAsUser = await getAgentUser();
 
 	const config: RunWorkflowConfig = {
 		subtype: 'gitlab-review',
@@ -84,17 +95,10 @@ async function handleMergeRequestEvent(event: any) {
 		humanInLoop: envVarHumanInLoopSettings(),
 	};
 
-	// If the MR is approved and there are unchecked checkboxes, then add a comment to the MR to ask for the checkboxes to be checked
-	// if (event.object_attributes.state === 'approved' && hasUnchecked(event.object_attributes.description)) {
-	// 	await new GitLab().addComment(event.project.id, event.object_attributes.iid, 'Please check the checkboxes');
-	// }
-
-	const mergeRequestId = `project:${event.project.name}, miid:${event.object_attributes.iid}, MR:"${event.object_attributes.title}"`;
-
 	await runWorkflowAgent(config, async (context) => {
 		logger.info(`Agent ${context.agentId} reviewing merge request ${mergeRequestId}`);
-		return new GitLabCodeReview()
-			.reviewMergeRequest(event.project.id, event.object_attributes.iid)
+		return gitlabCodeReview
+			.processMergeRequestCodeReviewTasks(event.project.id, event.object_attributes.iid, codeReviewTasks)
 			.then(() => {
 				logger.debug(`Competed review of merge request ${mergeRequestId}`);
 			})
