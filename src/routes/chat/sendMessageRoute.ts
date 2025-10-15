@@ -68,6 +68,7 @@ export async function sendMessageRoute(fastify: AppFastifyInstance): Promise<voi
 
 		const { serviceTier, ...restOfOptions } = options ?? {};
 		const llmOptions: GenerateTextOptions = restOfOptions;
+		llmOptions.id = 'chat';
 		if (serviceTier && serviceTier !== 'default') {
 			llmOptions.providerOptions = {
 				...(llmOptions.providerOptions ?? {}),

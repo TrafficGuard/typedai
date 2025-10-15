@@ -570,7 +570,7 @@ function setupPyodideFunctionProxies(
 
 /**
  * Generates Python code with a helper function and minimal wrappers
- * to automatically perform a shallow conversion (.to_py(depth=1)) on JsProxy results.
+ * to automatically perform deep conversion to native Python types on JsProxy results.
  */
 export function generatePythonWrapper(schemas: FunctionSchema[], generatedPythonCode: string): string {
 	let helperAndWrapperCode = `
@@ -584,21 +584,21 @@ except ImportError:
     print("Warning: pyodide.ffi.JsProxy not found.", file=sys.stderr)
     class JsProxy: pass # Dummy class
 
-def _try_shallow_convert_proxy(result, func_name_for_log: str):
+def _convert_result(result, func_name_for_log: str):
     """
-    Internal helper: Attempts shallow conversion (.to_py(depth=1)) if result is JsProxy.
-    Returns converted value or original result.
+    Internal helper: Deeply convert JsProxy results (lists/dicts/nested) to Python types.
     """
-    if isinstance(result, JsProxy):
-        try:
-            # Attempt shallow conversion (converts top-level obj/arr)
-            return result.to_py(depth=1)
-        except Exception as e_conv:
-            # If conversion fails, log warning and return original proxy
-            print(f"Warning: Failed to shallow convert result of {func_name_for_log}: {e_conv}", file=sys.stderr)
-            return result # Fallback to the proxy
-    else:
-        # If not a proxy (e.g., primitive), return directly
+    try:
+        if isinstance(result, JsProxy):
+            # Full conversion of JsProxy to native Python types
+            return result.to_py()
+        if isinstance(result, (list, tuple)):
+            return [ _convert_result(x, func_name_for_log) for x in result ]
+        if isinstance(result, dict):
+            return { k: _convert_result(v, func_name_for_log) for k, v in result.items() }
+        return result
+    except Exception as e_conv:
+        print(f"Warning: Failed to convert result of {func_name_for_log}: {e_conv}", file=sys.stderr)
         return result
 
 # --- Concurrency helpers exposed to generated code (no explicit imports needed) ---
@@ -630,7 +630,7 @@ def create_task(coro):
 async def ${originalName}(*args, **kwargs):
     try:
         raw_result = await ${internalName}(*args, **kwargs)
-        return _try_shallow_convert_proxy(raw_result, '${originalName}')
+        return _convert_result(raw_result, '${originalName}')
     except Exception as e_call:
         print(f"Error during call to underlying JS function '${internalName}': {e_call}", file=sys.stderr)
         # Optionally print traceback for detailed debugging

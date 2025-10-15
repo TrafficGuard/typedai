@@ -1,7 +1,10 @@
 import { ConversationsHistoryResponse, ConversationsListResponse, ConversationsRepliesResponse, WebClient } from '@slack/web-api';
 import { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
+import { llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
+import { formatAsSlackBlocks } from './slackBlockFormatter';
 import { SlackConfig, slackConfig } from './slackConfig';
+import { textToBlocks } from './slackMessageFormatter';
 
 /**
  * A class to interact with the Slack API, specifically for fetching conversations and messages.
@@ -10,11 +13,38 @@ export class SlackAPI {
 	private client: WebClient;
 	private config: SlackConfig = slackConfig();
 
-	/**
-	 * Constructs a new SlackAPI instance.
-	 */
 	constructor() {
 		this.client = new WebClient(this.config.botToken);
+	}
+
+	async postMessage(channelId: string, threadTs: string, message: string, reply_ts?: string) {
+		const params: any = {
+			channel: channelId,
+			thread_ts: threadTs,
+			blocks: await formatAsSlackBlocks(message, llms().easy),
+			text: message,
+		};
+
+		try {
+			let result = await this.client.chat.postMessage(params);
+
+			if (!result.ok && result.error === 'invalid_blocks_format') {
+				logger.info({ blocks: params.blocks }, 'Slack invalid_blocks_format. Retrying with medium LLM');
+				params.blocks = await formatAsSlackBlocks(message, llms().medium);
+				result = await this.client.chat.postMessage(params);
+			}
+
+			if (!result.ok && result.error === 'invalid_blocks_format') {
+				logger.info({ blocks: params.blocks }, 'Slack invalid_blocks_format. Retrying with textToBlocks');
+				params.blocks = textToBlocks(message);
+				result = await this.client.chat.postMessage(params);
+			}
+
+			if (!result.ok) throw new Error(`Failed to send message to Slack: ${result.error}`);
+		} catch (error) {
+			logger.error(error, 'Error sending message to Slack');
+			throw error;
+		}
 	}
 
 	async getConversationReplies(channelId: string, threadTs: string, limit = 100): Promise<MessageElement[]> {

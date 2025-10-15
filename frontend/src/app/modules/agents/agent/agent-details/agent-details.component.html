@@ -71,7 +71,7 @@
         </form>
     </mat-card>
 
-    <mat-card *ngIf="agentDetails()?.state === 'hil'" class="p-3 mb-4">
+    <mat-card *ngIf="agentDetails()?.state === 'hitl_threshold'" class="p-3 mb-4">
         <form [formGroup]="hilForm" (ngSubmit)="onResumeHil()">
             <mat-card-title class="font-bold pl-5 text-lg">Human In Loop check</mat-card-title>
             <mat-card-content>

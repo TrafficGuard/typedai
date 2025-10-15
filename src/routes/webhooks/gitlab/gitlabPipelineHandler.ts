@@ -23,15 +23,15 @@ export async function handlePipelineEvent(event: WebhookPipelineEventSchema) {
 		const mergeRequest = event.merge_request; // may be null
 		if (mergeRequest) {
 			failedLogs = await new GitLab().getMergeRequestPipelineFailedJobLogs(event.project.id, mergeRequest.iid);
-			for (const [k, v] of Object.entries(failedLogs)) {
-				const lines = v.split('\n').length;
-				const tokens = await countTokens(v);
-				logger.info(`Failed pipeline job ${k}. Log size: ${tokens} tokens. ${lines} lines.`);
-				if (tokens > 50000) {
-					// ~50k tokens
-					// TODO use flash to reduce the size, or just remove the middle section
-				}
-			}
+			// for (const [k, v] of Object.entries(failedLogs)) {
+			// 	const lines = v.split('\n').length;
+			// 	const tokens = await countTokens(v);
+			// 	logger.info(`Failed pipeline job ${k}. Log size: ${tokens} tokens. ${lines} lines.`);
+			// 	if (tokens > 50000) {
+			// 		// ~50k tokens
+			// 		// TODO use flash to reduce the size, or just remove the middle section
+			// 	}
+			// }
 		}
 	}
 

@@ -1,4 +1,5 @@
 import { llms } from '#agent/agentContextLocalStorage';
+import { LLM } from '#shared/llm/llm.model';
 import { convertMarkdownToMrkdwn } from './slackMessageFormatter';
 
 /*
@@ -77,9 +78,7 @@ const SLACK_BLOCKS_SCHEMA = {
 	required: ['blocks'],
 };
 
-interface SlackBlocks {
-	blocks: Array<MarkdownBlock | DividerBlock | TableBlock>;
-}
+type SlackBlocks = Array<MarkdownBlock | DividerBlock | TableBlock>;
 
 const SLACK_MARKDOWN_FORMATTING_RULES = [
 	'## Markdown Formatting Rules Overview',
@@ -167,7 +166,7 @@ const SLACK_MARKDOWN_FORMATTING_RULES = [
  * Formats markdown to Slack blocks, using markdown blocks, table blocks and divider blocks, as the Slack markdown doesn't support code block with syntax highlighting, horizontal lines, tables, and task list.
  * @param message
  */
-export async function formatAsSlackBlocks(markdown: string): Promise<SlackBlocks> {
+export async function formatAsSlackBlocks(markdown: string, llm: LLM): Promise<SlackBlocks> {
 	const prompt = `<message>${markdown}</message>\n\nYou are a Slack block formatter. Convert the message text/markdown to Slack blocks.
 
 <formatting-rules>
@@ -201,12 +200,14 @@ interface TableBlock {
     column_settings?: Array<{ align?: string, is_wrapped?: boolean }>
 }
 
-Return only a JSON object matching the type
-{
+interface SlackBlocks {
     blocks: Array<MarkdownBlock | DividerBlock | TableBlock>
 }
+
+Return only a JSON object matching the type SlackBlocks
+
 </response-format>`;
-	const blocks: SlackBlocks = await llms().easy.generateJson(prompt, { jsonSchema: SLACK_BLOCKS_SCHEMA, id: ' Markdown block formatter', temperature: 0 });
+	const blocks: { blocks: SlackBlocks } = await llm.generateJson(prompt, { jsonSchema: SLACK_BLOCKS_SCHEMA, id: ' Markdown block formatter', temperature: 0 });
 	for (const block of blocks.blocks) if (block.type === 'markdown') block.text = convertMarkdownToMrkdwn(block.text);
-	return blocks;
+	return blocks.blocks;
 }

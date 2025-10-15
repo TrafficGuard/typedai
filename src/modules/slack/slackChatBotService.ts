@@ -1,5 +1,6 @@
 import { App, type KnownEventFromType, type SayFn, StringIndexed } from '@slack/bolt';
 import { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
+import { llms } from '#agent/agentContextLocalStorage';
 import { AgentExecution, isAgentExecuting } from '#agent/agentExecutions';
 import { getLastFunctionCallArg } from '#agent/autonomous/agentCompletion';
 import { resumeCompletedWithUpdatedUserRequest, startAgent } from '#agent/autonomous/autonomousAgentRunner';
@@ -22,6 +23,7 @@ import { SupportKnowledgebase } from '../../functions/supportKnowledgebase';
 import { SlackAPI } from './slackApi';
 import { formatAsSlackBlocks } from './slackBlockFormatter';
 import { slackConfig } from './slackConfig';
+import { textToBlocks } from './slackMessageFormatter';
 
 let slackApp: App<StringIndexed> | undefined;
 
@@ -98,31 +100,21 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			return;
 		}
 
-		if (agent.metadata.slack.reply_ts) this.api().removeReaction(agent.metadata.slack.channel, agent.metadata.slack.reply_ts, 'robot_face');
-
-		const params: any = {
-			channel: agent.metadata.slack.channel,
-			thread_ts: agent.metadata.slack.thread_ts,
-			blocks: await formatAsSlackBlocks(message),
-			text: message,
-		};
-
-		// TODO remove reaction from message it replied to
-
 		/* Only add thread_ts if we're in a real thread.
 			 - In a channel: event.thread_ts is set for replies
 			 - In the App DM: event.thread_ts is undefined  */
 		// if (agent.metadata.thread_ts) {
 		// 	params.thread_ts = agent.metadata.thread_ts;
 		// }
-
+		const replyTs = agent.metadata.slack.reply_ts;
+		const channelId = agent.metadata.slack.channel;
+		const threadTs = agent.metadata.slack.thread_ts;
 		try {
-			const result = await slackApp.client.chat.postMessage(params);
-
-			if (!result.ok) throw new Error(`Failed to send message to Slack: ${result.error}`);
-		} catch (error) {
-			logger.error(error, 'Error sending message to Slack');
-			throw error;
+			this.api().postMessage(channelId, threadTs, message, replyTs);
+			if (replyTs) this.api().removeReaction(channelId, replyTs, 'robot_face');
+		} catch (e) {
+			logger.error(e, 'Error sending message to Slack');
+			if (replyTs) this.api().addReaction(channelId, replyTs, 'robot_face::boom');
 		}
 	}
 
@@ -330,8 +322,8 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			completedHandler: this,
 			useSharedRepos: true, // Support bot is read only
 			humanInLoop: {
-				budget: 2,
-				count: 10,
+				budget: 3,
+				count: 15,
 			},
 			initialMemory: {
 				'core-documentation': await supportFuncs.getCoreDocumentation(),

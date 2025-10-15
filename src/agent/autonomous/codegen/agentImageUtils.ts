@@ -30,7 +30,6 @@ export interface ImageSource {
  * @returns An array of ImagePartExt objects ready to be included in the LLM prompt.
  */
 export async function checkForImageSources(result: Record<string, any>, fileStore?: FileStore): Promise<ImagePartExt[]> {
-	logger.info('checkForImageSources');
 	const imageParts: ImagePartExt[] = [];
 
 	if (!result || typeof result !== 'object') return imageParts;

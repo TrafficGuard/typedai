@@ -30,7 +30,7 @@ Your task is to review the code provided to ensure it follows the following inst
 ${agentPlanResponse}
 </current-plan>
 
-First think through your review of the code in the <python-code> tags against all the review instructions.
+First output through your review of the code in the <python-code> tags against each of the review instructions.
 Then output the updated code to go in main() method wrapped in <result></result> tags without any extra indentation.
 If there are no changes to make then output the existing code as is in the result tags.
 `;
