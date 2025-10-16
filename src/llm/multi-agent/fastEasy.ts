@@ -21,7 +21,7 @@ export class FastEasyLLM extends BaseLLM {
 
 	constructor() {
 		super({
-			displayName: 'Fast Easy (Cerebras GPT OSS 120B - Groq Llama Scout - Gemini 2.5 Flash)',
+			displayName: 'Fast Easy (Cerebras GPT OSS 120B - Groq Llama Scout - Gemini 2.5 Flash lite - GPT5 nano)',
 			service: 'multi',
 			modelId: 'fast-easy',
 			maxInputTokens: 0,

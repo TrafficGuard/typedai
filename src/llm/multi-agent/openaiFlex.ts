@@ -1,9 +1,8 @@
 import type { TextStreamPart } from 'ai';
 import { BaseLLM } from '#llm/base-llm';
-import { openaiGPT5, openaiGPT5mini, openaiGPT5nano } from '#llm/services/openai';
+import { openaiGPT5, openaiGPT5mini } from '#llm/services/openai';
 import { logger } from '#o11y/logger';
-import type { GenerateTextOptions, GenerationStats, LLM, LlmCostFunction, LlmMessage } from '#shared/llm/llm.model';
-import { sleep } from '#utils/async-utils';
+import type { GenerateTextOptions, GenerationStats, LLM, LlmMessage } from '#shared/llm/llm.model';
 
 export const OPENAI_FLEX_SERVICE = 'openai_flex';
 
@@ -25,12 +24,8 @@ export function openAIFlexGPT5Mini(): LLM {
 // 	return new OpenAIFlex('GPT5 Nano Flex', 'gpt-5-nano', openaiGPT5nano(), openaiGPT5nano('flex'));
 // }
 
-/**
- * Flex processing
-
-Beta
-
-=======================
+/*
+Flex processing (OpenAI documentation)
 
 Optimize costs with flex processing.
 
@@ -81,28 +76,97 @@ Consider implementing these strategies for handling resource unavailable errors:
 *   **Retry requests with exponential backoff**: Implementing exponential backoff is suitable for workloads that can tolerate delays and aims to minimize costs, as your request can eventually complete when more capacity is available. For implementation details, see [this cookbook](https://cookbook.openai.com/examples/how_to_handle_rate_limits?utm_source=chatgpt.com#retrying-with-exponential-backoff).
     
 *   **Retry requests with standard processing**: When receiving a resource unavailable error, implement a retry strategy with standard processing if occasional higher costs are worth ensuring successful completion for your use case. To do so, set `service_tier` to `auto` in the retried request, or remove the `service_tier` parameter to use the default mode for the project.
- */
+
+# Stopping streams
+
+import { openai } from '@ai-sdk/openai';
+import { streamText } from 'ai';
+
+export async function POST(req: Request) {
+  const { prompt } = await req.json();
+
+  const result = streamText({
+    model: openai('gpt-4.1'),
+    prompt,
+    // forward the abort signal:
+    abortSignal: req.signal,
+    onAbort: ({ steps }) => {
+      // Handle cleanup when stream is aborted
+      console.log('Stream aborted after', steps.length, 'steps');
+      // Persist partial results to database
+    },
+  });
+
+  return result.toTextStreamResponse();
+}
+
+(End OpenAI documentation)
+*/
+
+/*
+# OpenAIFlex class requirements
+
+This class uses a combination GPT5 with the standard and flex service tiers, to reduce costs.
+Call(s) are made with the flex tier, up to a timeout configured in the class.
+If there has not been a response with the flex tier configuration, then a call will be made with the standard tier to ensure progress continues.
+
+The generateTextFromMessages implementation will call the flex tier first in streaming mode. If the flex tier call has started to recieve a response,
+then we will cancel any timeouts and continue with the flex tier call.
+
+If the flex tier call does not start to recieve a response within the timeout, then we will cancel the flex tier call and make a call with the standard tier.
+
+We want to be able to collect statistics on how long it takes for the flex tier to start recieving a response, and how often we need to fallback to the standard tier.
+*/
+
+interface StreamAttemptConfig {
+	collectText?: boolean;
+	onChunk?: (chunk: TextStreamPart<any>) => void;
+}
+
+interface StreamAttemptResult {
+	stats: GenerationStats;
+	text?: string;
+}
+
+interface StreamAttempt {
+	completion: Promise<StreamAttemptResult>;
+	firstChunk: Promise<number>;
+	hasFirstChunk(): boolean;
+	abort(): void;
+	suppressCompletionErrors(): void;
+}
+
+export interface FlexMetricsSnapshot {
+	flexAttempts: number;
+	flexFallbacks: number;
+	flexResponses: number;
+	lastFlexResponseMs?: number;
+	averageFlexResponseMs?: number;
+}
 
 export class OpenAIFlex extends BaseLLM {
 	private readonly flexTimeoutMs: number;
+	private readonly metrics = {
+		flexAttempts: 0,
+		flexFallbacks: 0,
+		flexResponses: 0,
+		flexResponseTotalMs: 0,
+		lastFlexResponseMs: undefined as number | undefined,
+	};
 
 	constructor(
 		displayName: string,
 		model: string,
-		private standardLLM: LLM,
-		private flexLLM: LLM,
-		timeoutMs?: number, // optional override for total flex retry window
+		private readonly standardLLM: LLM,
+		private readonly flexLLM: LLM,
+		timeoutMs?: number,
 	) {
 		super({
 			displayName,
 			service: OPENAI_FLEX_SERVICE,
 			modelId: model,
 			maxInputTokens: standardLLM.getMaxInputTokens(),
-			calculateCosts: () => ({
-				inputCost: 0,
-				outputCost: 0,
-				totalCost: 0,
-			}),
+			calculateCosts: () => ({ inputCost: 0, outputCost: 0, totalCost: 0 }),
 		});
 		this.flexTimeoutMs = timeoutMs ?? DEFAULT_FLEX_TIMEOUT_MS;
 	}
@@ -112,191 +176,223 @@ export class OpenAIFlex extends BaseLLM {
 	}
 
 	override isConfigured(): boolean {
-		return openaiGPT5().isConfigured();
+		return this.standardLLM.isConfigured() && this.flexLLM.isConfigured();
+	}
+
+	getMetrics(): FlexMetricsSnapshot {
+		const { flexAttempts, flexFallbacks, flexResponses, flexResponseTotalMs, lastFlexResponseMs } = this.metrics;
+		return {
+			flexAttempts,
+			flexFallbacks,
+			flexResponses,
+			lastFlexResponseMs,
+			averageFlexResponseMs: flexResponses > 0 ? Math.round(flexResponseTotalMs / flexResponses) : undefined,
+		};
 	}
 
 	override async generateTextFromMessages(messages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		const start = Date.now();
-		let attempt = 0;
-		let backoff = 1000; // start 1s
-		const maxBackoff = 16_000; // cap 16s
+		const startTime = Date.now();
+		this.recordFlexAttempt();
 
-		while (Date.now() - start < this.flexTimeoutMs) {
-			attempt++;
-			try {
-				// Ensure provider-specific timeout for this attempt does not exceed remaining time
-				const elapsed = Date.now() - start;
-				const remaining = Math.max(0, this.flexTimeoutMs - elapsed);
+		const flexAttempt = this.createStreamAttempt(this.flexLLM, messages, opts, { collectText: true });
+		let fallbackReason: 'timeout' | 'error-before-response' | null = null;
 
-				// Clone options and ensure providerOptions.openai.timeout is set to remaining (if consumer hasn't already set a smaller timeout)
-				const attemptOpts: GenerateTextOptions = { ...(opts ?? {}) };
-				attemptOpts.providerOptions = { ...(opts?.providerOptions ?? {}) };
-				attemptOpts.providerOptions.openai = { ...(attemptOpts.providerOptions.openai ?? {}) };
+		const timeoutHandle = this.createTimeout(() => {
+			if (flexAttempt.hasFirstChunk()) return;
+			fallbackReason = 'timeout';
+			flexAttempt.abort();
+		}, this.flexTimeoutMs);
 
-				// If no explicit timeout was specified, set it to remaining ms for this attempt.
-				// If consumer set a timeout smaller than remaining, respect it.
-				if (typeof attemptOpts.providerOptions.openai.timeout !== 'number') {
-					attemptOpts.providerOptions.openai.timeout = remaining;
-				} else {
-					attemptOpts.providerOptions.openai.timeout = Math.min(attemptOpts.providerOptions.openai.timeout, remaining);
-				}
-
-				return await this.flexLLM.generateText(messages, attemptOpts);
-			} catch (err: any) {
-				// If 429/resource-unavailable => retry until flexTimeoutMs
-				if (is429Error(err)) {
-					const elapsed = Date.now() - start;
-					if (elapsed >= this.flexTimeoutMs) {
-						// timed out trying flex
-						logger.info(`Flex provider ${this.flexLLM.getDisplayName()} timed out after ${elapsed}ms; falling back to standard provider.`);
-						break;
-					}
-					// wait with backoff but not longer than remaining time
-					const wait = Math.min(backoff, Math.max(0, this.flexTimeoutMs - elapsed));
-					logger.warn(`Flex provider ${this.flexLLM.getDisplayName()} returned 429 (attempt ${attempt}). Retrying in ${wait}ms...`);
-					await sleep(wait);
-					backoff = Math.min(backoff * 2, maxBackoff);
-					continue;
-				}
-
-				// Non-429 error: immediately fallback to standard provider, but compute remaining time and pass it as timeout
-				logger.error(`Flex provider ${this.flexLLM.getDisplayName()} failed with error: ${err?.message ?? err}. Falling back to standard provider.`);
-				const elapsed = Date.now() - start;
-				const remaining = Math.max(0, this.flexTimeoutMs - elapsed);
-
-				const standardOpts: GenerateTextOptions = { ...(opts ?? {}) };
-				standardOpts.providerOptions = { ...(opts?.providerOptions ?? {}) };
-				standardOpts.providerOptions.openai = { ...(standardOpts.providerOptions.openai ?? {}) };
-				// give standard provider the remaining allowable time (if any). If remaining==0, don't override a consumer timeout.
-				if (remaining > 0 && typeof standardOpts.providerOptions.openai.timeout !== 'number') {
-					standardOpts.providerOptions.openai.timeout = remaining;
-				}
-				return await this.standardLLM.generateText(messages, standardOpts);
-			}
+		try {
+			const firstChunkTimestamp = await flexAttempt.firstChunk;
+			clearTimeout(timeoutHandle);
+			this.recordFlexResponse(firstChunkTimestamp - startTime);
+		} catch (error) {
+			clearTimeout(timeoutHandle);
+			if (!fallbackReason) fallbackReason = 'error-before-response';
 		}
 
-		// If loop exits (due to timeout), fall back to standard provider and supply remaining time (likely 0)
-		const elapsed = Date.now() - start;
-		const remaining = Math.max(0, this.flexTimeoutMs - elapsed);
-		logger.info(`Flex provider attempts exhausted after ${elapsed}ms; falling back to standard provider.`);
-
-		const finalOpts: GenerateTextOptions = { ...(opts ?? {}) };
-		finalOpts.providerOptions = { ...(opts?.providerOptions ?? {}) };
-		finalOpts.providerOptions.openai = { ...(finalOpts.providerOptions.openai ?? {}) };
-		if (remaining > 0 && typeof finalOpts.providerOptions.openai.timeout !== 'number') {
-			finalOpts.providerOptions.openai.timeout = remaining;
+		if (fallbackReason) {
+			this.recordFallback(fallbackReason);
+			flexAttempt.abort();
+			flexAttempt.suppressCompletionErrors();
+			return await this.standardLLM.generateText(messages, opts);
 		}
-		return await this.standardLLM.generateText(messages, finalOpts);
+
+		try {
+			const result = await flexAttempt.completion;
+			return result.text ?? '';
+		} catch (error) {
+			this.recordFallback('error-after-response');
+			return await this.standardLLM.generateText(messages, opts);
+		}
 	}
 
-	/**
-	 * Stream from flex provider, but if no chunk arrives within flexTimeoutMs,
-	 * start standard provider and stream from whichever delivers first.
-	 * The "losing" stream is ignored (not canceled).
-	 */
 	override async streamText(
 		messages: LlmMessage[] | ReadonlyArray<LlmMessage>,
 		onChunk: (chunk: TextStreamPart<any>) => void,
 		opts?: GenerateTextOptions,
 	): Promise<GenerationStats> {
-		const start = Date.now();
-		let selected: 'flex' | 'standard' | null = null;
+		const startTime = Date.now();
+		this.recordFlexAttempt();
 
-		// Kick off flex stream immediately
-		const flexPromise = this.flexLLM.streamText(
-			messages as LlmMessage[],
-			(chunk) => {
-				if (selected === null) selected = 'flex';
+		let selected: 'flex' | 'standard' | null = null;
+		const flexAttempt = this.createStreamAttempt(this.flexLLM, messages as LlmMessage[], opts, {
+			onChunk: (chunk) => {
+				if (selected === null && this.isMeaningfulChunk(chunk)) selected = 'flex';
 				if (selected === 'flex') onChunk(chunk);
 			},
-			opts,
-		);
+		});
 
-		let standardStarted = false;
-		let standardPromise: Promise<GenerationStats> | undefined;
+		let fallbackReason: 'timeout' | 'error-before-response' | null = null;
+		const timeoutHandle = this.createTimeout(() => {
+			if (flexAttempt.hasFirstChunk()) return;
+			fallbackReason = 'timeout';
+			flexAttempt.abort();
+		}, this.flexTimeoutMs);
 
-		const startStandard = () => {
-			if (standardStarted) return;
-			standardStarted = true;
-			standardPromise = this.standardLLM.streamText(
-				messages as LlmMessage[],
-				(chunk) => {
-					if (selected === null) selected = 'standard';
-					if (selected === 'standard') onChunk(chunk);
-				},
-				opts,
-			);
-		};
+		let firstChunkArrived = false;
+		try {
+			const firstChunkTimestamp = await flexAttempt.firstChunk;
+			clearTimeout(timeoutHandle);
+			firstChunkArrived = true;
+			this.recordFlexResponse(firstChunkTimestamp - startTime);
+		} catch (error) {
+			clearTimeout(timeoutHandle);
+			if (!fallbackReason) fallbackReason = 'error-before-response';
+		}
 
-		// Hedge: give flex up to flexTimeoutMs to deliver first chunk
-		const elapsed = Date.now() - start;
-		const remaining = Math.max(0, this.flexTimeoutMs - elapsed);
-		const hedgeTimer = setTimeout(() => {
-			if (selected === null) startStandard();
-		}, remaining);
+		if (!firstChunkArrived) {
+			this.recordFallback(fallbackReason ?? 'error-before-response');
+			flexAttempt.abort();
+			flexAttempt.suppressCompletionErrors();
+			selected = 'standard';
+			return await this.standardLLM.streamText(messages as LlmMessage[], onChunk, opts);
+		}
 
 		try {
-			// Wait for whichever selected stream completes
-			const stats = await new Promise<GenerationStats>((resolve, reject) => {
-				flexPromise
-					.then((s) => {
-						if (selected === 'flex' || (selected === null && !standardStarted)) {
-							selected = 'flex';
-							resolve(s);
-						}
-					})
-					.catch((err) => {
-						// If flex fails before selection, start standard immediately
-						if (selected === null && !standardStarted) {
-							startStandard();
-						}
-						// Only reject if standard is not running/selected
-						if (selected !== 'standard') {
-							// Do not reject yet; wait for standard if available
-							// no-op here
-						}
-					});
-
-				const waitStandard = async () => {
-					if (!standardStarted) return;
-					try {
-						const s = await standardPromise!;
-						if (selected === 'standard') {
-							resolve(s);
-						} else if (selected === null) {
-							selected = 'standard';
-							resolve(s);
-						}
-					} catch (e) {
-						if (selected !== 'flex') {
-							reject(e);
-						}
-					}
-				};
-
-				// Poll for when standard starts
-				const checkInterval = setInterval(() => {
-					if (standardStarted) {
-						clearInterval(checkInterval);
-						waitStandard();
-					}
-				}, 10);
-			});
-
+			const { stats } = await flexAttempt.completion;
 			return stats;
-		} finally {
-			clearTimeout(hedgeTimer);
+		} catch (error) {
+			this.recordFallback('error-after-response');
+			selected = 'standard';
+			return await this.standardLLM.streamText(messages as LlmMessage[], onChunk, opts);
 		}
 	}
-}
 
-function is429Error(err: any): boolean {
-	if (!err) return false;
-	if (err.status === 429 || err.statusCode === 429) return true;
-	if (err.response && (err.response.status === 429 || err.response.statusCode === 429)) return true;
-	// Some providers use specific codes/messages for resource unavailable
-	if (err.code === 'RESOURCE_UNAVAILABLE' || err.code === '429') return true;
-	const msg = (err.message || '').toString().toLowerCase();
-	if (/resource.*unavailable|rate.*limit|too many requests|429/.test(msg)) return true;
-	return false;
+	private createStreamAttempt(
+		llm: LLM,
+		messages: LlmMessage[] | ReadonlyArray<LlmMessage>,
+		opts: GenerateTextOptions | undefined,
+		config: StreamAttemptConfig,
+	): StreamAttempt {
+		const abortController = new AbortController();
+		const attemptOpts = this.cloneOptionsWithAbort(opts, abortController.signal);
+		let firstChunkSeen = false;
+		let firstChunkSettled = false;
+		let aborted = false;
+		let textBuffer = '';
+
+		let resolveFirstChunk: (value: number) => void;
+		let rejectFirstChunk: (reason?: unknown) => void;
+		const firstChunk = new Promise<number>((resolve, reject) => {
+			resolveFirstChunk = resolve;
+			rejectFirstChunk = reject;
+		});
+
+		const settleFirstChunk = (value: number) => {
+			if (firstChunkSettled) return;
+			firstChunkSettled = true;
+			resolveFirstChunk(value);
+		};
+
+		const failFirstChunk = (reason: unknown) => {
+			if (firstChunkSettled) return;
+			firstChunkSettled = true;
+			rejectFirstChunk(reason);
+		};
+
+		const completion = llm
+			.streamText(
+				messages as LlmMessage[],
+				(chunk) => {
+					if (!firstChunkSeen && this.isMeaningfulChunk(chunk)) {
+						firstChunkSeen = true;
+						settleFirstChunk(Date.now());
+					}
+					if (config.collectText && chunk.type === 'text-delta') textBuffer += chunk.text;
+					config.onChunk?.(chunk);
+				},
+				attemptOpts,
+			)
+			.then((stats) => {
+				if (!firstChunkSeen) failFirstChunk(new Error('flex-no-response'));
+				return {
+					stats,
+					text: config.collectText ? textBuffer : undefined,
+				};
+			})
+			.catch((error) => {
+				failFirstChunk(error);
+				throw error;
+			});
+
+		return {
+			completion,
+			firstChunk,
+			hasFirstChunk: () => firstChunkSeen,
+			abort: () => {
+				if (aborted) return;
+				aborted = true;
+				abortController.abort();
+				failFirstChunk(new Error('flex-aborted'));
+			},
+			suppressCompletionErrors: () => {
+				void completion.catch(() => undefined);
+			},
+		};
+	}
+
+	private cloneOptionsWithAbort(opts: GenerateTextOptions | undefined, abortSignal: AbortSignal): GenerateTextOptions {
+		const cloned: GenerateTextOptions = { ...(opts ?? {}) };
+		if (opts?.providerOptions) cloned.providerOptions = { ...opts.providerOptions };
+		cloned.abortSignal = abortSignal;
+		return cloned;
+	}
+
+	private createTimeout(onTimeout: () => void, timeoutMs: number): NodeJS.Timeout {
+		return setTimeout(onTimeout, timeoutMs);
+	}
+
+	private isMeaningfulChunk(chunk: TextStreamPart<any>): boolean {
+		switch (chunk.type) {
+			case 'text-delta':
+			case 'reasoning-delta':
+			case 'tool-call':
+			case 'tool-result':
+			case 'tool-error':
+			case 'source':
+			case 'file':
+			case 'tool-input-delta':
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	private recordFlexAttempt(): void {
+		this.metrics.flexAttempts += 1;
+	}
+
+	private recordFlexResponse(responseMs: number): void {
+		if (Number.isNaN(responseMs)) return;
+		this.metrics.flexResponses += 1;
+		this.metrics.flexResponseTotalMs += responseMs;
+		this.metrics.lastFlexResponseMs = responseMs;
+	}
+
+	private recordFallback(reason: string): void {
+		this.metrics.flexFallbacks += 1;
+		logger.info({ reason, model: this.getId() }, 'OpenAIFlex fallback to standard tier triggered.');
+	}
 }

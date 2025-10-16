@@ -1,4 +1,7 @@
-import { cerebrasQwen3_235b_Thinking } from '#llm/services/cerebras';
+import { anthropicClaude4_5_Haiku } from '#llm/services/anthropic';
+import { Claude4_5_Haiku_Vertex } from '#llm/services/anthropic-vertex';
+import { cerebrasQwen3_235b_Thinking, cerebrasQwen3_Coder } from '#llm/services/cerebras';
+import { groqKimiK2, groqQwen3_32b } from '#llm/services/groq';
 import { openaiGPT5mini } from '#llm/services/openai';
 import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
@@ -12,13 +15,16 @@ import { BaseLLM } from '../base-llm';
  */
 export class FastMediumLLM extends BaseLLM {
 	private readonly providers: LLM[];
-	private readonly cerebras: LLM;
-	private readonly openai: LLM;
-	private readonly gemini: LLM;
+	private readonly cerebras = cerebrasQwen3_Coder();
+	private readonly groq = groqQwen3_32b();
+	private readonly openai = openaiGPT5mini();
+	private readonly gemini = vertexGemini_2_5_Flash({ thinking: 'high' });
+	private readonly haiku = anthropicClaude4_5_Haiku();
+	private readonly vertexHaiku = Claude4_5_Haiku_Vertex();
 
 	constructor() {
 		super({
-			displayName: 'Fast Medium (Qwen3 235b (Cerebras) - GPT-5 Mini - Gemini 2.5 Flash)',
+			displayName: 'Fast Medium (Cerebras/Groq Qwen3, Gemini 2.5 Flash, GPT-5 Mini',
 			service: 'multi',
 			modelId: 'fast-medium',
 			maxInputTokens: 0,
@@ -28,11 +34,7 @@ export class FastMediumLLM extends BaseLLM {
 				totalCost: 0,
 			}),
 		});
-		this.providers = [cerebrasQwen3_235b_Thinking(), openaiGPT5mini(), vertexGemini_2_5_Flash({ thinking: 'high' })];
-		this.cerebras = this.providers[0]!;
-		this.openai = this.providers[1]!;
-		this.gemini = this.providers[2]!;
-
+		this.providers = [this.vertexHaiku, this.haiku, this.cerebras, this.groq, this.gemini, this.openai];
 		this.maxInputTokens = Math.max(...this.providers.map((p) => p.getMaxInputTokens()));
 	}
 

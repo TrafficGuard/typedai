@@ -10,7 +10,7 @@ export const ANTHROPIC_SERVICE = 'anthropic';
 
 export function anthropicLLMRegistry(): Record<string, () => LLM> {
 	return {
-		[`${ANTHROPIC_SERVICE}:claude-3-5-haiku`]: Claude3_5_Haiku,
+		[`${ANTHROPIC_SERVICE}:claude-haiku-4-5-20251001`]: anthropicClaude4_5_Haiku,
 		[`${ANTHROPIC_SERVICE}:claude-sonnet-4-5-20250929`]: anthropicClaude4_5_Sonnet,
 		[`${ANTHROPIC_SERVICE}:claude-opus-4-1-20250805`]: anthropicClaude4_1_Opus,
 	};
@@ -24,8 +24,8 @@ export function anthropicClaude4_5_Sonnet(): LLM {
 	return new Anthropic('Claude 4.5 Sonnet (Anthropic)', 'claude-sonnet-4-5-20250929', 200_000, 64_000, anthropicCostFunction(3, 15), ['claude-sonnet-4']);
 }
 
-export function Claude3_5_Haiku(): LLM {
-	return new Anthropic('Claude 3.5 Haiku', 'claude-3-5-haiku-20241022', 200_000, 8_192, anthropicCostFunction(1, 5));
+export function anthropicClaude4_5_Haiku(): LLM {
+	return new Anthropic('Claude 4.5 Haiku', 'claude-haiku-4-5-20251001', 200_000, 64_000, anthropicCostFunction(1, 5), ['claude-3-5-haiku-20241022']);
 }
 
 function anthropicCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
@@ -48,7 +48,7 @@ export function ClaudeLLMs(): AgentLLMs {
 	const sonnet4 = anthropicClaude4_5_Sonnet();
 	const opus = anthropicClaude4_1_Opus();
 	return {
-		easy: Claude3_5_Haiku(),
+		easy: anthropicClaude4_5_Haiku(),
 		medium: sonnet4,
 		hard: sonnet4,
 		xhard: new MultiLLM([sonnet4], 3),

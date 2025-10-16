@@ -12,7 +12,7 @@ export const ANTHROPIC_VERTEX_SERVICE = 'anthropic-vertex';
 
 export function anthropicVertexLLMRegistry(): Record<string, () => LLM> {
 	return {
-		[`${ANTHROPIC_VERTEX_SERVICE}:claude-3-5-haiku`]: Claude3_5_Haiku_Vertex,
+		[`${ANTHROPIC_VERTEX_SERVICE}:claude-haiku-4-5@20251001`]: Claude4_5_Haiku_Vertex,
 		[`${ANTHROPIC_VERTEX_SERVICE}:claude-sonnet-4-5@20250929`]: Claude4_5_Sonnet_Vertex,
 		[`${ANTHROPIC_VERTEX_SERVICE}:claude-opus-4-1@20250805`]: Claude4_1_Opus_Vertex,
 	};
@@ -33,8 +33,10 @@ export function Claude4_5_Sonnet_Vertex(): LLM {
 }
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude/haiku-3-5
-export function Claude3_5_Haiku_Vertex(): LLM {
-	return new AnthropicVertexLLM('Claude 3.5 Haiku (Vertex)', 'claude-3-5-haiku@20241022', 200_000, 8_192, anthropicCostFunction(1, 5));
+export function Claude4_5_Haiku_Vertex(): LLM {
+	return new AnthropicVertexLLM('Claude 4.5 Haiku (Vertex)', 'claude-haiku-4-5@20251001', 200_000, 64_000, anthropicCostFunction(1, 5), [
+		'claude-3-5-haiku@20241022',
+	]);
 }
 
 export function anthropicCostFunction(inputMil: number, outputMil: number): LlmCostFunction {
@@ -60,7 +62,7 @@ export function anthropicCostFunction(inputMil: number, outputMil: number): LlmC
 
 export function ClaudeVertexLLMs(): AgentLLMs {
 	return {
-		easy: Claude3_5_Haiku_Vertex(),
+		easy: Claude4_5_Haiku_Vertex(),
 		medium: Claude4_5_Sonnet_Vertex(),
 		hard: Claude4_5_Sonnet_Vertex(),
 		xhard: Claude4_1_Opus_Vertex(),
