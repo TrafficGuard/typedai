@@ -246,6 +246,9 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				console.log(new Error(`No generateMessage id provided. (${promptPreview})`));
 			}
 
+			const settingsToSave = { ...combinedOpts };
+			settingsToSave.abortSignal = undefined;
+
 			const createLlmCallRequest: CreateLlmRequest = {
 				messages: cloneAndTruncateBuffers(llmMessages),
 				llmId: this.getId(),
@@ -253,7 +256,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				// userId: currentUser().id,
 				callStack: callStack(),
 				description,
-				settings: combinedOpts,
+				settings: settingsToSave,
 			};
 			const llmCall: LlmCall = await this.saveLlmCallRequest(createLlmCallRequest);
 
@@ -272,7 +275,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 					maxRetries: combinedOpts.maxRetries,
 					maxOutputTokens: combinedOpts.maxOutputTokens,
 					providerOptions: combinedOpts.providerOptions,
-					// abortSignal: combinedOpts.abortSignal,
+					abortSignal: (combinedOpts as any)?.abortSignal,
 				};
 				// Messages can be large, and model property with schemas, so just log the reference to the LlmCall its saved in
 				logger.info({ args: { ...args, messages: `LlmCall:${llmCall.id}`, model: this.getId() } }, `Generating text - ${opts?.id}`);
@@ -414,12 +417,15 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				service: this.service,
 			});
 
+			const settingsToSave = { ...combinedOpts };
+			settingsToSave.abortSignal = undefined;
+
 			const createLlmCallRequest: CreateLlmRequest = {
 				messages: llmMessages,
 				llmId: this.getId(),
 				agentId: agentContext()?.agentId,
 				callStack: callStack(),
-				settings: combinedOpts,
+				settings: settingsToSave,
 			};
 			const llmCall: LlmCall = await this.saveLlmCallRequest(createLlmCallRequest);
 
@@ -430,7 +436,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 			const args: StreamTextArgs = {
 				model: this.aiModel(),
 				messages,
-				// abortSignal: combinedOpts?.abortSignal,
+				abortSignal: combinedOpts?.abortSignal,
 				temperature: combinedOpts?.temperature,
 				// topP: combinedOpts?.topP, // anthropic '`temperature` and `top_p` cannot both be specified for this model. Please use only one.'
 				stopSequences: combinedOpts?.stopSequences,

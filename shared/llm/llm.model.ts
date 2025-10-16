@@ -85,6 +85,7 @@ export interface GenerateTextOptions extends CallSettings {
 	id?: string;
 	thinking?: ThinkingLevel;
 	providerOptions?: Record<string, any>;
+	abortSignal?: AbortSignal;
 }
 
 /**

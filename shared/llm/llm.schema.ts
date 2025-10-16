@@ -175,6 +175,7 @@ const GenerateTextOptionsSpecificSchema = Type.Object({
 	id: Type.Optional(Type.String()),
 	thinking: Type.Optional(Type.Union([Type.Literal('none'), Type.Literal('low'), Type.Literal('medium'), Type.Literal('high')])),
 	providerOptions: Type.Optional(Type.Record(Type.String(), Type.Any())),
+	abortSignal: Type.Optional(Type.Any()),
 });
 
 export const GenerateTextOptionsSchema = Type.Intersect([CallSettingsSchema, GenerateTextOptionsSpecificSchema], { $id: 'GenerateTextOptions' });
