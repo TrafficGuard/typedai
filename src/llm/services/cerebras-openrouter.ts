@@ -5,18 +5,23 @@ import type { GenerateTextOptions, LLM, LlmCostFunction } from '#shared/llm/llm.
 import { currentUser } from '#user/userContext';
 import { AiLLM } from './ai-llm';
 
-export const OPENROUTER_SERVICE = 'openrouter';
+export const CEREBRAS_OPENROUTER_SERVICE = 'cerebras-openrouter';
 
 export function openrouterLLMRegistry(): Record<string, () => LLM> {
 	return {
-		'openrouter:morph/morph-v3-fast': () => openRouterMorph(),
+		'cerebras-openrouter:qwen/qwen3-235b-a22b-thinking-2507': () => openRouterQwen3_235b_Thinking(),
+		'cerebras-openrouter:qwen/qwen/qwen3-235b-a22b-2507': () => openRouterQwen3_235b_Instruct(),
 	};
 }
 
 // https://openrouter.ai/models
 
-export function openRouterMorph(): LLM {
-	return new OpenRouterLLM('Morph', 'morph/morph-v3-fast', 81_000, costPerMilTokens(0.8, 1.2), {});
+export function openRouterQwen3_235b_Thinking(): LLM {
+	return new OpenRouterLLM('Qwen3 235b Thinking (Cerebras)', 'qwen/qwen3-235b-a22b-thinking-2507', 131_000, costPerMilTokens(0.6, 1.2), {});
+}
+
+export function openRouterQwen3_235b_Instruct(): LLM {
+	return new OpenRouterLLM('Qwen3 235b Instruct (Cerebras)', 'qwen/qwen3-235b-a22b-2507', 131_000, costPerMilTokens(0.6, 1.2), {});
 }
 
 declare module '@openrouter/ai-sdk-provider' {
@@ -51,7 +56,7 @@ declare module '@openrouter/ai-sdk-provider' {
  */
 export class OpenRouterLLM extends AiLLM<OpenRouterProvider> {
 	constructor(displayName: string, model: string, maxInputTokens: number, calculateCosts: LlmCostFunction, defaultOptions?: GenerateTextOptions) {
-		super({ displayName, service: OPENROUTER_SERVICE, modelId: model, maxInputTokens, calculateCosts, oldIds: [], defaultOptions });
+		super({ displayName, service: CEREBRAS_OPENROUTER_SERVICE, modelId: model, maxInputTokens, calculateCosts, oldIds: [], defaultOptions });
 	}
 
 	protected provider(): OpenRouterProvider {
@@ -60,6 +65,11 @@ export class OpenRouterLLM extends AiLLM<OpenRouterProvider> {
 			headers: {
 				'HTTP-Referer': 'https://typedai.dev', // Optional. Site URL for rankings on openrouter.ai.
 				'X-Title': 'TypedAI', // Optional. Site title for rankings on
+			},
+			extraBody: {
+				provider: {
+					only: ['Cerebras'],
+				},
 			},
 		});
 	}

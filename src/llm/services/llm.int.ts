@@ -16,8 +16,8 @@ import type { LlmMessage } from '#shared/llm/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { anthropicClaude4_1_Opus, anthropicClaude4_5_Sonnet } from './anthropic';
 import { cerebrasQwen3_235b_Instruct } from './cerebras';
+import { openRouterQwen3_235b_Instruct, openRouterQwen3_235b_Thinking } from './cerebras-openrouter';
 import { groqQwen3_32b } from './groq';
-import { openRouterQwen3_235b_Instruct, openRouterQwen3_235b_Thinking } from './openrouter';
 
 const elephantBase64 = fs.readFileSync('test/llm/purple.jpg', 'base64');
 const pdfBase64 = fs.readFileSync('test/llm/document.pdf', 'base64');

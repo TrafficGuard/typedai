@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Save this script as find-problematic-test.sh
+# Make it executable: chmod +x find-problematic-test.sh
+
+# Find all spec files
+SPEC_FILES=$(find src -name "*.spec.ts")
+
+echo "Found $(echo "$SPEC_FILES" | wc -l) spec files"
+echo ""
+
+# Run each spec file individually
+for spec in $SPEC_FILES; do
+  echo "Testing: $spec"
+  npm run env:test && ng test --include="$spec" --browsers=ChromeHeadless --watch=false
+
+  # Check if the test failed with non-zero exit code
+  if [ $? -ne 0 ]; then
+    echo "FOUND PROBLEMATIC TEST: $spec"
+    break
+  fi
+
+  echo "------------------------------------"
+done

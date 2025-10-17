@@ -1,23 +1,82 @@
+import { GoogleAuth } from 'google-auth-library';
+import { stringify as yamlStringify } from 'yaml';
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { func, funcClass } from '#functionSchema/functionDecorators';
+import { extractCommonProperties } from '#utils/arrayUtils';
 import { execCommand, failOnError } from '#utils/exec';
-
 @funcClass(__filename)
 export class GoogleCloud {
 	/**
-	 * Gets the logs from Google Cloud Logging
-	 * @param gcpProjectId The Google Cloud projectId
-	 * @param filter The Cloud Logging filter to search
-	 * @param dateFromIso The date/time to get the logs from
-	 * @param dateToIso The date/time to get the logs to, or empty if upto now.
+	 * Gets the logs from Google Cloud Logging.
+	 * Either provide freshness or provide dateFromIso and/or dateToIso.
+	 * The results will be limited to 1000 results. Make further calls adjusting the time options to get more results.
+	 * @param {string} projectId - The Google Cloud projectId
+	 * @param {string} filter - The Cloud Logging filter to search (e.g. "resource.type=cloud_run_revision" and "resource.labels.service_name=the-service-name")
+	 * @param {Object} options - Configuration options
+	 * @param {string} [options.dateFromIso] - The date/time to get the logs from. Optional.
+	 * @param {string} [options.dateToIso] - The date/time to get the logs to. Optional.
+	 * @param {string} [options.freshness] - The freshness of the logs (eg. 10m, 1h). Optional.
+	 * @param {'asc'|'desc'} [options.order] - The order of the logs (asc or desc. defaults to desc). Optional.
+	 * @returns {Promise<string>}
 	 */
 	@func()
-	async getCloudLoggingLogs(gcpProjectId: string, filter: string, dateFromIso: string, dateToIso: string): Promise<string> {
-		const cmd = `gcloud logging read '${filter}' --project=${gcpProjectId} --format="json" --log-filter='timestamp>="${dateFromIso}" AND timestamp<="${dateToIso}"'`;
+	async getCloudLoggingLogs(
+		projectId: string,
+		filter: string,
+		options: { dateFromIso?: string; dateToIso?: string; freshness?: string; order?: 'asc' | 'desc' },
+	): Promise<string> {
+		let logFiler = filter;
+		if (options.dateFromIso) logFiler += ` AND timestamp>="${options.dateFromIso}"`;
+		if (options.dateToIso) logFiler += ` AND timestamp<="${options.dateToIso}"`;
+		if (options.order) logFiler += ` AND order=${options.order}`;
+
+		let cmd = `gcloud logging read '${filter}' -q --project=${projectId} --format="json"`;
+		if (options.freshness) cmd += ` --freshness=${options.freshness}`;
+		if (options.order) cmd += ` --order=${options.order}`;
+		cmd += ' --limit=1000';
+
 		const result = await execCommand(cmd);
-		if (result.exitCode > 0) throw new Error(`Error running '${cmd}'. ${result.stdout}${result.stderr}`);
-		return result.stdout;
+
+		try {
+			const json = JSON.parse(result.stdout);
+
+			if (!Array.isArray(json) || json.length === 0) return yamlStringify(json);
+
+			// Logs for a single resource type will have common properties. Extract them out to reduce tokens returned.
+			const { commonProps, strippedItems } = extractCommonProperties(json);
+
+			const hasCommonProps = Object.keys(commonProps).length > 0;
+			const output = hasCommonProps
+				? json
+				: {
+						logCount: strippedItems.length,
+						commonProperties: commonProps,
+						logs: strippedItems,
+					};
+
+			// Return YAML by default for token efficiency
+			return yamlStringify(output, { indent: 2 });
+		} catch (e) {
+			if (result.exitCode > 0) throw new Error(`Error running '${cmd}'. ${result.stdout}${result.stderr}`);
+			return result.stdout;
+		}
+	}
+
+	/**
+	 * Gets the spans from Google Cloud Trace
+	 * @param {string} projectId - The Google Cloud projectId
+	 * @param {string} traceId - The trace id
+	 * @returns {Promise<string>} the spans as a JSON string, or 'Trace Id not found' if the trace id is not found
+	 */
+	// @func()
+	async getTraceSpans(projectId: string, traceId: string) {
+		const auth = new GoogleAuth({ scopes: 'https://www.googleapis.com/auth/cloud-platform' });
+		const client = await auth.getClient();
+		const url = `https://cloudtrace.googleapis.com/v1/projects/${projectId}/traces/${traceId}`;
+		const res = await client.request({ url });
+		const trace = res.data;
+		return trace ? JSON.stringify((trace as any).spans) : 'Trace Id not found';
 	}
 
 	/**

@@ -10,7 +10,7 @@ export OPENROUTER_API_KEY=$OPENROUTER_API_KEY
 export GEMINI_API_KEY=$GEMINI_API_KEY
 
 MODEL=gpt-5
-#MODEL=
+MODEL=openrouter/openai/gpt-5
 EDITOR_MODEL=vertex_ai/gemini-2.5-flash
 WEAK_MODEL=vertex_ai/gemini-2.5-flash
 

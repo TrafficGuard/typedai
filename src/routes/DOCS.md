@@ -1,5 +1,9 @@
 # Fastify API routes
 
+# Route registration
+
+All routes must be registered in src/routes/routeRegistry.ts
+
 ## Sending responses
 
 Regular 2xx responses sending an object must use `reply.sendJSON(responseObject)` so there is type checking from the schema
