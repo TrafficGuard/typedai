@@ -14,10 +14,13 @@ import { defaultLLMs } from '#llm/services/defaultLlms';
 import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
 import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
 import { envVarHumanInLoopSettings } from './cliHumanInLoop';
+import { loadCliEnvironment } from './envLoader';
 
 // For running random bits of code
 // Usage:
 // npm run util
+
+loadCliEnvironment();
 
 async function main() {
 	await appContext().userService.ensureSingleUser();

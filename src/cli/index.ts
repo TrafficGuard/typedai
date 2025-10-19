@@ -11,8 +11,10 @@ import { buildIndexDocs } from '#swe/index/repoIndexDocBuilder';
 import { generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { getProjectInfos } from '#swe/projectDetection';
 import { parseProcessArgs, saveAgentId } from './cli';
+import { loadCliEnvironment } from './envLoader';
 
 async function main() {
+	loadCliEnvironment();
 	await initApplicationContext();
 	const agentLlms: AgentLLMs = defaultLLMs();
 

@@ -154,22 +154,24 @@ export class IndexDocBuilder {
 
 		const currentContentHash = hash(fileContents);
 
-		try {
-			const summaryFileContent = await this.fss.readFile(summaryFilePath);
-			const existingSummary: Summary = JSON.parse(summaryFileContent);
-			if (existingSummary.meta?.hash === currentContentHash) {
-				logger.debug(`Summary for ${relativeFilePath} is up to date (hash match).`);
-				return;
+		if (await this.fss.fileExists(summaryFilePath)) {
+			try {
+				const summaryFileContent = await this.fss.readFile(summaryFilePath);
+				const existingSummary: Summary = JSON.parse(summaryFileContent);
+				if (existingSummary.meta?.hash === currentContentHash) {
+					logger.debug(`Summary for ${relativeFilePath} is up to date (hash match).`);
+					return;
+				}
+				logger.info(`Content hash mismatch for ${relativeFilePath}. Regenerating summary.`);
+			} catch (e: any) {
+				if (e instanceof SyntaxError) {
+					logger.warn(`Error parsing existing summary file ${summaryFilePath}: ${errorToString(e)}. Regenerating summary.`);
+				} else {
+					logger.warn(`Error reading summary file ${summaryFilePath}: ${errorToString(e)}. Proceeding to generate summary.`);
+				}
 			}
-			logger.info(`Content hash mismatch for ${relativeFilePath}. Regenerating summary.`);
-		} catch (e: any) {
-			if (e.code === 'ENOENT') {
-				logger.debug(`Summary file ${summaryFilePath} not found. Generating new summary.`);
-			} else if (e instanceof SyntaxError) {
-				logger.warn(`Error parsing existing summary file ${summaryFilePath}: ${errorToString(e)}. Regenerating summary.`);
-			} else {
-				logger.warn(`Error reading summary file ${summaryFilePath}: ${errorToString(e)}. Proceeding to generate summary.`);
-			}
+		} else {
+			logger.debug(`Summary file ${summaryFilePath} not found. Generating new summary.`);
 		}
 
 		const parentSummaries = await this.getParentSummaries(dirname(filePath));
@@ -230,15 +232,20 @@ export class IndexDocBuilder {
 		await withActiveSpan('processFolderRecursively', async (span: Span) => {
 			try {
 				const subFolders = await this.fss.listFolders(folderPath);
-				for (const subFolder of subFolders) {
-					const subFolderPath = path.join(folderPath, subFolder);
-					const relativeSubFolderPath = path.relative(this.fss.getWorkingDirectory(), subFolderPath);
-					if (folderMatchesIndexDocs(relativeSubFolderPath)) {
-						await this.processFolderRecursively(subFolderPath, fileMatchesIndexDocs, folderMatchesIndexDocs);
-					} else {
-						logger.debug(`Skipping folder ${subFolderPath} as it does not match any indexDocs patterns`);
-					}
-				}
+
+				// Process all subfolders in parallel for maximum efficiency
+				await Promise.all(
+					subFolders.map(async (subFolder) => {
+						const subFolderPath = path.join(folderPath, subFolder);
+						const relativeSubFolderPath = path.relative(this.fss.getWorkingDirectory(), subFolderPath);
+						if (folderMatchesIndexDocs(relativeSubFolderPath)) {
+							await this.processFolderRecursively(subFolderPath, fileMatchesIndexDocs, folderMatchesIndexDocs);
+						} else {
+							logger.debug(`Skipping folder ${subFolderPath} as it does not match any indexDocs patterns`);
+						}
+					}),
+				);
+
 				await this.processFilesInFolder(folderPath, fileMatchesIndexDocs);
 				await this.buildFolderSummary(folderPath, fileMatchesIndexDocs, folderMatchesIndexDocs);
 			} catch (error) {
@@ -282,22 +289,24 @@ export class IndexDocBuilder {
 			.join(',');
 		const currentChildrensCombinedHash = hash(childrenHashes);
 
-		try {
-			const existingSummaryContent = await this.fss.readFile(folderSummaryFilePath);
-			const existingSummary: Summary = JSON.parse(existingSummaryContent);
-			if (existingSummary.meta?.hash === currentChildrensCombinedHash) {
-				logger.debug(`Folder summary for ${relativeFolderPath} is up to date (hash match).`);
-				return;
+		if (await this.fss.fileExists(folderSummaryFilePath)) {
+			try {
+				const existingSummaryContent = await this.fss.readFile(folderSummaryFilePath);
+				const existingSummary: Summary = JSON.parse(existingSummaryContent);
+				if (existingSummary.meta?.hash === currentChildrensCombinedHash) {
+					logger.debug(`Folder summary for ${relativeFolderPath} is up to date (hash match).`);
+					return;
+				}
+				logger.info(`Children hash mismatch for folder ${relativeFolderPath}. Regenerating summary.`);
+			} catch (e: any) {
+				if (e instanceof SyntaxError) {
+					logger.warn(`Error parsing existing folder summary file ${folderSummaryFilePath}: ${errorToString(e)}. Regenerating summary.`);
+				} else {
+					logger.warn(`Error reading folder summary file ${folderSummaryFilePath}: ${errorToString(e)}. Proceeding to generate summary.`);
+				}
 			}
-			logger.info(`Children hash mismatch for folder ${relativeFolderPath}. Regenerating summary.`);
-		} catch (e: any) {
-			if (e.code === 'ENOENT') {
-				logger.debug(`Folder summary file ${folderSummaryFilePath} not found. Generating new summary.`);
-			} else if (e instanceof SyntaxError) {
-				logger.warn(`Error parsing existing folder summary file ${folderSummaryFilePath}: ${errorToString(e)}. Regenerating summary.`);
-			} else {
-				logger.warn(`Error reading folder summary file ${folderSummaryFilePath}: ${errorToString(e)}. Proceeding to generate summary.`);
-			}
+		} else {
+			logger.debug(`Folder summary file ${folderSummaryFilePath} not found. Generating new summary.`);
 		}
 
 		try {
@@ -352,16 +361,18 @@ export class IndexDocBuilder {
 
 			if (folderMatchesIndexDocs(relativeSubFolderPath)) {
 				const summaryPath = join(typedaiDirName, 'docs', relativeSubFolderPath, '_index.json');
-				try {
-					const summaryContent = await this.fss.readFile(summaryPath);
-					const summary = JSON.parse(summaryContent);
-					if (summary.meta?.hash) {
-						summaries.push(summary);
-					} else {
-						logger.warn(`Folder summary for ${relativeSubFolderPath} at ${summaryPath} is missing a hash. Skipping for parent hash calculation.`);
+				if (await this.fss.fileExists(summaryPath)) {
+					try {
+						const summaryContent = await this.fss.readFile(summaryPath);
+						const summary = JSON.parse(summaryContent);
+						if (summary.meta?.hash) {
+							summaries.push(summary);
+						} else {
+							logger.warn(`Folder summary for ${relativeSubFolderPath} at ${summaryPath} is missing a hash. Skipping for parent hash calculation.`);
+						}
+					} catch (e: any) {
+						logger.warn(`Failed to read summary for subfolder ${subFolderName} at ${summaryPath}: ${errorToString(e)}`);
 					}
-				} catch (e: any) {
-					if (e.code !== 'ENOENT') logger.warn(`Failed to read summary for subfolder ${subFolderName} at ${summaryPath}: ${errorToString(e)}`);
 				}
 			}
 		}
@@ -459,16 +470,17 @@ export class IndexDocBuilder {
 
 	async getTopLevelSummaryInternal(): Promise<string | null> {
 		const summaryPath = join(typedaiDirName, 'docs', '_project_summary.json');
-		try {
-			const fileContent = await this.fss.readFile(summaryPath);
-			const doc: ProjectSummaryDoc = JSON.parse(fileContent);
-			return doc.projectOverview || '';
-		} catch (e: any) {
-			if (e.code === 'ENOENT') {
-				logger.debug(`Top-level project summary file ${summaryPath} not found.`);
-			} else {
+		if (await this.fss.fileExists(summaryPath)) {
+			try {
+				const fileContent = await this.fss.readFile(summaryPath);
+				const doc: ProjectSummaryDoc = JSON.parse(fileContent);
+				return doc.projectOverview || '';
+			} catch (e: any) {
 				logger.debug(`Error reading or parsing top-level project summary ${summaryPath}: ${errorToString(e)}`);
+				return null;
 			}
+		} else {
+			logger.debug(`Top-level project summary file ${summaryPath} not found.`);
 			return null;
 		}
 	}
@@ -481,12 +493,16 @@ export class IndexDocBuilder {
 		while (currentPath !== '.' && path.relative(cwd, currentPath) !== '') {
 			const relativeCurrentPath = path.relative(cwd, currentPath);
 			const summaryPath = join(typedaiDirName, 'docs', relativeCurrentPath, '_index.json');
-			try {
-				const summaryContent = await this.fss.readFile(summaryPath);
-				parentSummaries.unshift(JSON.parse(summaryContent));
-			} catch (e: any) {
-				if (e.code === 'ENOENT') break;
-				logger.warn(`Failed to read parent summary for ${currentPath} at ${summaryPath}: ${errorToString(e)}`);
+			if (await this.fss.fileExists(summaryPath)) {
+				try {
+					const summaryContent = await this.fss.readFile(summaryPath);
+					parentSummaries.unshift(JSON.parse(summaryContent));
+				} catch (e: any) {
+					logger.warn(`Failed to read parent summary for ${currentPath} at ${summaryPath}: ${errorToString(e)}`);
+					break;
+				}
+			} else {
+				// No parent summary found, stop walking up the directory tree
 				break;
 			}
 			currentPath = dirname(currentPath);

@@ -8,6 +8,7 @@ import { countTokens } from '#llm/tokens';
 import { LLM, LlmMessage, ThinkingLevel, messageSources, messageText, system, user } from '#shared/llm/llm.model';
 import { beep } from '#utils/beep';
 import { parseProcessArgs } from './cli';
+import { loadCliEnvironment } from './envLoader';
 import { LLM_CLI_ALIAS } from './llmAliases';
 import { parsePromptWithImages } from './promptParser';
 import { terminalLog } from './terminal';
@@ -16,6 +17,7 @@ import { terminalLog } from './terminal';
 // ai gen -s="system prompt"  'input prompt'
 
 async function main() {
+	loadCliEnvironment();
 	const { initialPrompt: rawPrompt, llmId, flags } = parseProcessArgs();
 	const { textPrompt, userContent } = await parsePromptWithImages(rawPrompt);
 

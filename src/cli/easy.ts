@@ -9,12 +9,14 @@ import { mockLLMs } from '#llm/services/mock-llm';
 import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
 import type { AgentContext } from '#shared/agent/agent.model';
 import { parseProcessArgs } from './cli';
+import { loadCliEnvironment } from './envLoader';
 
 // See https://arxiv.org/html/2405.19616v1 https://github.com/autogenai/easy-problems-that-llms-get-wrong
 // Usage:
 // npm run easy
 
 async function main() {
+	loadCliEnvironment();
 	await initApplicationContext();
 
 	const context: AgentContext = createContext({

@@ -14,6 +14,23 @@ export interface Summary {
 	};
 }
 
+/** JSON Schema for Summary output (without meta/path fields which are added by the caller) */
+const SUMMARY_JSON_SCHEMA = {
+	type: 'object',
+	properties: {
+		short: {
+			type: 'string',
+			description: 'A concise summary (maximum 15 words) stating what the file/folder defines, implements, or exports',
+		},
+		long: {
+			type: 'string',
+			description: 'A detailed summary (2-4 sentences) listing specific exports, dependencies, and patterns',
+		},
+	},
+	required: ['short', 'long'],
+	additionalProperties: false,
+} as const;
+
 /**
  * Generate a summary for a single file
  */
@@ -28,7 +45,7 @@ export async function generateFileSummary(fileContents: string, parentSummaries:
 	}
 
 	const prompt = `
-Analyze this source code file and generate a summary that captures its purpose and functionality:
+Analyze this source code file and generate a factual, concise summary:
 
 ${parentSummaryText}
 <source-code>
@@ -36,25 +53,49 @@ ${fileContents}
 </source-code>
 
 Generate two summaries in JSON format:
-1. A one-sentence overview of the file's purpose
-2. A detailed paragraph describing:
-   - The file's main functionality and features
-   - Key classes/functions/components
-   - Its role in the larger codebase
-   - Important dependencies or relationships
-   - Notable patterns or implementation details
 
-Focus on unique aspects not covered in parent summaries.
+SHORT SUMMARY:
+- Maximum 15 words
+- State what the file defines/implements/exports
+- Omit filler words like "This file", "The file's main", "It features"
+- Start directly with the subject (e.g., "API routes for...", "Service handling...", "Utilities for...")
+
+LONG SUMMARY:
+- Maximum 3 concise sentences
+- List specific exports: classes, functions, routes, components, types
+- Name key dependencies or patterns used
+- Avoid subjective commentary (no "demonstrates quality", "commitment to", "plays a crucial role")
+- Avoid generic phrases (no "provides a structured approach", "ensures type safety")
+- Be factual and specific - focus on WHAT, not WHY or evaluation
+
+CRITICAL JSON FORMATTING:
+- Do NOT use backticks (\`) anywhere in the JSON output
+- Reference code elements without markdown formatting (e.g., "parseFunctionCallsXml" not "\`parseFunctionCallsXml\`")
+- Use plain text for all function names, class names, and code references
+
+Examples of good vs bad:
+❌ "The file's organization demonstrates commitment to code quality"
+✅ "Exports createUser, deleteUser, updateUser functions"
+
+❌ "Provides a structured approach to API development"
+✅ "Defines 9 API routes using defineApiRoute helper"
+
+❌ "Exports \`parseXml\` and \`parseJson\` functions"
+✅ "Exports parseXml and parseJson functions"
 
 Respond only with JSON in this format:
 <json>
 {
-  "short": "One-sentence file summary",
-  "long": "Detailed paragraph describing the file"
+  "short": "Direct subject-focused summary under 15 words",
+  "long": "Factual list of exports, dependencies, and patterns in 2-3 sentences"
 }
 </json>`;
 
-	return await llm.generateJson(prompt, { id: 'Generate file summary' });
+	// Note: The LLM only generates 'short' and 'long'. The caller adds 'path' and 'meta' fields.
+	return (await llm.generateJson(prompt, {
+		id: 'Generate file summary',
+		jsonSchema: SUMMARY_JSON_SCHEMA,
+	})) as any;
 }
 
 /**
@@ -78,62 +119,89 @@ ${parentSummaryText}
 ${combinedSummary}
 </summaries>
 
-Task: Generate a cohesive summary for this folder that captures its role in the larger project.
+Generate a factual, concise folder summary:
 
-1. Key Topics:
-   List 3-5 main topics or functionalities this folder addresses.
+SHORT SUMMARY:
+- Maximum 15 words
+- State the folder's primary purpose/domain
+- Start directly with the subject (e.g., "Authentication services and middleware", "API route definitions", "Database models and schemas")
+- Omit "This folder", "Contains", "Includes"
 
-2. Folder Summary:
-   Provide two summaries in JSON format:
-   a) A one-sentence overview of the folder's purpose and contents.
-   b) A paragraph-length description highlighting:
-      - The folder's role in the project architecture
-      - Main components or modules contained
-      - Key functionalities implemented in this folder
-      - Relationships with other parts of the codebase
-      - Any patterns or principles evident in the folder's organization
+LONG SUMMARY:
+- Maximum 4 concise sentences
+- List the main file/subfolder categories and their purposes
+- Identify common patterns or shared dependencies
+- State the folder's domain or responsibility
+- Avoid subjective commentary (no "plays a crucial role", "demonstrates organization")
+- Avoid generic phrases (no "provides functionality for", "ensures consistency")
+- Be factual and specific
 
-Note: Focus on the folder's unique contributions. Avoid repeating information from parent summaries.
+CRITICAL JSON FORMATTING:
+- Do NOT use backticks (\`) anywhere in the JSON output
+- Reference code elements without markdown formatting (e.g., "AuthService" not "\`AuthService\`")
+- Use plain text for all function names, class names, file names, and code references
+
+Examples of good vs bad:
+❌ "This folder plays a crucial role in the project's authentication architecture"
+✅ "Authentication: JWT middleware, session management, OAuth providers"
+
+❌ "The folder demonstrates well-organized code structure"
+✅ "Contains 5 route definition files and 3 validation schemas"
+
+❌ "Contains \`userService.ts\` and \`authService.ts\`"
+✅ "Contains userService.ts and authService.ts"
 
 Respond only with JSON in this format:
 <json>
 {
-  "short": "Concise one-sentence folder summary",
-  "long": "Detailed paragraph summarizing the folder's contents and significance"
+  "short": "Direct domain/purpose under 15 words",
+  "long": "Factual list of contents and patterns in 3-4 sentences"
 }
 </json>
 `;
 
-	return await llm.generateJson(prompt, { id: 'Generate folder summary' });
+	// Note: The LLM only generates 'short' and 'long'. The caller adds 'path' and 'meta' fields.
+	return (await llm.generateJson(prompt, {
+		id: 'Generate folder summary',
+		jsonSchema: SUMMARY_JSON_SCHEMA,
+	})) as any;
 }
 
 /**
  * Generates a prompt for creating a detailed summary based on combined summaries.
  */
 export function generateDetailedSummaryPrompt(combinedSummary: string): string {
-	return `Based on the following folder summaries, create a comprehensive overview of the entire project:
+	return `Based on the following folder summaries, create a factual, concise project overview:
 
 ${combinedSummary}
 
-Generate a detailed Markdown summary that includes:
+Generate a well-structured Markdown summary with these sections:
 
-1. Project Overview:
-   - The project's primary purpose and goals
+## Project Overview
+- 2-3 sentences describing what the project is and its primary purpose
+- Avoid subjective commentary (no "robust", "well-designed", "high-quality")
+- Be specific about the domain and key capabilities
 
-2. Architecture and Structure:
-   - High-level architecture of the project
-   - Key directories and their roles
-   - Main modules or components and their interactions
+## Architecture and Structure
+- List key directories and their specific responsibilities
+- Include actual folder paths (e.g., "src/api/", "src/services/")
+- Mention main architectural patterns if evident (REST API, microservices, etc.)
 
-3. Core Functionalities:
-   - List and briefly describe the main features with their location in the project
+## Core Functionalities
+- Bulleted list of main features/capabilities
+- Include location references (e.g., "User authentication (src/auth/)")
+- Be specific, not vague (e.g., "JWT-based auth" not "authentication system")
 
-4. Technologies and Patterns:
-   - Primary programming languages used
-   - Key frameworks, libraries, or tools
-   - Notable design patterns or architectural decisions
+## Technologies and Patterns
+- Primary programming language(s) and runtime
+- Key frameworks and libraries actually used
+- Notable patterns or tools (e.g., "Fastify web framework", "Drizzle ORM")
 
-Ensure the summary is well-structured, using appropriate Markdown formatting for readability.
-Include folder path names and file paths where applicable to help readers navigate through the project.
+Guidelines:
+- Be factual and specific
+- Avoid subjective quality assessments
+- Use actual folder/file paths as references
+- Keep each section concise (3-5 bullet points max)
+- No marketing language or fluff
 `;
 }
