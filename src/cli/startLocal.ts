@@ -56,6 +56,7 @@ async function main(): Promise<void> {
 	const repoRoot = path.resolve(process.cwd());
 	const typedAiHome = process.env.TYPEDAI_HOME ? path.resolve(process.env.TYPEDAI_HOME) : null;
 	const isDefaultRepo = typedAiHome ? repoRoot === typedAiHome : false;
+	process.env.TYPEDAI_PORT_MODE = isDefaultRepo ? 'fixed' : 'dynamic';
 
 	// 2. Determine and set the backend server port.
 	const parsedPort = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : undefined;

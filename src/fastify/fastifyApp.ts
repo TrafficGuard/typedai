@@ -311,8 +311,21 @@ async function loadPlugins(config: FastifyConfig) {
 	await fastifyInstance.register(import('@fastify/jwt'), {
 		secret: process.env.JWT_SECRET || 'your-secret-key',
 	});
+	// Determine CORS origin policy based on the port mode set during startup.
+	let corsOrigin: string | boolean = new URL(process.env.UI_URL!).origin;
+
+	// In a contributor's local development setup, ports are dynamic to avoid conflicts.
+	// In this "dynamic" mode, we cannot know the frontend's port at backend startup.
+	// To avoid CORS issues that block development, we relax the policy.
+	// `origin: true` reflects the request's origin, which is a safe way to allow any
+	// origin for credentialed requests in a development context.
+	// The 'fixed' mode is used for the default repository setup where ports are known and fixed.
+	if (process.env.TYPEDAI_PORT_MODE === 'dynamic') {
+		corsOrigin = true;
+	}
+
 	await fastifyInstance.register(import('@fastify/cors'), {
-		origin: [new URL(process.env.UI_URL!).origin],
+		origin: corsOrigin,
 		methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 		allowedHeaders: ['Content-Type', 'Authorization', 'X-Goog-Iap-Jwt-Assertion', 'Enctype', 'Accept'],
 		credentials: true,
