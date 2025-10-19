@@ -10,7 +10,19 @@ function generateEnvironmentFile() {
     hydrateProcessEnv();
 
     const backendPort = determineBackendPort();
-    const resolvedApiBase = process.env.API_BASE_URL || (backendPort ? `http://localhost:${backendPort}/api/` : 'http://localhost:3000/api/');
+
+    let resolvedApiBase;
+    // When running locally, we must prioritize the dynamic backend port over any
+    // value from a .env file, which likely contains the default port.
+    if (backendPort) {
+        resolvedApiBase = `http://localhost:${backendPort}/api/`;
+    }
+    // For other cases (like CI builds), use the environment variable or a fallback.
+    else {
+        resolvedApiBase =
+            process.env.API_BASE_URL || 'http://localhost:3000/api/';
+    }
+
     const frontPort = determineFrontendPort();
     const resolvedUiUrl = process.env.UI_URL || `http://localhost:${frontPort ?? '4200'}/`;
 
