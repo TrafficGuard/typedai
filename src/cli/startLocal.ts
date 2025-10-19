@@ -33,6 +33,20 @@ interface ApplyEnvOptions {
 
 type ParsedEnv = Record<string, string>;
 
+type ServerFactory = () => NetServer;
+
+let serverFactory: ServerFactory = () => createServer();
+
+/**
+ * Overrides the net server factory used when probing ports.
+ * This is primarily a testing utility to allow mocking of `net.createServer`
+ * in environments where opening real sockets is not possible or desired.
+ * @param factory A function that returns a `net.Server` instance, or null to reset.
+ */
+function setServerFactory(factory: ServerFactory | null): void {
+	serverFactory = factory ?? (() => createServer());
+}
+
 /**
  * Bootstraps the local backend server with dynamic ports and env-file fallback.
  * This function orchestrates the entire startup sequence for local development.
@@ -72,15 +86,15 @@ async function main(): Promise<void> {
 	process.env.BACKEND_PORT = backendPort.toString();
 
 	// 3. Determine and set the Node.js inspector port.
-	const inspectorParsed = process.env.INSPECT_PORT ? Number.parseInt(process.env.INSPECT_PORT, 10) : undefined;
-	let inspectPort: number;
-	if (isDefaultRepo) {
-		inspectPort = Number.isFinite(inspectorParsed) ? inspectorParsed! : 9229;
-		await ensurePortAvailable(inspectPort);
-	} else {
-		inspectPort = await findAvailablePort(Number.isFinite(inspectorParsed) ? inspectorParsed : 9229);
-	}
-	process.env.INSPECT_PORT = inspectPort.toString();
+	// const inspectorParsed = process.env.INSPECT_PORT ? Number.parseInt(process.env.INSPECT_PORT, 10) : undefined;
+	// let inspectPort: number;
+	// if (isDefaultRepo) {
+	// 	inspectPort = Number.isFinite(inspectorParsed) ? inspectorParsed! : 9229;
+	// 	await ensurePortAvailable(inspectPort);
+	// } else {
+	// 	inspectPort = await findAvailablePort(Number.isFinite(inspectorParsed) ? inspectorParsed : 9229);
+	// }
+	// process.env.INSPECT_PORT = inspectPort.toString();
 
 	// 4. Set environment variables that depend on the resolved ports.
 	const apiBaseUrl = `http://localhost:${backendPort}/api/`;
@@ -100,14 +114,14 @@ async function main(): Promise<void> {
 		logger.info(`[start-local] using env file ${envFilePath}`);
 	}
 	logger.info(`[start-local] backend listening on ${backendPort}`);
-	logger.info(`[start-local] inspector listening on ${inspectPort}`);
+	// logger.info(`[start-local] inspector listening on ${inspectPort}`);
 
 	// 5. Attempt to open the inspector in a browser.
-	try {
-		open(inspectPort, '0.0.0.0', false);
-	} catch (error) {
-		logger.warn(error, `[start-local] failed to open inspector on ${inspectPort}`);
-	}
+	// try {
+	// 	open(inspectPort, '0.0.0.0', false);
+	// } catch (error) {
+	// 	logger.warn(error, `[start-local] failed to open inspector on ${inspectPort}`);
+	// }
 
 	// 6. Write runtime metadata for other processes to consume.
 	// This allows the frontend dev server to know which port the backend is running on.
@@ -115,7 +129,7 @@ async function main(): Promise<void> {
 	writeRuntimeMetadata(runtimeMetadataPath, {
 		envFilePath,
 		backendPort,
-		inspectPort,
+		// inspectPort,
 	});
 
 	// 7. Start the server by requiring the main application entry point.
@@ -234,20 +248,6 @@ function writeRuntimeMetadata(targetPath: string, data: Record<string, unknown>)
 	const dir = path.dirname(targetPath);
 	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 	writeFileSync(targetPath, JSON.stringify({ ...data, updatedAt: new Date().toISOString() }, null, 2));
-}
-
-type ServerFactory = () => NetServer;
-
-let serverFactory: ServerFactory = () => createServer();
-
-/**
- * Overrides the net server factory used when probing ports.
- * This is primarily a testing utility to allow mocking of `net.createServer`
- * in environments where opening real sockets is not possible or desired.
- * @param factory A function that returns a `net.Server` instance, or null to reset.
- */
-function setServerFactory(factory: ServerFactory | null): void {
-	serverFactory = factory ?? (() => createServer());
 }
 
 /**
