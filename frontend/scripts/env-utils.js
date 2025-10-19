@@ -51,8 +51,6 @@ function hydrateProcessEnv() {
 }
 
 function determineBackendPort() {
-    if (process.env.BACKEND_PORT) return process.env.BACKEND_PORT;
-    if (process.env.PORT) return process.env.PORT;
     try {
         const runtimePath = path.resolve(process.cwd(), '../.typedai/runtime/backend.json');
         if (fs.existsSync(runtimePath)) {
@@ -62,6 +60,10 @@ function determineBackendPort() {
     } catch (error) {
         console.warn('Unable to read backend runtime metadata.', error);
     }
+
+    if (process.env.BACKEND_PORT) return process.env.BACKEND_PORT;
+    if (process.env.PORT) return process.env.PORT;
+
     return null;
 }
 

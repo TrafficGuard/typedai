@@ -1,3 +1,17 @@
+/**
+ * @fileoverview
+ * This script is the entry point for starting the backend server in a local development
+ * environment. It is designed to handle the complexities of a multi-repository setup
+ * where developers might be running a fork of the main repository.
+ *
+ * Key features:
+ * - Dynamically finds available ports for the backend server and Node.js inspector
+ *   to avoid conflicts, especially for contributors not using the default setup.
+ * - Resolves and loads environment variables from a `.env` file.
+ * - Writes a `backend.json` runtime metadata file that other processes (like the
+ *   frontend dev server) can read to discover the backend's port.
+ * - Initializes and starts the Fastify server.
+ */
 import '#fastify/trace-init/trace-init';
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -21,10 +35,12 @@ type ParsedEnv = Record<string, string>;
 
 /**
  * Bootstraps the local backend server with dynamic ports and env-file fallback.
+ * This function orchestrates the entire startup sequence for local development.
  */
 async function main(): Promise<void> {
 	let envFilePath: string | undefined;
 	try {
+		// 1. Resolve and apply environment variables from a `.env` file.
 		envFilePath = resolveEnvFilePath();
 		applyEnvFile(envFilePath);
 	} catch (err) {
@@ -33,10 +49,15 @@ async function main(): Promise<void> {
 
 	process.env.NODE_ENV ??= 'development';
 
+	// Determine if this is the "default" repository setup (e.g., the main repo)
+	// or a contributor's setup (e.g., a fork). This affects port handling.
+	// In the default setup, we use fixed ports (3000/9229) and fail if they're taken.
+	// In a contributor setup, we find the next available port to avoid conflicts.
 	const repoRoot = path.resolve(process.cwd());
 	const typedAiHome = process.env.TYPEDAI_HOME ? path.resolve(process.env.TYPEDAI_HOME) : null;
 	const isDefaultRepo = typedAiHome ? repoRoot === typedAiHome : false;
 
+	// 2. Determine and set the backend server port.
 	const parsedPort = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : undefined;
 	let backendPort: number;
 	if (isDefaultRepo) {
@@ -45,9 +66,11 @@ async function main(): Promise<void> {
 	} else {
 		backendPort = await findAvailablePort(Number.isFinite(parsedPort) ? parsedPort : 3000);
 	}
+	// Set both PORT and BACKEND_PORT for compatibility with different consumers.
 	process.env.PORT = backendPort.toString();
 	process.env.BACKEND_PORT = backendPort.toString();
 
+	// 3. Determine and set the Node.js inspector port.
 	const inspectorParsed = process.env.INSPECT_PORT ? Number.parseInt(process.env.INSPECT_PORT, 10) : undefined;
 	let inspectPort: number;
 	if (isDefaultRepo) {
@@ -58,7 +81,10 @@ async function main(): Promise<void> {
 	}
 	process.env.INSPECT_PORT = inspectPort.toString();
 
+	// 4. Set environment variables that depend on the resolved ports.
 	const apiBaseUrl = `http://localhost:${backendPort}/api/`;
+	// Only override API_BASE_URL if it's not set or points to the default port,
+	// allowing for custom configurations.
 	if (!process.env.API_BASE_URL || process.env.API_BASE_URL.includes('localhost:3000')) {
 		process.env.API_BASE_URL = apiBaseUrl;
 	}
@@ -75,12 +101,15 @@ async function main(): Promise<void> {
 	logger.info(`[start-local] backend listening on ${backendPort}`);
 	logger.info(`[start-local] inspector listening on ${inspectPort}`);
 
+	// 5. Attempt to open the inspector in a browser.
 	try {
 		open(inspectPort, '0.0.0.0', false);
 	} catch (error) {
 		logger.warn(error, `[start-local] failed to open inspector on ${inspectPort}`);
 	}
 
+	// 6. Write runtime metadata for other processes to consume.
+	// This allows the frontend dev server to know which port the backend is running on.
 	const runtimeMetadataPath = path.join(process.cwd(), '.typedai', 'runtime', 'backend.json');
 	writeRuntimeMetadata(runtimeMetadataPath, {
 		envFilePath,
@@ -88,6 +117,7 @@ async function main(): Promise<void> {
 		inspectPort,
 	});
 
+	// 7. Start the server by requiring the main application entry point.
 	const require = createRequire(__filename);
 	require('../index');
 }
@@ -97,6 +127,12 @@ main().catch((error) => {
 	process.exitCode = 1;
 });
 
+/**
+ * Builds an absolute path from a potential relative path.
+ * @param value The path value (can be null or undefined).
+ * @param cwd The current working directory to resolve from.
+ * @returns An absolute path, or null if the input value is empty.
+ */
 function buildCandidatePath(value: string | null | undefined, cwd: string): string | null {
 	if (!value) return null;
 	if (isAbsolute(value)) return value;
@@ -105,8 +141,11 @@ function buildCandidatePath(value: string | null | undefined, cwd: string): stri
 
 /**
  * Resolves the path to the env file used for local development.
- * Resolution order: explicit ENV_FILE → `variables/local.env` in the cwd →
- * `$TYPEDAI_HOME/variables/local.env`.
+ * Resolution order:
+ * 1. Explicit `ENV_FILE` environment variable.
+ * 2. `variables/local.env` relative to the current working directory.
+ * 3. `variables/local.env` inside the directory specified by `TYPEDAI_HOME`.
+ * @throws If no environment file can be found in any of the candidate locations.
  */
 function resolveEnvFilePath(options: ResolveEnvFileOptions = {}): string {
 	const cwd = options.cwd ?? process.cwd();
@@ -127,8 +166,15 @@ function resolveEnvFilePath(options: ResolveEnvFileOptions = {}): string {
 }
 
 /**
- * Parses a dotenv style file into a plain key/value map.
- * Lines without an equals sign or starting with `#` are ignored.
+ * Parses a dotenv-style file into a plain key/value map.
+ * - Ignores lines starting with `#` (comments).
+ * - Ignores lines without an equals sign.
+ * - Trims whitespace from keys and values.
+ * - Strips `export ` prefix from keys.
+ * - Removes quotes from values.
+ * - Converts `\n` literals to newlines.
+ * @param filePath The absolute path to the environment file.
+ * @returns A record of environment variables.
  */
 function loadEnvFile(filePath: string): ParsedEnv {
 	if (!existsSync(filePath)) throw new Error(`Environment file not found at ${filePath}`);
@@ -160,8 +206,11 @@ function loadEnvFile(filePath: string): ParsedEnv {
 }
 
 /**
- * Loads the file and assigns its values to `process.env`.
- * Existing values are preserved unless `override` is set.
+ * Loads an environment file and assigns its values to `process.env`.
+ * By default, it does not override existing environment variables.
+ * @param filePath The path to the environment file.
+ * @param options Configuration options. `override: true` will cause it to
+ *   overwrite existing `process.env` values.
  */
 function applyEnvFile(filePath: string, options: ApplyEnvOptions = {}): void {
 	const envVars = loadEnvFile(filePath);
@@ -175,7 +224,10 @@ function applyEnvFile(filePath: string, options: ApplyEnvOptions = {}): void {
 
 /**
  * Writes JSON metadata describing the current runtime so other processes can
- * discover the chosen configuration (e.g. ports).
+ * discover the chosen configuration (e.g., ports). This is crucial for the
+ * frontend dev server to connect to the correct backend port.
+ * @param targetPath The full path where the metadata file will be written.
+ * @param data The data object to serialize into the JSON file.
  */
 function writeRuntimeMetadata(targetPath: string, data: Record<string, unknown>): void {
 	const dir = path.dirname(targetPath);
@@ -189,19 +241,23 @@ let serverFactory: ServerFactory = () => createServer();
 
 /**
  * Overrides the net server factory used when probing ports.
- * Primarily for tests where opening real sockets would fail in a sandbox.
+ * This is primarily a testing utility to allow mocking of `net.createServer`
+ * in environments where opening real sockets is not possible or desired.
+ * @param factory A function that returns a `net.Server` instance, or null to reset.
  */
 function setServerFactory(factory: ServerFactory | null): void {
 	serverFactory = factory ?? (() => createServer());
 }
 
 /**
- * Attempts to find a free TCP port. Prefers the provided range before
- * delegating to the OS (port 0).
- */
-/**
- * Attempts to find a free TCP port. Prefers the provided range before
- * delegating to the OS (port 0).
+ * Attempts to find a free TCP port.
+ * It first checks the `preferred` port and a number of subsequent ports (`attempts`).
+ * If no port in that range is free, it falls back to asking the OS for any
+ * available port by trying to listen on port 0.
+ * @param preferred The starting port number to check.
+ * @param attempts The number of consecutive ports to try after `preferred`.
+ * @returns A promise that resolves with an available port number.
+ * @throws If no available port can be found.
  */
 async function findAvailablePort(preferred?: number, attempts = 20): Promise<number> {
 	const ports: number[] = [];
@@ -224,7 +280,13 @@ async function findAvailablePort(preferred?: number, attempts = 20): Promise<num
 	throw new Error('Unable to find an available port');
 }
 
-/** Ensures a fixed port can be bound, throwing when it is already in use. */
+/**
+ * Ensures a fixed port can be bound, throwing an error if it is already in use.
+ * This is used for the "default repo" setup where ports are expected to be fixed.
+ * @param port The port to check.
+ * @returns A promise that resolves if the port is available.
+ * @throws If the port is already in use.
+ */
 async function ensurePortAvailable(port: number): Promise<void> {
 	try {
 		await tryListen(port);
@@ -234,6 +296,15 @@ async function ensurePortAvailable(port: number): Promise<void> {
 	}
 }
 
+/**
+ * Low-level utility to test if a port is available by creating a server,
+ * listening on the port, and then immediately closing it.
+ * @param port The port number to test. A value of 0 will cause the OS to
+ *   assign an arbitrary available port.
+ * @returns A promise that resolves with the actual port number that was
+ *   successfully bound.
+ * @rejects If the port is already in use or another error occurs.
+ */
 async function tryListen(port: number): Promise<number> {
 	return await new Promise<number>((resolve, reject) => {
 		const server = serverFactory();
