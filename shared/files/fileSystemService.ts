@@ -154,6 +154,10 @@ export interface IFileSystemService {
 	 */
 	writeFile(filePath: string, contents: string): Promise<void>;
 
+	/**
+	 * Deletes a file.
+	 * @param filePath The file path (either full filesystem path or relative to current working directory)
+	 */
 	deleteFile(filePath: string): Promise<void>;
 
 	/**

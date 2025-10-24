@@ -4,7 +4,6 @@ import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { execCmd, execCommand, failOnError } from '#utils/exec';
-const Table = require('table');
 
 // Should use either bq or the node library in all functions
 @funcClass(__filename)
@@ -16,14 +15,10 @@ export class BigQuery {
 	 * @param projectId The Google Cloud project id to run the query from. Defaults to the GCLOUD_PROJECT environment variable
 	 */
 	@func()
-	async query(sqlQuery: string, location: string, projectId: string | undefined): Promise<string> {
+	async query(sqlQuery: string, location: string, projectId: string | undefined): Promise<any[][]> {
 		projectId ??= process.env.GCLOUD_PROJECT;
 		if (!projectId) throw new Error('GCLOUD_PROJECT environment variable not set');
-		const result = await new BigQueryDriver(projectId, location).query(sqlQuery);
-		if (result.length > 5001) {
-			return `${result.substring(0, 5000)}\n<truncated>`;
-		}
-		return result;
+		return await new BigQueryDriver(projectId, location).query(sqlQuery);
 	}
 
 	/**
@@ -39,7 +34,7 @@ export class BigQuery {
 	}
 }
 
-class BigQueryDriver {
+export class BigQueryDriver {
 	private bigqueryClient: BigQueryClient;
 
 	constructor(
@@ -49,10 +44,11 @@ class BigQueryDriver {
 		this.bigqueryClient = new BigQueryClient({ projectId });
 	}
 
-	async query<T>(query: string): Promise<string> {
+	async query<T>(query: string, queryParameters?: Record<string, any>): Promise<any[][]> {
 		const [dryRun] = await this.bigqueryClient.createQueryJob({
 			query,
 			location: this.defaultLocation,
+			params: queryParameters,
 			dryRun: true,
 		});
 
@@ -63,6 +59,7 @@ class BigQueryDriver {
 		const [job] = await this.bigqueryClient.createQueryJob({
 			query,
 			location: this.defaultLocation,
+			params: queryParameters,
 		});
 
 		// Wait for the query to finish
@@ -78,9 +75,6 @@ class BigQueryDriver {
 		const headers = Object.keys(rows[0]);
 		tableData.unshift(headers);
 
-		// Create and print the table
-		return Table.table(tableData, {
-			columns: headers.map((header) => ({ alignment: 'left', width: 20 })),
-		});
+		return tableData;
 	}
 }

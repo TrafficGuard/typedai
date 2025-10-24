@@ -1,4 +1,5 @@
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
+import { openAIFlexGPT5Mini } from '#llm/multi-agent/openaiFlex';
 import { MAD_Balanced, MAD_Fast, MAD_SOTA } from '#llm/multi-agent/reasoning-debate';
 import { Claude4_1_Opus_Vertex } from '#llm/services/anthropic-vertex';
 import { cerebrasQwen3_235b_Thinking, cerebrasQwen3_Coder } from '#llm/services/cerebras';
@@ -18,7 +19,7 @@ export const LLM_CLI_ALIAS: Record<string, () => LLM> = {
 	cc: cerebrasQwen3_Coder,
 	g5: openaiGPT5,
 	g5p: openaiGPT5priority,
-	g5f: openaiGPT5flex,
+	g5mf: openAIFlexGPT5Mini,
 	gpt5: openaiGPT5,
 	g5m: openaiGPT5mini,
 	g5n: openaiGPT5nano,

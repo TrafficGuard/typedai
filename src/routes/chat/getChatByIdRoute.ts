@@ -12,21 +12,11 @@ export async function getChatByIdRoute(fastify: AppFastifyInstance): Promise<voi
 		const { chatId } = req.params;
 		const chat: Chat = await fastify.chatService.loadChat(chatId);
 
-		if (chat.shareable) {
-			console.log(JSON.stringify(chat));
-			return reply.sendJSON(chat);
-		}
+		if (chat.shareable) return reply.sendJSON(chat);
 
-		try {
-			const userId = currentUser().id;
-			if (chat.userId !== userId) {
-				return sendBadRequest(reply, 'Unauthorized to view this chat');
-			}
-		} catch (error) {
-			return sendBadRequest(reply, 'Unauthorized to view this chat');
-		}
+		const userId = currentUser().id;
+		if (chat.userId !== userId) return sendBadRequest(reply, 'Unauthorized to view this chat');
 
-		console.log(JSON.stringify(chat));
 		reply.sendJSON(chat);
 	});
 }

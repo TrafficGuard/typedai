@@ -37,7 +37,7 @@ export const LLM_FACTORY: Record<string, () => LLM> = {
 	...deepinfraLLMRegistry(),
 	...cerebrasLLMRegistry(),
 	...perplexityLLMRegistry(),
-	...xaiLLMRegistry(),
+	// ...xaiLLMRegistry(),
 	...nebiusLLMRegistry(),
 	...sambanovaLLMRegistry(),
 	...ollamaLLMRegistry(),
