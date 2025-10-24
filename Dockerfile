@@ -65,4 +65,5 @@ ENV NODE_ENV=production
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["node", "-r", "ts-node/register", "--env-file=variables/.env", "src/index.ts"]
+# Build will have performed type checking. Use esbuild-register for efficiency
+CMD ["node", "-r", "esbuild-register", "--env-file=variables/.env", "src/index.ts"]
