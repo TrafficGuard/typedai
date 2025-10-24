@@ -1,8 +1,10 @@
 import path from 'node:path';
-import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { ReasonerDebateLLM } from '#llm/multi-agent/reasoning-debate';
 import { extractTag } from '#llm/responseParsers';
+import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
+import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { SelectedFile } from '#shared/files/files.model';
 import {
 	type GenerateTextWithJsonResponse,
@@ -86,20 +88,34 @@ export interface FileExtract {
 	extract: string;
 }
 
-export async function selectFilesAgent(requirements: UserContentExt, options: QueryOptions = {}): Promise<SelectedFile[]> {
+function resolveAgentLLMs(provided?: AgentLLMs): AgentLLMs {
+	if (provided) return provided;
+	const contextLLMs = agentContext()?.llms;
+	if (contextLLMs) return contextLLMs;
+	return defaultLLMs();
+}
+
+export async function selectFilesAgent(requirements: UserContentExt, options: QueryOptions = {}, agentLLMs?: AgentLLMs): Promise<SelectedFile[]> {
 	if (!requirements) throw new Error('Requirements must be provided');
-	const { selectedFiles } = await selectFilesCore(requirements, options);
+	const resolvedLLMs = resolveAgentLLMs(agentLLMs);
+	const { selectedFiles } = await selectFilesCore(requirements, options, resolvedLLMs);
 	return selectedFiles;
 }
 
-export async function queryWorkflowWithSearch(query: UserContentExt, opts: QueryOptions = {}): Promise<string> {
+export async function queryWorkflowWithSearch(query: UserContentExt, opts: QueryOptions = {}, agentLLMs?: AgentLLMs): Promise<string> {
 	if (!query) throw new Error('query must be provided');
-	const { files, answer } = await queryWithFileSelection2(query, opts);
+	const resolvedLLMs = resolveAgentLLMs(agentLLMs);
+	const { files, answer } = await queryWithFileSelection2(query, opts, resolvedLLMs);
 	return answer;
 }
 
-export async function queryWithFileSelection2(query: UserContentExt, opts: QueryOptions = {}): Promise<{ files: SelectedFile[]; answer: string }> {
-	const { messages, selectedFiles } = await selectFilesCore(query, opts);
+export async function queryWithFileSelection2(
+	query: UserContentExt,
+	opts: QueryOptions = {},
+	agentLLMs?: AgentLLMs,
+): Promise<{ files: SelectedFile[]; answer: string }> {
+	const resolvedLLMs = resolveAgentLLMs(agentLLMs);
+	const { messages, selectedFiles } = await selectFilesCore(query, opts, resolvedLLMs);
 
 	// Construct the final prompt for answering the query
 	const finalPrompt = `<query>
@@ -112,8 +128,8 @@ Think systematically and methodically through the query, considering multiple op
 	messages.push({ role: 'user', content: finalPrompt });
 
 	// Perform the additional LLM call to get the answer
-	const xhard = llms().xhard;
-	const llm: LLM = opts.useXtraHardLLM && xhard ? xhard : llms().hard;
+	const xhard = resolvedLLMs.xhard;
+	const llm: LLM = opts.useXtraHardLLM && xhard ? xhard : resolvedLLMs.hard;
 	const thinking: ThinkingLevel = llm instanceof ReasonerDebateLLM ? 'none' : 'high';
 
 	let answer = await llm.generateText(messages, { id: 'Select Files query Answer', thinking });
@@ -189,6 +205,7 @@ Think systematically and methodically through the query, considering multiple op
 async function selectFilesCore(
 	requirements: UserContentExt,
 	opts: QueryOptions,
+	agentLLMs: AgentLLMs,
 ): Promise<{
 	messages: LlmMessage[];
 	selectedFiles: SelectedFile[];
@@ -198,7 +215,7 @@ async function selectFilesCore(
 	const maxIterations = 10;
 	let iterationCount = 0;
 
-	let llm = llms().medium;
+	let llm = agentLLMs.medium;
 
 	const response: GenerateTextWithJsonResponse<InitialResponse> = await llm.generateTextWithJson(messages, { id: 'Select Files initial', thinking: 'high' });
 	logger.info(messageText(response.message));
@@ -243,8 +260,8 @@ async function selectFilesCore(
 			newInvalidPathsFromLastTurn, // Pass invalid paths from previous turn (Fix #5)
 			iterationCount,
 			llm,
+			agentLLMs,
 		);
-		console.log(response);
 
 		// Process keep/ignore decisions first
 		for (const ignored of response.ignoreFiles ?? []) {
@@ -311,7 +328,7 @@ Respond with a valid JSON object that follows the required schema.`,
 
 			// Escalate to the hard model once, to give the LLM more capacity.
 			if (!usingHardLLM) {
-				llm = llms().hard;
+				llm = agentLLMs.hard;
 				usingHardLLM = true;
 				logger.info('Escalating to hard LLM because of unresolved pending files.');
 			}
@@ -322,46 +339,26 @@ Respond with a valid JSON object that follows the required schema.`,
 		if (response.search) {
 			const searchRegex = response.search;
 			const searchResultsText = await searchFileSystem(searchRegex);
-			console.log('Search Results ==================');
-			console.log(searchResultsText);
-			console.log('End Search Results ==================');
 			// The assistant message should reflect the actual response, including any keep/ignore/inspect decisions made alongside search.
 			messages.push({ role: 'assistant', content: JSON.stringify(response) });
 			messages.push({ role: 'user', content: searchResultsText, cache: 'ephemeral' });
-			// filesToInspect was already updated with validated new inspectFiles. If search is also present,
-			// LLM might have asked to inspect some files AND search.
-			// If LLM uses search, it typically wouldn't inspect new files in the same turn, but the flexibility is there.
-		} else {
-			// This 'else' block handles the case where NO search was performed.
-			// Keep/ignore/inspect decisions were already processed before the if(response.search).
-			// We still need to push the assistant's response and potentially user messages with file contents.
 
-			// If new files were requested for inspection (and validated into filesToInspect),
-			// or if files were kept/ignored, this implies an action was taken.
-			if (filesToInspect.length > 0 || (response.keepFiles ?? []).length > 0 || (response.ignoreFiles ?? []).length > 0) {
-				// processedIterativeStepUserPrompt adds contents of KEPT files.
-				// The contents for NEWLY INSPECTED files are added by generateFileSelectionProcessingResponse in the *next* turn.
-				messages.push(await processedIterativeStepUserPrompt(response));
-			}
+			pruneEphemeralCache(messages);
 
-			const cache = filesToInspect.length > 0 ? 'ephemeral' : undefined; // Ephemeral if new files are being inspected
-			messages.push({
-				role: 'assistant',
-				content: JSON.stringify(response),
-				cache,
-			});
-
-			const cachedMessages = messages.filter((msg) => msg.cache === 'ephemeral');
-			if (cachedMessages.length > 4) {
-				// This logic to remove 'ephemeral' status from older messages can be kept or revised.
-				// For now, keeping it as is, as it's not the primary focus of the fixes.
-				const firstEphemeralToClear = messages.find((msg, index) => {
-					const originalIndex = messages.indexOf(cachedMessages[1]!);
-					return index === originalIndex;
-				});
-				if (firstEphemeralToClear) firstEphemeralToClear.cache = undefined;
-			}
+			// Ensure the loop continues so the LLM can process the search results,
+			// even when filesToInspect is empty and there are no pending files.
+			continue;
 		}
+		// This 'else' block handles the case where NO search was performed.
+		// Keep/ignore/inspect decisions were already processed before the if(response.search).
+
+		// Always append the assistant's response first
+		const cache = filesToInspect.length > 0 ? 'ephemeral' : undefined;
+		messages.push({ role: 'assistant', content: JSON.stringify(response), cache });
+
+		// Do not add a synthetic user message here.
+		// File contents for newly inspected files are included in the next iteration prompt.
+		pruneEphemeralCache(messages);
 
 		// LLM decision logic for switching to hard LLM or breaking
 		// This logic applies whether a search was performed or not.
@@ -370,7 +367,7 @@ Respond with a valid JSON object that follows the required schema.`,
 		if (filesToInspect.length === 0 && filesPendingDecision.size === 0) {
 			// No new files to inspect, and all previously pending files decided.
 			if (!usingHardLLM) {
-				llm = llms().hard;
+				llm = agentLLMs.hard;
 				usingHardLLM = true;
 				logger.info('Switching to hard LLM for final review.');
 			} else {
@@ -385,8 +382,6 @@ Respond with a valid JSON object that follows the required schema.`,
 		} else if (filesToInspect.length > 0) {
 			// New files were requested for inspection (and validated into filesToInspect).
 			logger.debug(`${filesToInspect.length} new files to inspect. Proceeding to next iteration.`);
-		} else if (response.search) {
-			logger.debug('Search was performed. Proceeding to next iteration for LLM to process search results.');
 		}
 	}
 
@@ -477,6 +472,7 @@ async function generateFileSelectionProcessingResponse(
 	invalidPathsFromLastInspection: string[], // New parameter for Fix #5
 	iteration: number,
 	llm: LLM,
+	agentLLMs: AgentLLMs,
 ): Promise<IterationResponse> {
 	// filesForContent are the files whose contents will be shown to the LLM in this turn.
 	// These are the newly requested (and validated) filesToInspect.
@@ -555,30 +551,7 @@ You MUST responsd with a valid JSON object that follows the required schema insi
 		id: `Select Files iteration ${iteration}`,
 		thinking: 'high',
 	});
-	console.log(messageText(response.message));
 	return response.object;
-}
-
-/**
- * Generates the user message that we will add to the conversation, which includes the file contents the LLM wishes to inspect
- * @param response
- */
-async function processedIterativeStepUserPrompt(response: IterationResponse): Promise<LlmMessage> {
-	const ignored = response.ignoreFiles?.map((s) => s.filePath) ?? [];
-	const kept = response.keepFiles?.map((s) => s.filePath) ?? [];
-
-	let ignoreText = '';
-	if (ignored.length) {
-		ignoreText = '\nRemoved the following ignored files:';
-		for (const ig of response.ignoreFiles ?? []) {
-			ignoreText += `\n${ig.filePath} - ${ig.reason}`;
-		}
-	}
-
-	return {
-		role: 'user',
-		content: `${(await readFileContents(kept)).contents}${ignoreText}`,
-	};
 }
 
 async function readFileContents(filePaths: string[]): Promise<{ contents: string; invalidPaths: string[] }> {
@@ -603,6 +576,17 @@ ${fileContent}
 		}
 	}
 	return { contents: `${contents}</files>`, invalidPaths };
+}
+
+function pruneEphemeralCache(messages: LlmMessage[], maxEphemeral = 4): void {
+	const ephemeralIdxs = messages
+		.map((m, i) => ({ m, i }))
+		.filter(({ m }) => m.cache === 'ephemeral')
+		.map(({ i }) => i);
+	while (ephemeralIdxs.length > maxEphemeral) {
+		const idxToClear = ephemeralIdxs.shift()!;
+		messages[idxToClear].cache = undefined;
+	}
 }
 
 async function searchFileSystem(searchRegex: string) {

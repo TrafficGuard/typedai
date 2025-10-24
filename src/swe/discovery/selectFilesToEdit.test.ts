@@ -1,8 +1,10 @@
 import { expect } from 'chai';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { removeNonExistingFiles } from '#swe/discovery/selectFilesToEdit';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 describe('removeNonExistingFiles', () => {
+	setupConditionalLoggerOutput();
 	const fileSystem = new FileSystemService();
 
 	it('should remove non-existing files from the selection', async () => {
