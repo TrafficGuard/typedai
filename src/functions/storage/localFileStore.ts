@@ -15,8 +15,9 @@ import type { FileMetadata } from '#shared/files/files.model';
 export class LocalFileStore implements FileStore {
 	basePath: string;
 
-	constructor() {
-		this.basePath = path.join(systemDir(), 'filestore');
+	constructor(sysDir: string = systemDir()) {
+		this.basePath = path.join(sysDir, 'filestore');
+		fs.mkdirSync(this.basePath, { recursive: true });
 		// this.basePath = path.join(process.cwd(), 'public');
 	}
 

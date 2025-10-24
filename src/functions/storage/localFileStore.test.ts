@@ -1,33 +1,37 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { expect } from 'chai';
+import sinon from 'sinon';
 
 import { agentContextStorage } from '#agent/agentContextLocalStorage';
+import * as appDirs from '#app/appDirs';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { LocalFileStore } from './localFileStore';
 
-function setupMockAgentContext(agentId: string) {
-	return agentContextStorage.run({ agentId } as any, () => {});
-}
-
 describe('LocalFileStore', () => {
+	setupConditionalLoggerOutput();
 	const testAgentId = 'test-agent-id';
-	const localFileStore = new LocalFileStore();
+	const sandbox = sinon.createSandbox();
+	let basePath: string;
+	let localFileStore: LocalFileStore;
 
 	function withContext(func: () => Promise<any>): Promise<any> {
 		return agentContextStorage.run({ agentId: testAgentId } as any, () => func());
 	}
 
 	beforeEach(async () => {
-		await fs.promises.rm(localFileStore.basePath, { recursive: true, force: true });
+		basePath = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'localfilestore-'));
+		localFileStore = new LocalFileStore(basePath);
 	});
 
 	afterEach(async () => {
-		await fs.promises.rm(localFileStore.basePath, { recursive: true, force: true });
+		await fs.promises.rm(basePath, { recursive: true, force: true });
+		sandbox.restore();
 	});
 
 	it('should save a file successfully with metadata', async () =>
 		withContext(async () => {
-			const localFileStore = new LocalFileStore();
 			const filename = 'test-file.txt';
 			const contents = 'Test content';
 			const description = 'Test file description';
