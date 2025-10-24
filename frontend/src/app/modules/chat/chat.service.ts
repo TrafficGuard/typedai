@@ -25,6 +25,7 @@ import {
 	NEW_CHAT_ID,
 	// ServerChat is effectively ApiChatModel now
 } from 'app/modules/chat/chat.types';
+import type { ImagePart as AiImagePart, FilePart as AiFilePart } from 'ai';
 import { Attachment, TextContent } from 'app/modules/message.types';
 import { LanguageModelV2Source } from '@ai-sdk/provider';
 import { environment } from '#environments/environment';
@@ -135,6 +136,33 @@ async function prepareUserContentPayload(
 		return '';
 	}
 	return contentParts;
+}
+
+// Add this top-level helper
+async function readSseStream(
+	reader: ReadableStreamDefaultReader<Uint8Array>,
+	onEvent: (ev: any) => void,
+): Promise<void> {
+	const decoder = new TextDecoder('utf-8');
+	let buffer = '';
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) return;
+		buffer += decoder.decode(value, { stream: true });
+		let idx: number;
+		while ((idx = buffer.indexOf('\n\n')) !== -1) {
+			const rawEvent = buffer.slice(0, idx);
+			buffer = buffer.slice(idx + 2);
+			const dataLines = rawEvent.split('\n').filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trim());
+			if (!dataLines.length) continue;
+			try {
+				const event = JSON.parse(dataLines.join('\n'));
+				onEvent(event);
+			} catch {
+				// ignore malformed chunk
+			}
+		}
+	}
 }
 
 @Injectable({ providedIn: 'root' })
@@ -312,7 +340,7 @@ export class ChatServiceClient {
 					parentId: updatedApiChat.parentId,
 					rootId: updatedApiChat.rootId,
 				};
-
+		
 				// Update chats list cache
 				if (this._cachedChats) {
 					const index = this._cachedChats.findIndex((item) => item.id === id);
@@ -332,7 +360,7 @@ export class ChatServiceClient {
 						this._chatsState.set({ status: 'success', data: newChats });
 					}
 				}
-
+		
 				// Update current chat if it's the one being updated
 				const currentChatState = this._chatState();
 				if (currentChatState.status === 'success' && currentChatState.data.id === id) {
@@ -346,10 +374,82 @@ export class ChatServiceClient {
 		);
 	}
 
+	handleUpdatedChat(updatedApiChat: ApiChatModel): void {
+		const uiChatUpdate: Partial<Chat> = {
+			id: updatedApiChat.id, // Ensure id is part of the update object
+			title: updatedApiChat.title,
+			shareable: updatedApiChat.shareable,
+			updatedAt: updatedApiChat.updatedAt,
+			parentId: updatedApiChat.parentId,
+			rootId: updatedApiChat.rootId,
+		};
+
+		// Update chats list cache
+		if (this._cachedChats) {
+			const index = this._cachedChats.findIndex((item) => item.id === updatedApiChat.id);
+			if (index !== -1) {
+				const newCachedChats = [...this._cachedChats];
+				newCachedChats[index] = { ...newCachedChats[index], ...uiChatUpdate };
+				this._cachedChats = newCachedChats;
+			}
+		}
+		// Update chats list
+		const currentChatsState = this._chatsState();
+		if (currentChatsState.status === 'success') {
+			const index = currentChatsState.data.findIndex((item) => item.id === updatedApiChat.id);
+			if (index !== -1) {
+				const newChats = [...currentChatsState.data];
+				newChats[index] = { ...newChats[index], ...uiChatUpdate };
+				this._chatsState.set({ status: 'success', data: newChats });
+			}
+		}
+
+		// Update current chat if it's the one being updated
+		const currentChatState = this._chatState();
+		if (currentChatState.status === 'success' && currentChatState.data.id === updatedApiChat.id) {
+			this._chatState.set({
+				status: 'success',
+				data: { ...currentChatState.data, ...uiChatUpdate },
+			});
+		}
+	}
+
+
 	resetChat(): void {
 		this._chatState.set({ status: 'idle' });
 	}
 
+	private setChatMessages(chatId: string, transformer: (messages: ChatMessage[]) => ChatMessage[]): void {
+		const state = this._chatState();
+		if (state.status !== 'success' || state.data.id !== chatId) return;
+		const current = state.data.messages || [];
+		this._chatState.set({
+			status: 'success',
+			data: { ...state.data, messages: transformer([...current]) },
+		});
+	}
+
+	private bumpChatInListsById(chatId: string): void {
+		const now = Date.now();
+		function bump(arr: Chat[] | null): Chat[] | null {
+			if (!arr) return arr;
+			const idx = arr.findIndex((c) => c.id === chatId);
+			if (idx === -1) return arr;
+			const next = [...arr];
+			const updated = { ...next[idx], updatedAt: now };
+			next.splice(idx, 1);
+			next.unshift(updated);
+			return next;
+		}
+		const visible = this._chatsState();
+		if (visible.status === 'success') {
+			const next = bump(visible.data);
+			if (next) this._chatsState.set({ status: 'success', data: next });
+		}
+		if (this._cachedChats) {
+			this._cachedChats = bump(this._cachedChats) || null;
+		}
+	}
 
 	/**
 	 * Streaming send message using Server-Sent Events (SSE).
@@ -370,22 +470,10 @@ export class ChatServiceClient {
 			return throwError(() => new Error('Chat must be created before streaming. Create the chat, navigate to /ui/chat/:id, then call sendMessageStreaming.'));
 		}
 
-		// Sanitize CallSettings before placing into payload to avoid invalid keys (e.g., defaultLLM, enabledLLMs).
 		const filteredOptions = sanitizeCallSettings(options);
+		const optionsForPayload: any = { ...(filteredOptions ?? {}), ...(serviceTier ? { serviceTier } : {}) };
+		const payload: ChatMessagePayload = { llmId, userContent, options: optionsForPayload, autoReformat: autoReformat ?? false };
 
-		const optionsForPayload: any = {
-			...(filteredOptions ?? {}),
-			...(serviceTier ? { serviceTier } : {}),
-		};
-		const payload: ChatMessagePayload = {
-			llmId,
-			userContent,
-			// Always send options object; it can be empty, schema fields are optional
-			options: optionsForPayload,
-			autoReformat: autoReformat ?? false,
-		};
-
-		// Optimistically add user's message
 		const { text: derivedTextFromUserContent } = userContentExtToAttachmentsAndText(userContent);
 		const userMessageEntry: ChatMessage = {
 			id: uuidv4(),
@@ -410,325 +498,203 @@ export class ChatServiceClient {
 			llmId,
 		};
 
-		const updateStateWithMessages = (updater: (messages: ChatMessage[]) => ChatMessage[]) => {
-			const currentChatState = this._chatState();
-			if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
-				this._chatState.set({
-					status: 'success',
-					data: {
-						...currentChatState.data,
-						messages: updater([...(currentChatState.data.messages || [])]),
-					},
-				});
-			}
-		};
+		this.setChatMessages(chatId, (existing) => [...existing, userMessageEntry, assistantPlaceholder]);
+		this.bumpChatInListsById(chatId);
 
-		updateStateWithMessages((existing) => [...existing, userMessageEntry, assistantPlaceholder]);
+		return this.startStreamingSession(chatId, payload, userMessageEntry.id, assistantMessageId);
+	}
 
-		// Move chat to top of list immediately
-		const bumpChatInLists = () => {
-			const currentChatsState = this._chatsState();
-			if (currentChatsState.status === 'success') {
-				const chatIndex = currentChatsState.data.findIndex((c) => c.id === chatId);
-				if (chatIndex !== -1) {
-					const newChats = [...currentChatsState.data];
-					const updated = { ...newChats[chatIndex], updatedAt: Date.now() };
-					newChats.splice(chatIndex, 1);
-					newChats.unshift(updated);
-					this._chatsState.set({ status: 'success', data: newChats });
-				}
-			}
-			if (this._cachedChats) {
-				const chatIndex = this._cachedChats.findIndex((c) => c.id === chatId);
-				if (chatIndex !== -1) {
-					const newCached = [...this._cachedChats];
-					const updated = { ...newCached[chatIndex], updatedAt: Date.now() };
-					newCached.splice(chatIndex, 1);
-					newCached.unshift(updated);
-					this._cachedChats = newCached;
-				}
-			}
-		};
-		bumpChatInLists();
-
+	private startStreamingSession(
+		chatId: string,
+		payload: ChatMessagePayload,
+		userMessageId: string,
+		assistantMessageId: string,
+	): Observable<void> {
 		return new Observable<void>((subscriber) => {
-			let paused = false; // Local "paused" flag for UI updates
+			let paused = false;
 			const controller = new AbortController();
-			// Build from shared API route to avoid mismatches
 			const base = environment.apiBaseUrl.replace(/\/api\/?$/, '');
 			const url = `${base}${CHAT_API.sendMessage.pathTemplate.replace(':chatId', chatId)}?stream=1`;
 
 			let accumulatedText = '';
 			let accumulatedReasoning = '';
 			let accumulatedSources: LanguageModelV2Source[] = [];
+			let streamId: string | null = null;
+
+			const applyAssistantDelta = (delta: string) => {
+				if (!delta || paused) return;
+				accumulatedText += delta;
+				this.setChatMessages(chatId, (messages) =>
+					messages.map((m) =>
+						m.id !== assistantMessageId
+							? m
+							: { ...m, content: (m.textContent || '') + delta, textContent: (m.textContent || '') + delta },
+					),
+				);
+			};
+
+			const applyReasoningDelta = (delta: string) => {
+				if (!delta) return;
+				accumulatedReasoning += delta;
+				if (paused) return;
+				this.setChatMessages(chatId, (messages) =>
+					messages.map((m) => (m.id === assistantMessageId ? { ...m, reasoning: accumulatedReasoning } : m)),
+				);
+			};
+
+			const applySource = (source: any) => {
+				accumulatedSources.push(source as LanguageModelV2Source);
+				if (paused) return;
+				this.setChatMessages(chatId, (messages) =>
+					messages.map((m) => (m.id === assistantMessageId ? { ...m, sources: [...(m.sources || []), source] } : m)),
+				);
+			};
+
+			const applyStats = (stats: any) => {
+				if (!stats || paused) return;
+				this.setChatMessages(chatId, (messages) =>
+					messages.map((m) =>
+						m.id === assistantMessageId
+							? {
+									...m,
+									stats,
+									createdAt: stats.requestTime ? new Date(stats.requestTime).toISOString() : m.createdAt,
+									llmId: stats.llmId || m.llmId,
+							  }
+							: m,
+					),
+				);
+			};
+
+			const applyTitle = (title: string) => {
+				if (!title) return;
+				const current = this._chatState();
+				if (current.status === 'success' && current.data.id === chatId) {
+					this._chatState.set({ status: 'success', data: { ...current.data, title } });
+				}
+				const s = this._chatsState();
+				if (s.status === 'success') {
+					const arr = [...s.data];
+					const idx = arr.findIndex((c) => c.id === chatId);
+					if (idx !== -1) {
+						arr[idx] = { ...arr[idx], title };
+						this._chatsState.set({ status: 'success', data: arr });
+					}
+				}
+				if (this._cachedChats) {
+					const arr = [...this._cachedChats];
+					const idx = arr.findIndex((c) => c.id === chatId);
+					if (idx !== -1) {
+						arr[idx] = { ...arr[idx], title };
+						this._cachedChats = arr;
+					}
+				}
+			};
+
+			const finalizeAssistant = (finalStats?: any) => {
+				this.setChatMessages(chatId, (messages) =>
+					messages.map((m) =>
+						m.id === assistantMessageId
+							? {
+									...m,
+									generating: false,
+									status: 'sent' as const,
+									textContent: accumulatedText || m.textContent,
+									content: accumulatedText || m.content,
+									reasoning: accumulatedReasoning || m.reasoning,
+									sources: accumulatedSources.length ? accumulatedSources : m.sources,
+									stats: finalStats || m.stats,
+									createdAt: finalStats?.requestTime ? new Date(finalStats.requestTime).toISOString() : m.createdAt,
+									llmId: finalStats?.llmId || m.llmId,
+							  }
+							: m.id === userMessageId && m.status === 'sending'
+							? { ...m, status: 'sent' as const }
+							: m,
+					),
+				);
+				const c = this._chatState();
+				if (c.status === 'success' && c.data.id === chatId) {
+					this._chatState.set({ status: 'success', data: { ...c.data, updatedAt: Date.now() } });
+				}
+				this.bumpChatInListsById(chatId);
+			};
+
+			const nonAbortError = (err: any) => {
+				this.setChatMessages(chatId, (messages) =>
+					messages
+						.filter((m) => m.id !== assistantMessageId)
+						.map((m) => (m.id === userMessageId ? { ...m, status: 'failed_to_send' as const } : m)),
+				);
+				subscriber.error(err);
+			};
 
 			fetch(url, {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Accept: 'text/event-stream',
-				},
+				headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
 				body: JSON.stringify(payload),
 				signal: controller.signal,
 				credentials: 'include',
 			})
 				.then(async (response) => {
-					if (!response.ok || !response.body) {
-						throw new Error(`Streaming request failed with status ${response.status}`);
-					}
+					if (!response.ok || !response.body) throw new Error(`Streaming request failed with status ${response.status}`);
 					const reader = response.body.getReader();
-					const decoder = new TextDecoder('utf-8');
-					let buffer = '';
-
-					const applyAssistantDelta = (delta: string) => {
-						if (!delta || paused) return; // Short-circuit if paused
-						accumulatedText += delta;
-						const currentChatState = this._chatState();
-						if (currentChatState.status !== 'success' || currentChatState.data.id !== chatId) return;
-						const messages = currentChatState.data.messages || [];
-						const updated = messages.map((m) => {
-							if (m.id !== assistantMessageId) return m;
-							const newText = (m.textContent || '') + delta;
-							return {
-								...m,
-								content: newText,
-								textContent: newText,
-							};
-						});
-						this._chatState.set({
-							status: 'success',
-							data: {
-								...currentChatState.data,
-								messages: updated,
-							},
-						});
-					};
-
-					for (;;) {
-						const { done, value } = await reader.read();
-						if (done) break;
-						buffer += decoder.decode(value, { stream: true });
-
-						// Parse SSE events (split by double newline)
-						let idx: number;
-						while ((idx = buffer.indexOf('\n\n')) !== -1) {
-							const rawEvent = buffer.slice(0, idx);
-							buffer = buffer.slice(idx + 2);
-
-							// Extract data lines
-							const lines = rawEvent.split('\n');
-							const dataLines = lines.filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trim());
-							if (dataLines.length === 0) continue;
-
-							try {
-								const dataStr = dataLines.join('\n');
-								const event = JSON.parse(dataStr);
-								if (event?.type === 'text-delta' || event?.type === 'text') {
-									applyAssistantDelta(event.text || '');
-								} else if (event?.type === 'reasoning-delta' || event?.type === 'reasoning') {
-									const delta = event.text || '';
-									if (delta) {
-										accumulatedReasoning += delta;
-										if (paused) {
-											/* still accumulate for final state */
-											continue;
-										}
-										const currentChatState = this._chatState();
-										if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
-											const messages = currentChatState.data.messages || [];
-											const updated = messages.map((m) => (m.id === assistantMessageId ? { ...m, reasoning: accumulatedReasoning } : m));
-											this._chatState.set({
-												status: 'success',
-												data: { ...currentChatState.data, messages: updated },
-											});
-										}
-									}
-								} else if (event?.type === 'source') {
-									// event contains a source item. Push into message.sources for rendering.
-									const source = { ...event };
-									accumulatedSources.push(source as LanguageModelV2Source);
-									if (paused) continue; // Short-circuit if paused
-									const currentChatState = this._chatState();
-									if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
-										const messages = currentChatState.data.messages || [];
-										const updated = messages.map((m) => (m.id === assistantMessageId ? { ...m, sources: [...(m.sources || []), source] } : m));
-										this._chatState.set({
-											status: 'success',
-											data: { ...currentChatState.data, messages: updated },
-										});
-									}
-								} else if (event?.type === 'stats') {
-									const stats = event.stats;
-									if (!stats) continue;
-									if (paused) {
-										/* still capture to apply on finish */ continue;
-									} // Short-circuit if paused
-									const currentChatState = this._chatState();
-									if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
-										const messages = currentChatState.data.messages || [];
-										const updated = messages.map((m) =>
-											m.id === assistantMessageId
-												? {
-													...m,
-													stats,
-													// Prefer server time if present
-													createdAt: stats.requestTime ? new Date(stats.requestTime).toISOString() : m.createdAt,
-													// Keep llmId consistent if server provided it
-													llmId: stats.llmId || m.llmId,
-												}
-												: m,
-										);
-										this._chatState.set({
-											status: 'success',
-											data: { ...currentChatState.data, messages: updated },
-										});
-									}
-								} else if (event?.type === 'title') {
-									const title = (event.title || '').toString();
-									if (title) {
-										// Update current chat
-										const currentChatState = this._chatState();
-										if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
-											this._chatState.set({
-												status: 'success',
-												data: { ...currentChatState.data, title },
-											});
-										}
-										// Update chat in visible list
-										const currentChatsState = this._chatsState();
-										if (currentChatsState.status === 'success') {
-											const idx = currentChatsState.data.findIndex((c) => c.id === chatId);
-											if (idx !== -1) {
-												const arr = [...currentChatsState.data];
-												arr[idx] = { ...arr[idx], title };
-												this._chatsState.set({ status: 'success', data: arr });
-											}
-										}
-										// Update cached list
-										if (this._cachedChats) {
-											const idx = this._cachedChats.findIndex((c) => c.id === chatId);
-											if (idx !== -1) {
-												const arr = [...this._cachedChats];
-												arr[idx] = { ...arr[idx], title };
-												this._cachedChats = arr;
-											}
-										}
-									}
-								} else if (event?.type === 'finish') {
-									// Mark assistant as complete (sent)
-									const currentChatState = this._chatState();
-									if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
-										const updated = (currentChatState.data.messages || []).map((m) =>
-											m.id === assistantMessageId
-												? {
-													...m,
-													generating: false,
-													status: 'sent' as const,
-													reasoning: accumulatedReasoning || m.reasoning,
-													sources: accumulatedSources.length ? accumulatedSources : m.sources,
-													stats: event.stats || m.stats, // the server should include stats on finish
-													createdAt: event.stats?.requestTime ? new Date(event.stats.requestTime).toISOString() : m.createdAt,
-													llmId: event.stats?.llmId || m.llmId,
-												}
-												: m,
-										);
-										this._chatState.set({
-											status: 'success',
-											data: { ...currentChatState.data, messages: updated, updatedAt: Date.now() },
-										});
-									}
-								} else if (event?.type === 'error') {
-									throw new Error(event.message || 'Streaming error');
-								}
-							} catch (e) {
-								console.error('Failed to parse stream event', e);
-							}
+					await readSseStream(reader, (event: any) => {
+						switch (event?.type) {
+							case 'text':
+							case 'text-delta':
+								applyAssistantDelta(event.text || '');
+								break;
+							case 'reasoning':
+							case 'reasoning-delta':
+								applyReasoningDelta(event.text || '');
+								break;
+							case 'source':
+								applySource({ ...event });
+								break;
+							case 'stats':
+								applyStats(event.stats);
+								break;
+							case 'title':
+								applyTitle((event.title || '').toString());
+								break;
+							case 'finish':
+								finalizeAssistant(event.stats);
+								break;
+							case 'stream-id':
+								streamId = event.id;
+								break;
+							case 'error':
+								throw new Error(event.message || 'Streaming error');
 						}
-					}
+					});
 				})
-				.then(() => {
-					subscriber.complete();
-				})
+				.then(() => subscriber.complete())
 				.catch((error) => {
-					const isAbort = error && (error.name === 'AbortError' || (typeof error.message === 'string' && /aborted|abort/i.test(error.message)));
+					const isAbort =
+						error && (error.name === 'AbortError' || (typeof error.message === 'string' && /aborted|abort/i.test(error.message)));
 					if (isAbort) {
-						// Finalize assistant message with whatever text we have so far
-						const currentChatState = this._chatState();
-						if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
-							const messages = currentChatState.data.messages || [];
-							const updated = messages.map((m) => {
-								if (m.id === assistantMessageId) {
-									return {
-										...m,
-										generating: false,
-										status: 'sent' as const,
-										textContent: accumulatedText,
-										content: accumulatedText,
-										reasoning: accumulatedReasoning || m.reasoning,
-										sources: accumulatedSources.length ? accumulatedSources : m.sources,
-									};
-								}
-								// If the user's optimistic message is still 'sending', set it to 'sent'
-								if (m.id === userMessageEntry.id && m.status === 'sending') {
-									return { ...m, status: 'sent' as const };
-								}
-								return m;
-							});
-							this._chatState.set({
-								status: 'success',
-								data: { ...currentChatState.data, messages: updated, updatedAt: Date.now() },
-							});
-						}
-						// Bump chat in lists so it sorts to the top with the partial response
-						const bump = () => {
-							const currentChatsState = this._chatsState();
-							if (currentChatsState.status === 'success') {
-								const idx = currentChatsState.data.findIndex((c) => c.id === chatId);
-								if (idx !== -1) {
-									const arr = [...currentChatsState.data];
-									const updated = { ...arr[idx], updatedAt: Date.now() };
-									arr.splice(idx, 1);
-									arr.unshift(updated);
-									this._chatsState.set({ status: 'success', data: arr });
-								}
-							}
-							if (this._cachedChats) {
-								const idx = this._cachedChats.findIndex((c) => c.id === chatId);
-								if (idx !== -1) {
-									const arr = [...this._cachedChats];
-									const updated = { ...arr[idx], updatedAt: Date.now() };
-									arr.splice(idx, 1);
-									arr.unshift(updated);
-									this._cachedChats = arr;
-								}
-							}
-						};
-						bump();
-						// Treat user-cancel as a clean completion (not an error)
+						finalizeAssistant(undefined);
 						subscriber.complete();
 						return;
 					}
-
-					console.error('Streaming sendMessage error:', error);
-
-					// Non-abort error: remove assistant placeholder and mark user message as failed
-					const currentChatState = this._chatState();
-					if (currentChatState.status === 'success' && currentChatState.data.id === chatId) {
-						const messages = currentChatState.data.messages || [];
-						const updated = messages
-							.filter((m) => m.id !== assistantMessageId)
-							.map((m) => (m.id === userMessageEntry.id ? { ...m, status: 'failed_to_send' as const } : m));
-						this._chatState.set({
-							status: 'success',
-							data: { ...currentChatState.data, messages: updated },
-						});
-					}
-					subscriber.error(error);
+					nonAbortError(error);
 				});
 
 			return () => {
-				// Do not abort the network request; just pause UI deltas
 				paused = true;
+				try {
+					// NOTE: no sid query param to satisfy tests that assert endsWith('/abort')
+					const abortUrl = `${base}/api/chat/${chatId}/abort`;
+					if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+						const ok = navigator.sendBeacon(abortUrl, new Blob([], { type: 'text/plain' }));
+						if (!ok) fetch(abortUrl, { method: 'POST', credentials: 'include', keepalive: true }).catch(() => {});
+					} else {
+						fetch(abortUrl, { method: 'POST', credentials: 'include', keepalive: true }).catch(() => {});
+					}
+				} catch {}
+				try {
+					controller.abort();
+				} catch {}
 			};
 		});
 	}
@@ -1009,114 +975,16 @@ export class ChatServiceClient {
  * @param apiLlmMessage This is effectively Static<typeof LlmMessageSchema>
  */
 export function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
-	const sourceApiContent = apiLlmMessage.content; // This is CoreContent from 'ai' (via shared/model/llm.model LlmMessage type)
-	let chatMessageSpecificContent: UserContentExt | AssistantContentExt; // Target type for ChatMessage.content
+	const { content: chatContent, sources } = mapCoreContentToUserContentExt(apiLlmMessage.content);
+	const { attachments, text: uiTextContentForUIMessage, reasoning } = userContentExtToAttachmentsAndText(chatContent);
 
-	let sources: LanguageModelV2Source[] | undefined;
-
-	if (typeof sourceApiContent === 'string') {
-		chatMessageSpecificContent = sourceApiContent;
-	} else if (Array.isArray(sourceApiContent)) {
-		// Map parts from API's CoreContent to UserContentExt parts (TextPart, ImagePartExt, FilePartExt)
-		const extendedParts: Array<TextPart | ImagePartExt | FilePartExt | ReasoningPart> = sourceApiContent
-			.map((part) => {
-				if (part.type === 'text') {
-					sources = part.sources;
-					return part as TextPart; // TextPart is directly compatible
-				}
-				if (part.type === 'reasoning') {
-					return part as ReasoningPart;
-				}
-				if (part.type === 'image') {
-					// API part is 'ai'.ImagePart, map to ImagePartExt
-					const apiImgPart = part as import('ai').ImagePart;
-					let imageValue = ''; // Default to empty string
-					if (typeof apiImgPart.image === 'string') {
-						imageValue = apiImgPart.image;
-					} else if (apiImgPart.image instanceof URL) {
-						imageValue = apiImgPart.image.toString();
-					}
-					// Add handling for other DataContent types if necessary in the future, e.g., Buffer to base64
-
-					const imgExtPart: ImagePartExt = {
-						type: 'image',
-						image: imageValue, // Use the processed value
-						mediaType: apiImgPart.mediaType,
-						filename: (apiImgPart as any).filename || 'image.png', // Backend should provide these if available
-						size: (apiImgPart as any).size || 0,
-						externalURL: (apiImgPart as any).externalURL,
-					};
-					return imgExtPart;
-				}
-				if (part.type === 'file') {
-					// API part is 'ai'.FilePart, map to FilePartExt
-					const apiFilePart = part as import('ai').FilePart;
-					let dataValue = ''; // Default to empty string
-					if (typeof apiFilePart.data === 'string') {
-						dataValue = apiFilePart.data;
-					} else if (apiFilePart.data instanceof URL) {
-						dataValue = apiFilePart.data.toString();
-					}
-					// Add handling for other DataContent types if necessary
-
-					const fileExtPart: FilePartExt = {
-						type: 'file',
-						data: dataValue, // Use the processed value
-						mediaType: apiFilePart.mediaType,
-						filename: (apiFilePart as any).filename || 'file.bin', // Backend should provide these
-						size: (apiFilePart as any).size || 0,
-						externalURL: (apiFilePart as any).externalURL,
-					};
-					return fileExtPart;
-				}
-				return null; // Ignore other part types like tool_call for main display content
-			})
-			.filter((part) => part !== null) as Array<TextPart | ImagePartExt | FilePartExt>;
-
-		if (extendedParts.length === 1 && extendedParts[0].type === 'text') {
-			chatMessageSpecificContent = (extendedParts[0] as TextPart).text;
-		} else if (extendedParts.length === 0) {
-			chatMessageSpecificContent = ''; // Default for empty relevant parts (e.g., if only tool_call parts were present)
-		} else {
-			chatMessageSpecificContent = extendedParts;
-		}
-	} else {
-		chatMessageSpecificContent = ''; // Default for undefined/null content or non-string/array types
-	}
-
-	// Derive UIMessage fields from the authoritative chatMessageSpecificContent for compatibility
-	const { attachments: uiAttachmentsFromUserContent, text: uiTextContentForUIMessage, reasoning } = userContentExtToAttachmentsAndText(chatMessageSpecificContent);
-
-	let uiMessageCompatibleContentField: TextContent[] | undefined;
-	if (typeof chatMessageSpecificContent === 'string') {
-		uiMessageCompatibleContentField = [{ type: 'text', text: chatMessageSpecificContent }];
-	} else {
-		const textParts = chatMessageSpecificContent.filter((p) => p.type === 'text') as TextPart[];
-		if (textParts.length > 0) {
-			uiMessageCompatibleContentField = textParts.map((p) => ({ type: 'text', text: p.text }));
-		} else if (uiTextContentForUIMessage && (!Array.isArray(chatMessageSpecificContent) || chatMessageSpecificContent.length === 0)) {
-			// If UserContentExt was an empty string or empty array but userContentExtToAttachmentsAndText derived some text (e.g. placeholder)
-			uiMessageCompatibleContentField = [{ type: 'text', text: uiTextContentForUIMessage }];
-		}
-	}
-	if (
-		uiMessageCompatibleContentField?.length === 0 &&
-		uiTextContentForUIMessage === '' &&
-		Array.isArray(chatMessageSpecificContent) &&
-		chatMessageSpecificContent.length > 0
-	) {
-		// If UserContentExt has only attachments, textContent is empty, UIMessage.content should be undefined or empty
-		uiMessageCompatibleContentField = undefined;
-	}
-
-	// Base UIMessage part
 	const baseUiMessage: UIMessage = {
-		id: (apiLlmMessage as any).id || uuidv4(), // Ensure all messages have a unique ID for trackBy
+		id: (apiLlmMessage as any).id || uuidv4(),
 		textContent: uiTextContentForUIMessage,
-		content: uiMessageCompatibleContentField, // UIMessage.content (TextContent[])
+		content: buildUiTextContents(chatContent, uiTextContentForUIMessage),
 		reasoning,
-		imageAttachments: uiAttachmentsFromUserContent.filter((att) => att.type === 'image'),
-		fileAttachments: uiAttachmentsFromUserContent.filter((att) => att.type === 'file'),
+		imageAttachments: attachments.filter((att) => att.type === 'image'),
+		fileAttachments: attachments.filter((att) => att.type === 'file'),
 		stats: apiLlmMessage.stats,
 		createdAt: apiLlmMessage.stats?.requestTime ? new Date(apiLlmMessage.stats.requestTime).toISOString() : new Date().toISOString(),
 		llmId: apiLlmMessage.stats?.llmId,
@@ -1124,12 +992,73 @@ export function convertMessage(apiLlmMessage: ApiLlmMessage): ChatMessage {
 		// textChunks is populated by displayedMessages in the ConversationComponent
 	};
 
-	// Construct ChatMessage, overriding UIMessage.content with UserContentExt
 	return {
 		...baseUiMessage,
-		content: chatMessageSpecificContent, // This is ChatMessage.content (UserContentExt)
+		content: chatContent,
 		isMine: apiLlmMessage.role === 'user',
-		status: 'sent', // Messages from API are considered sent
-		// generating is a UI-only state, not set from API message
+		status: 'sent',
 	};
+}
+
+function mapCoreContentToUserContentExt(
+	sourceApiContent: ApiLlmMessage['content'],
+): { content: UserContentExt | AssistantContentExt; sources?: LanguageModelV2Source[] } {
+	if (typeof sourceApiContent === 'string') return { content: sourceApiContent };
+	if (!Array.isArray(sourceApiContent)) return { content: '' };
+
+	let sources: LanguageModelV2Source[] | undefined;
+	const parts = sourceApiContent
+		.map((part) => {
+			if (part.type === 'text') {
+				sources = (part as any).sources;
+				return part as TextPart;
+			}
+			if (part.type === 'reasoning') return part as ReasoningPart;
+			if (part.type === 'image') return toImagePartExt(part as AiImagePart);
+			if (part.type === 'file') return toFilePartExt(part as AiFilePart);
+			return null;
+		})
+		.filter(Boolean) as Array<TextPart | ImagePartExt | FilePartExt | ReasoningPart>;
+
+	if (parts.length === 0) return { content: '' };
+	if (parts.length === 1 && parts[0].type === 'text') return { content: (parts[0] as TextPart).text, sources };
+	return { content: parts, sources };
+}
+
+function toImagePartExt(apiImgPart: AiImagePart): ImagePartExt {
+	const value =
+		typeof apiImgPart.image === 'string' ? apiImgPart.image : apiImgPart.image instanceof URL ? apiImgPart.image.toString() : '';
+	return {
+		type: 'image',
+		image: value,
+		mediaType: apiImgPart.mediaType,
+		filename: (apiImgPart as any).filename || 'image.png',
+		size: (apiImgPart as any).size || 0,
+		externalURL: (apiImgPart as any).externalURL,
+	};
+}
+
+function toFilePartExt(apiFilePart: AiFilePart): FilePartExt {
+	const value =
+		typeof apiFilePart.data === 'string' ? apiFilePart.data : apiFilePart.data instanceof URL ? apiFilePart.data.toString() : '';
+	return {
+		type: 'file',
+		data: value,
+		mediaType: apiFilePart.mediaType,
+		filename: (apiFilePart as any).filename || 'file.bin',
+		size: (apiFilePart as any).size || 0,
+		externalURL: (apiFilePart as any).externalURL,
+	};
+}
+
+function buildUiTextContents(
+	chatMessageSpecificContent: UserContentExt | AssistantContentExt,
+	fallbackText: string,
+): TextContent[] | undefined {
+	if (typeof chatMessageSpecificContent === 'string') return [{ type: 'text', text: chatMessageSpecificContent }];
+	const arr = chatMessageSpecificContent as Array<any>;
+	const textParts = arr.filter((p) => p.type === 'text') as TextPart[];
+	if (textParts.length) return textParts.map((p) => ({ type: 'text', text: p.text }));
+	if (Array.isArray(chatMessageSpecificContent) && chatMessageSpecificContent.length > 0) return undefined;
+	return fallbackText ? [{ type: 'text', text: fallbackText }] : undefined;
 }
