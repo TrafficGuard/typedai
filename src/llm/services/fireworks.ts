@@ -30,39 +30,16 @@ export class Fireworks extends AiLLM<OpenAIProvider> {
 
 export function fireworksLLMRegistry(): Record<string, () => LLM> {
 	return {
-		[`${FIREWORKS_SERVICE}:accounts/fireworks/models/llama-v3p1-70b-instruct`]: fireworksLlama3_70B,
-		[`${FIREWORKS_SERVICE}:accounts/fireworks/models/deepseek-v3`]: fireworksDeepSeekV3,
-		[`${FIREWORKS_SERVICE}:accounts/fireworks/models/qwen3-235b-a22b`]: fireworksQwen3_235bA22b,
-		[`${FIREWORKS_SERVICE}:accounts/fireworks/models/qwen3-coder-480b-a35b-instruct`]: fireworksQwen3Coder,
+		[`${FIREWORKS_SERVICE}:accounts/fireworks/models/fireworks/glm-4p6`]: fireworksGLM_4_6,
 	};
 }
 
-export function fireworksQwen3_235bA22b(): LLM {
-	return new Fireworks('Qwen3 235b-A22b (Fireworks)', 'accounts/fireworks/models/qwen3-235b-a22b', 16_000, costPerMilTokens(0.22, 0.88));
-}
-
-export function fireworksQwen3Coder(): LLM {
-	return new Fireworks('Qwen3 Coder (Fireworks)', 'accounts/fireworks/models/qwen3-coder-480b-a35b-instruct', 262_144, costPerMilTokens(0.45, 1.8));
-}
-
-export function fireworksLlama3_70B(): LLM {
-	return new Fireworks('LLama3 70b-i (Fireworks)', 'accounts/fireworks/models/llama-v3p1-70b-instruct', 131_072, costPerMilTokens(0.9, 0.9));
-}
-
-export function fireworksLlama3_405B(): LLM {
-	return new Fireworks('LLama3 405b-i (Fireworks)', 'accounts/fireworks/models/llama-v3p1-405b-instruct', 131_072, costPerMilTokens(3, 3));
-}
-
-export function fireworksDeepSeekV3(): LLM {
-	return new Fireworks('DeepSeek 3 (Fireworks)', 'accounts/fireworks/models/deepseek-v3', 131_072, costPerMilTokens(0.9, 0.9));
+export function fireworksGLM_4_6(): LLM {
+	return new Fireworks('GLM-4.6 (Fireworks)', 'accounts/fireworks/models/glm-4p6', 202_000, costPerMilTokens(0.55, 2.19));
 }
 
 export function fireworksDeepSeekR1_Fast(): LLM {
 	return new Fireworks('DeepSeek R1 Fast (Fireworks)', 'accounts/fireworks/models/deepseek-r1', 160_000, costPerMilTokens(3, 8));
-}
-
-export function fireworksDeepSeekR1_Basic(): LLM {
-	return new Fireworks('DeepSeek R1 Basic (Fireworks)', 'accounts/fireworks/models/deepseek-r1-basic', 160_000, costPerMilTokens(0.55, 2.19));
 }
 
 // Not available in serverless

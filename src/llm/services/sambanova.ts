@@ -11,8 +11,6 @@ export function sambanovaLLMRegistry(): Record<string, () => LLM> {
 		'sambanova:Qwen3-32B': sambanovaQwen3_32b,
 		'sambanova:DeepSeek-R1': sambanovaDeepseekR1,
 		'sambanova:DeepSeek-V3-0324': sambanovaDeepseekV3,
-		'sambanova:DeepSeek-R1-Distill-Llama-70B': sambanovaLlama3_3_70b_R1_Distill,
-		'sambanova:Meta-Llama-3.3-70B-Instruct': sambanovaLlama3_3_70b,
 	};
 }
 
@@ -29,14 +27,6 @@ export function sambanovaDeepseekR1(): LLM {
 
 export function sambanovaDeepseekV3(): LLM {
 	return new SambanovaLLM('DeepSeek V3 (Sambanova)', 'DeepSeek-V3-0324', 8_192, costPerMilTokens(1, 1.5));
-}
-
-export function sambanovaLlama3_3_70b(): LLM {
-	return new SambanovaLLM('Llama 3.3 70b (Sambanova)', 'Meta-Llama-3.3-70B-Instruct', 8_192, costPerMilTokens(0.6, 1.2));
-}
-
-export function sambanovaLlama3_3_70b_R1_Distill(): LLM {
-	return new SambanovaLLM('Llama 3.3 70b R1 Distill (Sambanova)', 'DeepSeek-R1-Distill-Llama-70B', 128_000, costPerMilTokens(0.7, 1.4));
 }
 
 /**

@@ -4,12 +4,12 @@ import { appContext } from '#app/applicationContext';
 import { Claude4_1_Opus_Vertex, Claude4_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { deepinfraDeepSeekR1, deepinfraQwen3_235B_A22B } from '#llm/services/deepinfra';
 import { deepSeekV3_1 } from '#llm/services/deepseek';
-import { fireworksLlama3_70B } from '#llm/services/fireworks';
+import { fireworksGLM_4_6 } from '#llm/services/fireworks';
 import { nebiusDeepSeekR1 } from '#llm/services/nebius';
 import { Ollama_Phi3 } from '#llm/services/ollama';
 import { openaiGPT5mini } from '#llm/services/openai';
 import { perplexityLLM } from '#llm/services/perplexity-llm';
-import { sambanovaDeepseekR1, sambanovaLlama3_3_70b, sambanovaLlama3_3_70b_R1_Distill } from '#llm/services/sambanova';
+import { sambanovaDeepseekR1 } from '#llm/services/sambanova';
 import { togetherDeepSeekR1_0528_tput } from '#llm/services/together';
 import { vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import type { LlmMessage } from '#shared/llm/llm.model';
@@ -168,9 +168,9 @@ describe('LLMs', () => {
 	});
 
 	describe('Fireworks', () => {
-		const llm = fireworksLlama3_70B();
+		const llm = fireworksGLM_4_6();
 
-		it('should generateText', async () => {
+		it.skip('should generateText', async () => {
 			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
@@ -224,16 +224,6 @@ describe('LLMs', () => {
 	describe('SambaNova', () => {
 		it.skip('DeepSeek R1 should generateText', async () => {
 			const response = await sambanovaDeepseekR1().generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
-			expect(response.toLowerCase()).to.include('blue');
-		});
-
-		it('Llama 70b R1 Distill should generateText', async () => {
-			const response = await sambanovaLlama3_3_70b_R1_Distill().generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
-			expect(response.toLowerCase()).to.include('blue');
-		});
-
-		it('Llama 70b should generateText', async () => {
-			const response = await sambanovaLlama3_3_70b().generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});

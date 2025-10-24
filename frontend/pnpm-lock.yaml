@@ -48,8 +48,8 @@ importers:
         specifier: 0.34.41
         version: 0.34.41
       ai:
-        specifier: 5.0.8
-        version: 5.0.8(zod@3.25.76)
+        specifier: 5.0.78
+        version: 5.0.78(zod@3.25.76)
       angular-split:
         specifier: ^19.0.0
         version: 19.0.0(@angular/common@19.2.10(@angular/core@19.2.10(rxjs@7.8.2)(zone.js@0.15.0))(rxjs@7.8.2))(@angular/core@19.2.10(rxjs@7.8.2)(zone.js@0.15.0))(rxjs@7.8.2)
@@ -195,17 +195,17 @@ importers:
 
 packages:
 
-  '@ai-sdk/gateway@1.0.4':
-    resolution: {integrity: sha512-1roLdgMbFU3Nr4MC97/te7w6OqxsWBkDUkpbCcvxF3jz/ku91WVaJldn/PKU8feMKNyI5W9wnqhbjb1BqbExOQ==}
+  '@ai-sdk/gateway@2.0.1':
+    resolution: {integrity: sha512-vPVIbnP35ZnayS937XLo85vynR85fpBQWHCdUweq7apzqFOTU2YkUd4V3msebEHbQ2Zro60ZShDDy9SMiyWTqA==}
     engines: {node: '>=18'}
     peerDependencies:
-      zod: ^3.25.76 || ^4
+      zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/provider-utils@3.0.1':
-    resolution: {integrity: sha512-/iP1sKc6UdJgGH98OCly7sWJKv+J9G47PnTjIj40IJMUQKwDrUMyf7zOOfRtPwSuNifYhSoJQ4s1WltI65gJ/g==}
+  '@ai-sdk/provider-utils@3.0.12':
+    resolution: {integrity: sha512-ZtbdvYxdMoria+2SlNarEk6Hlgyf+zzcznlD55EAl+7VZvJaSg2sqPvwArY7L6TfDEDJsnCq0fdhBSkYo0Xqdg==}
     engines: {node: '>=18'}
     peerDependencies:
-      zod: ^3.25.76 || ^4
+      zod: ^3.25.76 || ^4.1.8
 
   '@ai-sdk/provider@2.0.0':
     resolution: {integrity: sha512-6o7Y2SeO9vFKB8lArHXehNuusnpddKPk7xqL7T2/b+OvXMRIXUO1rR4wcv1hAFUAT9avGZshty3Wlua/XA7TvA==}
@@ -2067,6 +2067,10 @@ packages:
   '@types/ws@8.18.1':
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
+  '@vercel/oidc@3.0.3':
+    resolution: {integrity: sha512-yNEQvPcVrK9sIe637+I0jD6leluPxzwJKx/Haw6F4H77CdDsszUn5V3o96LPziXkSNE2B83+Z3mjqGKBK/R6Gg==}
+    engines: {node: '>= 20'}
+
   '@vitejs/plugin-basic-ssl@1.2.0':
     resolution: {integrity: sha512-mkQnxTkcldAzIsomk1UuLfAu9n+kpQ3JbHcpCp7d2Oo6ITtji8pHS3QToOWjhPFvNQSnhlkAjmGbhv2QvwO/7Q==}
     engines: {node: '>=14.21.3'}
@@ -2151,11 +2155,11 @@ packages:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
     engines: {node: '>= 14'}
 
-  ai@5.0.8:
-    resolution: {integrity: sha512-qbnhj046UvG30V1S5WhjBn+RBGEAmi8PSZWqMhRsE3EPxvO5BcePXTZFA23e9MYyWS9zr4Vm8Mv3wQXwLmtIBw==}
+  ai@5.0.78:
+    resolution: {integrity: sha512-ec77fmQwJGLduswMrW4AAUGSOiu8dZaIwMmWHHGKsrMUFFS6ugfkTyx0srtuKYHNRRLRC2dT7cPirnUl98VnxA==}
     engines: {node: '>=18'}
     peerDependencies:
-      zod: ^3.25.76 || ^4
+      zod: ^3.25.76 || ^4.1.8
 
   ajv-formats@2.1.1:
     resolution: {integrity: sha512-Wx0Kx52hxE7C18hkMEggYlEifqWZtYaRgouJor+WMdPnQyEK13vgEWyVNup7SoeeoLMsr4kf5h6dOW11I15MUA==}
@@ -5328,11 +5332,6 @@ packages:
     resolution: {integrity: sha512-cYVsTjKl8b+FrnidjibDWskAv7UKOfcwaVZdp/it9n1s9fU3IkgDbhdIRKCW4JDsAlECJY0ytoVPT3sK6kideA==}
     engines: {node: '>=18'}
 
-  zod-to-json-schema@3.24.6:
-    resolution: {integrity: sha512-h/z3PKvcTcTetyjl1fkj79MHNEjm+HpD6NXheWjzOekY7kV+lwDYnHw+ivHkijnCSMz1yJaWBD9vu/Fcmk+vEg==}
-    peerDependencies:
-      zod: ^3.24.1
-
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
@@ -5341,19 +5340,19 @@ packages:
 
 snapshots:
 
-  '@ai-sdk/gateway@1.0.4(zod@3.25.76)':
+  '@ai-sdk/gateway@2.0.1(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.1(zod@3.25.76)
+      '@ai-sdk/provider-utils': 3.0.12(zod@3.25.76)
+      '@vercel/oidc': 3.0.3
       zod: 3.25.76
 
-  '@ai-sdk/provider-utils@3.0.1(zod@3.25.76)':
+  '@ai-sdk/provider-utils@3.0.12(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
       '@standard-schema/spec': 1.0.0
       eventsource-parser: 3.0.6
       zod: 3.25.76
-      zod-to-json-schema: 3.24.6(zod@3.25.76)
 
   '@ai-sdk/provider@2.0.0':
     dependencies:
@@ -7388,6 +7387,8 @@ snapshots:
     dependencies:
       '@types/node': 22.16.5
 
+  '@vercel/oidc@3.0.3': {}
+
   '@vitejs/plugin-basic-ssl@1.2.0(vite@6.2.7(@types/node@22.16.5)(jiti@1.21.7)(less@4.2.2)(sass@1.85.0)(terser@5.39.0)(yaml@2.8.0))':
     dependencies:
       vite: 6.2.7(@types/node@22.16.5)(jiti@1.21.7)(less@4.2.2)(sass@1.85.0)(terser@5.39.0)(yaml@2.8.0)
@@ -7492,11 +7493,11 @@ snapshots:
 
   agent-base@7.1.4: {}
 
-  ai@5.0.8(zod@3.25.76):
+  ai@5.0.78(zod@3.25.76):
     dependencies:
-      '@ai-sdk/gateway': 1.0.4(zod@3.25.76)
+      '@ai-sdk/gateway': 2.0.1(zod@3.25.76)
       '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.1(zod@3.25.76)
+      '@ai-sdk/provider-utils': 3.0.12(zod@3.25.76)
       '@opentelemetry/api': 1.9.0
       zod: 3.25.76
 
@@ -10826,10 +10827,6 @@ snapshots:
   yocto-queue@1.2.1: {}
 
   yoctocolors-cjs@2.1.2: {}
-
-  zod-to-json-schema@3.24.6(zod@3.25.76):
-    dependencies:
-      zod: 3.25.76
 
   zod@3.25.76: {}
 

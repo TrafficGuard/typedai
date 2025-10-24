@@ -40,3 +40,11 @@ export class InvalidRequest extends Error {
 		this.name = 'InvalidRequest';
 	}
 }
+
+export class AccountBillingError extends Error {
+	code = 'ACCOUNT_BILLING_ERROR';
+	constructor(message: string) {
+		super(message);
+		this.name = 'AccountBillingError';
+	}
+}

@@ -19,6 +19,7 @@ import { BaseLLM, type BaseLlmConfig } from '#llm/base-llm';
 import { type CreateLlmRequest, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
+import { AccountBillingError } from '#shared/errors';
 import {
 	type AssistantContentExt,
 	type CoreContent,
@@ -191,10 +192,9 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				if (opts.thinking === 'low') thinkingBudget = 3000;
 				if (opts.thinking === 'medium') thinkingBudget = 8192;
 				else if (opts.thinking === 'high') thinkingBudget = 21_333; // maximum without streaming
+
 				if (thinkingBudget) {
-					providerOptions.anthropic = {
-						thinking: { type: 'enabled', budgetTokens: thinkingBudget },
-					};
+					providerOptions.anthropic = { thinking: { type: 'enabled', budgetTokens: thinkingBudget } };
 					opts.temperature = undefined; // temperature is not supported when thinking is enabled
 				}
 				// maxOutputTokens += budgetTokens;
@@ -391,6 +391,8 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				this.saveLlmCallResponse(llmCall);
 
 				span.recordException(error);
+				if (error.responseBody?.includes('billing')) throw new AccountBillingError(error.responseBody);
+
 				throw error;
 			}
 		});
@@ -440,6 +442,8 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 				temperature: combinedOpts?.temperature,
 				// topP: combinedOpts?.topP, // anthropic '`temperature` and `top_p` cannot both be specified for this model. Please use only one.'
 				stopSequences: combinedOpts?.stopSequences,
+				providerOptions: combinedOpts.providerOptions,
+				maxOutputTokens: this.getMaxOutputTokens(),
 				experimental_transform: smoothStream(),
 			};
 			logger.info({ args: { ...args, messages: `LlmCall:${llmCall.id}` } }, `Streaming text - ${opts?.id}`);
