@@ -19,8 +19,8 @@ export function slackConfig(): SlackConfig {
 
 function createSlackConfig(): SlackConfig {
 	const config: SlackConfig = {
-		socketMode: Boolean(process.env.SLACK_SOCKET_MODE?.trim()),
-		autoStart: Boolean(process.env.SLACK_AUTO_START?.trim()),
+		socketMode: process.env.SLACK_SOCKET_MODE?.trim().toLowerCase() === 'true',
+		autoStart: process.env.SLACK_AUTO_START?.trim().toLowerCase() === 'true',
 		botToken: getSecretEnvVar('SLACK_BOT_TOKEN', ''),
 		signingSecret: getSecretEnvVar('SLACK_SIGNING_SECRET', ''),
 		appToken: getSecretEnvVar('SLACK_APP_TOKEN', ''),

@@ -181,7 +181,7 @@ export class IndexDocBuilder {
 
 		// fss.writeFile is expected to handle recursive directory creation.
 		await this.fss.writeFile(summaryFilePath, JSON.stringify(doc, null, 2));
-		logger.info(`Completed summary for ${relativeFilePath}`);
+		logger.debug(`Completed summary for ${relativeFilePath}`);
 	}
 
 	async processFilesInFolder(folderPath: string, fileMatchesIndexDocs: (filePath: string) => boolean): Promise<void> {

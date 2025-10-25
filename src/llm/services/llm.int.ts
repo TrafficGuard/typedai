@@ -170,7 +170,7 @@ describe('LLMs', () => {
 	describe('Fireworks', () => {
 		const llm = fireworksGLM_4_6();
 
-		it.skip('should generateText', async () => {
+		it('should generateText', async () => {
 			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});

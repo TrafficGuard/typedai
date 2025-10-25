@@ -59,7 +59,7 @@ export async function loadSecrets(sm?: SecretManager) {
 			for (const [envKey, mappedName] of mapping.entries()) {
 				if (mappedName === name) secrets.set(envKey, value);
 			}
-			logger.info(`Loaded secret ${name}`);
+			logger.debug(`Loaded secret ${name}`);
 		}),
 	);
 

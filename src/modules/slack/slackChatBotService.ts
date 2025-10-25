@@ -156,7 +156,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			logger.error(error, 'Failed to get bot user ID');
 		}
 
-		if (config.socketMode) {
+		if (config.socketMode && config.autoStart) {
 			// Listen for messages in channels
 			slackApp.event('message', async ({ event, say }) => {
 				this.handleMessage(event, say);
