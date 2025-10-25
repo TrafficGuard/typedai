@@ -1,4 +1,4 @@
-import type { AsyncLocalStorage } from 'node:async_hooks';
+import { AsyncLocalStorage } from 'node:async_hooks';
 /* eslint-disable semi */
 import type { Span, SpanContext, Tracer } from '@opentelemetry/api';
 import { trace } from '@opentelemetry/api';
@@ -19,6 +19,8 @@ const _fakeSpan: Partial<Span> = {
 
 const fakeSpan = _fakeSpan as Span;
 
+const callStackStorage = new AsyncLocalStorage<string[]>();
+
 /**
  * Dummy tracer for when tracing is not enabled. As we use more trace methods we will need to fill out this stub further.
  */
@@ -29,6 +31,22 @@ const dummyTracer = {
 let tracer: SugaredTracer | null = null;
 let agentContextStorage: AsyncLocalStorage<AgentContext>;
 let checkForceStopped: () => void;
+
+function runWithCallStackSegment<T>(segment: string, fn: () => T): T {
+	if (!segment) return fn();
+
+	const parentStack = callStackStorage.getStore() ?? [];
+	const nextStack = [...parentStack, segment];
+	return callStackStorage.run(nextStack, fn);
+}
+
+export function getCurrentCallStack(): string[] {
+	const stack = callStackStorage.getStore();
+	if (stack) return stack;
+
+	const agent = agentContextStorage?.getStore();
+	return agent?.callStack ?? [];
+}
 
 /**
  * @param {Tracer} theTracer - Tracer to be set by the trace-init service
@@ -76,17 +94,19 @@ export function getActiveSpan(): Span {
 export async function withActiveSpan<T>(spanName: string, func: (span: Span) => T): Promise<T> {
 	if (!spanName) console.error(new Error(), 'spanName not provided');
 	checkForceStopped();
-	const functionWithCallStack = async (span: Span): Promise<T> => {
-		try {
-			agentContextStorage?.getStore()?.callStack?.push(spanName);
-			return await func(span);
-		} finally {
-			agentContextStorage?.getStore()?.callStack?.pop();
-		}
+
+	const execute = (span: Span): T => {
+		const stack = getCurrentCallStack();
+		if (stack.length) span.setAttribute('call', stack.join(' > '));
+		return func(span);
 	};
 
-	if (!tracer) return await functionWithCallStack(fakeSpan);
-	return tracer.withActiveSpan(spanName, functionWithCallStack);
+	const result = runWithCallStackSegment(spanName, () => {
+		if (!tracer) return execute(fakeSpan);
+		return tracer.withActiveSpan(spanName, execute);
+	});
+
+	return await Promise.resolve(result);
 }
 
 /**
@@ -96,9 +116,17 @@ export async function withActiveSpan<T>(spanName: string, func: (span: Span) => 
  */
 export function withSpan<T>(spanName: string, func: (span: Span) => T): T {
 	checkForceStopped();
-	if (!tracer) return func(fakeSpan);
 
-	return tracer.withSpan(spanName, func);
+	const execute = (span: Span): T => {
+		const stack = getCurrentCallStack();
+		if (stack.length) span.setAttribute('call', stack.join(' > '));
+		return func(span);
+	};
+
+	return runWithCallStackSegment(spanName, () => {
+		if (!tracer) return execute(fakeSpan);
+		return tracer.withSpan(spanName, execute);
+	});
 }
 
 type SpanAttributeExtractor = number | ((...args: any) => string);
@@ -157,18 +185,12 @@ export function span<T extends (...args: any[]) => any>(
 					return undefined;
 				}
 			})();
-			try {
-				agentContextStorage?.getStore()?.callStack?.push(functionName);
-				if (!tracer) {
-					return userCtx ? await runAsUser(userCtx, () => originalMethod.call(this, ...args)) : await originalMethod.call(this, ...args);
-				}
-				return tracer.withActiveSpan(functionName, async (span: Span) => {
-					setFunctionSpanAttributes(span, functionName, attributeExtractors, args);
-					return userCtx ? await runAsUser(userCtx, () => originalMethod.call(this, ...args)) : await originalMethod.call(this, ...args);
-				});
-			} finally {
-				agentContextStorage?.getStore()?.callStack?.pop();
-			}
+
+			return await withActiveSpan(functionName, async (span: Span) => {
+				setFunctionSpanAttributes(span, functionName, attributeExtractors, args);
+				const invoke = () => originalMethod.call(this, ...args);
+				return userCtx ? await runAsUser(userCtx, invoke) : await invoke();
+			});
 		};
 	};
 }

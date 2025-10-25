@@ -10,8 +10,10 @@ import type { AgentLLMs } from '#shared/agent/agent.model';
 import { performLocalBranchCodeReview } from '#swe/codeReview/local/localCodeReview';
 import { beep } from '#utils/beep';
 import { parseProcessArgs } from './cli';
+import { loadCliEnvironment } from './envLoader';
 
 async function main() {
+	loadCliEnvironment();
 	await initApplicationContext();
 	const agentLlms: AgentLLMs = defaultLLMs();
 

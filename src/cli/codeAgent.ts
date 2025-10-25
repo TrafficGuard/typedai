@@ -20,6 +20,7 @@ import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { CodeFunctions } from '#swe/codeFunctions';
 import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs, saveAgentId } from './cli';
+import { loadCliEnvironment } from './envLoader';
 import { resolveFunctionClasses } from './functionAliases';
 
 async function resumeAgent(resumeAgentId: string, initialPrompt: string) {
@@ -42,6 +43,7 @@ async function resumeAgent(resumeAgentId: string, initialPrompt: string) {
 }
 
 export async function main(): Promise<void> {
+	loadCliEnvironment();
 	registerErrorHandlers();
 	await initApplicationContext();
 	const llms = defaultLLMs();

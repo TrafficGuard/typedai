@@ -194,6 +194,57 @@ describe('IndexDocBuilder', () => {
 			expect(await fileExists(existingSummaryFullPath), 'Existing summary should still exist').to.be.true;
 		});
 
+		it('should process multiple sibling folders in parallel', async () => {
+			const file1Content = 'content of file1.ts';
+			const file2Content = 'content of file2.ts';
+			const file3Content = 'content of file3.ts';
+
+			const aiConfig = [{ indexDocs: ['**/*.ts'] }];
+			setupMockFs({
+				[MOCK_REPO_ROOT]: {
+					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
+					folder1: {
+						'file1.ts': file1Content,
+					},
+					folder2: {
+						'file2.ts': file2Content,
+					},
+					folder3: {
+						'file3.ts': file3Content,
+					},
+					[typedaiDirName]: { docs: {} },
+				},
+			});
+
+			// Spy on processFolderRecursively to track parallel execution
+			const processFolderSpy = sinon.spy(builder, 'processFolderRecursively' as any);
+
+			await builder.buildIndexDocsInternal();
+
+			// Verify all three folders were processed
+			const summaryFile1Path = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'folder1/file1.ts.json');
+			const summaryFile2Path = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'folder2/file2.ts.json');
+			const summaryFile3Path = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'folder3/file3.ts.json');
+
+			expect(await fileExists(summaryFile1Path), 'file1.ts.json should exist').to.be.true;
+			expect(await fileExists(summaryFile2Path), 'file2.ts.json should exist').to.be.true;
+			expect(await fileExists(summaryFile3Path), 'file3.ts.json should exist').to.be.true;
+
+			// Verify folder summaries were created
+			const summaryFolder1Path = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'folder1/_index.json');
+			const summaryFolder2Path = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'folder2/_index.json');
+			const summaryFolder3Path = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'folder3/_index.json');
+
+			expect(await fileExists(summaryFolder1Path), 'folder1/_index.json should exist').to.be.true;
+			expect(await fileExists(summaryFolder2Path), 'folder2/_index.json should exist').to.be.true;
+			expect(await fileExists(summaryFolder3Path), 'folder3/_index.json should exist').to.be.true;
+
+			// Verify processFolderRecursively was called for the root and all 3 folders
+			expect(processFolderSpy.callCount).to.be.at.least(4); // root + 3 folders
+
+			processFolderSpy.restore();
+		});
+
 		it('should not regenerate summaries if content and children hashes are unchanged', async () => {
 			const fileContent = 'content of file.ts';
 			const aiConfig = [{ indexDocs: ['src/file.ts'] }];
@@ -262,6 +313,160 @@ describe('IndexDocBuilder', () => {
 			expect(summaryFile.meta.hash).to.equal(hash(newFileContent));
 			expect(generateFolderSummaryStub.called, 'generateFolderSummary helper for parent should be called').to.be.true;
 			expect(llm.generateText.calledOnce, 'Easy LLM generateText for project summary should be called').to.be.true;
+		});
+
+		it('should be stable after incremental update - no LLM calls on second run', async () => {
+			const fileContent = 'file content';
+			const aiConfig = [{ indexDocs: ['src/**/*.ts'] }];
+
+			setupMockFs({
+				[MOCK_REPO_ROOT]: {
+					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
+					src: {
+						'file.ts': fileContent,
+					},
+					[typedaiDirName]: { docs: {} },
+				},
+			});
+
+			// First run - should generate summaries
+			await builder.buildIndexDocsInternal();
+
+			expect(generateFileSummaryStub.callCount).to.equal(1);
+			expect(generateFolderSummaryStub.callCount).to.equal(1);
+			expect(llm.generateText.callCount).to.equal(1);
+
+			// Reset stubs to track second run
+			generateFileSummaryStub.resetHistory();
+			generateFolderSummaryStub.resetHistory();
+			llm.generateText.resetHistory();
+
+			// Second run - should make NO LLM calls (stable incremental update)
+			await builder.buildIndexDocsInternal();
+
+			expect(generateFileSummaryStub.called, 'generateFileSummary should NOT be called on second run').to.be.false;
+			expect(generateFolderSummaryStub.called, 'generateFolderSummary should NOT be called on second run').to.be.false;
+			expect(llm.generateText.called, 'LLM generateText should NOT be called on second run').to.be.false;
+		});
+
+		it('should update only changed file and cascade parent folder updates', async () => {
+			const file1Content = 'file1 content';
+			const file2OldContent = 'file2 old content';
+			const file2NewContent = 'file2 new content';
+			const aiConfig = [{ indexDocs: ['src/**/*.ts'] }];
+
+			const file1Hash = hash(file1Content);
+			const file2OldHash = hash(file2OldContent);
+			const initialFolderHash = hash(`src/file1.ts:${file1Hash},src/file2.ts:${file2OldHash}`);
+
+			setupMockFs({
+				[MOCK_REPO_ROOT]: {
+					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
+					src: {
+						'file1.ts': file1Content,
+						'file2.ts': file2OldContent,
+					},
+					[typedaiDirName]: {
+						docs: {
+							src: {
+								'file1.ts.json': JSON.stringify({ path: 'src/file1.ts', short: 's1', long: 'l1', meta: { hash: file1Hash } }),
+								'file2.ts.json': JSON.stringify({ path: 'src/file2.ts', short: 's2', long: 'l2', meta: { hash: file2OldHash } }),
+								'_index.json': JSON.stringify({ path: 'src', short: 'folder', long: 'folder', meta: { hash: initialFolderHash } }),
+							},
+							'_project_summary.json': JSON.stringify({ projectOverview: 'overview', meta: { hash: hash(`src:${initialFolderHash}`) } }),
+						},
+					},
+				},
+			});
+
+			// Change only file2
+			await fsAsync.writeFile(path.join(MOCK_REPO_ROOT, 'src/file2.ts'), file2NewContent);
+
+			await builder.buildIndexDocsInternal();
+
+			// Verify only file2 summary was regenerated (not file1)
+			expect(generateFileSummaryStub.calledOnce, 'generateFileSummary should be called once for changed file2').to.be.true;
+
+			// Verify file2 hash was updated
+			const file2Summary = JSON.parse(await fsAsync.readFile(path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs/src/file2.ts.json'), 'utf-8'));
+			expect(file2Summary.meta.hash).to.equal(hash(file2NewContent));
+
+			// Verify file1 hash is unchanged
+			const file1Summary = JSON.parse(await fsAsync.readFile(path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs/src/file1.ts.json'), 'utf-8'));
+			expect(file1Summary.meta.hash).to.equal(file1Hash);
+
+			// Verify folder summary was regenerated due to child change
+			expect(generateFolderSummaryStub.called, 'generateFolderSummary should be called due to child change').to.be.true;
+
+			// Verify project summary was regenerated
+			expect(llm.generateText.calledOnce, 'Project summary should be regenerated').to.be.true;
+		});
+
+		it('should handle nested folder incremental updates correctly', async () => {
+			const file1Content = 'file1 content';
+			const file2OldContent = 'nested file old';
+			const file2NewContent = 'nested file new';
+			const aiConfig = [{ indexDocs: ['src/**/*.ts'] }];
+
+			const file1Hash = hash(file1Content);
+			const file2OldHash = hash(file2OldContent);
+			const nestedFolderHash = hash(`src/nested/file2.ts:${file2OldHash}`);
+			const parentFolderHash = hash(`src/file1.ts:${file1Hash},src/nested:${nestedFolderHash}`);
+
+			setupMockFs({
+				[MOCK_REPO_ROOT]: {
+					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
+					src: {
+						'file1.ts': file1Content,
+						nested: {
+							'file2.ts': file2OldContent,
+						},
+					},
+					[typedaiDirName]: {
+						docs: {
+							src: {
+								'file1.ts.json': JSON.stringify({ path: 'src/file1.ts', short: 's1', long: 'l1', meta: { hash: file1Hash } }),
+								nested: {
+									'file2.ts.json': JSON.stringify({ path: 'src/nested/file2.ts', short: 's2', long: 'l2', meta: { hash: file2OldHash } }),
+									'_index.json': JSON.stringify({ path: 'src/nested', short: 'nested', long: 'nested', meta: { hash: nestedFolderHash } }),
+								},
+								'_index.json': JSON.stringify({ path: 'src', short: 'src', long: 'src', meta: { hash: parentFolderHash } }),
+							},
+							'_project_summary.json': JSON.stringify({ projectOverview: 'overview', meta: { hash: hash(`src:${parentFolderHash}`) } }),
+						},
+					},
+				},
+			});
+
+			// Change only the nested file
+			await fsAsync.writeFile(path.join(MOCK_REPO_ROOT, 'src/nested/file2.ts'), file2NewContent);
+
+			await builder.buildIndexDocsInternal();
+
+			// Verify only the nested file summary was regenerated
+			expect(generateFileSummaryStub.calledOnce, 'generateFileSummary should be called once for changed nested file').to.be.true;
+
+			// Verify file2 hash was updated
+			const file2Summary = JSON.parse(await fsAsync.readFile(path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs/src/nested/file2.ts.json'), 'utf-8'));
+			expect(file2Summary.meta.hash).to.equal(hash(file2NewContent));
+
+			// Verify both nested folder and parent folder summaries were regenerated
+			// generateFolderSummaryStub should be called at least twice (nested + src)
+			expect(generateFolderSummaryStub.callCount).to.be.at.least(2, 'Both nested and parent folder summaries should be regenerated');
+
+			// Verify project summary was regenerated
+			expect(llm.generateText.calledOnce, 'Project summary should be regenerated').to.be.true;
+
+			// Reset and verify stability on second run
+			generateFileSummaryStub.resetHistory();
+			generateFolderSummaryStub.resetHistory();
+			llm.generateText.resetHistory();
+
+			await builder.buildIndexDocsInternal();
+
+			expect(generateFileSummaryStub.called, 'No file summaries should be regenerated on stable run').to.be.false;
+			expect(generateFolderSummaryStub.called, 'No folder summaries should be regenerated on stable run').to.be.false;
+			expect(llm.generateText.called, 'No project summary should be regenerated on stable run').to.be.false;
 		});
 
 		it('should handle missing AI_INFO_FILENAME gracefully', async () => {

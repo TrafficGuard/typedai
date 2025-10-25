@@ -15,6 +15,7 @@ import { CodeFunctions } from '#swe/codeFunctions';
 import { type SWEInstance, startContainer, stopContainer } from '../benchmarks/swebench/swe-bench-runner';
 import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs } from './cli';
+import { loadCliEnvironment } from './envLoader';
 
 async function loadDataset(datasetName: string, split: string): Promise<SWEInstance[]> {
 	// const url = `https://huggingface.co/datasets/${datasetName}/resolve/main/swe-bench.json`;
@@ -29,6 +30,7 @@ async function loadDataset(datasetName: string, split: string): Promise<SWEInsta
 }
 
 async function main() {
+	loadCliEnvironment();
 	registerErrorHandlers();
 	await initApplicationContext();
 	const llms = defaultLLMs();

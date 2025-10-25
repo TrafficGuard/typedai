@@ -13,6 +13,7 @@ import { MorphEditor } from '#swe/morph/morphEditor';
 import { beep } from '#utils/beep';
 import { execCommand } from '#utils/exec';
 import { parseProcessArgs } from './cli';
+import { loadCliEnvironment } from './envLoader';
 
 /**
  * Walks up the directory tree from the file location until a `.git` folder is found.
@@ -28,6 +29,7 @@ function findRepoRoot(startFilePath: string): string {
 }
 
 async function main() {
+	loadCliEnvironment();
 	// timeout avoids ReferenceError: Cannot access 'RateLimiter' before initialization
 	setTimeout(() => {
 		initInMemoryApplicationContext();

@@ -5,8 +5,10 @@ import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { Git } from '#functions/scm/git';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { defaultLLMs } from '#llm/services/defaultLlms';
+import { loadCliEnvironment } from './envLoader';
 
 async function main() {
+	loadCliEnvironment();
 	await initApplicationContext();
 	console.log('Commit command starting...');
 

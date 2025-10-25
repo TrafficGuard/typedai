@@ -1,7 +1,6 @@
 import type { Span } from '@opentelemetry/api';
-import { agentContext } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import { getTracer, setFunctionSpanAttributes, withActiveSpan } from '#o11y/trace';
+import { setFunctionSpanAttributes, withActiveSpan } from '#o11y/trace';
 import { functionSchemaParser } from './functionSchemaParser';
 import { FUNC_SEP, type FunctionSchema, getFunctionSchemas, setFunctionSchemas } from './functions';
 
@@ -36,9 +35,6 @@ export function func() {
 	return function spanDecorator(originalMethod: any, context: ClassMethodDecoratorContext): any {
 		const methodName = String(context.name);
 		return async function replacementMethod(this: any, ...args: any[]) {
-			const tracer = getTracer();
-			const agent = agentContext();
-
 			// TODO move agent.functionCallHistory.push from xml and codegen runners to here so agentWorkflows show the function call history
 			// output summarising might have to happen in the agentService.save
 			// // Convert arg array to parameters name/value map
@@ -51,14 +47,6 @@ export function func() {
 			// 	stdoutSummary: outputSummary,
 			// });
 
-			if (!tracer) {
-				try {
-					agent?.callStack?.push(methodName);
-					return await originalMethod.call(this, ...args);
-				} finally {
-					agentContext()?.callStack?.pop();
-				}
-			}
 			const className = Object.getPrototypeOf(this).constructor.name;
 			const functionName = `${className}${FUNC_SEP}${methodName}`;
 			// NOTE - modification, build attributeExtractors from all the arguments
@@ -80,16 +68,13 @@ export function func() {
 
 			return await withActiveSpan(methodName, async (span: Span) => {
 				setFunctionSpanAttributes(span, methodName, attributeExtractors, args);
-				span.setAttribute('call', agentContext()?.callStack?.join(' > ') ?? '');
-
-				agent?.callStack?.push(methodName);
 
 				let result: any;
 				try {
 					result = originalMethod.call(this, ...args);
 					if (typeof result?.then === 'function') await result;
 				} finally {
-					agent?.callStack?.pop();
+					// No explicit pop needed, AsyncLocalStorage handles scope exit
 				}
 
 				try {

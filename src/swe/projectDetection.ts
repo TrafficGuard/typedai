@@ -22,6 +22,7 @@ export function setProjectDetectionAgent(fn: ProjectDetectionAgentFn): void {
 export type ScriptCommand = string | string[];
 
 export const AI_INFO_FILENAME = '.typedai.json';
+export const MINIMAL_AI_INFO = '[{"baseUrl":"."}]';
 
 /**
  * Interface for the data structure stored in the .typedai.json file.

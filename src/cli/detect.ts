@@ -8,8 +8,10 @@ import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import { getProjectInfo } from '#swe/projectDetection';
+import { loadCliEnvironment } from './envLoader';
 
 async function main() {
+	loadCliEnvironment();
 	await initApplicationContext();
 	const agentLLMs: AgentLLMs = defaultLLMs();
 

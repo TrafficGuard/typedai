@@ -9,9 +9,11 @@ import { getMarkdownFormatPrompt } from '#routes/chat/chatPromptUtils';
 import { LLM, LlmMessage, UserContentExt, contentText, messageText, user } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { parseProcessArgs, saveAgentId } from './cli';
+import { loadCliEnvironment } from './envLoader';
 import { LLM_CLI_ALIAS } from './llmAliases';
 
 async function main() {
+	loadCliEnvironment();
 	await initApplicationContext();
 
 	const { initialPrompt: rawPrompt, resumeAgentId, flags } = parseProcessArgs();

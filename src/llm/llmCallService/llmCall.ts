@@ -1,5 +1,6 @@
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
+import { getCurrentCallStack } from '#o11y/trace';
 import type { AgentContext } from '#shared/agent/agent.model';
 import type { LlmRequest } from '#shared/llmCall/llmCall.model';
 
@@ -7,21 +8,27 @@ export type CreateLlmRequest = Omit<LlmRequest, 'id' | 'requestTime'>;
 
 export function callStack(agent?: AgentContext): string {
 	agent ??= agentContext();
-	if (!agent) return '';
-	let arr: string[] = agent.callStack;
-	if (!arr || arr.length === 0) return '';
-	if (arr.length === 1) return arr[0]!;
 
-	// Remove the common spans
-	arr.shift();
-	const index = arr.indexOf('CodeGen Agent');
-	if (index !== -1) arr = arr.slice(index + 1, arr.length);
+	const base = (() => {
+		const asyncStack = getCurrentCallStack();
+		if (asyncStack.length) return asyncStack;
+		return agent?.callStack ?? [];
+	})();
 
-	// Remove duplicates from when we call multiple in parallel, eg in findFilesToEdit
-	let i = arr.length - 1;
-	while (i > 0 && arr[i] === arr[i - 1]) {
-		i--;
+	if (!base.length) return '';
+
+	const stack = [...base];
+
+	if (stack.length > 1) {
+		stack.shift();
+		const idx = stack.indexOf('CodeGen Agent');
+		if (idx !== -1) stack.splice(0, idx + 1);
 	}
-	logger.info(arr.slice(0, i + 1).join(' > '));
-	return arr.slice(0, i + 1).join(' > ');
+
+	let i = stack.length - 1;
+	while (i > 0 && stack[i] === stack[i - 1]) i--;
+
+	const formatted = stack.slice(0, i + 1).join(' > ');
+	if (formatted) logger.info(formatted);
+	return formatted;
 }

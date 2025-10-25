@@ -11,8 +11,10 @@ import type { AgentLLMs } from '#shared/agent/agent.model';
 import { fastSelectFilesAgent } from '#swe/discovery/fastSelectFilesAgent';
 import { selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { parseProcessArgs } from './cli';
+import { loadCliEnvironment } from './envLoader';
 
 async function main() {
+	loadCliEnvironment();
 	await initApplicationContext();
 	const agentLLMs: AgentLLMs = defaultLLMs();
 
