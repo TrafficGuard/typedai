@@ -23,3 +23,5 @@ pyodide/
 firestore-debug.log
 .npm/
 .pm2/
+bench
+/benchmarks
