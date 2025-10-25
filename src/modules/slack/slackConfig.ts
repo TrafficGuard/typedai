@@ -21,9 +21,9 @@ function createSlackConfig(): SlackConfig {
 	const config: SlackConfig = {
 		socketMode: Boolean(process.env.SLACK_SOCKET_MODE?.trim()),
 		autoStart: Boolean(process.env.SLACK_AUTO_START?.trim()),
-		botToken: getSecretEnvVar('SLACK_BOT_TOKEN'),
-		signingSecret: getSecretEnvVar('SLACK_SIGNING_SECRET'),
-		appToken: getSecretEnvVar('SLACK_APP_TOKEN'),
+		botToken: getSecretEnvVar('SLACK_BOT_TOKEN', ''),
+		signingSecret: getSecretEnvVar('SLACK_SIGNING_SECRET', ''),
+		appToken: getSecretEnvVar('SLACK_APP_TOKEN', ''),
 		channels: process.env.SLACK_CHANNELS?.split(',')?.map((s) => s.trim()) || [],
 	};
 	const maskedConfig: SlackConfig = {
