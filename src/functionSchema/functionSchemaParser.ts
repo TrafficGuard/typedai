@@ -5,17 +5,21 @@ import { promisify } from 'node:util';
 import {
 	type ClassDeclaration,
 	type Decorator,
+	type InterfaceDeclaration,
 	type JSDoc,
 	type JSDocTag,
 	type MethodDeclaration,
 	type ParameterDeclaration,
 	Project,
+	type PropertySignature,
+	type SourceFile,
 	type Type,
 } from 'ts-morph';
 import { systemDir } from '#app/appDirs';
 import { FUNC_DECORATOR_NAME } from '#functionSchema/functionSchemaTypes';
 import { logger } from '#o11y/logger';
 import type { FunctionParameter, FunctionSchema } from './functions';
+import type { TypeDefinition, TypeProperty } from './typeDefinition';
 
 const writeFileAsync = promisify(writeFile);
 
@@ -130,15 +134,14 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 			const jsDocs: JSDoc | undefined = method.getJsDocs()[0];
 			let returns = '';
 			let returnType = '';
+			let rawReturnType = '';
 			const paramDescriptions = {};
 			let paramIndex = 0;
 			jsDocs?.getTags().forEach((tag: JSDocTag) => {
 				if (tag.getTagName() === 'returns' || tag.getTagName() === 'return') {
-					returnType = method.getReturnType().getText();
-					// Remove Promise wrapper if present
-					if (returnType.startsWith('Promise<') && returnType.endsWith('>')) {
-						returnType = returnType.slice(8, -1);
-					}
+					rawReturnType = method.getReturnType().getText();
+					// Normalize the return type (remove Promise wrapper and import paths)
+					returnType = normalizeReturnType(rawReturnType);
 
 					returns = tag.getText().replace('@returns', '').replace('@return', '').trim();
 					// Remove type information from returns if present
@@ -216,6 +219,14 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 			if (returnType && returnType !== 'void') {
 				funcDef.returnType = returnType;
 				if (returns) funcDef.returns = returns;
+
+				// Extract type definitions if return type is a custom interface
+				if (rawReturnType && isCustomInterfaceType(rawReturnType)) {
+					const typeDefinitions = extractTypeDefinitions(rawReturnType, sourceFile);
+					if (typeDefinitions.length > 0) {
+						funcDef.typeDefinitions = typeDefinitions;
+					}
+				}
 			}
 			functionSchemas[funcDef.name] = funcDef;
 		});
@@ -232,6 +243,162 @@ function getFileUpdatedTimestamp(filePath: string): Date | null {
 	} catch (error) {
 		return null;
 	}
+}
+
+/**
+ * Extracts a simple type name from a potentially complex type string
+ * E.g., "import(...).SimpleProject" -> "SimpleProject"
+ * E.g., "import(...).SimpleProject[]" -> "SimpleProject"
+ * E.g., "Promise<import(...).SimpleProject>" -> "SimpleProject"
+ */
+function extractSimpleTypeName(typeText: string): string {
+	let result = typeText;
+
+	// Remove import path if present (e.g., "import(...).SimpleProject" -> "SimpleProject")
+	if (result.includes('import(')) {
+		const parts = result.split('.');
+		result = parts[parts.length - 1];
+
+		// Remove trailing > from Promise/Generic wrapper (e.g., "SimpleProject>" -> "SimpleProject")
+		result = result.replace(/>+$/, '');
+
+		// Remove array brackets (e.g., "SimpleProject[]>" -> "SimpleProject")
+		result = result.replace(/\[\]>*/g, '');
+	}
+
+	// Remove array brackets for non-import types
+	result = result.replace(/\[\]$/, '');
+
+	return result;
+}
+
+/**
+ * Checks if a type is a custom interface (not a built-in type)
+ */
+function isCustomInterfaceType(typeText: string): boolean {
+	// Check if it contains import path (indicates custom type)
+	if (typeText.includes('import(')) {
+		return true;
+	}
+
+	// Check if it's a simple custom type (starts with uppercase)
+	const baseType = extractSimpleTypeName(typeText);
+	return /^[A-Z]/.test(baseType) && !['Record', 'Array', 'Promise', 'Map', 'Set'].includes(baseType);
+}
+
+/**
+ * Normalizes a return type string by removing import paths and Promise wrappers
+ */
+function normalizeReturnType(typeText: string): string {
+	let normalized = typeText;
+
+	// Remove Promise wrapper
+	if (normalized.startsWith('Promise<') && normalized.endsWith('>')) {
+		normalized = normalized.slice(8, -1);
+	}
+
+	// Check if this is an array type
+	const isArray = normalized.endsWith('[]') || /\[\]$/.test(normalized);
+
+	// Extract simple name
+	const simpleName = extractSimpleTypeName(normalized);
+
+	// Reconstruct with array brackets if needed
+	return isArray ? `${simpleName}[]` : simpleName;
+}
+
+/**
+ * Extracts type definition from an interface declaration
+ */
+function extractInterfaceDefinition(interfaceDecl: InterfaceDeclaration, sourceFile: SourceFile): TypeDefinition {
+	const interfaceName = interfaceDecl.getName();
+	const description = interfaceDecl.getJsDocs()[0]?.getDescription().trim();
+	const properties: TypeProperty[] = [];
+	const dependencies = new Set<string>();
+
+	for (const prop of interfaceDecl.getProperties()) {
+		const propName = prop.getName();
+		// Use getTypeNode() to get the actual type syntax, not the simplified type
+		const typeNode = prop.getTypeNode();
+		const propType = typeNode ? typeNode.getText() : prop.getType().getText(prop);
+		const isOptional = prop.hasQuestionToken();
+		const propDescription = prop.getJsDocs()[0]?.getDescription().trim();
+
+		// Normalize property type (remove import paths)
+		let normalizedType = propType;
+		if (propType.includes('import(')) {
+			const simpleName = extractSimpleTypeName(propType);
+			normalizedType = propType.replace(/import\([^)]+\)\./, '');
+
+			// Track dependency if it's a custom type
+			if (isCustomInterfaceType(propType) && simpleName !== interfaceName) {
+				dependencies.add(simpleName);
+			}
+		}
+
+		properties.push({
+			name: propName,
+			type: normalizedType,
+			optional: isOptional,
+			description: propDescription,
+		});
+	}
+
+	return {
+		name: interfaceName,
+		description,
+		properties,
+		dependencies: dependencies.size > 0 ? Array.from(dependencies) : undefined,
+	};
+}
+
+/**
+ * Finds and extracts interface definition by name from source file
+ */
+function findInterfaceDefinition(interfaceName: string, sourceFile: SourceFile): TypeDefinition | null {
+	const interfaces = sourceFile.getInterfaces();
+	const interfaceDecl = interfaces.find((i) => i.getName() === interfaceName);
+
+	if (!interfaceDecl) {
+		return null;
+	}
+
+	return extractInterfaceDefinition(interfaceDecl, sourceFile);
+}
+
+/**
+ * Recursively extracts all type definitions for a return type and its dependencies
+ */
+function extractTypeDefinitions(returnType: string, sourceFile: SourceFile, visited: Set<string> = new Set()): TypeDefinition[] {
+	const typeDefinitions: TypeDefinition[] = [];
+
+	// Get the base type name (without array brackets)
+	const baseTypeName = extractSimpleTypeName(returnType);
+
+	// Avoid circular dependencies
+	if (visited.has(baseTypeName)) {
+		return typeDefinitions;
+	}
+	visited.add(baseTypeName);
+
+	// Find the interface definition
+	const typeDef = findInterfaceDefinition(baseTypeName, sourceFile);
+	if (!typeDef) {
+		return typeDefinitions;
+	}
+
+	// Recursively extract dependencies first (so they appear before the main type)
+	if (typeDef.dependencies) {
+		for (const dep of typeDef.dependencies) {
+			const depDefs = extractTypeDefinitions(dep, sourceFile, visited);
+			typeDefinitions.push(...depDefs);
+		}
+	}
+
+	// Add the main type definition
+	typeDefinitions.push(typeDef);
+
+	return typeDefinitions;
 }
 
 export function generatePythonClass(type: Type): void {

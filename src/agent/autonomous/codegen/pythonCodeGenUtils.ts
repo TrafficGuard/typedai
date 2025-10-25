@@ -1,5 +1,6 @@
 import { extractLastXmlTagContent } from '#agent/autonomous/codegen/codegenAutonomousAgentUtils';
 import type { FunctionParameter, FunctionSchema } from '#functionSchema/functions';
+import type { TypeDefinition } from '#functionSchema/typeDefinition';
 import { logger } from '#o11y/logger';
 
 /** Packages that the agent generated code is allowed to use */
@@ -290,4 +291,137 @@ export function extractPythonCode(llmResponse: string): string {
  */
 export function extractDraftPythonCode(llmResponse: string): string {
 	return extractLastXmlTagContent(llmResponse, 'draft-python-code');
+}
+
+/**
+ * Converts a TypeScript type to a Python type annotation for use in TypedDict.
+ * Uses modern Python syntax (list, dict instead of List, Dict).
+ * @param tsType The TypeScript type string
+ * @returns The Python type annotation
+ */
+export function convertTypeScriptTypeToPython(tsType: string): string {
+	const trimmed = tsType.trim();
+
+	// Handle basic types
+	const basicTypes: Record<string, string> = {
+		string: 'str',
+		number: 'int',
+		boolean: 'bool',
+		any: 'Any',
+		void: 'None',
+		null: 'None',
+		undefined: 'None',
+	};
+
+	if (basicTypes[trimmed]) {
+		return basicTypes[trimmed];
+	}
+
+	// Handle array types (both T[] and Array<T> syntax)
+	if (trimmed.endsWith('[]')) {
+		const elementType = trimmed.slice(0, -2);
+		return `list[${convertTypeScriptTypeToPython(elementType)}]`;
+	}
+
+	const arrayMatch = trimmed.match(/^Array<(.+)>$/);
+	if (arrayMatch) {
+		return `list[${convertTypeScriptTypeToPython(arrayMatch[1])}]`;
+	}
+
+	// Handle Record<string, T>
+	const recordMatch = trimmed.match(/^Record<string,\s*(.+)>$/);
+	if (recordMatch) {
+		return `dict[str, ${convertTypeScriptTypeToPython(recordMatch[1])}]`;
+	}
+
+	// Handle union types
+	if (trimmed.includes('|')) {
+		const parts = trimmed.split('|').map((p) => p.trim());
+
+		// Special case: T | null or T | undefined => Optional[T]
+		if (parts.includes('null') || parts.includes('undefined')) {
+			const nonNullParts = parts.filter((p) => p !== 'null' && p !== 'undefined');
+			if (nonNullParts.length === 1) {
+				return `Optional[${convertTypeScriptTypeToPython(nonNullParts[0])}]`;
+			}
+		}
+
+		// Other unions: convert each part and join with |
+		return parts.map((p) => convertTypeScriptTypeToPython(p)).join(' | ');
+	}
+
+	// Keep custom types (interfaces) as-is
+	return trimmed;
+}
+
+/**
+ * Converts a TypeDefinition to a Python TypedDict class declaration
+ * @param typeDef The interface definition to convert
+ * @returns Python TypedDict class code
+ */
+export function convertInterfaceToTypedDict(typeDef: TypeDefinition): string {
+	const lines: string[] = [];
+
+	// Determine if we need total=False (when we have mix of required and optional)
+	const hasOptional = typeDef.properties.some((p) => p.optional);
+	const hasRequired = typeDef.properties.some((p) => !p.optional);
+	const useTotalFalse = hasOptional && hasRequired;
+
+	// Class declaration
+	if (useTotalFalse) {
+		lines.push(`class ${typeDef.name}(TypedDict, total=False):`);
+	} else {
+		lines.push(`class ${typeDef.name}(TypedDict):`);
+	}
+
+	// Class docstring
+	if (typeDef.description) {
+		lines.push(`    """${typeDef.description}"""`);
+	}
+
+	// Properties
+	for (const prop of typeDef.properties) {
+		const pythonName = camelToSnake(prop.name);
+		let pythonType = convertTypeScriptTypeToPython(prop.type);
+
+		// If using total=False, wrap required fields with Required[]
+		if (useTotalFalse && !prop.optional) {
+			pythonType = `Required[${pythonType}]`;
+		}
+
+		// Add the property
+		lines.push(`    ${pythonName}: ${pythonType}`);
+
+		// Add property description as inline docstring
+		if (prop.description) {
+			lines.push(`    """${prop.description}"""`);
+		}
+	}
+
+	return lines.join('\n');
+}
+
+/**
+ * Generates the type definitions section for the Python script
+ * @param typeDefinitions Array of type definitions to generate
+ * @returns Python code with all TypedDict definitions, or empty string if no definitions
+ */
+export function generateTypeDefinitionsSection(typeDefinitions: TypeDefinition[]): string {
+	if (!typeDefinitions || typeDefinitions.length === 0) {
+		return '';
+	}
+
+	// Remove duplicates based on type name
+	const uniqueTypes = new Map<string, TypeDefinition>();
+	for (const typeDef of typeDefinitions) {
+		if (!uniqueTypes.has(typeDef.name)) {
+			uniqueTypes.set(typeDef.name, typeDef);
+		}
+	}
+
+	// Generate TypedDict for each unique type
+	const typeDeclarations = Array.from(uniqueTypes.values()).map((typeDef) => convertInterfaceToTypedDict(typeDef));
+
+	// Join with double newlines for spacing
+	return typeDeclarations.join('\n\n');
 }

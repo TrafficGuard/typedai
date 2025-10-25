@@ -1,5 +1,7 @@
 // Definitions for LLM function calling
 
+import type { TypeDefinition } from './typeDefinition';
+
 // If the FunctionSchema/FunctionParameter interfaces change then the loading of cached schemas in the
 // parser will need to check for the old schema and discard
 
@@ -16,6 +18,8 @@ export interface FunctionSchema {
 	parameters: FunctionParameter[];
 	returns?: string;
 	returnType?: string;
+	/** Type definitions for custom types used in return type or parameters */
+	typeDefinitions?: TypeDefinition[];
 }
 
 export interface FunctionParameter {
