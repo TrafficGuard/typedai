@@ -262,13 +262,13 @@ After providing a planning response you will be asked to provide a coding respon
 
 ## Coding Response format
 
-<python-code>
+<agent:python_code>
 # Python code as per the instructions to progress the plan
-</python-code>
+</agent:python_code>
 
 ## Coding Response examples
 
-<python-code>
+<agent:python_code>
 # Do not use Example_xxx functions in your code
 # Check if the content is in memory from a previous step. Result: None found
 tokenDesignPage: str = await Example_getPage("https://docs.github.com/docs/new-runner-token-design")
@@ -283,9 +283,9 @@ current_process_knowledge = f'''
 await Agent_setMemory("current_process_knowledge", current_process_knowledge)
 # The current process knowledge is minimal, request feedback for more
 await AgentFeedback_requestFeedback("I have collated a report on the new registration process. My understanding of the current process is limited. Could you provide more details?")
-</python-code>
+</agent:python_code>
 
-<python-code>
+<agent:python_code>
 # Check if the desired content is in memory from a previous step. Result: (None found/Found ...)
 # Get the two lists asked for in the next step details
 list1str: str = await Agent_getMemory("list1-json")
@@ -296,7 +296,7 @@ result2: List[str] = await FunctionClass2_returnStringList()
 print("result2.length " + len(result2))
 # Do not assume the structure/styles values, return the values for further analysis
 return { list1: list1, list2: list2}
-</python-code>
+</agent:python_code>
 </response>
 
 ## Coding Response instructions
@@ -319,4 +319,4 @@ return { list1: list1, list2: list2}
 - All maths must be done in Python code
 - Do NOT assume anything about the structure of the results from functions. Return values that require further analysis
 
-You must respond in either the <planning-response> or <python-code> format.
+You must respond in either the <planning-response> or <agent:python_code> format.

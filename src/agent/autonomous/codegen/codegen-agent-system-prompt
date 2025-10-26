@@ -204,30 +204,37 @@ Example_PublicWeb_getPage is suitable as the URLs are on publicly available docu
 We can retrieve the two pages, and then create a report by processing the combined contents.
 </next_step_details>
 
-<draft-python-code>
+<agent:python_code>
 # Do not use Example_xxx functions in your code
 # Check if the content is in memory from a previous step. Result: None found
 tokenDesignPage: str = await Example_getPage("https://docs.github.com/docs/new-runner-token-design")
 runnerRegistrationPage: str = await Example_getPage("https://blog.github.com/new-runner-registration")
-webPages: str = f'<page1>${tokenDesignPage}</page1><page2>${runnerRegistrationPage}</page2>'
+webPages: str = f'<page1>{{tokenDesignPage}}</page1><page2>{{runnerRegistrationPage}}</page2>'
 newProcessReport: str = await Example_processText(webPages, "Provide a detailed report of the new token registration process")
 # Store the work we have done so far
-await Agent_setMemory("new_registration_process", newProcessReport)
+await Agent_memory("SAVE", "new_registration_process", newProcessReport)
 current_process_knowledge = f'''
 <Everything known about the current process>
 '''
 await Agent_setMemory("current_process_knowledge", current_process_knowledge)
 # The current process knowledge is minimal, request feedback for more
-await AgentFeedback_requestFeedback("I have collated a report on the new registration process. My understanding of the current process is limited. Could you provide more details?")
-</draft-python-code>
+await AgentFeedback_completed("I have collated a report on the new registration process. My understanding of the current process is limited. Could you provide more details?")
+</agent:python_code>
 
 <code-review>
 <!-- Review the draft python code against all the Python code instructions, as well as general high level planning -->
 </code-review>
 
-<python-code>
-<!-- Output your final version of the code -->
-<python-code>
+<agent:python_global var="FileXYZ_edit_diff">line1
+line2
+line3
+</agent:python_global>
+
+<agent:python_code>
+# This is a revised code block, demonstrating the agent emitting multiple code blocks.
+# The last <agent:python_code> block will be executed.
+MorphEditor_editFile("content.txt", "Adding lines", FileXYZ_edit_diff)
+</agent:python_code>
 
 </response>
 </example>
@@ -238,12 +245,12 @@ The output or error from the previously executed Python script will be provided 
 
 - **Summaries:** For medium or large outputs/errors, only a summary will be shown directly in the tag. The `summary="true"` attribute will indicate this.
 - **Full Content Access:**
-    - The full result of the previous script is available in the Python variable
-      `PREVIOUS_SCRIPT_RESULT` (or `PREVIOUS_SCRIPT_ERROR` if the previous run raised an error).
-    - Note that PREVIOUS_SCRIPT_RESULT is a string value in JSON format. You will need to parse it to a Dict to lookup keys.
+    - The full output or error of the previous script is available in the Python variable
+      `PREVIOUS_SCRIPT_OUTPUT`.
+    - Note that `PREVIOUS_SCRIPT_OUTPUT` is a string value in JSON format. You will need to parse it to a Dict to lookup keys.
     - The `<script-result>` or `<script-error>` tag in the prompt provides a summary
       of the output/error and indicates the name of the Python variable holding the
-      full content or handle via the `py_var_name` attribute.
+      full content via the `py_var_name` attribute.
 
 # Response format
 
@@ -296,7 +303,7 @@ Select the function(s) to best complete the next step. You may call more than on
 Otherwise return any values to analyse further.
 -->
 </next_step_details>
-<draft-python-code>
+<agent:python_code>
 <!--
 Python code instructions:
 - Assume the imports for built-in packages typing, json, re, math and datetime will be added to the start of the script. No import statements or other packages are allowed.
@@ -366,7 +373,7 @@ print("result2.length " + len(result2))
 # Do not assume the structure/styles values, return the values for further analysis
 return { list1: list1, list2: list2}
 -->
-<draft-python-code>
+</agent:python_code>
 
 <code-review>
 <!--
@@ -380,7 +387,7 @@ Provide a review of the draft python code against each of the Python code instru
 - Add reasoning comments.
 - Add print calls throughout.
 - Add typings for new variables.
-- Do not return saved variables; do not re-save existing memory.
+- Do not return variables already saved to memory. This will double token usage.
 - Code defensively; check object properties.
 - Handle user-specified items flexibly (refer to 'Interpreting User Requests').
 - If item not found using assumptions, return all values for further analysis.
@@ -400,8 +407,17 @@ Provide a review of the draft python code against each of the Python code instru
 -->
 </code-review>
 
-<python-code>
-<!-- Output your final version of the code -->
-<python-code>
+<!-- If you wish to update the code after reviewing it then output the full agent:python_code tag again -->
+<agent:python_code>
+</agent:python_code>
+<agent:python_global var="VARIABLE_NAME">VALUE</agent:python_global>
+<!--
+Instructions:
+- Use individual <agent:python_global var="VARIABLE_NAME">VALUE</agent:python_global> tags to define global Python variables.
+- These tags can appear anywhere in your response.
+- Later occurrences of a tag with the same `var` name will override previous ones.
+- This is particularly useful for outputting large strings of code, JSON, or other data that would be cumbersome to embed directly in Python code.
+-->
+
 
 </response>

@@ -122,7 +122,7 @@ Which one of these class names most closely matches "${requested}"?
 Consider similar words, abbreviations, and common variations.
 Respond only with the exact matching class name from the list, or "NO_MATCH" if none are similar enough.`;
 
-		const suggestedMatch = await llm.generateText(prompt);
+		const suggestedMatch = await llm.generateText(prompt, { id: 'Function aliases' });
 
 		// Validate LLM response is actually one of our class names
 		if (suggestedMatch && suggestedMatch !== 'NO_MATCH' && registryMap.has(suggestedMatch)) {

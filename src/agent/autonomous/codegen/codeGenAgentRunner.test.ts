@@ -26,23 +26,23 @@ const PY_TEST_FUNC_SUM = (num1, num2) => `await ${TEST_FUNC_SUM}(${num1}, ${num2
 const PY_TEST_FUNC_THROW_ERROR = `await ${TEST_FUNC_THROW_ERROR}()`;
 const PY_SET_MEMORY = (key, content) => `await ${AGENT_MEMORY}("SAVE", "${key}", "${content}")`;
 
-const PYTHON_CODE_PLAN = (pythonCode: string) => `<response>\n<plan>Run some code</plan>\n<python-code>${pythonCode}</python-code>\n</response>`;
+const PYTHON_CODE_PLAN = (pythonCode: string) => `<response>\n<plan>Run some code</plan>\n<agent:python_code>${pythonCode}</agent:python_code>\n</response>`;
 const REQUEST_FEEDBACK_FUNCTION_CALL_PLAN = (feedback) =>
-	`<response>\n<plan>Requesting feedback</plan>\n<python-code>${PY_AGENT_REQUEST_FEEDBACK(feedback)}</python-code>\n</response>`;
+	`<response>\n<plan>Requesting feedback</plan>\n<agent:python_code>${PY_AGENT_REQUEST_FEEDBACK(feedback)}</agent:python_code>\n</response>`;
 
-const COMPLETE_FUNCTION_CALL_PLAN = `<response>\n<plan>Ready to complete</plan>\n<python-code>${PY_AGENT_COMPLETED('done')}</python-code>\n</response>`;
+const COMPLETE_FUNCTION_CALL_PLAN = `<response>\n<plan>Ready to complete</plan>\n<agent:python_code>${PY_AGENT_COMPLETED('done')}</agent:python_code>\n</response>`;
 
 const ITERATION_SUMMARY_RESPONSE = '';
 
-const NOOP_FUNCTION_CALL_PLAN = `<response>\n<plan>I'm going to call the noop function</plan>\n<python-code>${PY_TEST_FUNC_NOOP}</python-code>\n</response>`;
+const NOOP_FUNCTION_CALL_PLAN = `<response>\n<plan>I'm going to call the noop function</plan>\n<agent:python_code>${PY_TEST_FUNC_NOOP}</agent:python_code>\n</response>`;
 
-const SKY_COLOUR_FUNCTION_CALL_PLAN = `<response>\n<plan>Get the sky colour</plan>\n<python-code>${PY_TEST_FUNC_SKY_COLOUR}</python-code>\n</response>`;
+const SKY_COLOUR_FUNCTION_CALL_PLAN = `<response>\n<plan>Get the sky colour</plan>\n<agent:python_code>${PY_TEST_FUNC_SKY_COLOUR}</agent:python_code>\n</response>`;
 
 function result(contents: string): string {
 	return `<result>${contents}</result>`;
 }
 
-xdescribe('codegenAgentRunner', () => {
+describe('codegenAgentRunner', () => {
 	setupConditionalLoggerOutput();
 	const ctx = initInMemoryApplicationContext();
 

@@ -12,6 +12,7 @@ import { setTracer } from '#o11y/trace';
 import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
 import { lastText } from '#shared/llm/llm.model';
 import type { User } from '#shared/user/user.model';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { sleep } from '#utils/async-utils';
 import { agentContextStorage } from '../../agentContextLocalStorage';
 import { type RunAgentConfig } from '../runAgentTypes';
@@ -23,6 +24,8 @@ const NOOP_FUNCTION_CALL = `<plan>I'm going to call the noop function</plan>\n<f
 const SKY_COLOUR_FUNCTION_CALL = `<plan>Get the sky colour</plan>\n<function_calls><function_call><function_name>${TEST_FUNC_SKY_COLOUR}</function_name><parameters></parameters></function_call></function_calls>`;
 
 describe('xmlAgentRunner', () => {
+	setupConditionalLoggerOutput();
+
 	const app = appContext();
 	let mockLLM = new MockLLM();
 	let llms: AgentLLMs = {

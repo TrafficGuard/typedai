@@ -103,9 +103,9 @@ async function answerGaiaQuestion(task: GaiaQuestion): Promise<GaiaResult> {
 
 		// Extract reasoning trace from LLM calls
 		const reasoningTrace: string[] = llmCalls
-			.filter((call: LlmCall) => lastText(call.messages).includes('<python-code>'))
+			.filter((call: LlmCall) => lastText(call.messages).includes('<agent:python_code>'))
 			.map((call) => {
-				const match = lastText(call.messages).match(/<python-code>(.*?)<\/python-code>/s);
+				const match = lastText(call.messages).match(/<agent:python_code>(.*?)<\/agent:python_code>/s);
 				return match ? match[1].trim() : '';
 			});
 

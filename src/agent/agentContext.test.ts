@@ -7,10 +7,12 @@ import { appContext } from '#app/applicationContext';
 import { LlmTools } from '#functions/llmTools';
 import { openaiGPT5 } from '#llm/services/openai';
 import type { AgentContext } from '#shared/agent/agent.model';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { functionRegistry } from '../functionRegistry';
 import type { RunAgentConfig } from './autonomous/runAgentTypes';
 
 describe('agentContext', () => {
+	setupConditionalLoggerOutput();
 	before(() => {
 		// Required for deserialisation of functions
 		functionRegistry();

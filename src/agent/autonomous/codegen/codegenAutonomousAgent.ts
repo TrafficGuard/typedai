@@ -20,6 +20,7 @@ import {
 	extractExpandedUserRequest,
 	extractNextStepDetails,
 	extractObservationsReasoning,
+	extractPythonGlobals,
 } from '#agent/autonomous/codegen/codegenAutonomousAgentUtils';
 import { AGENT_REQUEST_FEEDBACK, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/autonomous/functions/agentFeedback';
 import { AGENT_COMPLETED_NAME, AGENT_COMPLETED_PARAM_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#agent/autonomous/functions/agentFunctions';
@@ -57,8 +58,7 @@ const AGENT_TEMPERATURE = 0.6;
 const LARGE_OUTPUT_THRESHOLD_BYTES = 50 * 1024; // 50KB
 const MAX_PROMPT_TAG_CONTENT_BYTES = 1024; // Max length for summary in <script-result/error> tag
 
-const PREVIOUS_SCRIPT_RESULT_VAR = 'PREVIOUS_SCRIPT_RESULT';
-const PREVIOUS_SCRIPT_ERROR_VAR = 'PREVIOUS_SCRIPT_ERROR';
+const PREVIOUS_SCRIPT_OUTPUT_VAR = 'PREVIOUS_SCRIPT_OUTPUT';
 
 export const CODEGEN_AGENT_SPAN = 'CodeGen Agent';
 
@@ -139,9 +139,9 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 	// Store image parts detected in the last script result, to be included in the *next* prompt
 	let imageParts: ImagePartExt[] = [];
 	// Initialize globals for the first iteration so the variables always exist
+	// This variable will hold the output (or error) of the previous Python script execution.
 	let pyGlobalsForNextScriptExecution: Record<string, any> = {
-		[PREVIOUS_SCRIPT_RESULT_VAR]: '',
-		[PREVIOUS_SCRIPT_ERROR_VAR]: '',
+		[PREVIOUS_SCRIPT_OUTPUT_VAR]: '',
 	};
 
 	let shouldContinue = true;
@@ -258,11 +258,20 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				pythonMainFnCode = await ensureCorrectSyntax(pythonMainFnCode, functionsXml);
 				iterationData.code = pythonMainFnCode;
 
-				// Only keep the main-function code in the <python-code> section that we pass to the next iteration, so the agent does not see the full script.
-				// Replace whatever was inside <python-code>…</python-code> with the clean main-function code we just validated.
-				const sanitised = agentPlanResponse.replace(/<python-code>[\s\S]*?<\/python-code>/i, `<python-code>\n${pythonMainFnCode}\n</python-code>`);
+				// Only keep the main-function code in the <agent:python_code> section that we pass to the next iteration, so the agent does not see the full script and attempt to replicate that.
+				// Replace whatever was inside <agent:python_code>…</agent:python_code> with the clean main-function code we just validated.
+				if (!/<agent:python_code\b/i.test(agentPlanResponse)) {
+					throw new Error('Agent response did not include <agent:python_code> block');
+				}
+				const sanitised = replaceLastAgentPythonCodeBlock(agentPlanResponse, pythonMainFnCode);
 				// Save for next prompt
 				previousAgentPlanResponse = `<response>\n${sanitised}\n</response>`;
+
+				// Extract Python globals from the LLM response (by scanning for <agent:python_global> tags, with fallback to <python:globals>)
+				const pythonGlobalsFromXml: Record<string, string> = extractPythonGlobals(agentPlanResponse);
+				if (Object.keys(pythonGlobalsFromXml).length) {
+					logger.debug({ pythonGlobalVars: Object.keys(pythonGlobalsFromXml) }, 'Extracted python globals from XML tags');
+				}
 
 				const currentIterationFunctionCalls: FunctionCallResult[] = [];
 
@@ -270,7 +279,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				const functionInstances: Record<string, object> = agent.functions.getFunctionInstanceMap();
 				const functionSchemas: FunctionSchema[] = getAllFunctionSchemas(Object.values(functionInstances));
 				const functionProxies = setupPyodideFunctionProxies(functionSchemas, agent, agentPlanResponse, currentIterationFunctionCalls);
-				const allGlobalsForPyodide = { ...functionProxies, ...pyGlobalsForNextScriptExecution }; // Combine proxies with previous script output/error global
+				const allGlobalsForPyodide = { ...pythonGlobalsFromXml, ...pyGlobalsForNextScriptExecution, ...functionProxies }; // XML globals + prev script vars + proxies (proxies win)
 				const pyodideGlobals = pyodide.toPy(allGlobalsForPyodide);
 
 				const wrapperCode = generatePythonWrapper(functionSchemas, pythonMainFnCode);
@@ -346,15 +355,14 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 
 				// --- Handling of script output/error ---
 				// The script result/error is added to the prompt for the next iteration
-				// If the result/error is large then it a summary is added to the prompt for the next iteration, and the full content is available in the Python variable
-				// If the result/error is small then it is added to the prompt for the next iteration, and also available in the Python variable
+				// If the result/error is large then a summary is added to the prompt for the next iteration, and the full content is available in the Python variable.
+				// If the result/error is small then it is added to the prompt for the next iteration, and also available in the Python variable.
 				const currentScriptOutputContent: string = agent.error ? agent.error : (pythonScriptResultString ?? '');
 				const isError: boolean = !!agent.error;
-				const pyGlobalVarName = isError ? PREVIOUS_SCRIPT_ERROR_VAR : PREVIOUS_SCRIPT_RESULT_VAR;
 				const outputLengthBytes = Buffer.byteLength(currentScriptOutputContent, 'utf8');
 
 				// Content Representation in the LLM Prompt (previousScriptResult) appended to the next iteration's prompt
-				let tagAttributes = `py_var_name="${pyGlobalVarName}"`;
+				let tagAttributes = `py_var_name="${PREVIOUS_SCRIPT_OUTPUT_VAR}"`;
 				if (outputLengthBytes > LARGE_OUTPUT_THRESHOLD_BYTES) {
 					tagAttributes += ' summary="true"';
 				}
@@ -367,7 +375,8 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				previousScriptResult = `<${tagName} ${tagAttributes}>${CDATA_START}\n${promptTagContent}\n${CDATA_END}</${tagName}>`;
 
 				// Prepare Pyodide Global Variable Injection for the *next* iteration
-				pyGlobalsForNextScriptExecution = { [pyGlobalVarName]: currentScriptOutputContent };
+				// The PREVIOUS_SCRIPT_OUTPUT_VAR will contain the full content of the last script's output or error.
+				pyGlobalsForNextScriptExecution = { [PREVIOUS_SCRIPT_OUTPUT_VAR]: currentScriptOutputContent };
 				// --- End of script output/error handling ---
 
 				currentFunctionHistorySize = agent.functionCallHistory.length;
@@ -496,6 +505,27 @@ function extractLineNumber(text: string): number | null {
 	}
 
 	return null;
+}
+
+/**
+ * Replaces the content of the last <agent:python_code> block in the response string.
+ * This is used to update the agent's own response with the syntactically corrected code
+ * before passing it to the next iteration.
+ * @param response The full response string from the LLM.
+ * @param cleanedCode The syntactically corrected Python code to insert.
+ * @returns The response string with the last <agent:python_code> block updated.
+ */
+function replaceLastAgentPythonCodeBlock(response: string, cleanedCode: string): string {
+	const regex = /<agent:python_code\b[^>]*>([\s\S]*?)<\/agent:python_code>/gi;
+	let match: RegExpExecArray | null = null;
+	let lastMatch: RegExpExecArray | null = null;
+	// biome-ignore lint/suspicious/noAssignInExpressions: ok
+	while ((match = regex.exec(response)) !== null) lastMatch = match;
+	if (!lastMatch) return response; // No <agent:python_code> block found
+
+	const [fullMatch] = lastMatch;
+	const replacement = `<agent:python_code>\n${cleanedCode}\n</agent:python_code>`;
+	return response.slice(0, lastMatch.index) + replacement + response.slice(lastMatch.index + fullMatch.length);
 }
 
 function setupPyodideFunctionProxies(

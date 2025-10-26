@@ -179,15 +179,11 @@ fun ${def.name}(${def.parameters.map((p) => `${p.name}: ${p.optional ? `Optional
 export function convertTypeScriptToPython(tsType: string): string {
 	// 0. Handle base cases and trim input
 	const originalTsType = tsType.trim();
-	if (!originalTsType) {
-		return '';
-	}
+	if (!originalTsType) return '';
 
 	// 1. Strip Promise wrapper first
 	const processedType = originalTsType.replace(/^Promise<(.+)>$/, '$1').trim();
-	if (!processedType) {
-		return 'None'; // Handle Promise<void>
-	}
+	if (!processedType) return 'None'; // Handle Promise<void>
 
 	// 2. Handle Unions by splitting and recursion
 	// Always try splitting by '|' and recurse on parts.
@@ -206,12 +202,8 @@ export function convertTypeScriptToPython(tsType: string): string {
 	// --- Process Single Type Part ---
 
 	// 3. Handle specific known types first (Binary, Object Literal, object keyword)
-	if (processedType === 'Uint8Array' || processedType === 'Buffer' || processedType === 'ArrayBuffer') {
-		return 'bytes';
-	}
-	if ((processedType.startsWith('{') && processedType.endsWith('}') && processedType.includes(':')) || processedType === 'object') {
-		return 'Dict[str, Any]';
-	}
+	if (processedType === 'Uint8Array' || processedType === 'Buffer' || processedType === 'ArrayBuffer') return 'bytes';
+	if ((processedType.startsWith('{') && processedType.endsWith('}') && processedType.includes(':')) || processedType === 'object') return 'Dict[str, Any]';
 
 	// 4. Handle base keywords
 	const keywordMappings: { [key: string]: string } = {
@@ -265,32 +257,30 @@ export function removePythonMarkdownWrapper(code: string): string {
 }
 
 /**
- * Extracts the text within <python-code></python-code> tags
+ * Extracts the text within <agent:python_code></agent:python_code> tags.
  * @param llmResponse response from the LLM
  */
 export function extractPythonCode(llmResponse: string): string {
-	const index = llmResponse.lastIndexOf('<python-code>');
-	if (index < 0) {
+	const agentCodeMatches = [...llmResponse.matchAll(/<agent:python_code\b[^>]*>([\s\S]*?)<\/agent:python_code>/gi)];
+	if (agentCodeMatches.length === 0) {
 		logger.error(llmResponse);
-		throw new Error('Could not find <python-code> in response');
+		throw new Error('Could not find <agent:python_code> in response');
 	}
-
-	const resultText = llmResponse.slice(index);
-	const regexXml = /<python-code>(.*)<\/python-code>/is;
-	const matchXml = regexXml.exec(resultText);
-
-	if (!matchXml) throw new Error(`Could not find <python-code></python-code> in the response \n${resultText}`);
-
-	const xmlContents = matchXml[1].trim();
-	return removePythonMarkdownWrapper(xmlContents);
+	const lastMatch = agentCodeMatches.at(-1)!;
+	return removePythonMarkdownWrapper(lastMatch[1].trim());
 }
 
 /**
- * Extracts the text within <draft-python-code></draft-python-code> tags.
+ * Extracts the text within the FIRST <agent:python_code> tags if there is more than one.
  * @param llmResponse response from the LLM
  */
-export function extractDraftPythonCode(llmResponse: string): string {
-	return extractLastXmlTagContent(llmResponse, 'draft-python-code');
+export function extractDraftPythonCode(llmResponse: string): string | undefined {
+	// Prioritize the new <agent:python_code> tag, taking the FIRST occurrence
+	const agentCodeMatch = llmResponse.match(/<agent:python_code\b[^>]*>([\s\S]*?)<\/agent:python_code>/i);
+	if (agentCodeMatch && agentCodeMatch.length > 1) {
+		return removePythonMarkdownWrapper(agentCodeMatch[0].trim());
+	}
+	return undefined;
 }
 
 /**

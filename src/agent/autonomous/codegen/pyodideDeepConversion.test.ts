@@ -1,10 +1,12 @@
 import { expect } from 'chai';
 import { type PyodideInterface, loadPyodide } from 'pyodide';
 import type { FunctionSchema } from '#functionSchema/functions';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { generatePythonWrapper } from './codegenAutonomousAgent';
 import { mainFnCodeToFullScript } from './pythonCodeGenUtils';
 
 describe('Pyodide deep conversion in wrappers', () => {
+	setupConditionalLoggerOutput();
 	let py: PyodideInterface;
 
 	before(async function () {

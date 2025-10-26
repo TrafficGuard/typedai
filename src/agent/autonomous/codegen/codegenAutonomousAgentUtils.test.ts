@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 // Adjust the import path as necessary
 
+import { extractPythonGlobals } from '#agent/autonomous/codegen/codegenAutonomousAgentUtils';
 import { convertTypeScriptToPython } from '#agent/autonomous/codegen/pythonCodeGenUtils';
 
 describe('codegenAgentUtils', () => {
@@ -136,6 +137,65 @@ describe('codegenAgentUtils', () => {
 		});
 		it('should handle just whitespace "   "', () => {
 			expect(convertTypeScriptToPython('   ')).to.equal('');
+		});
+	});
+
+	describe('Python Globals extraction', () => {
+		it('parses a single <agent:python_global> (preserves multiline content)', () => {
+			const llmResponse = `
+  <agent:python_global var="FileXYZ_edit_diff">line1
+line2
+line3
+</agent:python_global>`;
+			expect(extractPythonGlobals(llmResponse)).to.deep.equal({
+				FileXYZ_edit_diff: 'line1\nline2\nline3\n',
+			});
+		});
+
+		it('parses multiple <agent:python_global> entries', () => {
+			const llmResponse = `
+  <agent:python_global var="A">value A</agent:python_global>
+  <agent:python_global var="B">value B</agent:python_global>`;
+			expect(extractPythonGlobals(llmResponse)).to.deep.equal({
+				A: 'value A',
+				B: 'value B',
+			});
+		});
+
+		it('should merge multiple <agent:python_global> tags, with later tags overriding redefined variables', () => {
+			// Later tags only override the variables they explicitly redefine, so we merge them cumulatively.
+			const llmResponse = `
+  <agent:python_global var="A">old A</agent:python_global>
+  <agent:python_global var="B">value B</agent:python_global>
+...some content...
+  <agent:python_global var="A">new A</agent:python_global>
+  <agent:python_global var="C">value C</agent:python_global>`;
+			expect(extractPythonGlobals(llmResponse)).to.deep.equal({
+				A: 'new A',
+				B: 'value B',
+				C: 'value C',
+			});
+		});
+
+		it('falls back to the last <python:globals> block if no <agent:python_globals> are present', () => {
+			const llmResponse = `
+<python:globals>
+  <python:global var="A">old A</python:global>
+</python:globals>
+...some content...
+<python:globals>
+  <python:global var="A">new A</python:global>
+  <python:global var="C">value C</python:global>
+</python:globals>`;
+			expect(extractPythonGlobals(llmResponse)).to.deep.equal({
+				A: 'new A',
+				C: 'value C',
+			});
+		});
+
+		it('returns empty object when no global blocks present', () => {
+			const llmResponse = `<response><agent:python_code>print("hi")</agent:python_code></response>`;
+			expect(extractPythonGlobals(llmResponse)).to.deep.equal({});
 		});
 	});
 });
