@@ -8,12 +8,8 @@ import { currentUser } from '#user/userContext';
 
 export const GROQ_SERVICE = 'groq';
 
-export function groqLLMRegistry(): Record<string, () => LLM> {
-	return {
-		'groq:qwen/qwen3-32b': groqQwen3_32b,
-		'groq:moonshotai/kimi-k2-instruct': groqKimiK2,
-		'groq:meta-llama/llama-4-scout-17b-16e-instruct': groqLlama4_Scout,
-	};
+export function groqLLMRegistry(): Array<() => LLM> {
+	return [groqQwen3_32b, groqKimiK2, groqLlama4_Scout];
 }
 
 // Pricing and model ids at

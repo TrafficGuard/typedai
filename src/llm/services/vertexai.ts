@@ -9,12 +9,8 @@ import { envVar } from '#utils/env-var';
 
 export const VERTEX_SERVICE = 'vertex';
 
-export function vertexLLMRegistry(): Record<string, () => LLM> {
-	return {
-		[`${VERTEX_SERVICE}:gemini-2.5-flash-lite`]: vertexGemini_2_5_Flash_Lite,
-		[`${VERTEX_SERVICE}:gemini-2.5-pro`]: vertexGemini_2_5_Pro,
-		[`${VERTEX_SERVICE}:gemini-2.5-flash`]: vertexGemini_2_5_Flash,
-	};
+export function vertexLLMRegistry(): Array<() => LLM> {
+	return [vertexGemini_2_5_Flash_Lite, vertexGemini_2_5_Pro, vertexGemini_2_5_Flash];
 }
 
 // Prompts less than 200,000 tokens: $1.25/million tokens for input, $10/million for output

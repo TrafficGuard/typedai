@@ -6,10 +6,8 @@ import { currentUser } from '#user/userContext';
 
 export const NEBIUS_SERVICE = 'nebius';
 
-export function nebiusLLMRegistry(): Record<string, () => LLM> {
-	return {
-		'nebius:deepseek-ai/DeepSeek-R1': nebiusDeepSeekR1,
-	};
+export function nebiusLLMRegistry(): Array<() => LLM> {
+	return [nebiusDeepSeekR1];
 }
 
 export function nebiusDeepSeekR1(): LLM {

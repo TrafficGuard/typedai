@@ -7,12 +7,8 @@ import { currentUser } from '#user/userContext';
 
 export const GEMINI_SERVICE = 'gemini';
 
-export function geminiLLMRegistry(): Record<string, () => LLM> {
-	return {
-		[`${GEMINI_SERVICE}:gemini-2.5-flash-lite`]: Gemini_2_5_Flash_Lite,
-		[`${GEMINI_SERVICE}:gemini-2.5-flash`]: Gemini_2_5_Flash,
-		[`${GEMINI_SERVICE}:gemini-2.5-pro`]: Gemini_2_5_Pro,
-	};
+export function geminiLLMRegistry(): Array<() => LLM> {
+	return [Gemini_2_5_Flash_Lite, Gemini_2_5_Flash, Gemini_2_5_Pro];
 }
 
 export function Gemini_2_5_Pro(): LLM {

@@ -7,11 +7,8 @@ import { AiLLM } from './ai-llm';
 
 export const CEREBRAS_OPENROUTER_SERVICE = 'cerebras-openrouter';
 
-export function openrouterLLMRegistry(): Record<string, () => LLM> {
-	return {
-		'cerebras-openrouter:qwen/qwen3-235b-a22b-thinking-2507': () => openRouterQwen3_235b_Thinking(),
-		'cerebras-openrouter:qwen/qwen/qwen3-235b-a22b-2507': () => openRouterQwen3_235b_Instruct(),
-	};
+export function openrouterLLMRegistry(): Array<() => LLM> {
+	return [openRouterQwen3_235b_Thinking, openRouterQwen3_235b_Instruct];
 }
 
 // https://openrouter.ai/models

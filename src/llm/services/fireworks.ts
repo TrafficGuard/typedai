@@ -28,10 +28,8 @@ export class Fireworks extends AiLLM<OpenAIProvider> {
 	}
 }
 
-export function fireworksLLMRegistry(): Record<string, () => LLM> {
-	return {
-		[`${FIREWORKS_SERVICE}:accounts/fireworks/models/fireworks/glm-4p6`]: fireworksGLM_4_6,
-	};
+export function fireworksLLMRegistry(): Array<() => LLM> {
+	return [fireworksGLM_4_6];
 }
 
 export function fireworksGLM_4_6(): LLM {

@@ -18,6 +18,7 @@ import { Slack } from '#modules/slack/slack';
 import { logger } from '#o11y/logger';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { CodeFunctions } from '#swe/codeFunctions';
+import { MorphEditor } from '#swe/morph/morphEditor';
 import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs, saveAgentId } from './cli';
 import { loadCliEnvironment } from './envLoader';
@@ -61,19 +62,20 @@ export async function main(): Promise<void> {
 	}
 
 	const functions = [
-		AgentFeedback,
-		PublicWeb,
+		// AgentFeedback,
+		// PublicWeb,
 		CodeFunctions,
 		FileSystemList,
 		FileSystemTree,
 		LiveFiles,
 		Perplexity,
-		CodeEditingAgent,
+		MorphEditor,
+		// CodeEditingAgent,
 		// Git,
 		// GitLab,
-		DeepThink,
+		// DeepThink,
 		// Jira,
-		Slack,
+		// Slack,
 	];
 	// Add any additional functions provided from CLI args
 	let additionalFunctions: Array<new () => any> = [];

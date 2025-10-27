@@ -6,12 +6,8 @@ import { AiLLM } from './ai-llm';
 
 export const SAMBANOVA_SERVICE = 'sambanova';
 
-export function sambanovaLLMRegistry(): Record<string, () => LLM> {
-	return {
-		'sambanova:Qwen3-32B': sambanovaQwen3_32b,
-		'sambanova:DeepSeek-R1': sambanovaDeepseekR1,
-		'sambanova:DeepSeek-V3-0324': sambanovaDeepseekV3,
-	};
+export function sambanovaLLMRegistry(): Array<() => LLM> {
+	return [sambanovaQwen3_32b, sambanovaDeepseekR1, sambanovaDeepseekV3];
 }
 
 // https://docs.sambanova.ai/cloud/docs/get-started/supported-models

@@ -28,12 +28,8 @@ export class Deepinfra extends AiLLM<OpenAIProvider> {
 	}
 }
 // https://deepinfra.com/models/text-generation
-export function deepinfraLLMRegistry(): Record<string, () => LLM> {
-	return {
-		[`${DEEPINFRA_SERVICE}:Qwen/Qwen3-235B-A22B`]: deepinfraQwen3_235B_A22B,
-		[`${DEEPINFRA_SERVICE}:deepseek-ai/DeepSeek-R1-0528`]: deepinfraDeepSeekR1,
-		[`${DEEPINFRA_SERVICE}:moonshotai/Kimi-K2-Instruct`]: deepinfraKimiK2,
-	};
+export function deepinfraLLMRegistry(): Array<() => LLM> {
+	return [deepinfraQwen3_235B_A22B, deepinfraDeepSeekR1, deepinfraKimiK2];
 }
 
 // https://deepinfra.com/Qwen/Qwen3-235B-A22B

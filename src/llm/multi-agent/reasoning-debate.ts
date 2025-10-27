@@ -48,96 +48,6 @@ function accumulateStats(accumulator: GenerationStats, newStats?: GenerationStat
 
 // sparse multi-agent debate https://arxiv.org/abs/2406.11776
 
-export function MoA_reasoningLLMRegistry(): Record<string, () => LLM> {
-	return {
-		'MAD:Cost': MAD_Cost,
-		'MAD:Fast': MAD_Fast,
-		'MAD:SOTA': MAD_SOTA,
-		'MAD:Vertex': MAD_Vertex,
-		'MAD:Balanced': MAD_Balanced,
-		'MAD:Balanced4': MAD_Balanced4,
-	};
-}
-
-export function MAD_Cost(): LLM {
-	return new ReasonerDebateLLM(
-		'Cost',
-		deepinfraDeepSeekR1,
-		[deepinfraDeepSeekR1, deepinfraDeepSeekR1, deepinfraDeepSeekR1],
-		'MAD:Cost multi-agent debate (DeepSeek R1x3)',
-	);
-}
-
-export function MAD_Fast(): LLM {
-	const fastMedium = new FastMediumLLM();
-	const fastMediumFactory = () => fastMedium;
-	return new ReasonerDebateLLM(
-		'Fast',
-		fastMediumFactory,
-		[fastMediumFactory, fastMediumFactory, fastMediumFactory],
-		'MAD:Fast multi-agent debate (Cerebras Qwen3 32b, Flash 2.5 fallback)',
-	);
-}
-
-export function MAD_Balanced(): LLM {
-	return new ReasonerDebateLLM(
-		'Balanced',
-		vertexGemini_2_5_Pro,
-		[vertexGemini_2_5_Pro, xai_Grok4, openaiGPT5],
-		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Grok 4, o3)',
-	);
-}
-
-export function MAD_Balanced4(): LLM {
-	return new ReasonerDebateLLM(
-		'Balanced4',
-		vertexGemini_2_5_Pro,
-		[vertexGemini_2_5_Pro, xai_Grok4, openaiGPT5, Claude4_5_Sonnet_Vertex],
-		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Grok 4, o3, Sonnet 4)',
-	);
-}
-
-export function MAD_Vertex(): LLM {
-	return new ReasonerDebateLLM(
-		'Vertex',
-		vertexGemini_2_5_Pro,
-		[vertexGemini_2_5_Pro, vertexGemini_2_5_Pro, Claude4_5_Sonnet_Vertex],
-		'MAD:Vertex multi-agent debate (Gemini 2.5 Pro x2, Sonnet 4)',
-	);
-}
-
-export function MAD_Anthropic(): LLM {
-	return new ReasonerDebateLLM(
-		'Anthropic',
-		anthropicClaude4_5_Sonnet,
-		[anthropicClaude4_5_Sonnet, anthropicClaude4_5_Sonnet, anthropicClaude4_5_Sonnet],
-		'MAD:Anthropic multi-agent debate (Sonnet 4 x3)',
-	);
-}
-
-export function MAD_OpenAI(): LLM {
-	return new ReasonerDebateLLM('OpenAI', openaiGPT5, [openaiGPT5, openaiGPT5, openaiGPT5], 'MAD:OpenAI multi-agent debate (GPT5 x3)');
-}
-
-export function MAD_Grok(): LLM {
-	return new ReasonerDebateLLM('Grok', xai_Grok4, [xai_Grok4, xai_Grok4, xai_Grok4], 'MAD:Grok multi-agent debate (Grok 4 x3)');
-}
-
-export function MAD_SOTA(): LLM {
-	return new ReasonerDebateLLM(
-		'SOTA',
-		openaiGPT5,
-		[openaiGPT5, Claude4_1_Opus_Vertex, vertexGemini_2_5_Pro, xai_Grok4],
-		'MAD:SOTA multi-agent debate (Opus 4, GPT5, Gemini 2.5 Pro, Grok 4)',
-	);
-}
-
-// export function MAD_Hard(): LLM {
-// 	const hardLLM = llms().hard; // cant have a dependancy to agentContextLocalStorage
-// 	const hardFactory = () => hardLLM;
-// 	return new ReasonerDebateLLM('Hard', hardFactory, [hardFactory, hardFactory, hardFactory], `MAD:Hard multi-agent debate (${hardLLM.getDisplayName} x3)`);
-// }
-
 const INITIAL_TEMP = 0.7;
 const DEBATE_TEMP = 0.5;
 const FINAL_TEMP = 0.3;
@@ -297,3 +207,86 @@ Answer directly to the original user message and ensure any relevant response fo
 		return this.mediator.generateMessage(mergedMessages, { ...opts, id: `${opts.id} - final`, temperature: FINAL_TEMP });
 	}
 }
+
+export function MoA_reasoningLLMRegistry(): Array<() => LLM> {
+	return [MAD_Cost, MAD_Fast, MAD_SOTA, MAD_Vertex, MAD_Balanced, MAD_Balanced4];
+}
+
+export function MAD_Cost(): LLM {
+	return new ReasonerDebateLLM(
+		'Cost',
+		deepinfraDeepSeekR1,
+		[deepinfraDeepSeekR1, deepinfraDeepSeekR1, deepinfraDeepSeekR1],
+		'MAD:Cost multi-agent debate (DeepSeek R1x3)',
+	);
+}
+
+export function MAD_Fast(): LLM {
+	const fastMedium = new FastMediumLLM();
+	const fastMediumFactory = () => fastMedium;
+	return new ReasonerDebateLLM(
+		'Fast',
+		fastMediumFactory,
+		[fastMediumFactory, fastMediumFactory, fastMediumFactory],
+		'MAD:Fast multi-agent debate (Cerebras Qwen3 32b, Flash 2.5 fallback)',
+	);
+}
+
+export function MAD_Balanced(): LLM {
+	return new ReasonerDebateLLM(
+		'Balanced',
+		vertexGemini_2_5_Pro,
+		[vertexGemini_2_5_Pro, xai_Grok4, openaiGPT5],
+		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Grok 4, o3)',
+	);
+}
+
+export function MAD_Balanced4(): LLM {
+	return new ReasonerDebateLLM(
+		'Balanced4',
+		vertexGemini_2_5_Pro,
+		[vertexGemini_2_5_Pro, xai_Grok4, openaiGPT5, Claude4_5_Sonnet_Vertex],
+		'MAD:Balanced multi-agent debate (Gemini 2.5 Pro, Grok 4, o3, Sonnet 4)',
+	);
+}
+
+export function MAD_Vertex(): LLM {
+	return new ReasonerDebateLLM(
+		'Vertex',
+		vertexGemini_2_5_Pro,
+		[vertexGemini_2_5_Pro, vertexGemini_2_5_Pro, Claude4_5_Sonnet_Vertex],
+		'MAD:Vertex multi-agent debate (Gemini 2.5 Pro x2, Sonnet 4)',
+	);
+}
+
+export function MAD_Anthropic(): LLM {
+	return new ReasonerDebateLLM(
+		'Anthropic',
+		anthropicClaude4_5_Sonnet,
+		[anthropicClaude4_5_Sonnet, anthropicClaude4_5_Sonnet, anthropicClaude4_5_Sonnet],
+		'MAD:Anthropic multi-agent debate (Sonnet 4 x3)',
+	);
+}
+
+export function MAD_OpenAI(): LLM {
+	return new ReasonerDebateLLM('OpenAI', openaiGPT5, [openaiGPT5, openaiGPT5, openaiGPT5], 'MAD:OpenAI multi-agent debate (GPT5 x3)');
+}
+
+export function MAD_Grok(): LLM {
+	return new ReasonerDebateLLM('Grok', xai_Grok4, [xai_Grok4, xai_Grok4, xai_Grok4], 'MAD:Grok multi-agent debate (Grok 4 x3)');
+}
+
+export function MAD_SOTA(): LLM {
+	return new ReasonerDebateLLM(
+		'SOTA',
+		openaiGPT5,
+		[openaiGPT5, Claude4_1_Opus_Vertex, vertexGemini_2_5_Pro, xai_Grok4],
+		'MAD:SOTA multi-agent debate (Opus 4, GPT5, Gemini 2.5 Pro, Grok 4)',
+	);
+}
+
+// export function MAD_Hard(): LLM {
+// 	const hardLLM = llms().hard; // cant have a dependancy to agentContextLocalStorage
+// 	const hardFactory = () => hardLLM;
+// 	return new ReasonerDebateLLM('Hard', hardFactory, [hardFactory, hardFactory, hardFactory], `MAD:Hard multi-agent debate (${hardLLM.getDisplayName} x3)`);
+// }
