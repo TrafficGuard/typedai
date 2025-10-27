@@ -11,13 +11,7 @@ import { AiLLM } from './ai-llm';
 export const CEREBRAS_SERVICE = 'cerebras';
 
 export function cerebrasLLMRegistry(): Array<() => LLM> {
-	return [
-		() => cerebrasQwen3_32b(),
-		() => cerebrasQwen3_235b_Instruct(),
-		() => cerebrasQwen3_235b_Thinking(),
-		() => cerebrasQwen3_Coder(),
-		() => cerebrasGptOss_120b(),
-	];
+	return [cerebrasQwen3_32b, cerebrasQwen3_235b_Instruct, cerebrasQwen3_235b_Thinking, cerebrasQwen3_Coder, cerebrasGptOss_120b];
 }
 
 // https://cloud.cerebras.ai/platform/org_<org-id>/models  PAYG rate limits
