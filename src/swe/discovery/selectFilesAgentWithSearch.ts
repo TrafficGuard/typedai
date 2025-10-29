@@ -123,7 +123,8 @@ ${contentText(query)}
 </query>
 
 Please provide a detailed answer to the query using the information from the available file contents, and including citations to the files where the relevant information was found.
-Think systematically and methodically through the query, considering multiple options, then output your final reasoning and answer wrapped in <result></result> tags.`;
+Think systematically and methodically through the query, considering multiple options, then output your final reasoning and answer wrapped in <result></result> tags.
+At the very end of the <result> block, add a line in the format "Confidence: LEVEL" where LEVEL is one of MEDIUM, HIGH, or VERY_HIGH, reflecting how thoroughly you searched the repository and how confident you are in the answer.`;
 
 	messages.push({ role: 'user', content: finalPrompt });
 
