@@ -39,12 +39,8 @@ function perplexityCostFunction(inputMil: number, outputMil: number): LlmCostFun
 	};
 }
 
-export function perplexityLLMRegistry(): Record<string, () => LLM> {
-	return {
-		[`${PERPLEXITY_SERVICE}:sonar`]: perplexityLLM,
-		[`${PERPLEXITY_SERVICE}:sonar-reasoning-pro`]: perplexityReasoningProLLM,
-		[`${PERPLEXITY_SERVICE}:sonar-deep-research`]: perplexityDeepResearchLLM,
-	};
+export function perplexityLLMRegistry(): Array<() => LLM> {
+	return [perplexityLLM, perplexityReasoningProLLM, perplexityDeepResearchLLM];
 }
 
 export function perplexityLLM(): LLM {

@@ -9,10 +9,8 @@ import type { GenerateTextOptions, LLM } from '#shared/llm/llm.model';
 // self-refine https://arxiv.org/pdf/2303.17651
 // https://www.academia.edu/123745078/Mind_over_Data_Elevating_LLMs_from_Memorization_to_Cognition
 
-export function blueberryLLMRegistry(): Record<string, () => LLM> {
-	return {
-		'MoA:blueberry': () => new Blueberry(),
-	};
+export function blueberryLLMRegistry(): Array<() => LLM> {
+	return [() => new Blueberry()];
 }
 
 const MIND_OVER_DATA_SYS_PROMPT = `When addressing a problem, employ "Comparative Problem Analysis and Direct Reasoning" as follows:

@@ -10,12 +10,8 @@ export const ANTHROPIC_VERTEX_SERVICE = 'anthropic-vertex';
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-claude#anthropic_claude_region_availability
 
-export function anthropicVertexLLMRegistry(): Record<string, () => LLM> {
-	return {
-		[`${ANTHROPIC_VERTEX_SERVICE}:claude-haiku-4-5@20251001`]: Claude4_5_Haiku_Vertex,
-		[`${ANTHROPIC_VERTEX_SERVICE}:claude-sonnet-4-5@20250929`]: Claude4_5_Sonnet_Vertex,
-		[`${ANTHROPIC_VERTEX_SERVICE}:claude-opus-4-1@20250805`]: Claude4_1_Opus_Vertex,
-	};
+export function anthropicVertexLLMRegistry(): Array<() => LLM> {
+	return [Claude4_5_Haiku_Vertex, Claude4_5_Sonnet_Vertex, Claude4_1_Opus_Vertex];
 }
 
 // Supported image types image/jpeg', 'image/png', 'image/gif' or 'image/webp'

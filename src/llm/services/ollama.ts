@@ -131,11 +131,6 @@ export function Ollama_LLMs(): AgentLLMs {
 	};
 }
 
-export function ollamaLLMRegistry(): Record<string, () => LLM> {
-	return {
-		[`${OLLAMA_SERVICE}:qwen2:7b`]: Ollama_Qwen2_7b,
-		[`${OLLAMA_SERVICE}:llama3:7b`]: Ollama_Llama3_7b,
-		[`${OLLAMA_SERVICE}:codegemma:7b`]: Ollama_CodeGemma_7b,
-		[`${OLLAMA_SERVICE}:phi3:latest`]: Ollama_Phi3,
-	};
+export function ollamaLLMRegistry(): Array<() => LLM> {
+	return [Ollama_Qwen2_7b, Ollama_Llama3_7b, Ollama_CodeGemma_7b, Ollama_Phi3];
 }

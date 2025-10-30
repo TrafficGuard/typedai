@@ -6,11 +6,8 @@ import { AiLLM } from './ai-llm';
 
 export const DEEPSEEK_SERVICE = 'deepseek';
 
-export function deepseekLLMRegistry(): Record<string, () => LLM> {
-	return {
-		[`${DEEPSEEK_SERVICE}:deepseek-chat`]: deepSeekV3_1,
-		[`${DEEPSEEK_SERVICE}:deepseek-reasoner`]: deepSeekV3_1_Reasoning,
-	};
+export function deepseekLLMRegistry(): Array<() => LLM> {
+	return [deepSeekV3_1, deepSeekV3_1_Reasoning];
 }
 
 // https://api-docs.deepseek.com/quick_start/pricing

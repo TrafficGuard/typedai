@@ -25,12 +25,8 @@ export class XAI extends AiLLM<XaiProvider> {
 	}
 }
 
-export function xaiLLMRegistry(): Record<string, () => LLM> {
-	return {
-		[`${XAI_SERVICE}:grok-4`]: xai_Grok4,
-		[`${XAI_SERVICE}:grok-4-fast-reasoning`]: xai_Grok4_Fast_Reasoning,
-		[`${XAI_SERVICE}:grok-4-fast-instruct`]: xai_Grok4_Fast_Instruct,
-	};
+export function xaiLLMRegistry(): Array<() => LLM> {
+	return [xai_Grok4, xai_Grok4_Fast_Reasoning, xai_Grok4_Fast_Instruct];
 }
 
 export function xai_Grok4(): LLM {

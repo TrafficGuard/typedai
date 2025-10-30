@@ -6,16 +6,6 @@ import type { GenerateTextOptions, LLM, LlmMessage } from '#shared/llm/llm.model
 import { BaseLLM } from '../base-llm';
 import { fireworksDeepSeekR1_Fast } from '../services/fireworks';
 
-export function deepSeekFallbackRegistry(): Record<string, () => LLM> {
-	return {
-		DeepSeekFallback: DeepSeek_Together_Fireworks_Nebius_SambaNova,
-	};
-}
-
-export function DeepSeek_Together_Fireworks_Nebius_SambaNova(): LLM {
-	return new DeepSeek_Fallbacks();
-}
-
 /**
  * LLM implementation for DeepSeek which uses Together.ai and Fireworks.ai for more privacy.
  * Tries Together.ai first as is slightly cheaper, then falls back to Fireworks
@@ -57,4 +47,12 @@ export class DeepSeek_Fallbacks extends BaseLLM {
 		}
 		throw new Error('All DeepSeek providers failed.');
 	}
+}
+
+export function deepSeekFallbackRegistry(): Array<() => LLM> {
+	return [DeepSeek_Together_Fireworks_Nebius_SambaNova];
+}
+
+export function DeepSeek_Together_Fireworks_Nebius_SambaNova(): LLM {
+	return new DeepSeek_Fallbacks();
 }

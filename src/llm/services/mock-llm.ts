@@ -352,11 +352,11 @@ export class MockLLM extends BaseLLM {
 
 export const mockLLM = new MockLLM();
 
-export function mockLLMRegistry(): Record<string, () => LLM> {
-	return {
+export function mockLLMRegistry(): Array<() => LLM> {
+	return [
 		// Tests need the same instance returned
-		'mock:mock': () => mockLLM,
-	};
+		() => mockLLM,
+	];
 }
 
 export function mockLLMs(): AgentLLMs {

@@ -9,6 +9,7 @@ import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { LLM } from '#shared/llm/llm.model';
 import { Claude4_5_Sonnet_Vertex } from './anthropic-vertex';
 import { cerebrasQwen3_235b_Thinking } from './cerebras';
+import { fireworksGLM_4_6 } from './fireworks';
 import { Gemini_2_5_Flash, Gemini_2_5_Pro } from './gemini';
 import { groqLlama4_Scout } from './groq';
 import { Ollama_LLMs } from './ollama';
@@ -47,7 +48,15 @@ export function defaultLLMs(): AgentLLMs {
 	const medium: LLM | undefined = mediumLLMs.find((llm) => llm.isConfigured());
 	if (!medium) throw new Error('No default medium LLM configured');
 
-	const hardLLMs = [Claude4_5_Sonnet_Vertex(), openaiGPT5(), anthropicClaude4_5_Sonnet(), vertexGemini_2_5_Pro(), Gemini_2_5_Pro(), xai_Grok4()];
+	const hardLLMs = [
+		fireworksGLM_4_6(),
+		Claude4_5_Sonnet_Vertex(),
+		openaiGPT5(),
+		anthropicClaude4_5_Sonnet(),
+		vertexGemini_2_5_Pro(),
+		Gemini_2_5_Pro(),
+		xai_Grok4(),
+	];
 	const hard: LLM | undefined = hardLLMs.find((llm) => llm.isConfigured());
 	if (!hard) throw new Error('No default hard LLM configured');
 

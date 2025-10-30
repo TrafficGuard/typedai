@@ -8,12 +8,8 @@ import { MultiLLM } from '../multi-llm';
 
 export const ANTHROPIC_SERVICE = 'anthropic';
 
-export function anthropicLLMRegistry(): Record<string, () => LLM> {
-	return {
-		[`${ANTHROPIC_SERVICE}:claude-haiku-4-5-20251001`]: anthropicClaude4_5_Haiku,
-		[`${ANTHROPIC_SERVICE}:claude-sonnet-4-5-20250929`]: anthropicClaude4_5_Sonnet,
-		[`${ANTHROPIC_SERVICE}:claude-opus-4-1-20250805`]: anthropicClaude4_1_Opus,
-	};
+export function anthropicLLMRegistry(): Array<() => LLM> {
+	return [anthropicClaude4_5_Haiku, anthropicClaude4_5_Sonnet, anthropicClaude4_1_Opus];
 }
 
 export function anthropicClaude4_1_Opus(): LLM {

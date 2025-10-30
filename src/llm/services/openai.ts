@@ -6,15 +6,8 @@ import { currentUser } from '#user/userContext';
 
 export const OPENAI_SERVICE = 'openai';
 
-export function openAiLLMRegistry(): Record<string, () => LLM> {
-	return {
-		'openai:gpt-5': () => openaiGPT5(),
-		'openai:gpt-5-mini': () => openaiGPT5mini(),
-		'openai:gpt-5-nano': () => openaiGPT5nano(),
-		'openai:gpt-5-codex': () => openaiGPT5codex(),
-		'openai:gpt-5-pro': () => openaiGPT5pro(),
-		// 'openai:gpt-5-chat': () => openaiGPT5chat(),
-	};
+export function openAiLLMRegistry(): Array<() => LLM> {
+	return [openaiGPT5, openaiGPT5mini, openaiGPT5nano, openaiGPT5codex, openaiGPT5pro];
 }
 
 // https://sdk.vercel.ai/providers/ai-sdk-providers/openai#prompt-caching

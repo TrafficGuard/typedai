@@ -24,36 +24,66 @@ import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { LLM } from '#shared/llm/llm.model';
 
-export const LLM_FACTORY: Record<string, () => LLM> = {
-	...anthropicVertexLLMRegistry(),
-	...anthropicLLMRegistry(),
-	...fireworksLLMRegistry(),
-	...groqLLMRegistry(),
-	...openAiLLMRegistry(),
-	...togetherLLMRegistry(),
-	...vertexLLMRegistry(),
-	...geminiLLMRegistry(),
-	...deepseekLLMRegistry(),
-	...deepinfraLLMRegistry(),
-	...cerebrasLLMRegistry(),
-	...perplexityLLMRegistry(),
-	// ...xaiLLMRegistry(),
-	...nebiusLLMRegistry(),
-	...sambanovaLLMRegistry(),
-	...ollamaLLMRegistry(),
-	...deepSeekFallbackRegistry(),
-	...MoA_reasoningLLMRegistry(),
-	...multiAgentLLMRegistry(),
-	...openrouterLLMRegistry(),
-	...mockLLMRegistry(),
-};
+/**
+ * Builds a Record<string, () => LLM> from arrays of LLM factory functions.
+ * The key for each factory is obtained by calling factory().getId() on a temporary instance.
+ *
+ * @param registries - Arrays of LLM factory functions from each service/multi-agent registry
+ * @returns Record mapping LLM IDs to their factory functions
+ */
+function buildLlmFactory(...registries: Array<() => LLM>[]): Record<string, () => LLM> {
+	const factory: Record<string, () => LLM> = {};
+
+	for (const registry of registries) {
+		for (const llmFactory of registry) {
+			// Create a temporary instance to get the ID
+			const tempInstance = llmFactory();
+			const id = tempInstance.getId();
+			factory[id] = llmFactory;
+		}
+	}
+
+	return factory;
+}
+
+// Lazy initialization to avoid calling factory functions during module initialization
+let _LLM_FACTORY: Record<string, () => LLM> | null = null;
+
+function ensureLLMFactory(): Record<string, () => LLM> {
+	if (!_LLM_FACTORY) {
+		_LLM_FACTORY = buildLlmFactory(
+			anthropicVertexLLMRegistry(),
+			anthropicLLMRegistry(),
+			fireworksLLMRegistry(),
+			groqLLMRegistry(),
+			openAiLLMRegistry(),
+			togetherLLMRegistry(),
+			vertexLLMRegistry(),
+			geminiLLMRegistry(),
+			deepseekLLMRegistry(),
+			deepinfraLLMRegistry(),
+			cerebrasLLMRegistry(),
+			perplexityLLMRegistry(),
+			// xaiLLMRegistry(),
+			nebiusLLMRegistry(),
+			sambanovaLLMRegistry(),
+			ollamaLLMRegistry(),
+			deepSeekFallbackRegistry(),
+			MoA_reasoningLLMRegistry(),
+			multiAgentLLMRegistry(),
+			openrouterLLMRegistry(),
+			mockLLMRegistry(),
+		);
+	}
+	return _LLM_FACTORY;
+}
 
 const modelMigrations: Record<string, string> = {};
 
 let _llmTypes: Array<{ id: string; name: string }> | null = null;
 
 export function llmTypes(): Array<{ id: string; name: string }> {
-	_llmTypes ??= Object.values(LLM_FACTORY)
+	_llmTypes ??= Object.values(ensureLLMFactory())
 		.map((factory) => factory())
 		.map((llm) => {
 			for (const model of llm.getOldModels()) {
@@ -67,7 +97,7 @@ export function llmTypes(): Array<{ id: string; name: string }> {
 let _llmRegistryKeys: string[];
 
 function llmRegistryKeys(): string[] {
-	_llmRegistryKeys ??= Object.keys(LLM_FACTORY);
+	_llmRegistryKeys ??= Object.keys(ensureLLMFactory());
 	return _llmRegistryKeys;
 }
 
@@ -75,14 +105,15 @@ function llmRegistryKeys(): string[] {
  * @param llmId LLM identifier in the format service:model
  */
 export function getLLM(llmId: string): LLM {
+	const factory = ensureLLMFactory();
 	// Check matching id first
-	if (LLM_FACTORY[llmId]) {
-		return LLM_FACTORY[llmId]();
+	if (factory[llmId]) {
+		return factory[llmId]();
 	}
 	// Check substring matching
-	for (const key of Object.keys(LLM_FACTORY)) {
+	for (const key of Object.keys(factory)) {
 		if (llmId.startsWith(key)) {
-			return LLM_FACTORY[key]!();
+			return factory[key]!();
 		}
 	}
 	if (llmId === 'multi:multi') {
