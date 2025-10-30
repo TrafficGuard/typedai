@@ -62,6 +62,7 @@ export class AgentDetailsComponent implements OnInit {
 	feedbackForm: FormGroup;
 	hilForm: FormGroup;
 	errorForm: FormGroup;
+	userHilForm: FormGroup; // NEW: Form for hitl_user state
 
 	isSubmitting = signal(false);
 	isResumingError = signal(false);
@@ -109,6 +110,7 @@ export class AgentDetailsComponent implements OnInit {
 		this.feedbackForm = this.formBuilder.group({ feedback: ['', Validators.required] });
 		this.hilForm = this.formBuilder.group({ feedback: [''] });
 		this.errorForm = this.formBuilder.group({ errorDetails: ['', Validators.required] });
+		this.userHilForm = this.formBuilder.group({ note: [''] });
 
 		// Handle error side effects with RxJS
 		toObservable(this.functionsError)
@@ -187,6 +189,33 @@ export class AgentDetailsComponent implements OnInit {
 				if (response) {
 					this.snackBar.open('Agent resumed successfully', 'Close', { duration: 3000 });
 					this.hilForm.reset();
+					this.handleRefreshAgentDetails();
+				}
+			});
+	}
+
+	onResumeUserHil(): void {
+		if (!this.userHilForm.valid) return;
+		this.isSubmitting.set(true);
+		const note = this.userHilForm.get('note')?.value;
+		const currentAgentDetails = this.agentDetails();
+		this.agentService
+			.resumeAgent(currentAgentDetails.agentId, currentAgentDetails.executionId, note)
+			.pipe(
+				takeUntilDestroyed(this.destroyRef),
+				catchError((error) => {
+					console.error('Error resuming agent from user HIL:', error);
+					this.snackBar.open('Error resuming agent', 'Close', { duration: 3000 });
+					return of(null);
+				}),
+				finalize(() => {
+					this.isSubmitting.set(false);
+				}),
+			)
+			.subscribe((response) => {
+				if (response) {
+					this.snackBar.open('Agent resumed successfully', 'Close', { duration: 3000 });
+					this.userHilForm.reset();
 					this.handleRefreshAgentDetails();
 				}
 			});

@@ -94,6 +94,30 @@
         </form>
     </mat-card>
 
+    <mat-card *ngIf="agentDetails()?.state === 'hitl_user'" class="p-3 mb-4">
+        <form [formGroup]="userHilForm" (ngSubmit)="onResumeUserHil()">
+            <mat-card-title class="font-bold pl-5 text-lg">Human-in-the-Loop Check Requested</mat-card-title>
+            <mat-card-content>
+                <p class="mb-4">You have requested a Human-in-the-Loop check. Review the agent's progress and optionally provide additional guidance.</p>
+                <mat-form-field appearance="fill" class="full-width">
+                    <textarea
+                            matInput
+                            class="resumeField"
+                            placeholder="Add optional note for the agent (optional)"
+                            formControlName="note"
+                    ></textarea>
+                </mat-form-field>
+            </mat-card-content>
+            <mat-card-actions>
+                <button mat-raised-button color="primary" type="submit" [disabled]="isSubmitting()">
+                    {{ isSubmitting() ? 'Resuming...' : 'Resume' }}
+                </button>
+                <button mat-raised-button color="warn" class="ml-4" (click)="cancelAgent()" [disabled]="isSubmitting()">Cancel Agent
+                </button>
+            </mat-card-actions>
+        </form>
+    </mat-card>
+
     <mat-card class="p-8">
         <div>
             <mat-icon (click)="handleRefreshAgentDetails()" class="mr-3 cursor-pointer" [matTooltip]="'Reload'">refresh</mat-icon>
