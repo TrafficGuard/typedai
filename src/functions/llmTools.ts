@@ -3,10 +3,21 @@ import { join } from 'node:path';
 import mime from 'mime-types';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
+import { countTokens } from '#llm/tokens';
 import { LlmMessage, messageText } from '#shared/llm/llm.model';
 
 @funcClass(__filename)
 export class LlmTools {
+	/**
+	 * Counts the number of tokens in the provided text
+	 * @param text the text to count tokens for
+	 * @returns the number of tokens in the text
+	 */
+	@func()
+	async countTextTokens(text: string): Promise<number> {
+		return await countTokens(text);
+	}
+
 	/**
 	 * Uses a large language model to transform the input content by applying the provided natural language instruction
 	 * @param text the input text
@@ -20,10 +31,10 @@ export class LlmTools {
 	}
 
 	/**
-	 * Uses a large language model to analyse an image or document
-	 * @param filePath the path to the image or document
-	 * @param query a query to analyse the image or document
-	 * @returns the analysis of the image or document
+	 * Uses a large language model to analyse an image/document
+	 * @param filePath the path to the image/document
+	 * @param query the query ask about the image/document
+	 * @returns the analysis of the image/document
 	 */
 	@func()
 	async analyseFile(filePath: string, query: string): Promise<string> {

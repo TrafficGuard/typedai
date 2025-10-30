@@ -124,9 +124,7 @@ describe('selectFilesAgentWithSearch', () => {
 			expect(iter1UserPrompt.content as string).to.include('not-exists.txt');
 		});
 		it('assigns default reason when keepFiles are provided as strings', async () => {
-			mockLLM
-				.addMessageResponse('<json>{"inspectFiles":["a.txt"]}</json>')
-				.addMessageResponse('<json>{"keepFiles":["a.txt"]}</json>');
+			mockLLM.addMessageResponse('<json>{"inspectFiles":["a.txt"]}</json>').addMessageResponse('<json>{"keepFiles":["a.txt"]}</json>');
 
 			const files = await selectFilesAgent('String keep reason', {}, llmSet);
 

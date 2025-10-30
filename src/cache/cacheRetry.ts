@@ -32,7 +32,7 @@ export class RetryableError extends Error {
  * Decorator for adding caching and retries to a class method
  * @param options
  */
-export function cacheRetry(options: Partial<CacheRetryOptions> = DEFAULTS) {
+export function cacheRetry(options: Partial<CacheRetryOptions> = {}) {
 	return function cacheRetryDecorator(originalMethod: any, context: ClassMethodDecoratorContext): (this: any, ...args: any[]) => Promise<any> {
 		const methodName = String(context.name);
 

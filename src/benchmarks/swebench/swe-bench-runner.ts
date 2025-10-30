@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '#o11y/logger';
-import { execCommand, failOnError } from '#utils/exec';
+import { CONTAINER_PATH, execCommand, failOnError } from '#utils/exec';
 
 export interface SWEInstance {
 	instance_id: string;
@@ -39,8 +39,6 @@ export async function stopContainer(containerIdOrName: string, removeContainer =
 		});
 	}
 }
-
-export const CONTAINER_PATH = '/testbed';
 
 export async function startContainer(workspacePath: string, problemId: string): Promise<{ containerId: string; repoPathOnHost: string }> {
 	const containerName = `sweb.typedai.${problemId}_${uuidv4().slice(0, 8)}`;

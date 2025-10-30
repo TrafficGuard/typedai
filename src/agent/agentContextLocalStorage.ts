@@ -2,12 +2,18 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
-import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import { currentUser } from '#user/userContext';
 import type { RunAgentConfig, RunWorkflowConfig } from './autonomous/runAgentTypes';
+
+// Lazy load FileSystemService to avoid circular dependencies and minimize startup dependencies
+let _FileSystemService: typeof import('#functions/storage/fileSystemService').FileSystemService | undefined;
+function getFileSystemServiceClass(): typeof import('#functions/storage/fileSystemService').FileSystemService {
+	_FileSystemService ??= require('#functions/storage/fileSystemService').FileSystemService;
+	return _FileSystemService!;
+}
 
 let _fileSystemOverride: IFileSystemService | null = null;
 
@@ -52,13 +58,17 @@ export function addNote(note: string): void {
  */
 export function getFileSystem(): IFileSystemService {
 	if (_fileSystemOverride) return _fileSystemOverride;
-	if (!agentContextStorage.getStore()) return new FileSystemService();
+	if (!agentContextStorage.getStore()) {
+		const FileSystemService = getFileSystemServiceClass();
+		return new FileSystemService();
+	}
 	const filesystem = agentContextStorage.getStore()?.fileSystem;
 	if (!filesystem) throw new Error('No file system available on the agent context');
 	return filesystem;
 }
 
 export function createContext(config: RunAgentConfig | RunWorkflowConfig): AgentContext {
+	const FileSystemService = getFileSystemServiceClass();
 	const fileSystem = new FileSystemService(config.fileSystemPath);
 	const hilBudget = config.humanInLoop?.budget ?? (process.env.HIL_BUDGET ? Number.parseFloat(process.env.HIL_BUDGET) : 2);
 	const hilCount = config.humanInLoop?.count ?? (process.env.HIL_COUNT ? Number.parseFloat(process.env.HIL_COUNT) : 5);

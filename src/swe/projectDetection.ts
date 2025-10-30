@@ -22,7 +22,7 @@ export function setProjectDetectionAgent(fn: ProjectDetectionAgentFn): void {
 export type ScriptCommand = string | string[];
 
 export const AI_INFO_FILENAME = '.typedai.json';
-export const MINIMAL_AI_INFO = '[{"baseUrl":"."}]';
+export const MINIMAL_AI_INFO = '[{"baseDir":"./"}]';
 
 /**
  * Interface for the data structure stored in the .typedai.json file.
@@ -177,11 +177,10 @@ async function findUpwards(startDir: string, file: string, fss: IFileSystemServi
 		const candidate = path.join(dir, file);
 		if (await fss.fileExists(candidate)) return candidate;
 
-		// Don't search above the VCS root
+		// Don't search above the VCS root or the file system base directory
 		const gitDir = path.join(dir, '.git');
-		if (await fss.directoryExists(gitDir)) {
-			return null;
-		}
+		if (await fss.directoryExists(gitDir)) return null;
+		if (fss.getBasePath() === dir) return null;
 
 		const parent = path.dirname(dir);
 		if (parent === dir) return null;

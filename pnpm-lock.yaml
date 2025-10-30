@@ -84,26 +84,26 @@ importers:
         specifier: 43.5.0
         version: 43.5.0
       '@google-cloud/aiplatform':
-        specifier: ^5.7.0
-        version: 5.7.0
+        specifier: 5.12.0
+        version: 5.12.0
       '@google-cloud/bigquery':
         specifier: ^8.1.1
         version: 8.1.1
       '@google-cloud/discoveryengine':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: 2.5.2
+        version: 2.5.2
       '@google-cloud/firestore':
-        specifier: ^7.11.3
-        version: 7.11.3(encoding@0.1.13)
+        specifier: 7.11.6
+        version: 7.11.6(encoding@0.1.13)
       '@google-cloud/opentelemetry-cloud-trace-exporter':
         specifier: ^2.4.1
         version: 2.4.1(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/resources@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(encoding@0.1.13)
       '@google-cloud/secret-manager':
-        specifier: ^6.1.0
-        version: 6.1.0
+        specifier: 6.1.1
+        version: 6.1.1
       '@google-cloud/storage':
-        specifier: ^7.17.1
-        version: 7.17.1(encoding@0.1.13)
+        specifier: 7.17.2
+        version: 7.17.2(encoding@0.1.13)
       '@google-cloud/vertexai':
         specifier: ^1.10.0
         version: 1.10.0(encoding@0.1.13)
@@ -191,6 +191,9 @@ importers:
       cloud-pine:
         specifier: ^2.0.1
         version: 2.0.1(encoding@0.1.13)
+      commander:
+        specifier: ^14.0.2
+        version: 14.0.2
       crawlee:
         specifier: ^3.8.1
         version: 3.14.0(playwright@1.54.1)(puppeteer@22.15.0(typescript@5.9.2))
@@ -324,11 +327,11 @@ importers:
         specifier: ^6.9.0
         version: 6.9.0
       tree-sitter:
-        specifier: ^0.21.0
-        version: 0.21.1
+        specifier: ^0.25.0
+        version: 0.25.0
       tree-sitter-typescript:
         specifier: ^0.23.2
-        version: 0.23.2(tree-sitter@0.21.1)
+        version: 0.23.2(tree-sitter@0.25.0)
       ts-morph:
         specifier: ^21.0.1
         version: 21.0.1
@@ -459,6 +462,30 @@ importers:
       sinon-chai:
         specifier: ^3.7.0
         version: 3.7.0(chai@4.5.0)(sinon@17.0.2)
+      tree-sitter-c-sharp:
+        specifier: ^0.23.1
+        version: 0.23.1(tree-sitter@0.25.0)
+      tree-sitter-cpp:
+        specifier: ^0.23.4
+        version: 0.23.4(tree-sitter@0.25.0)
+      tree-sitter-go:
+        specifier: ^0.25.0
+        version: 0.25.0(tree-sitter@0.25.0)
+      tree-sitter-java:
+        specifier: ^0.23.5
+        version: 0.23.5(tree-sitter@0.25.0)
+      tree-sitter-javascript:
+        specifier: ^0.25.0
+        version: 0.25.0(tree-sitter@0.25.0)
+      tree-sitter-python:
+        specifier: ^0.25.0
+        version: 0.25.0(tree-sitter@0.25.0)
+      tree-sitter-rust:
+        specifier: ^0.24.0
+        version: 0.24.0(tree-sitter@0.25.0)
+      tree-sitter-scala:
+        specifier: ^0.24.0
+        version: 0.24.0(tree-sitter@0.25.0)
       ts-node-dev:
         specifier: ^2.0.0
         version: 2.0.0(@swc/core@1.13.2(@swc/helpers@0.5.17))(@types/node@20.19.9)(typescript@5.9.2)
@@ -1605,8 +1632,8 @@ packages:
     resolution: {integrity: sha512-HJgzKSBtdHrfpbH3vHj+1qSyH9RR0L/zMDCwvo4NE2Fg9P2nkWMfj2AzhytENHGTtL6gcfSPOS16HLLTQ4uVeg==}
     engines: {node: '>=18.20.0'}
 
-  '@google-cloud/aiplatform@5.7.0':
-    resolution: {integrity: sha512-2dzlIMFwUbQQHNIHS/TBdJE7J4UBpbS57YE3RuE2eL3nXIGwGeK0fuhHpySlkqGHfHMdzwpS6F27mzU8EQFPWw==}
+  '@google-cloud/aiplatform@5.12.0':
+    resolution: {integrity: sha512-BN4DSumv3RP6oPSnlwnvErYK2sngG/ZsNv0SA6dp15UFEUM1tFm9TQQnnWw2HWdUI8aztMeJyxfOEfdgluxPuQ==}
     engines: {node: '>=18'}
 
   '@google-cloud/bigquery@8.1.1':
@@ -1625,12 +1652,12 @@ packages:
     resolution: {integrity: sha512-IXh04DlkLMxWgYLIUYuHHKXKOUwPDzDgke1ykkkJPe48cGIS9kkL2U/o0pm4ankHLlvzLF/ma1eO86n/bkumIA==}
     engines: {node: '>=18'}
 
-  '@google-cloud/discoveryengine@2.4.0':
-    resolution: {integrity: sha512-JNZ6C4GI3eXn8zDhoZBZ9CZmzXg9ma8BTRZYq8LMAfnG6daJQpDtO3OP5Nnnh19zuYPyQwuhe0TKcQfjcYJ4kw==}
+  '@google-cloud/discoveryengine@2.5.2':
+    resolution: {integrity: sha512-90pFlwUOrh+PCBdD8xZdZHBWWMPoPhxA60d7cJx2CFe8Jtu1HTYG6c5W0ZuvFzFeiqL5xOQxj1tTd+XnsD85ug==}
     engines: {node: '>=18'}
 
-  '@google-cloud/firestore@7.11.3':
-    resolution: {integrity: sha512-qsM3/WHpawF07SRVvEJJVRwhYzM7o9qtuksyuqnrMig6fxIrwWnsezECWsG/D5TyYru51Fv5c/RTqNDQ2yU+4w==}
+  '@google-cloud/firestore@7.11.6':
+    resolution: {integrity: sha512-EW/O8ktzwLfyWBOsNuhRoMi8lrC3clHM5LVFhGvO1HCsLozCOOXRAlHrYBoE6HL42Sc8yYMuCb2XqcnJ4OOEpw==}
     engines: {node: '>=14.0.0'}
 
   '@google-cloud/logging@11.2.0':
@@ -1688,12 +1715,12 @@ packages:
     resolution: {integrity: sha512-xWxJAlyUGd6OPp97u8maMcI3xVXuHjxfwh6Dr7P/P+6NK9o446slJobsbgsmK0xKY4nTK8m5uuJrhEKapfZSmQ==}
     engines: {node: '>=14.0.0'}
 
-  '@google-cloud/secret-manager@6.1.0':
-    resolution: {integrity: sha512-IrXjT1z2yW98htydkopcxdhNVh4rpAzO3oTVzKymfdnzmzCKWVxhfwYWWvIor1bzgQN4sa21Wv0CMDokJyTt7A==}
+  '@google-cloud/secret-manager@6.1.1':
+    resolution: {integrity: sha512-dwSuxJ9RNmAW46FjK1StiNIeOiSHHQs/XIy4VArJ6bBMR+WsIvR+zhPh2pa40aFa9uTty67j38Rl268TVV62EA==}
     engines: {node: '>=18'}
 
-  '@google-cloud/storage@7.17.1':
-    resolution: {integrity: sha512-2FMQbpU7qK+OtBPaegC6n+XevgZksobUGo6mGKnXNmeZpvLiAo1gTAE3oTKsrMGDV4VtL8Zzpono0YsK/Q7Iqg==}
+  '@google-cloud/storage@7.17.2':
+    resolution: {integrity: sha512-6xN0KNO8L/LIA5zu3CJwHkJiB6n65eykBLOb0E+RooiHYgX8CSao6lvQiKT9TBk2gL5g33LL3fmhDodZnt56rw==}
     engines: {node: '>=14'}
 
   '@google-cloud/vertexai@1.10.0':
@@ -3678,6 +3705,10 @@ packages:
   commander@13.1.0:
     resolution: {integrity: sha512-/rFeCpNJQbhSZjGVwO9RFV3xPqbnERS8MmIQzCtD/zl6gpJuV/bMLuN92oG3F7d8oDEHHRrujSXNUr8fpjntKw==}
     engines: {node: '>=18'}
+
+  commander@14.0.2:
+    resolution: {integrity: sha512-TywoWNNRbhoD0BXs1P3ZEScW8W5iKrnbithIl0YH+uCmBd0QpPOA8yc82DS3BIE5Ma6FnBVUsJ7wVUDz4dvOWQ==}
+    engines: {node: '>=20'}
 
   commander@2.20.3:
     resolution: {integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==}
@@ -7826,8 +7857,80 @@ packages:
     resolution: {integrity: sha512-L0Orpi8qGpRG//Nd+H90vFB+3iHnue1zSSGmNOOCh1GLJ7rUKVwV2HvijphGQS2UmhUZewS9VgvxYIdgr+fG1A==}
     hasBin: true
 
+  tree-sitter-c-sharp@0.23.1:
+    resolution: {integrity: sha512-9zZ4FlcTRWWfRf6f4PgGhG8saPls6qOOt75tDfX7un9vQZJmARjPrAC6yBNCX2T/VKcCjIDbgq0evFaB3iGhQw==}
+    peerDependencies:
+      tree-sitter: ^0.21.1
+    peerDependenciesMeta:
+      tree-sitter:
+        optional: true
+
+  tree-sitter-c@0.23.6:
+    resolution: {integrity: sha512-0dxXKznVyUA0s6PjNolJNs2yF87O5aL538A/eR6njA5oqX3C3vH4vnx3QdOKwuUdpKEcFdHuiDpRKLLCA/tjvQ==}
+    peerDependencies:
+      tree-sitter: ^0.22.1
+    peerDependenciesMeta:
+      tree-sitter:
+        optional: true
+
+  tree-sitter-cpp@0.23.4:
+    resolution: {integrity: sha512-qR5qUDyhZ5jJ6V8/umiBxokRbe89bCGmcq/dk94wI4kN86qfdV8k0GHIUEKaqWgcu42wKal5E97LKpLeVW8sKw==}
+    peerDependencies:
+      tree-sitter: ^0.21.1
+    peerDependenciesMeta:
+      tree-sitter:
+        optional: true
+
+  tree-sitter-go@0.25.0:
+    resolution: {integrity: sha512-APBc/Dq3xz/e35Xpkhb1blu5UgW+2E3RyGWawZSCNcbGwa7jhSQPS8KsUupuzBla8PCo8+lz9W/JDJjmfRa2tw==}
+    peerDependencies:
+      tree-sitter: ^0.25.0
+    peerDependenciesMeta:
+      tree-sitter:
+        optional: true
+
+  tree-sitter-java@0.23.5:
+    resolution: {integrity: sha512-Yju7oQ0Xx7GcUT01mUglPP+bYfvqjNCGdxqigTnew9nLGoII42PNVP3bHrYeMxswiCRM0yubWmN5qk+zsg0zMA==}
+    peerDependencies:
+      tree-sitter: ^0.21.1
+    peerDependenciesMeta:
+      tree-sitter:
+        optional: true
+
   tree-sitter-javascript@0.23.1:
     resolution: {integrity: sha512-/bnhbrTD9frUYHQTiYnPcxyHORIw157ERBa6dqzaKxvR/x3PC4Yzd+D1pZIMS6zNg2v3a8BZ0oK7jHqsQo9fWA==}
+    peerDependencies:
+      tree-sitter: ^0.21.1
+    peerDependenciesMeta:
+      tree-sitter:
+        optional: true
+
+  tree-sitter-javascript@0.25.0:
+    resolution: {integrity: sha512-1fCbmzAskZkxcZzN41sFZ2br2iqTYP3tKls1b/HKGNPQUVOpsUxpmGxdN/wMqAk3jYZnYBR1dd/y/0avMeU7dw==}
+    peerDependencies:
+      tree-sitter: ^0.25.0
+    peerDependenciesMeta:
+      tree-sitter:
+        optional: true
+
+  tree-sitter-python@0.25.0:
+    resolution: {integrity: sha512-eCmJx6zQa35GxaCtQD+wXHOhYqBxEL+bp71W/s3fcDMu06MrtzkVXR437dRrCrbrDbyLuUDJpAgycs7ncngLXw==}
+    peerDependencies:
+      tree-sitter: ^0.25.0
+    peerDependenciesMeta:
+      tree-sitter:
+        optional: true
+
+  tree-sitter-rust@0.24.0:
+    resolution: {integrity: sha512-NWemUDf629Tfc90Y0Z55zuwPCAHkLxWnMf2RznYu4iBkkrQl2o/CHGB7Cr52TyN5F1DAx8FmUnDtCy9iUkXZEQ==}
+    peerDependencies:
+      tree-sitter: ^0.22.1
+    peerDependenciesMeta:
+      tree-sitter:
+        optional: true
+
+  tree-sitter-scala@0.24.0:
+    resolution: {integrity: sha512-vkMuAUrBZ1zZz2XcGDQk18Kz73JkpgaeXzbNVobPke0G35sd9jH32aUxG6OLRKM7et0TbsfqkWf4DeJoGk4K1g==}
     peerDependencies:
       tree-sitter: ^0.21.1
     peerDependenciesMeta:
@@ -7842,8 +7945,8 @@ packages:
       tree-sitter:
         optional: true
 
-  tree-sitter@0.21.1:
-    resolution: {integrity: sha512-7dxoA6kYvtgWw80265MyqJlkRl4yawIjO7S5MigytjELkX43fV2WsAXzsNfO7sBpPPCF5Gp0+XzHk0DwLCq3xQ==}
+  tree-sitter@0.25.0:
+    resolution: {integrity: sha512-PGZZzFW63eElZJDe/b/R/LbsjDDYJa5UEjLZJB59RQsMX+fo0j54fqBPn1MGKav/QNa0JR0zBiVaikYDWCj5KQ==}
 
   triple-beam@1.4.1:
     resolution: {integrity: sha512-aZbgViZrg1QNcG+LULa7nhZpJTZSLm/mXnHXnbAbjmN5aSa0y7V+wvv6+4WaBtpISJzThKy+PIPxc1Nq1EJ9mg==}
@@ -9634,7 +9737,7 @@ snapshots:
       '@gitbeaker/core': 43.5.0
       '@gitbeaker/requester-utils': 43.5.0
 
-  '@google-cloud/aiplatform@5.7.0':
+  '@google-cloud/aiplatform@5.12.0':
     dependencies:
       google-gax: 5.0.1
     transitivePeerDependencies:
@@ -9693,13 +9796,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@google-cloud/discoveryengine@2.4.0':
+  '@google-cloud/discoveryengine@2.5.2':
     dependencies:
       google-gax: 5.0.1
     transitivePeerDependencies:
       - supports-color
 
-  '@google-cloud/firestore@7.11.3(encoding@0.1.13)':
+  '@google-cloud/firestore@7.11.6(encoding@0.1.13)':
     dependencies:
       '@opentelemetry/api': 1.9.0
       fast-deep-equal: 3.1.3
@@ -9796,13 +9899,13 @@ snapshots:
       - encoding
       - supports-color
 
-  '@google-cloud/secret-manager@6.1.0':
+  '@google-cloud/secret-manager@6.1.1':
     dependencies:
       google-gax: 5.0.1
     transitivePeerDependencies:
       - supports-color
 
-  '@google-cloud/storage@7.17.1(encoding@0.1.13)':
+  '@google-cloud/storage@7.17.2(encoding@0.1.13)':
     dependencies:
       '@google-cloud/paginator': 5.0.2
       '@google-cloud/projectify': 4.0.0
@@ -12263,6 +12366,8 @@ snapshots:
 
   commander@13.1.0: {}
 
+  commander@14.0.2: {}
+
   commander@2.20.3: {}
 
   commander@5.1.0: {}
@@ -13575,8 +13680,8 @@ snapshots:
       node-forge: 1.3.1
       uuid: 10.0.0
     optionalDependencies:
-      '@google-cloud/firestore': 7.11.3(encoding@0.1.13)
-      '@google-cloud/storage': 7.17.1(encoding@0.1.13)
+      '@google-cloud/firestore': 7.11.6(encoding@0.1.13)
+      '@google-cloud/storage': 7.17.2(encoding@0.1.13)
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -17231,22 +17336,86 @@ snapshots:
 
   tree-kill@1.2.2: {}
 
-  tree-sitter-javascript@0.23.1(tree-sitter@0.21.1):
+  tree-sitter-c-sharp@0.23.1(tree-sitter@0.25.0):
     dependencies:
       node-addon-api: 8.5.0
       node-gyp-build: 4.8.4
     optionalDependencies:
-      tree-sitter: 0.21.1
+      tree-sitter: 0.25.0
 
-  tree-sitter-typescript@0.23.2(tree-sitter@0.21.1):
+  tree-sitter-c@0.23.6(tree-sitter@0.25.0):
     dependencies:
       node-addon-api: 8.5.0
       node-gyp-build: 4.8.4
-      tree-sitter-javascript: 0.23.1(tree-sitter@0.21.1)
     optionalDependencies:
-      tree-sitter: 0.21.1
+      tree-sitter: 0.25.0
 
-  tree-sitter@0.21.1:
+  tree-sitter-cpp@0.23.4(tree-sitter@0.25.0):
+    dependencies:
+      node-addon-api: 8.5.0
+      node-gyp-build: 4.8.4
+      tree-sitter-c: 0.23.6(tree-sitter@0.25.0)
+    optionalDependencies:
+      tree-sitter: 0.25.0
+
+  tree-sitter-go@0.25.0(tree-sitter@0.25.0):
+    dependencies:
+      node-addon-api: 8.5.0
+      node-gyp-build: 4.8.4
+    optionalDependencies:
+      tree-sitter: 0.25.0
+
+  tree-sitter-java@0.23.5(tree-sitter@0.25.0):
+    dependencies:
+      node-addon-api: 8.5.0
+      node-gyp-build: 4.8.4
+    optionalDependencies:
+      tree-sitter: 0.25.0
+
+  tree-sitter-javascript@0.23.1(tree-sitter@0.25.0):
+    dependencies:
+      node-addon-api: 8.5.0
+      node-gyp-build: 4.8.4
+    optionalDependencies:
+      tree-sitter: 0.25.0
+
+  tree-sitter-javascript@0.25.0(tree-sitter@0.25.0):
+    dependencies:
+      node-addon-api: 8.5.0
+      node-gyp-build: 4.8.4
+    optionalDependencies:
+      tree-sitter: 0.25.0
+
+  tree-sitter-python@0.25.0(tree-sitter@0.25.0):
+    dependencies:
+      node-addon-api: 8.5.0
+      node-gyp-build: 4.8.4
+    optionalDependencies:
+      tree-sitter: 0.25.0
+
+  tree-sitter-rust@0.24.0(tree-sitter@0.25.0):
+    dependencies:
+      node-addon-api: 8.5.0
+      node-gyp-build: 4.8.4
+    optionalDependencies:
+      tree-sitter: 0.25.0
+
+  tree-sitter-scala@0.24.0(tree-sitter@0.25.0):
+    dependencies:
+      node-addon-api: 8.5.0
+      node-gyp-build: 4.8.4
+    optionalDependencies:
+      tree-sitter: 0.25.0
+
+  tree-sitter-typescript@0.23.2(tree-sitter@0.25.0):
+    dependencies:
+      node-addon-api: 8.5.0
+      node-gyp-build: 4.8.4
+      tree-sitter-javascript: 0.23.1(tree-sitter@0.25.0)
+    optionalDependencies:
+      tree-sitter: 0.25.0
+
+  tree-sitter@0.25.0:
     dependencies:
       node-addon-api: 8.5.0
       node-gyp-build: 4.8.4

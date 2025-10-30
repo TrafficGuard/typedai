@@ -83,7 +83,7 @@ export class PublicWeb {
 		logger.info(`PublicWeb.getWebPage ${url}`);
 
 		// https://screenshotone.com/blog/how-to-hide-cookie-banners-when-taking-a-screenshot-with-puppeteer/
-		const browser: Browser = await puppeteer.launch({ headless: false, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+		const browser: Browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
 		const page = await browser.newPage();
 
 		await page.setRequestInterception(true);

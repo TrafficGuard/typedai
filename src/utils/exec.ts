@@ -9,7 +9,6 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
 import { withSpan } from '#o11y/trace';
-import { CONTAINER_PATH } from '../../src/benchmarks/swebench/swe-bench-runner';
 
 const execAsync = promisify(exec);
 /**
@@ -627,3 +626,4 @@ export function formatAnsiWithMarkdownLinksConservative(text: string | null | un
 
 	return processedText;
 }
+export const CONTAINER_PATH = '/testbed';

@@ -13,7 +13,6 @@ export function createEnvKeyRotator(envBase: string, maxSuffix = 9): KeyRotator 
 		else break;
 	}
 	let index = 0;
-
 	return {
 		current() {
 			return keys.length ? keys[index] : undefined;

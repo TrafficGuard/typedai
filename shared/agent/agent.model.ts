@@ -116,7 +116,7 @@ export interface AgentContext {
 	/** The current state of the agent */
 	state: AgentRunningState;
 	/** Tracks what functions/spans we've called into */
-	callStack: string[];
+	callStack: string[]; // Must match HasCallStack in agent.types.ts
 	/** Error message & stack */
 	error?: string;
 	output?: string;

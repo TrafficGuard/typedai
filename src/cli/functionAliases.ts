@@ -10,6 +10,7 @@ import { LlmTools } from '#functions/llmTools';
 import { FileSystemRead } from '#functions/storage/fileSystemRead';
 import { FileSystemWrite } from '#functions/storage/fileSystemWrite';
 import { LocalFileStore } from '#functions/storage/localFileStore';
+import { SupportKnowledgebase } from '#functions/supportKnowledgebase';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import { defaultLLMs } from '#llm/services/defaultLlms';
@@ -45,6 +46,7 @@ const functionAliases: Record<string, string> = {
 	live: LiveFiles.name,
 	gcloud: GoogleCloud.name,
 	custom: CustomFunctions.name,
+	kb: SupportKnowledgebase.name,
 };
 
 interface FunctionMatch {

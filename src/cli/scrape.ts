@@ -2,7 +2,6 @@ import '#fastify/trace-init/trace-init'; // leave an empty line next so this doe
 
 import { writeFileSync } from 'node:fs';
 import { agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
-import { PublicWeb } from '#functions/web/web';
 import { countTokens } from '#llm/tokens';
 import { terminalLog } from './terminal';
 
@@ -19,7 +18,8 @@ async function url2markdown(url: string, outputFilename?: string) {
 		}),
 	);
 
-	const markdown = await new PublicWeb().getWebPage(url);
+	const { default: functionModules } = await import('../functions/functionModules.cjs');
+	const markdown = await new functionModules.web.PublicWeb().getWebPage(url);
 	const file = outputFilename ?? 'scrape.md';
 	writeFileSync(file, markdown);
 	const tokens = await countTokens(markdown);

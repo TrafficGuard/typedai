@@ -87,7 +87,7 @@ describe('xmlAgentRunner', () => {
 	beforeEach(() => {
 		initInMemoryApplicationContext();
 		// This is needed for the tests on the LlmCall.callStack property
-		setTracer(null, agentContextStorage);
+		setTracer(null);
 		mockLLM = new MockLLM();
 		llms = {
 			easy: mockLLM,

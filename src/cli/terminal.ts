@@ -21,11 +21,17 @@ export function terminalLog(message: string): void {
 			flags: 'a', // 'a' for append mode is safest
 		});
 
+		// Handle errors on the stream to prevent unhandled error events
+		terminalStream.on('error', (error) => {
+			// Silently fall back to console.error if terminal is not available
+			console.error(message);
+		});
+
 		terminalStream.write(`${message}\n`);
 		terminalStream.end(); // Close the stream to release the file handle.
 	} catch (error) {
 		// If we can't write to the terminal (e.g., not in a TTY),
 		// we can fall back to stderr as a last resort for visibility.
-		// console.error(`Fallback: Could not write directly to terminal. Message: ${message}`);
+		console.error(message);
 	}
 }

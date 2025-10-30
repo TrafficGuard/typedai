@@ -107,6 +107,7 @@ export function loadEnvFile(filePath: string): ParsedEnv {
  *   overwrite existing `process.env` values.
  */
 export function applyEnvFile(filePath: string, options: ApplyEnvOptions = {}): void {
+	console.log(`loading env file ${filePath}`);
 	const envVars = loadEnvFile(filePath);
 	const override = options.override ?? false;
 

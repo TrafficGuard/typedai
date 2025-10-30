@@ -21,7 +21,7 @@ export class Agent {
 	 */
 	@func()
 	async completed(note: string): Promise<void> {
-		await this.saveMemory('Agent_completed_note', note ?? '<none>');
+		await this.saveMemory('Agent_completed_note', note ?? '<none>', '');
 		logger.info(`Agent completed. Note: ${note}`);
 	}
 
@@ -31,7 +31,7 @@ export class Agent {
 	 * @param {string} content The plain text contents to store in the working memory
 	 */
 	// @func()
-	async saveMemory(key: string, content: string): Promise<void> {
+	async saveMemory(key: string, content: string, description: string): Promise<void> {
 		if (!key || !key.trim().length) throw new Error('Memory key must be provided');
 		if (!content || !content.trim().length) throw new Error('Memory content must be provided');
 		const memory = agentContext()!.memory;
@@ -69,12 +69,16 @@ export class Agent {
 	 * @param operation 'SAVE', 'DELETE', or 'GET'
 	 * @param key The memory key to save, delete, or get
 	 * @param content The content to save to the memory (when operation is 'SAVE')
+	 * @param description The description to save to the memory (when operation is 'SAVE')
 	 * @returns void, or string when operation is 'GET'
 	 */
 	@func()
-	async memory(operation: 'SAVE' | 'DELETE' | 'GET', key: string, content?: string): Promise<undefined | string> {
+	async memory(operation: 'SAVE' | 'DELETE' | 'GET', key: string, content?: string, description?: string): Promise<undefined | string> {
 		if (operation === 'SAVE') {
-			await this.saveMemory(key, content as string);
+			if (!content) throw new Error('Content must be provided when saving memory');
+			if (!key) throw new Error('Key must be provided when saving memory');
+			// if (!description) throw new Error('Description must be provided when saving memory');
+			await this.saveMemory(key, content, description ?? '');
 			return undefined;
 		}
 		if (operation === 'DELETE') {

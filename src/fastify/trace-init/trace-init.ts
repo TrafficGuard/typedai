@@ -6,12 +6,9 @@ import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { Resource } from '@opentelemetry/resources';
 import * as opentelemetry from '@opentelemetry/sdk-node';
 import { TraceIdRatioBasedSampler } from '@opentelemetry/sdk-trace-base';
-import { PinoInstrumentation } from './instrumentation';
-
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-import { agentContextStorage } from '#agent/agentContextLocalStorage';
-import { checkForceStopped } from '#agent/forceStopAgent';
 import { setTracer } from '#o11y/trace';
+import { PinoInstrumentation } from './instrumentation';
 
 let initialized = false;
 let optelNodeSdk: opentelemetry.NodeSDK;
@@ -105,9 +102,9 @@ function initTrace(): void {
 		});
 
 		const tracer = trace.getTracer(traceServiceName);
-		setTracer(tracer, agentContextStorage, checkForceStopped);
+		setTracer(tracer);
 	} else {
-		setTracer(null, agentContextStorage, checkForceStopped);
+		setTracer(null);
 	}
 }
 

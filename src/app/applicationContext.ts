@@ -1,7 +1,9 @@
-import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext, agentContextStorage } from '#agent/agentContextLocalStorage';
+import { checkForceStopped } from '#agent/forceStopAgent';
 import { inMemoryApplicationContext } from '#modules/memory/inMemoryApplicationContext';
 import { InMemoryUserService } from '#modules/memory/inMemoryUserService';
 import { logger, setLogEnricher } from '#o11y/logger';
+import { setAgentContextStorageAndCheckForceStopped } from '#o11y/trace';
 import type { ApplicationContext } from './applicationTypes';
 
 export let applicationContext: ApplicationContext;
@@ -59,6 +61,7 @@ export async function initApplicationContext(): Promise<ApplicationContext> {
 			if (agent.parentAgentId) logObj.parentAgentId = agent.parentAgentId;
 		}
 	});
+	setAgentContextStorageAndCheckForceStopped(agentContextStorage, checkForceStopped);
 
 	return applicationContext;
 }

@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Span, SpanContext, Tracer } from '@opentelemetry/api';
 import { trace } from '@opentelemetry/api';
 import { logger } from '#o11y/logger';
-import type { AgentContext } from '#shared/agent/agent.model';
+import { HasCallStack } from '#shared/agent/agent.types';
 import { currentUser, runAsUser } from '#user/userContext';
 import { type SugaredTracer, wrapTracer } from './trace/SugaredTracer';
 
@@ -29,8 +29,8 @@ const dummyTracer = {
 };
 
 let tracer: SugaredTracer | null = null;
-let agentContextStorage: AsyncLocalStorage<AgentContext>;
-let checkForceStopped: () => void;
+let agentContextStorage: AsyncLocalStorage<HasCallStack> = new AsyncLocalStorage();
+let checkForceStopped: () => void = () => {};
 
 function runWithCallStackSegment<T>(segment: string, fn: () => T): T {
 	if (!segment) return fn();
@@ -48,20 +48,19 @@ export function getCurrentCallStack(): string[] {
 	return agent?.callStack ?? [];
 }
 
+export function setAgentContextStorageAndCheckForceStopped(agentContextStorageRef: AsyncLocalStorage<HasCallStack>, checkForceStoppedRef: () => void): void {
+	agentContextStorage = agentContextStorageRef;
+	checkForceStopped = checkForceStoppedRef;
+}
+
 /**
  * @param {Tracer} theTracer - Tracer to be set by the trace-init service
  * @param theAgentContextStorage
  * @param checkForcedStoppedFunc
  */
-export function setTracer(
-	theTracer: Tracer | null,
-	theAgentContextStorage: AsyncLocalStorage<AgentContext>,
-	checkForcedStoppedFunc: () => void = () => {},
-): void {
+export function setTracer(theTracer: Tracer | null): void {
 	if (theTracer) tracer = wrapTracer(theTracer);
 	// Having the agentContextStorage() and checkForcedStopped () function call in this file causes a compile failure, so we need to pass in the reference to the storage.
-	agentContextStorage = theAgentContextStorage;
-	checkForceStopped = checkForcedStoppedFunc;
 }
 
 export function getTracer(): SugaredTracer | null {

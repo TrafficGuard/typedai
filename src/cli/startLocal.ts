@@ -52,10 +52,10 @@ async function main(): Promise<void> {
 
 	process.env.NODE_ENV ??= 'development';
 
-	// Determine if this is the "default" repository setup (e.g., the main repo)
-	// or a contributor's setup (e.g., a fork). This affects port handling.
+	// Determine if this is the "default" repository setup (e.g., the main repo at $TYPEDAI_HOME)
+	// or a worktree or seperate clone. This affects port handling.
 	// In the default setup, we use fixed ports (3000/9229) and fail if they're taken.
-	// In a contributor setup, we find the next available port to avoid conflicts.
+	// In a worktree/forked setup, we find the next available port to avoid conflicts.
 	const repoRoot = path.resolve(process.cwd());
 	const typedAiHome = process.env.TYPEDAI_HOME ? path.resolve(process.env.TYPEDAI_HOME) : null;
 	const isDefaultRepo = typedAiHome ? repoRoot === typedAiHome : false;

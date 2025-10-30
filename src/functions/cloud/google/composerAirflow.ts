@@ -80,6 +80,20 @@ export class ComposerAirflowClient {
 	}
 
 	/**
+	 * Fetches detailed metadata for a specific DAG.
+	 * @param gcpProjectId The Google Cloud Project ID.
+	 * @returns A promise that resolves to the DAG detail object.
+	 */
+	@func()
+	public async fetchDags(gcpProjectId: string): Promise<any> {
+		const airflowWebServerUrl = this.getWebServerUrl(gcpProjectId);
+		const token = await this.getAuthToken();
+		const url = `${airflowWebServerUrl}/api/v1/dags`;
+		const response = await this.makeRequest(url, 'GET', token);
+		return response.data.dags;
+	}
+
+	/**
 	 * Helper function to determine the Composer Airflow Web Server URL based on Google Cloud project ID.
 	 */
 	private getWebServerUrl(gcpProjectId: string): string {

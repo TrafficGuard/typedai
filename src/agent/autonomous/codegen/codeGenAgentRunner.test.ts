@@ -93,7 +93,7 @@ describe('codegenAgentRunner', () => {
 	beforeEach(() => {
 		initInMemoryApplicationContext();
 		// This is needed for the tests on the LlmCall.callStack property
-		setTracer(null, agentContextStorage);
+		setTracer(null);
 		mockLLM = mockLLMs().easy as MockLLM;
 		mockLLM.reset();
 		functions = new LlmFunctionsImpl(AgentFeedback);

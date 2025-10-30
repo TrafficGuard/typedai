@@ -361,21 +361,15 @@ Respond with a valid JSON object that follows the required schema.`,
 		// File contents for newly inspected files are included in the next iteration prompt.
 		pruneEphemeralCache(messages);
 
-		// LLM decision logic for switching to hard LLM or breaking
+		// LLM decision logic for finishing or continuing
 		// This logic applies whether a search was performed or not.
 		// If a search was performed, filesToInspect might be empty (if LLM only searched),
 		// or it might contain files if LLM searched AND asked to inspect some (uncommon but possible).
 		if (filesToInspect.length === 0 && filesPendingDecision.size === 0) {
-			// No new files to inspect, and all previously pending files decided.
-			if (!usingHardLLM) {
-				llm = agentLLMs.hard;
-				usingHardLLM = true;
-				logger.info('Switching to hard LLM for final review.');
-			} else {
-				logger.info('Hard LLM also decided not to inspect more files and no files are pending. Completing selection.');
-				break;
-			}
-		} else if (filesToInspect.length === 0 && filesPendingDecision.size > 0) {
+			logger.info('No more files to inspect and no pending decisions. Completing selection.');
+			break;
+		}
+		if (filesToInspect.length === 0 && filesPendingDecision.size > 0) {
 			// No new files requested for inspection, but some files are still pending.
 			// Fix #2 (throw error) handles this if LLM doesn't request search or inspect.
 			// This log remains useful if Fix #2 condition isn't met (e.g., LLM requests search).
