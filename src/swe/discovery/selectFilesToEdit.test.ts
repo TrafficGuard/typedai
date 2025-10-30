@@ -1,11 +1,15 @@
 import { expect } from 'chai';
+import { setFileSystemOverride } from '#agent/agentContextLocalStorage';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { removeNonExistingFiles } from '#swe/discovery/selectFilesToEdit';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 describe('removeNonExistingFiles', () => {
 	setupConditionalLoggerOutput();
-	const fileSystem = new FileSystemService();
+	const fileSystem = new FileSystemService(process.cwd());
+
+	before(() => setFileSystemOverride(fileSystem));
+	after(() => setFileSystemOverride(null));
 
 	it('should remove non-existing files from the selection', async () => {
 		const existingFilePath = './package.json'; // assuming package.json exists

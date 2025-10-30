@@ -64,8 +64,7 @@ describe('selectFilesAgentWithSearch', () => {
 			mockLLM
 				.addMessageResponse('<json>{"inspectFiles":[]}</json>') // initial
 				.addMessageResponse('<json>{"search":"TODO","keepFiles":[],"ignoreFiles":[]}</json>') // iteration 1
-				.addMessageResponse('<json>{"keepFiles":[{"filePath":"a.txt","reason":"match"}]}</json>') // iteration 2
-				.addMessageResponse('<json>{}</json>'); // iteration 3 to allow break
+				.addMessageResponse('<json>{"keepFiles":[{"filePath":"a.txt","reason":"match"}]}</json>'); // iteration 2
 
 			const files = await selectFilesAgent('Find alpha', {}, llmSet);
 
@@ -110,8 +109,7 @@ describe('selectFilesAgentWithSearch', () => {
 			mockLLM
 				.addMessageResponse('<json>{"inspectFiles":["not-exists.txt"]}</json>') // initial: invalid path
 				.addMessageResponse('<json>{"search":"ANY"}</json>') // iteration 1: trigger search to continue
-				.addMessageResponse('<json>{"keepFiles":[{"filePath":"a.txt","reason":"found"}]}</json>') // iteration 2
-				.addMessageResponse('<json>{}</json>'); // iteration 3 to break
+				.addMessageResponse('<json>{"keepFiles":[{"filePath":"a.txt","reason":"found"}]}</json>'); // iteration 2
 
 			const files = await selectFilesAgent('Find file that matches', {}, llmSet);
 			expect(files).to.deep.equal([{ filePath: 'a.txt', reason: 'found' }]);
@@ -128,8 +126,7 @@ describe('selectFilesAgentWithSearch', () => {
 		it('assigns default reason when keepFiles are provided as strings', async () => {
 			mockLLM
 				.addMessageResponse('<json>{"inspectFiles":["a.txt"]}</json>')
-				.addMessageResponse('<json>{"keepFiles":["a.txt"]}</json>')
-				.addMessageResponse('<json>{}</json>');
+				.addMessageResponse('<json>{"keepFiles":["a.txt"]}</json>');
 
 			const files = await selectFilesAgent('String keep reason', {}, llmSet);
 
@@ -142,8 +139,7 @@ describe('selectFilesAgentWithSearch', () => {
 			mockLLM
 				.addMessageResponse('<json>{"inspectFiles":[]}</json>')
 				.addMessageResponse('<json>{"search":"FAIL","keepFiles":[],"ignoreFiles":[]}</json>')
-				.addMessageResponse('<json>{"keepFiles":[{"filePath":"a.txt","reason":"found"}]}</json>')
-				.addMessageResponse('<json>{}</json>');
+				.addMessageResponse('<json>{"keepFiles":[{"filePath":"a.txt","reason":"found"}]}</json>');
 
 			const files = await selectFilesAgent('Handle search errors', {}, llmSet);
 			expect(files).to.deep.equal([{ filePath: 'a.txt', reason: 'found' }]);
@@ -168,8 +164,7 @@ describe('selectFilesAgentWithSearch', () => {
 			mockLLM
 				.addMessageResponse('<json>{"inspectFiles":[]}</json>')
 				.addMessageResponse('<json>{"search":"TODO","keepFiles":[],"ignoreFiles":[]}</json>')
-				.addMessageResponse('<json>{"keepFiles":[{"filePath":"a.txt","reason":"found"}]}</json>')
-				.addMessageResponse('<json>{}</json>');
+				.addMessageResponse('<json>{"keepFiles":[{"filePath":"a.txt","reason":"found"}]}</json>');
 
 			const files = await selectFilesAgent('Truncate search', {}, llmSet);
 			expect(files).to.deep.equal([{ filePath: 'a.txt', reason: 'found' }]);
@@ -193,8 +188,7 @@ describe('selectFilesAgentWithSearch', () => {
 		it('throws when no files are ultimately selected', async () => {
 			mockLLM
 				.addMessageResponse('<json>{"inspectFiles":["a.txt"]}</json>')
-				.addMessageResponse('<json>{"ignoreFiles":[{"filePath":"a.txt","reason":"not needed"}]}</json>')
-				.addMessageResponse('<json>{}</json>');
+				.addMessageResponse('<json>{"ignoreFiles":[{"filePath":"a.txt","reason":"not needed"}]}</json>');
 
 			try {
 				await selectFilesAgent('No selection', {}, llmSet);
