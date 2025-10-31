@@ -86,9 +86,21 @@ export class DiscoveryEngine {
 			reconciliationMode: google.cloud.discoveryengine.v1.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL,
 		};
 
+		const operationStart = Date.now();
 		const [operation] = await this.documentClient.importDocuments(request);
-		logger.info(`ImportDocuments operation started: ${operation.name}`);
-		await operation.promise(); // wait until the indexing finishes
+		logger.info({ operationName: operation.name, documentCount: documents.length }, 'ImportDocuments operation started');
+
+		await operation.promise(); // wait until the import operation completes
+		const operationDuration = Date.now() - operationStart;
+		logger.info(
+			{
+				operationName: operation.name,
+				documentCount: documents.length,
+				durationMs: operationDuration,
+				durationSeconds: (operationDuration / 1000).toFixed(1),
+			},
+			'ImportDocuments operation completed - documents may take additional time to become searchable due to eventual consistency',
+		);
 	}
 
 	/**
@@ -149,6 +161,62 @@ export class DiscoveryEngine {
 				return;
 			}
 			logger.error({ error }, `Failed to delete data store "${this.dataStorePath}".`);
+			throw error;
+		}
+	}
+
+	/**
+	 * Lists all documents in the data store for diagnostic purposes
+	 */
+	async listDocuments(pageSize = 100): Promise<google.cloud.discoveryengine.v1.IDocument[]> {
+		await this.ensureDataStoreExists();
+		const parent = `${this.dataStorePath}/branches/default_branch`;
+
+		try {
+			const [documents] = await this.documentClient.listDocuments({
+				parent,
+				pageSize,
+			});
+
+			logger.info(`Found ${documents.length} documents in data store`);
+			return documents;
+		} catch (error: any) {
+			logger.error({ error }, 'Failed to list documents');
+			throw error;
+		}
+	}
+
+	/**
+	 * Gets a specific document by ID for diagnostic purposes
+	 */
+	async getDocument(documentId: string): Promise<google.cloud.discoveryengine.v1.IDocument | null> {
+		await this.ensureDataStoreExists();
+		const name = `${this.dataStorePath}/branches/default_branch/documents/${documentId}`;
+
+		try {
+			const [document] = await this.documentClient.getDocument({ name });
+			logger.info({ documentId }, 'Retrieved document');
+			return document;
+		} catch (error: any) {
+			if (error.code === 5) {
+				logger.warn({ documentId }, 'Document not found');
+				return null;
+			}
+			logger.error({ error, documentId }, 'Failed to get document');
+			throw error;
+		}
+	}
+
+	/**
+	 * Gets the current data store info for diagnostic purposes
+	 */
+	async getDataStoreInfo(): Promise<any> {
+		try {
+			const [dataStore] = await this.dataStoreClient.getDataStore({ name: this.datastoreName });
+			logger.info({ dataStore }, 'Data store info retrieved');
+			return dataStore;
+		} catch (error: any) {
+			logger.error({ error }, 'Failed to get data store info');
 			throw error;
 		}
 	}

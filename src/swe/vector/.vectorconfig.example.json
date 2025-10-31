@@ -1,0 +1,34 @@
+{
+	"$schema": "https://json-schema.org/draft-07/schema#",
+	"$id": "https://typedai.dev/schemas/vectorconfig.json",
+	"title": "Vector Store Configuration",
+	"description": "Configuration for TypedAI vector search indexing",
+
+	"dualEmbedding": false,
+	"contextualChunking": false,
+	"chunkSize": 2500,
+	"chunkOverlap": 300,
+	"chunkStrategy": "ast",
+	"embeddingProvider": "vertex",
+	"embeddingModel": "gemini-embedding-001",
+	"hybridSearch": true,
+	"reranking": false,
+	"includePatterns": ["src/**", "lib/**", "app/**"],
+	"maxFileSize": 1048576,
+	"fileExtensions": [".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".cpp", ".c", ".h", ".go", ".rs", ".rb", ".php", ".cs", ".swift", ".kt"],
+
+	"_comments": {
+		"dualEmbedding": "Enable dual embedding (code + natural language). 12% better retrieval, 3x cost.",
+		"contextualChunking": "Enable LLM-generated context. 49-67% better retrieval, 6x cost.",
+		"chunkSize": "Maximum chunk size in characters (100-10000)",
+		"chunkOverlap": "Overlap between chunks in characters",
+		"chunkStrategy": "Chunking strategy: 'ast' (recommended) or 'llm'",
+		"embeddingProvider": "Embedding provider: 'vertex', 'openai', 'voyage', 'cohere'",
+		"embeddingModel": "Embedding model name",
+		"hybridSearch": "Enable hybrid search (vector + BM25). Recommended.",
+		"reranking": "Enable post-search reranking for better result quality",
+		"includePatterns": "Glob patterns to include during indexing (e.g., ['src/**', 'lib/**']). If not specified, all supported files are indexed (excluding common build/dependency directories).",
+		"maxFileSize": "Maximum file size in bytes to index (default: 1MB)",
+		"fileExtensions": "File extensions to index"
+	}
+}

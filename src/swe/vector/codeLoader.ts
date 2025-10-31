@@ -26,22 +26,33 @@ export interface CodeFile {
  * Recursively scans a directory for source code files with supported extensions.
  * @param sourceDir The root directory to scan.
  * @param subFolder Only include files under this folder
- * @param excludeDirs Optional array of directory names to exclude.
+ * @param includePatterns Optional array of glob patterns to include (e.g., ['src/**', 'lib/**']).
+ *                        If not provided, defaults to scanning all files with supported extensions,
+ *                        excluding common build/dependency directories.
  * @returns A promise that resolves to an array of CodeFile objects.
  */
-export async function readFilesToIndex(
-	sourceDir: string,
-	subFolder = './',
-	excludeDirs: string[] = ['node_modules', '.git', 'dist', 'build'],
-): Promise<CodeFile[]> {
+export async function readFilesToIndex(sourceDir: string, subFolder = './', includePatterns?: string[]): Promise<CodeFile[]> {
 	logger.info(`Scanning directory: ${sourceDir}`);
-	const pattern = `**/*.{${SUPPORTED_EXTENSIONS.join(',')}}`;
-	const ignorePatterns = excludeDirs.map((dir) => `**/${dir}/**`);
 
-	const files = await fg(pattern, {
+	// If no include patterns specified, use default pattern that scans all supported extensions
+	// but excludes common build/dependency directories
+	let patterns: string[];
+	const defaultIgnores = ['node_modules', '.git', 'dist', 'build', '.next', 'coverage', '.cache'];
+
+	if (includePatterns && includePatterns.length > 0) {
+		// User specified include patterns - respect them exactly
+		patterns = includePatterns;
+		logger.info(`Using include patterns: ${patterns.join(', ')}`);
+	} else {
+		// No include patterns - use default: all supported extensions
+		patterns = [`**/*.{${SUPPORTED_EXTENSIONS.join(',')}}`];
+		logger.info('Using default pattern with common exclusions');
+	}
+
+	const files = await fg(patterns, {
 		cwd: path.join(sourceDir, subFolder),
 		absolute: true,
-		ignore: ignorePatterns,
+		ignore: includePatterns && includePatterns.length > 0 ? [] : defaultIgnores.map((dir) => `**/${dir}/**`),
 		dot: false, // Ignore dotfiles/dotfolders like .git
 	});
 
