@@ -1,0 +1,44 @@
+{
+  "LlmTools_processText": {
+    "class": "LlmTools",
+    "name": "LlmTools_processText",
+    "description": "Uses a large language model to transform the input content by applying the provided natural language instruction",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "text",
+        "type": "string",
+        "description": "The input text"
+      },
+      {
+        "index": 1,
+        "name": "descriptionOfChanges",
+        "type": "string",
+        "description": "A description of the changes/processing to apply to the text"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The processed text"
+  },
+  "LlmTools_analyseFile": {
+    "class": "LlmTools",
+    "name": "LlmTools_analyseFile",
+    "description": "Uses a large language model to analyse an image or document",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "filePath",
+        "type": "string",
+        "description": "The path to the image or document"
+      },
+      {
+        "index": 1,
+        "name": "query",
+        "type": "string",
+        "description": "A query to analyse the image or document"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The analysis of the image or document"
+  }
+}

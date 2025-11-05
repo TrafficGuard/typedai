@@ -1,0 +1,38 @@
+{
+  "Confluence_search": {
+    "class": "Confluence",
+    "name": "Confluence_search",
+    "description": "Searches Confluence pages and pre-filters the results.\nFor example:\nsearchString: cloud-project-XYZ network\nsearchResultFilterQuery: Im looking for information specifically about the networking configuration of the cloud-project-XYZ",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "searchString",
+        "type": "string",
+        "description": "The string to search for"
+      },
+      {
+        "index": 1,
+        "name": "searchResultFilterQuery",
+        "type": "string",
+        "description": "The LLM generated query to filter the search results to"
+      }
+    ],
+    "returnType": "{ id: string; title: string; summary: string; }[]",
+    "returns": ">>}"
+  },
+  "Confluence_getPageContents": {
+    "class": "Confluence",
+    "name": "Confluence_getPageContents",
+    "description": "Fetches the full content and attachments of a Confluence page (as XML).",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "pageId",
+        "type": "string",
+        "description": "The Confluence page ID."
+      }
+    ],
+    "returnType": "string",
+    "returns": "The page content as XML."
+  }
+}

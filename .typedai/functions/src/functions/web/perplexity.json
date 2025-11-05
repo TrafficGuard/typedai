@@ -1,0 +1,50 @@
+{
+  "Perplexity_research": {
+    "class": "Perplexity",
+    "name": "Perplexity_research",
+    "description": "Calls Perplexity.ai agent to perform online research.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "researchTask",
+        "type": "string",
+        "description": "The comprehensive, detailed task to for the AI agent with online research capabilities to answer."
+      },
+      {
+        "index": 1,
+        "name": "saveToMemory",
+        "type": "boolean",
+        "description": "If the response should be saved to the agent memory."
+      }
+    ],
+    "returnType": "string",
+    "returns": "If saveToMemory is true then returns the memory key. If saveToMemory is false then returns the research contents."
+  },
+  "Perplexity_webSearch": {
+    "class": "Perplexity",
+    "name": "Perplexity_webSearch",
+    "description": "Performs a web search using Perplexity's search API.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "query",
+        "type": "string | string[]",
+        "description": "The search query."
+      }
+    ],
+    "returnType": "PerplexitySearchResponse",
+    "returns": "The search results with titles, URLs, snippets.",
+    "typeDefinitions": [
+      {
+        "name": "PerplexitySearchResponse",
+        "properties": [
+          {
+            "name": "results",
+            "type": "PerplexitySearchResult[]",
+            "optional": false
+          }
+        ]
+      }
+    ]
+  }
+}

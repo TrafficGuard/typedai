@@ -1,0 +1,15 @@
+{
+  "AgentFeedback_requestFeedback": {
+    "class": "AgentFeedback",
+    "name": "AgentFeedback_requestFeedback",
+    "description": "Request feedback/interaction from a supervisor when a decision or approval needs to be made, or additional details are required, before proceeding with the plan.\nMinimise calls to requestFeedback by attempting/verifying possible options first.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "request",
+        "type": "string",
+        "description": "Notes on what additional information/decision is required. Be specific on what you have been doing up to this point, and provide relevant information to help with the decision/feedback."
+      }
+    ]
+  }
+}

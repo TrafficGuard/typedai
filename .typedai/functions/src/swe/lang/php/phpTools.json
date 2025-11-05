@@ -1,0 +1,8 @@
+{
+  "PhpTools_generateProjectMap": {
+    "class": "PhpTools",
+    "name": "PhpTools_generateProjectMap",
+    "description": "Generates an outline of a PHP project",
+    "parameters": []
+  }
+}

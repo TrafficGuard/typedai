@@ -1,0 +1,145 @@
+{
+  "ComposerAirflowClient_fetchDags": {
+    "class": "ComposerAirflowClient",
+    "name": "ComposerAirflowClient_fetchDags",
+    "description": "Fetches detailed metadata for a specific DAG.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "gcpProjectId",
+        "type": "string",
+        "description": "The Google Cloud Project ID."
+      }
+    ],
+    "returnType": "any",
+    "returns": "A promise that resolves to the DAG detail object."
+  },
+  "ComposerAirflowClient_fetchDagRuns": {
+    "class": "ComposerAirflowClient",
+    "name": "ComposerAirflowClient_fetchDagRuns",
+    "description": "Fetches DAG runs for the given DAG ID and Google Cloud Project.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "gcpProjectId",
+        "type": "string",
+        "description": "The Google Cloud Project ID where the Composer environment lives."
+      },
+      {
+        "index": 1,
+        "name": "dagId",
+        "type": "string",
+        "description": "The ID of the DAG to fetch runs for."
+      },
+      {
+        "index": 2,
+        "name": "limit",
+        "type": "number",
+        "description": "The maximum number of runs to fetch. (Defaults to 20)",
+        "optional": true
+      }
+    ]
+  },
+  "ComposerAirflowClient_fetchTaskInstances": {
+    "class": "ComposerAirflowClient",
+    "name": "ComposerAirflowClient_fetchTaskInstances",
+    "description": "Fetches all task instances for a specific DAG run.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "gcpProjectId",
+        "type": "string",
+        "description": "The Google Cloud Project ID."
+      },
+      {
+        "index": 1,
+        "name": "dagId",
+        "type": "string",
+        "description": "The ID of the DAG."
+      },
+      {
+        "index": 2,
+        "name": "dagRunId",
+        "type": "string",
+        "description": "The ID of the specific DAG run."
+      }
+    ],
+    "returnType": "TaskInstance[]",
+    "returns": "A promise that resolves to an array of task instance objects."
+  },
+  "ComposerAirflowClient_fetchTaskLog": {
+    "class": "ComposerAirflowClient",
+    "name": "ComposerAirflowClient_fetchTaskLog",
+    "description": "Fetches the raw log for a specific task attempt.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "gcpProjectId",
+        "type": "string",
+        "description": "The Google Cloud Project ID."
+      },
+      {
+        "index": 1,
+        "name": "dagId",
+        "type": "string",
+        "description": "The ID of the DAG."
+      },
+      {
+        "index": 2,
+        "name": "dagRunId",
+        "type": "string",
+        "description": "The ID of the DAG run."
+      },
+      {
+        "index": 3,
+        "name": "taskId",
+        "type": "string",
+        "description": "The ID of the task."
+      },
+      {
+        "index": 4,
+        "name": "tryNumber",
+        "type": "number",
+        "description": "The attempt number of the task."
+      }
+    ],
+    "returnType": "string",
+    "returns": "A promise that resolves to the raw log content as a string."
+  },
+  "ComposerAirflowClient_fetchDagDetails": {
+    "class": "ComposerAirflowClient",
+    "name": "ComposerAirflowClient_fetchDagDetails",
+    "description": "Fetches detailed metadata for a specific DAG.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "gcpProjectId",
+        "type": "string",
+        "description": "The Google Cloud Project ID."
+      },
+      {
+        "index": 1,
+        "name": "dagId",
+        "type": "string",
+        "description": "The ID of the DAG."
+      }
+    ],
+    "returnType": "any",
+    "returns": "A promise that resolves to the DAG detail object."
+  },
+  "ComposerAirflowClient_fetchAirflowConfig": {
+    "class": "ComposerAirflowClient",
+    "name": "ComposerAirflowClient_fetchAirflowConfig",
+    "description": "Fetches the current Airflow configuration (airflow.cfg).",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "gcpProjectId",
+        "type": "string",
+        "description": "The Google Cloud Project ID."
+      }
+    ],
+    "returnType": "any",
+    "returns": "A promise that resolves to the Airflow configuration object."
+  }
+}

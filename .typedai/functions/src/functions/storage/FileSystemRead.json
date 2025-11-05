@@ -1,0 +1,173 @@
+{
+  "FileSystemRead_getWorkingDirectory": {
+    "class": "FileSystemRead",
+    "name": "FileSystemRead_getWorkingDirectory",
+    "description": "",
+    "parameters": [],
+    "returnType": "string",
+    "returns": "The full path of the working directory on the filesystem"
+  },
+  "FileSystemRead_setWorkingDirectory": {
+    "class": "FileSystemRead",
+    "name": "FileSystemRead_setWorkingDirectory",
+    "description": "Set the working directory. The dir argument may be an absolute filesystem path, otherwise relative to the current working directory.\nIf the dir starts with / it will first be checked as an absolute directory, then as relative path to the working directory.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "dir",
+        "type": "string",
+        "description": "The new working directory"
+      }
+    ]
+  },
+  "FileSystemRead_getFileContentsRecursively": {
+    "class": "FileSystemRead",
+    "name": "FileSystemRead_getFileContentsRecursively",
+    "description": "Returns the file contents of all the files under the provided directory path",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "dirPath",
+        "type": "string",
+        "description": "The directory to return all the files contents under"
+      }
+    ],
+    "returnType": "Map<string, string>",
+    "returns": "The contents of the file(s) as a Map keyed by the file path"
+  },
+  "FileSystemRead_getFileContentsRecursivelyAsXml": {
+    "class": "FileSystemRead",
+    "name": "FileSystemRead_getFileContentsRecursivelyAsXml",
+    "description": "Returns the file contents of all the files recursively under the provided directory path",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "dirPath",
+        "type": "string",
+        "description": "The directory to return all the files contents under"
+      },
+      {
+        "index": 1,
+        "name": "storeToMemory",
+        "type": "boolean",
+        "description": "If the file contents should be stored to memory. The key will be in the format file-contents-<FileSystem.workingDirectory>-<dirPath>"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The contents of the file(s) in format <file_contents path=\"dir/file1\">file1 contents</file_contents><file_contents path=\"dir/file2\">file2 contents</file_contents>"
+  },
+  "FileSystemRead_searchFilesMatchingContents": {
+    "class": "FileSystemRead",
+    "name": "FileSystemRead_searchFilesMatchingContents",
+    "description": "Searches for files on the filesystem (using ripgrep) with contents matching the search regex.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "contentsRegex",
+        "type": "string",
+        "description": "The regular expression to search the content all the files recursively for"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The list of filenames (with postfix :<match_count>) which have contents matching the regular expression."
+  },
+  "FileSystemRead_searchFilesMatchingName": {
+    "class": "FileSystemRead",
+    "name": "FileSystemRead_searchFilesMatchingName",
+    "description": "Searches for files on the filesystem where the filename matches the regex.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "fileNameRegex",
+        "type": "string",
+        "description": "The regular expression to match the filename."
+      }
+    ],
+    "returnType": "string[]",
+    "returns": "The list of filenames matching the regular expression."
+  },
+  "FileSystemRead_listFilesInDirectory": {
+    "class": "FileSystemRead",
+    "name": "FileSystemRead_listFilesInDirectory",
+    "description": "Lists the file and folder names in a single directory.\nFolder names will end with a /",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "dirPath",
+        "type": "string",
+        "description": "The folder to list the files in. Defaults to the working directory",
+        "optional": true
+      }
+    ],
+    "returnType": "string[]",
+    "returns": "The list of file and folder names"
+  },
+  "FileSystemRead_listFilesRecursively": {
+    "class": "FileSystemRead",
+    "name": "FileSystemRead_listFilesRecursively",
+    "description": "List all the files recursively under the given path, excluding any paths in a .gitignore file if it exists",
+    "parameters": [],
+    "returnType": "string[]",
+    "returns": "The list of files"
+  },
+  "FileSystemRead_readFile": {
+    "class": "FileSystemRead",
+    "name": "FileSystemRead_readFile",
+    "description": "Gets the contents of a local file on the file system. If the user has only provided a filename you may need to find the full path using the searchFilesMatchingName function.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "filePath",
+        "type": "string",
+        "description": "The file path to read the contents of (e.g. src/index.ts)"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The contents of the file(s) in format <file_contents path=\"dir/file1\">file1 contents</file_contents><file_contents path=\"dir/file2\">file2 contents</file_contents>"
+  },
+  "FileSystemRead_readFileAsXML": {
+    "class": "FileSystemRead",
+    "name": "FileSystemRead_readFileAsXML",
+    "description": "Gets the contents of a local file on the file system and returns it in XML tags",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "filePath",
+        "type": "string",
+        "description": "The file path to read the contents of (e.g. src/index.ts)"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The contents of the file(s) in format <file_contents path=\"dir/file1\">file1 contents</file_contents>"
+  },
+  "FileSystemRead_readFilesAsXml": {
+    "class": "FileSystemRead",
+    "name": "FileSystemRead_readFilesAsXml",
+    "description": "Gets the contents of a list of files, returning a formatted XML string of all file contents",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "filePaths",
+        "type": "string | string[]",
+        "description": "The files paths to read the contents of"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The contents of the file(s) in format <file_contents path=\"dir/file1\">file1 contents</file_contents><file_contents path=\"dir/file2\">file2 contents</file_contents>"
+  },
+  "FileSystemRead_fileExists": {
+    "class": "FileSystemRead",
+    "name": "FileSystemRead_fileExists",
+    "description": "Check if a file exists. A filePath starts with / is it relative to FileSystem.basePath, otherwise its relative to FileSystem.workingDirectory",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "filePath",
+        "type": "string",
+        "description": "The file path to check"
+      }
+    ],
+    "returnType": "boolean",
+    "returns": "True if the file exists, else false"
+  }
+}

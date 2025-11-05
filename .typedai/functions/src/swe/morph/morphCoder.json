@@ -1,0 +1,43 @@
+{
+  "MorphCodeAgent_editFiles": {
+    "class": "MorphCodeAgent",
+    "name": "MorphCodeAgent_editFiles",
+    "description": "Edits the files to implement the plan and commits changes to version control\nIt also compiles, formats, and runs static analysis/linting where applicable.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "fileEdits",
+        "type": "{ filePath: string; codeEdits: string; }[]",
+        "description": "Array of file edits to make. Each `codeEdits` string should:\n\t *\n\t * **Follow Morph's Edit File Format Requirements**\n\t * - Contain only the *precise changes* being made\n\t * - Use `// ... existing code ...` markers to indicate omitted sections\n\t * - Include sufficient context (unchanged lines) around changes for accurate placement\n\t * - Follow the structure defined in the [Edit File Tool](#section-edit-file-tool)\n\t *\n\t * **codeEdits Example:**\n\t * ```javascript\n\t * // ... existing code ...\n\t * function calculateTotal(items) {\n\t *   // ... existing code ...\n\t *   for item in items:\n\t *     total += item.price;\n\t *   return total * 1.1;  // Add 10% tax\n\t * }\n\t * // ... existing code ...\n\t * ```\n\t *\n\t * **Important Rules:**\n\t * - Only have one array entry per file with all of the changes to the file in the codeEdits property\n\t * - For deletions: Show context before/after and omit lines between markers\n\t * - Bias toward fewer unchanged lines while maintaining context clarity\n\t *"
+      },
+      {
+        "index": 1,
+        "name": "newFiles",
+        "type": "{ filePath: string; fileContent: string; }[]",
+        "description": "Array of new files to create",
+        "optional": true
+      },
+      {
+        "index": 2,
+        "name": "deleteFiles",
+        "type": "string[]",
+        "description": "Array of file paths to delete",
+        "optional": true
+      },
+      {
+        "index": 3,
+        "name": "dirtyCommit",
+        "type": "boolean",
+        "description": "Whether to commit any files with uncommitted changes before editing",
+        "optional": true
+      },
+      {
+        "index": 4,
+        "name": "autoCommit",
+        "type": "boolean",
+        "description": "Whether to commit the changes after editing",
+        "optional": true
+      }
+    ]
+  }
+}

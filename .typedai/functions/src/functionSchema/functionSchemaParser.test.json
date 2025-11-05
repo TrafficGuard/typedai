@@ -1,0 +1,104 @@
+{
+  "TestClass_simpleMethod": {
+    "class": "TestClass",
+    "name": "TestClass_simpleMethod",
+    "description": "Simple method without parameters",
+    "parameters": []
+  },
+  "TestClass_methodWithVoidReturn": {
+    "class": "TestClass",
+    "name": "TestClass_methodWithVoidReturn",
+    "description": "Method with void return type",
+    "parameters": []
+  },
+  "TestClass_methodWithPromiseVoidReturn": {
+    "class": "TestClass",
+    "name": "TestClass_methodWithPromiseVoidReturn",
+    "description": "Method with Promise<void> return type",
+    "parameters": []
+  },
+  "TestClass_methodWithParams": {
+    "class": "TestClass",
+    "name": "TestClass_methodWithParams",
+    "description": "Method with parameters",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "arg1",
+        "type": "string",
+        "description": "First argument"
+      },
+      {
+        "index": 1,
+        "name": "arg2",
+        "type": "number",
+        "description": "Second argument"
+      }
+    ]
+  },
+  "TestClass_methodWithOptionalParam": {
+    "class": "TestClass",
+    "name": "TestClass_methodWithOptionalParam",
+    "description": "Method with optional parameter and no types or dash in jsdoc",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "arg1",
+        "type": "string",
+        "description": "First argument"
+      },
+      {
+        "index": 1,
+        "name": "arg2",
+        "type": "number",
+        "description": "Optional second argument",
+        "optional": true
+      }
+    ]
+  },
+  "TestClass_methodWithHiddenParam": {
+    "class": "TestClass",
+    "name": "TestClass_methodWithHiddenParam",
+    "description": "Method with a parameter without a param tag, which is hidden from the LLM",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "arg1",
+        "type": "string",
+        "description": "First argument"
+      }
+    ]
+  },
+  "TestClass_methodWithReturnType": {
+    "class": "TestClass",
+    "name": "TestClass_methodWithReturnType",
+    "description": "Method with return type",
+    "parameters": [],
+    "returnType": "string",
+    "returns": "A string value"
+  },
+  "TestClass_methodReturnsPromise": {
+    "class": "TestClass",
+    "name": "TestClass_methodReturnsPromise",
+    "description": "Method with Promise return type",
+    "parameters": [],
+    "returnType": "string",
+    "returns": "A string value"
+  },
+  "TestClass_methodWithComplexReturnType": {
+    "class": "TestClass",
+    "name": "TestClass_methodWithComplexReturnType",
+    "description": "Method with complex return type",
+    "parameters": [],
+    "returnType": "Record<string, number>",
+    "returns": "A record of string keys and number values"
+  },
+  "TestClass_methodWithPromiseComplexReturnType": {
+    "class": "TestClass",
+    "name": "TestClass_methodWithPromiseComplexReturnType",
+    "description": "Method with Promise and complex return type",
+    "parameters": [],
+    "returnType": "Record<string, number>",
+    "returns": "A promise that resolves to a record of string keys and number values"
+  }
+}

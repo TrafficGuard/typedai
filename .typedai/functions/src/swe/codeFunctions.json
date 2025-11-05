@@ -1,0 +1,44 @@
+{
+  "CodeFunctions_initialiseProject": {
+    "class": "CodeFunctions",
+    "name": "CodeFunctions_initialiseProject",
+    "description": "Runs the initialise command from the .typedai.json configuration file",
+    "parameters": []
+  },
+  "CodeFunctions_compileFormatLintTest": {
+    "class": "CodeFunctions",
+    "name": "CodeFunctions_compileFormatLintTest",
+    "description": "Compiles, lints and runs tests the project using the commands from the .typedai.json config file",
+    "parameters": []
+  },
+  "CodeFunctions_queryRepository": {
+    "class": "CodeFunctions",
+    "name": "CodeFunctions_queryRepository",
+    "description": "Searches across files under the current working directory to provide an answer to the query",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "query",
+        "type": "string",
+        "description": "The detailed natural language query"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The response from the query agent"
+  },
+  "CodeFunctions_findRelevantFiles": {
+    "class": "CodeFunctions",
+    "name": "CodeFunctions_findRelevantFiles",
+    "description": "Selects a set of files relevant to the requirements provided.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "requirements",
+        "type": "string",
+        "description": "The detailed requirements to implement, or a detailed natural language query about the repository codebase"
+      }
+    ],
+    "returnType": "string[]",
+    "returns": "A list of the relevant files"
+  }
+}

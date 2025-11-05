@@ -1,0 +1,23 @@
+{
+  "NpmPackages_getLatestNpmPackageVersion": {
+    "class": "NpmPackages",
+    "name": "NpmPackages_getLatestNpmPackageVersion",
+    "description": "Gets the latest version of a NPM package from registry.npmjs.org",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "packageName",
+        "type": "string",
+        "description": "The NPM package name"
+      }
+    ]
+  },
+  "NpmPackages_getPackageInfo": {
+    "class": "NpmPackages",
+    "name": "NpmPackages_getPackageInfo",
+    "description": "Gets the GitHub URL and the documentation site URL, if either exist, for a NPM package.",
+    "parameters": [],
+    "returnType": "import(\"/Users/danielcampagnoli/gh/sophia/src/swe/lang/nodejs/temp\").NpmPackageInfo",
+    "returns": "Promise<{docUrl: string; gitHubUrl: string;}>"
+  }
+}

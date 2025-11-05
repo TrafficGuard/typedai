@@ -1,0 +1,58 @@
+{
+  "GoogleCloud_getCloudLoggingLogs": {
+    "class": "GoogleCloud",
+    "name": "GoogleCloud_getCloudLoggingLogs",
+    "description": "Gets the logs from Google Cloud Logging.\nEither provide freshness or provide dateFromIso and/or dateToIso.\nThe results will be limited to 1000 results. Make further calls adjusting the time options to get more results.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectId",
+        "type": "string",
+        "description": "The Google Cloud projectId"
+      },
+      {
+        "index": 1,
+        "name": "filter",
+        "type": "string",
+        "description": "The Cloud Logging filter to search (e.g. \"resource.type=cloud_run_revision\" and \"resource.labels.service_name=the-service-name\")"
+      },
+      {
+        "index": 2,
+        "name": "options",
+        "type": "{ dateFromIso?: string; dateToIso?: string; freshness?: string; order?: \"asc\" | \"desc\"; limit?: number; format?: \"json\" | \"yaml\"; }",
+        "description": "Configuration options\n\t * @param {string} [options.dateFromIso] - The date/time to get the logs from. Optional.\n\t * @param {string} [options.dateToIso] - The date/time to get the logs to. Optional.\n\t * @param {string} [options.freshness] - The freshness of the logs (eg. 10m, 1h). Optional.\n\t * @param {string} [options.format] - Format of the response. Defaults to 'yaml' which is more compact and token efficient than 'json'. If you need to parse the results into JSON for programatic use, set this to 'json'.\n\t * @param {'asc'|'desc'} [options.order] - The order of the logs (asc or desc. defaults to desc). Optional.\n\t * @param {number} [options.limit] - The limit of the logs. Optional. Defaults to 200. Maximum of 500."
+      }
+    ],
+    "returnType": "string"
+  },
+  "GoogleCloud_executeBqCommand": {
+    "class": "GoogleCloud",
+    "name": "GoogleCloud_executeBqCommand",
+    "description": "Runs the BigQuery bq command line tool\nExample command:\nbq ls -j --max_results=50 --format=prettyjson --project_id=test_project_id --filter=\"labels.costcode:daily-data-aggregation\"\nIf you are having issues wih the arguments, either call this function with `bq help [COMMAND]` or read https://cloud.google.com/bigquery/docs/reference/bq-cli-reference\nThe only supported commands are: ls, query, show, get-iam-policy, head",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "bqCommand",
+        "type": "string",
+        "description": "The bq command to execute"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The console output if the exit code is 0, else throws the console output"
+  },
+  "GoogleCloud_executeGcloudCommandQuery": {
+    "class": "GoogleCloud",
+    "name": "GoogleCloud_executeGcloudCommandQuery",
+    "description": "Query resource information by executing the gcloud command line tool. This must ONLY be used for querying information, and MUST NOT update or modify resources.\nIf the command supports the --project=<projectId> argument then it MUST be included.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "gcloudQueryCommand",
+        "type": "string",
+        "description": "The gcloud query command to execute (incuding --project=<projectId> if allowed)"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The console output if the exit code is 0, else throws the console output"
+  }
+}

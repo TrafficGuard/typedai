@@ -1,0 +1,193 @@
+{
+  "GitLab_getProjects": {
+    "class": "GitLab",
+    "name": "GitLab_getProjects",
+    "description": "",
+    "parameters": [],
+    "returnType": "GitProject[]",
+    "returns": "The details of all the projects available"
+  },
+  "GitLab_cloneProject": {
+    "class": "GitLab",
+    "name": "GitLab_cloneProject",
+    "description": "Clones a project from GitLab to the file system.\nTo use this project the function FileSystem.setWorkingDirectory must be called after with the returned value",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectPathWithNamespace",
+        "type": "string",
+        "description": "The full project path in GitLab"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The file system path where the repository is located. You will need to call FileSystem_setWorkingDirectory() with this result to work with the project."
+  },
+  "GitLab_createMergeRequest": {
+    "class": "GitLab",
+    "name": "GitLab_createMergeRequest",
+    "description": "Creates a Merge request",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectId",
+        "type": "string | number",
+        "description": "The full project path or numeric id"
+      },
+      {
+        "index": 1,
+        "name": "title",
+        "type": "string",
+        "description": "The title of the merge request"
+      },
+      {
+        "index": 2,
+        "name": "description",
+        "type": "string",
+        "description": "The description of the merge request"
+      },
+      {
+        "index": 3,
+        "name": "sourceBranch",
+        "type": "string",
+        "description": "The branch to merge in"
+      },
+      {
+        "index": 4,
+        "name": "targetBranch",
+        "type": "string",
+        "description": "The branch to merge to"
+      }
+    ],
+    "returnType": "import(\"/Users/danielcampagnoli/gh/typedai/src/functions/scm/sourceControlManagement\").MergeRequest",
+    "returns": "The merge request URL"
+  },
+  "GitLab_getMergeRequestLatestPipeline": {
+    "class": "GitLab",
+    "name": "GitLab_getMergeRequestLatestPipeline",
+    "description": "Gets the latest pipeline details from a merge request",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "gitlabProjectId",
+        "type": "string | number",
+        "description": "The full path or numeric id"
+      },
+      {
+        "index": 1,
+        "name": "mergeRequestIId",
+        "type": "number",
+        "description": "The merge request IID. Can be found in the URL to a pipeline"
+      }
+    ]
+  },
+  "GitLab_getPipelineFailedJobLogs": {
+    "class": "GitLab",
+    "name": "GitLab_getPipelineFailedJobLogs",
+    "description": "Gets the logs from the jobs which have failed in a pipeline",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "gitlabProjectId",
+        "type": "string | number",
+        "description": "GitLab project full path or the numeric id"
+      },
+      {
+        "index": 1,
+        "name": "pipelineId",
+        "type": "number",
+        "description": "The pipelineId. Can be determined from the URL of a pipeline. https://<gitlab-host>/<group>/[<sub-group>/]<project>/-/pipelines/<pipelineId>"
+      }
+    ],
+    "returnType": "string",
+    "returns": "A Record with the job name as the key and the logs as the value."
+  },
+  "GitLab_getMergeRequestPipelineFailedJobLogs": {
+    "class": "GitLab",
+    "name": "GitLab_getMergeRequestPipelineFailedJobLogs",
+    "description": "Gets the logs from the jobs which have failed in the latest pipeline of a merge request",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "gitlabProjectId",
+        "type": "string | number",
+        "description": "GitLab project full path or the numeric id"
+      },
+      {
+        "index": 1,
+        "name": "mergeRequestIId",
+        "type": "number",
+        "description": "The merge request IID. Can get this from the URL of the merge request. https://<gitlab-host>/<group>/[<sub-group>/]<project>/-/merge_requests/<mergeRequestIId>"
+      }
+    ],
+    "returnType": "string",
+    "returns": "A Record with the job name as the key and the logs as the value."
+  },
+  "GitLab_getJobCommitDiff": {
+    "class": "GitLab",
+    "name": "GitLab_getJobCommitDiff",
+    "description": "Returns the Git diff for the commit in the git repository that the job is running the pipeline on.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectPath",
+        "type": "string",
+        "description": "Full project path or numeric id"
+      },
+      {
+        "index": 1,
+        "name": "jobId",
+        "type": "string | number",
+        "description": "The job id"
+      }
+    ]
+  },
+  "GitLab_getJobLogs": {
+    "class": "GitLab",
+    "name": "GitLab_getJobLogs",
+    "description": "Gets the logs for a CI/CD job",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectIdOrProjectPath",
+        "type": "string | number",
+        "description": "GitLab projectId. Either the full path (group(s) and project id) or the numeric id"
+      },
+      {
+        "index": 1,
+        "name": "jobId",
+        "type": "string | number",
+        "description": "The job id. Can get this from a job URL in the format https://<gitlab-host>/<group>/[<sub-group>/]<project>/-/jobs/<jobId>"
+      }
+    ]
+  },
+  "GitLab_getBranches": {
+    "class": "GitLab",
+    "name": "GitLab_getBranches",
+    "description": "Gets the list of branches for a given GitLab project.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectId",
+        "type": "string | number",
+        "description": "The full project path (e.g., 'group/subgroup/project') or the numeric project ID."
+      }
+    ],
+    "returnType": "string[]",
+    "returns": "A promise that resolves to an array of branch names."
+  },
+  "GitLab_getSingleFileContents": {
+    "class": "GitLab",
+    "name": "GitLab_getSingleFileContents",
+    "description": "Retrieves the raw contents of a single file from a GitLab repository using a web UI blob URL.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "url",
+        "type": "string",
+        "description": "The GitLab blob URL in the format: https://<host>/<project-path>/-/blob/<ref>/<file-path>\n\t *            Example: https://gitlab.internal.company.com/engineering/services/user-service/-/blob/main/src/model/user.ts"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The raw file contents as a string\n\t *"
+  }
+}

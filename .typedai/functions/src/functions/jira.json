@@ -1,0 +1,93 @@
+{
+  "Jira_getJiraKey": {
+    "class": "Jira",
+    "name": "Jira_getJiraKey",
+    "description": "Gets the key of a JIRA issue",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "issueId",
+        "type": "string",
+        "description": "The numeric issue id (e.g. 73479)"
+      }
+    ],
+    "returnType": "{ key: string; summary: string; }",
+    "returns": "The issue key (e.g. XYZ-123)"
+  },
+  "Jira_getJiraDetails": {
+    "class": "Jira",
+    "name": "Jira_getJiraDetails",
+    "description": "Gets the details of a JIRA issue (title, description, comments, attachments)",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "issueId",
+        "type": "string",
+        "description": "The issue id (e.g. XYZ-123)"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The issue details"
+  },
+  "Jira_createIssue": {
+    "class": "Jira",
+    "name": "Jira_createIssue",
+    "description": "Creates a new JIRA issue",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectKey",
+        "type": "string",
+        "description": "The Jira project key (usually a short capitalized code)"
+      },
+      {
+        "index": 1,
+        "name": "title",
+        "type": "string",
+        "description": "The issue summary"
+      },
+      {
+        "index": 2,
+        "name": "description",
+        "type": "string",
+        "description": "The issue description in Markdown format"
+      },
+      {
+        "index": 3,
+        "name": "reporterEmail",
+        "type": "string",
+        "description": "The email address of the user who be assigned as the reporter for this issue."
+      },
+      {
+        "index": 4,
+        "name": "relatedContentForIssueTypeDetection",
+        "type": "string",
+        "description": "User content (chat messages etc) which could assist with the issue type detection",
+        "optional": true
+      }
+    ],
+    "returnType": "{ key: string; url: string; }",
+    "returns": ">} The created issue key and URL"
+  },
+  "Jira_postComment": {
+    "class": "Jira",
+    "name": "Jira_postComment",
+    "description": "Posts a comment to an existing JIRA issue",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "issueId",
+        "type": "string",
+        "description": "The issue ID (e.g., ABC-123)"
+      },
+      {
+        "index": 1,
+        "name": "comment",
+        "type": "string",
+        "description": "The comment text to post"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The ID of the created comment"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "GoogleCloudSecurityCommandCenter_getSecurityCommandCenterFindings": {
+    "class": "GoogleCloudSecurityCommandCenter",
+    "name": "GoogleCloudSecurityCommandCenter_getSecurityCommandCenterFindings",
+    "description": "Gets all the active, non-muted findings for the organisation from Security Command Center",
+    "parameters": [],
+    "returnType": "import(\"/Users/danielcampagnoli/gh/sophia/temp\").SccFinding[]",
+    "returns": "The findings in JSON format as an object"
+  }
+}

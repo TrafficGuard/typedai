@@ -1,0 +1,21 @@
+{
+  "CodeEditingAgent_implementDetailedDesignPlan": {
+    "class": "CodeEditingAgent",
+    "name": "CodeEditingAgent_implementDetailedDesignPlan",
+    "description": "Edits the files to implement the plan and commits changes to version control\nIt also compiles, formats, lints, and runs tests where applicable.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "implementationPlan",
+        "type": "string",
+        "description": "The detailed implementation plan to make the changes for. Include any git branch and commit naming conventions to follow"
+      },
+      {
+        "index": 1,
+        "name": "fileSelection",
+        "type": "string[]",
+        "description": "{string[]} An array of files which the code editing agent will have access to."
+      }
+    ]
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "Git_getDiff": {
+    "class": "Git",
+    "name": "Git_getDiff",
+    "description": "Returns the diff from the merge-base (common ancestor) of HEAD and a reference, up to HEAD.\nThis effectively shows changes introduced on the current branch relative to that base.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "baseRef",
+        "type": "string",
+        "description": "Optional commit SHA or branch name.\n\t *                - If provided: Uses `git merge-base <baseRef> HEAD` to find the diff start point.\n\t *                - If omitted: Attempts to guess the source branch (e.g., main, develop)\n\t *                  by inspecting other local branches and uses that for the merge-base calculation.\n\t *                  Note: Guessing the source branch may be unreliable in some cases.",
+        "optional": true
+      }
+    ],
+    "returnType": "string",
+    "returns": "The git diff. Note this could be a large string."
+  },
+  "Git_getStagedDiff": {
+    "class": "Git",
+    "name": "Git_getStagedDiff",
+    "description": "Gets the diff of all currently staged files against the HEAD commit.",
+    "parameters": [],
+    "returnType": "string",
+    "returns": "The git diff for staged changes. This could be a large string."
+  },
+  "Git_getStagedFiles": {
+    "class": "Git",
+    "name": "Git_getStagedFiles",
+    "description": "Gets the list of file paths for all currently staged files.",
+    "parameters": [],
+    "returnType": "string[]",
+    "returns": "An array of file paths that are staged for the next commit."
+  },
+  "Git_commit": {
+    "class": "Git",
+    "name": "Git_commit",
+    "description": "Commits the staged changes to the repository",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "commitMessage",
+        "type": "string",
+        "description": "The commit message"
+      }
+    ]
+  },
+  "Git_getRecentCommits": {
+    "class": "Git",
+    "name": "Git_getRecentCommits",
+    "description": "Gets the details of the most recent commits",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "n",
+        "type": "number",
+        "description": "The number of commits (defaults to 2)",
+        "optional": true
+      }
+    ],
+    "returnType": "Commit[]",
+    "returns": "An array of the commit details"
+  }
+}

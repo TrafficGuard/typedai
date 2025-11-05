@@ -1,0 +1,40 @@
+{
+  "GitLabCodeReview_getJobLogs": {
+    "class": "GitLabCodeReview",
+    "name": "GitLabCodeReview_getJobLogs",
+    "description": "Gets the logs for a CI/CD job",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectIdOrProjectPath",
+        "type": "string | number",
+        "description": "Full path or numeric id"
+      },
+      {
+        "index": 1,
+        "name": "jobId",
+        "type": "string",
+        "description": "The job id"
+      }
+    ]
+  },
+  "GitLabCodeReview_getJobCommitDiff": {
+    "class": "GitLabCodeReview",
+    "name": "GitLabCodeReview_getJobCommitDiff",
+    "description": "Returns the Git diff for the commit in the git repository that the job is running the pipeline on.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectPath",
+        "type": "string",
+        "description": "Full project path or numeric id"
+      },
+      {
+        "index": 1,
+        "name": "jobId",
+        "type": "string",
+        "description": "The job id"
+      }
+    ]
+  }
+}

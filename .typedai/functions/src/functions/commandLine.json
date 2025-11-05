@@ -1,0 +1,17 @@
+{
+  "CommandLineInterface_execute": {
+    "class": "CommandLineInterface",
+    "name": "CommandLineInterface_execute",
+    "description": "",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "command",
+        "type": "string",
+        "description": "The command to execute in the current working directory"
+      }
+    ],
+    "returnType": "{ stdout: string; stderr: string; }",
+    "returns": "An object with the stdout and stderr properties"
+  }
+}

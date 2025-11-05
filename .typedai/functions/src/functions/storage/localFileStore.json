@@ -1,0 +1,42 @@
+{
+  "LocalFileStore_saveFile": {
+    "class": "LocalFileStore",
+    "name": "LocalFileStore_saveFile",
+    "description": "Saves the contents to a file with the given filename and updates metadata.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "filename",
+        "type": "string",
+        "description": "The name of the file to save."
+      },
+      {
+        "index": 1,
+        "name": "contents",
+        "type": "string | Buffer",
+        "description": "The contents to save to the file."
+      },
+      {
+        "index": 2,
+        "name": "description",
+        "type": "string",
+        "description": "A description of the contents which can be used to identify it later."
+      }
+    ],
+    "returnType": "string"
+  },
+  "LocalFileStore_getFile": {
+    "class": "LocalFileStore",
+    "name": "LocalFileStore_getFile",
+    "description": "Retrieves the contents of a file.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "filename",
+        "type": "string",
+        "description": "The name of the file to read."
+      }
+    ],
+    "returnType": "string"
+  }
+}

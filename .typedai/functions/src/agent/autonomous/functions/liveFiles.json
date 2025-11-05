@@ -1,0 +1,28 @@
+{
+  "LiveFiles_addFiles": {
+    "class": "LiveFiles",
+    "name": "LiveFiles_addFiles",
+    "description": "Add files which will always have their current contents displayed in the <live-files> section (increasing LLM token costs)",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "files",
+        "type": "string[]",
+        "description": "The files to always include the current contents of in the prompt"
+      }
+    ]
+  },
+  "LiveFiles_removeFiles": {
+    "class": "LiveFiles",
+    "name": "LiveFiles_removeFiles",
+    "description": "Remove files from the <live-files> section which are no longer required to reduce LLM token costs.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "files",
+        "type": "string[]",
+        "description": "The files to remove"
+      }
+    ]
+  }
+}

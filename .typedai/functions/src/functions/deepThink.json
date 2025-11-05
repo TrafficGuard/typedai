@@ -1,0 +1,35 @@
+{
+  "DeepThink_deepThink": {
+    "class": "DeepThink",
+    "name": "DeepThink_deepThink",
+    "description": "Generates a response to a query using a multi-agent implementation of the most expensive, intelligent LLM models.\nUse sparingly, as instructed or when stuck on a task, as this is expensive to use. Be careful to minimize the tokens inputted.\nThis query runs independent of any context and understanding you currently have. All required information to answer the query must be passed in as arguments.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "files",
+        "type": "string[]",
+        "description": "Any filesystem files to include in the query"
+      },
+      {
+        "index": 1,
+        "name": "memoryKeys",
+        "type": "string[]",
+        "description": "Any memory keys to include in the query"
+      },
+      {
+        "index": 2,
+        "name": "additionalInformation",
+        "type": "string",
+        "description": "Any additional information to include in the query (logs, function outputs, etc)"
+      },
+      {
+        "index": 3,
+        "name": "queryOrRequirements",
+        "type": "string",
+        "description": "The query to answer or requirements to generate a response for"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The response to the query"
+  }
+}

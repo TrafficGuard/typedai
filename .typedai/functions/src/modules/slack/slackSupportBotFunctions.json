@@ -1,0 +1,18 @@
+{
+  "SlackSupportBotFunctions_getCoreDocumentation": {
+    "class": "SlackSupportBotFunctions",
+    "name": "SlackSupportBotFunctions_getCoreDocumentation",
+    "description": "",
+    "parameters": [],
+    "returnType": "string",
+    "returns": "The core documentation which must be known to resolve support requests"
+  },
+  "SlackSupportBotFunctions_searchDocs": {
+    "class": "SlackSupportBotFunctions",
+    "name": "SlackSupportBotFunctions_searchDocs",
+    "description": "",
+    "parameters": [],
+    "returnType": "string",
+    "returns": "The search various sources (docs, wiki, issues etc) for content relevant to the support request."
+  }
+}

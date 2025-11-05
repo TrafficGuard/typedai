@@ -1,0 +1,15 @@
+{
+  "Slack_sendMessage": {
+    "class": "Slack",
+    "name": "Slack_sendMessage",
+    "description": "Sends a message to the supervisor",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "message",
+        "type": "string",
+        "description": "The message text"
+      }
+    ]
+  }
+}

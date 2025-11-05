@@ -1,0 +1,24 @@
+{
+  "ImageGen_generateImage": {
+    "class": "ImageGen",
+    "name": "ImageGen_generateImage",
+    "description": "Generates an image with the given description",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "description",
+        "type": "string",
+        "description": "A detailed description of the image"
+      },
+      {
+        "index": 1,
+        "name": "size",
+        "type": "ImageSize",
+        "description": "The generated image size. Defaults to 256x256",
+        "optional": true
+      }
+    ],
+    "returnType": "string",
+    "returns": "The location of the image file"
+  }
+}

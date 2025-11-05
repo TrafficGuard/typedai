@@ -1,0 +1,84 @@
+{
+  "FileSystemWrite_writeFile": {
+    "class": "FileSystemWrite",
+    "name": "FileSystemWrite_writeFile",
+    "description": "Writes to a file. If the file exists it will overwrite the contents. This will create any parent directories required,",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "filePath",
+        "type": "string",
+        "description": "The file path (either full filesystem path or relative to current working directory)"
+      },
+      {
+        "index": 1,
+        "name": "contents",
+        "type": "string",
+        "description": "The contents to write to the file"
+      },
+      {
+        "index": 2,
+        "name": "allowOverwrite",
+        "type": "boolean",
+        "description": "If the filePath already exists, then it will overwrite or throw an error based on the allowOverwrite property"
+      }
+    ]
+  },
+  "FileSystemWrite_editFileContents": {
+    "class": "FileSystemWrite",
+    "name": "FileSystemWrite_editFileContents",
+    "description": "Reads a file, then transforms the contents using a LLM to perform the described changes, then writes back to the file.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "filePath",
+        "type": "string",
+        "description": "The file to update"
+      },
+      {
+        "index": 1,
+        "name": "descriptionOfChanges",
+        "type": "string",
+        "description": "A natual language description of the changes to make to the file contents"
+      }
+    ]
+  },
+  "FileSystemWrite_deleteFile": {
+    "class": "FileSystemWrite",
+    "name": "FileSystemWrite_deleteFile",
+    "description": "Delete a file",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "filePath",
+        "type": "string",
+        "description": "The file to delete"
+      }
+    ]
+  },
+  "FileSystemWrite_patchEditFile": {
+    "class": "FileSystemWrite",
+    "name": "FileSystemWrite_patchEditFile",
+    "description": "Edits a file using a search and replace. Provide the minimal lines of text from the file contents as the unique search string.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "filePath",
+        "type": "string",
+        "description": "The file to edit"
+      },
+      {
+        "index": 1,
+        "name": "search",
+        "type": "string",
+        "description": "The lines of text in the file to replace. Note that all the whitespace must be identical."
+      },
+      {
+        "index": 2,
+        "name": "replace",
+        "type": "string",
+        "description": "The new text to use as a replacement"
+      }
+    ]
+  }
+}

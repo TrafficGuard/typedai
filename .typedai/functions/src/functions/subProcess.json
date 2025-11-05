@@ -1,0 +1,36 @@
+{
+  "SubProcess_run": {
+    "class": "SubProcess",
+    "name": "SubProcess_run",
+    "description": "Runs a command in a new subprocess.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "command",
+        "type": "string",
+        "description": "The command to execute."
+      },
+      {
+        "index": 1,
+        "name": "args",
+        "type": "string[]",
+        "description": "The arguments for the command."
+      }
+    ],
+    "returnType": "number",
+    "returns": "The Process ID (PID) of the new process."
+  },
+  "SubProcess_kill": {
+    "class": "SubProcess",
+    "name": "SubProcess_kill",
+    "description": "Kills a running subprocess.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "pid",
+        "type": "number",
+        "description": "The Process ID (PID) of the process to kill."
+      }
+    ]
+  }
+}

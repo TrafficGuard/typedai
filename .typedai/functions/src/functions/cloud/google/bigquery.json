@@ -1,0 +1,40 @@
+{
+  "BigQuery_query": {
+    "class": "BigQuery",
+    "name": "BigQuery_query",
+    "description": "Run a BigQuery query and return the results.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "sqlQuery",
+        "type": "string",
+        "description": "The query to run"
+      },
+      {
+        "index": 1,
+        "name": "location",
+        "type": "string",
+        "description": "The (multi)region to run the query in. eg. us, us-central1"
+      },
+      {
+        "index": 2,
+        "name": "projectId",
+        "type": "string",
+        "description": "The Google Cloud project id to run the query from. Defaults to the GCLOUD_PROJECT environment variable"
+      }
+    ]
+  },
+  "BigQuery_getTableSchema": {
+    "class": "BigQuery",
+    "name": "BigQuery_getTableSchema",
+    "description": "Get the schema of a BigQuery table.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "tableId",
+        "type": "string",
+        "description": "Table id in the format project_id:dataset.table"
+      }
+    ]
+  }
+}

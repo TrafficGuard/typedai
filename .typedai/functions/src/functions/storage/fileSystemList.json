@@ -1,0 +1,92 @@
+{
+  "FileSystemList_getWorkingDirectory": {
+    "class": "FileSystemList",
+    "name": "FileSystemList_getWorkingDirectory",
+    "description": "",
+    "parameters": [],
+    "returnType": "string",
+    "returns": "The full path of the working directory on the filesystem"
+  },
+  "FileSystemList_setWorkingDirectory": {
+    "class": "FileSystemList",
+    "name": "FileSystemList_setWorkingDirectory",
+    "description": "Set the working directory. The dir argument may be an absolute filesystem path, otherwise relative to the current working directory.\nIf the dir starts with / it will first be checked as an absolute directory, then as relative path to the working directory.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "dir",
+        "type": "string",
+        "description": "The new working directory"
+      }
+    ]
+  },
+  "FileSystemList_searchFilesMatchingContents": {
+    "class": "FileSystemList",
+    "name": "FileSystemList_searchFilesMatchingContents",
+    "description": "Searches for files on the filesystem (using ripgrep) with contents matching the search regex.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "contentsRegex",
+        "type": "string",
+        "description": "The regular expression to search the content all the files recursively for"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The list of filenames (with postfix :<match_count>) which have contents matching the regular expression."
+  },
+  "FileSystemList_searchFilesMatchingName": {
+    "class": "FileSystemList",
+    "name": "FileSystemList_searchFilesMatchingName",
+    "description": "Searches for files on the filesystem where the filename matches the regex.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "fileNameRegex",
+        "type": "string",
+        "description": "The regular expression to match the filename."
+      }
+    ],
+    "returnType": "string[]",
+    "returns": "The list of filenames matching the regular expression."
+  },
+  "FileSystemList_listFilesInDirectory": {
+    "class": "FileSystemList",
+    "name": "FileSystemList_listFilesInDirectory",
+    "description": "Lists the file and folder names in a single directory.\nFolder names will end with a /",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "dirPath",
+        "type": "string",
+        "description": "The folder to list the files in. Defaults to the working directory",
+        "optional": true
+      }
+    ],
+    "returnType": "string[]",
+    "returns": "The list of file and folder names"
+  },
+  "FileSystemList_listFilesRecursively": {
+    "class": "FileSystemList",
+    "name": "FileSystemList_listFilesRecursively",
+    "description": "List all the files recursively under the given path, excluding any paths in a .gitignore file if it exists",
+    "parameters": [],
+    "returnType": "string[]",
+    "returns": "The list of files relative to the working directory"
+  },
+  "FileSystemList_fileExists": {
+    "class": "FileSystemList",
+    "name": "FileSystemList_fileExists",
+    "description": "Check if a file exists. A filePath starts with / is it relative to FileSystem.basePath, otherwise its relative to FileSystem.workingDirectory",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "filePath",
+        "type": "string",
+        "description": "The file path to check"
+      }
+    ],
+    "returnType": "boolean",
+    "returns": "True if the file exists, else false"
+  }
+}

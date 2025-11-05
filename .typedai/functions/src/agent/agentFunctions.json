@@ -1,0 +1,62 @@
+{
+  "Agent_completed": {
+    "class": "Agent",
+    "name": "Agent_completed",
+    "description": "Notifies that the user request has completed and there is no more work to be done, or that no more useful progress can be made with the functions.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "note",
+        "type": "string",
+        "description": "A detailed description that answers/completes the user request."
+      }
+    ]
+  },
+  "Agent_saveMemory": {
+    "class": "Agent",
+    "name": "Agent_saveMemory",
+    "description": "Stores content to your working memory, and continues on with the plan. You can assume the memory element now contains this key and content.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "key",
+        "type": "string",
+        "description": "A descriptive identifier (alphanumeric and underscores allowed, under 30 characters) for the new memory contents explaining the source of the content. This must not exist in the current memory."
+      },
+      {
+        "index": 1,
+        "name": "content",
+        "type": "string",
+        "description": "The plain text contents to store in the working memory"
+      }
+    ]
+  },
+  "Agent_deleteMemory": {
+    "class": "Agent",
+    "name": "Agent_deleteMemory",
+    "description": "Updates existing content in your working memory, and continues on with the plan. You can assume the memory element now contains this key and content.\nNote this will over-write any existing memory content",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "key",
+        "type": "string",
+        "description": "An existing key in the memory contents to update the contents of."
+      }
+    ]
+  },
+  "Agent_getMemory": {
+    "class": "Agent",
+    "name": "Agent_getMemory",
+    "description": "Retrieves contents from memory",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "key",
+        "type": "string",
+        "description": "An existing key in the memory to retrieve."
+      }
+    ],
+    "returnType": "string",
+    "returns": "The memory contents"
+  }
+}

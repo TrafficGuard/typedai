@@ -1,0 +1,18 @@
+{
+  "SupportKnowledgebase_getCoreDocumentation": {
+    "class": "SupportKnowledgebase",
+    "name": "SupportKnowledgebase_getCoreDocumentation",
+    "description": "",
+    "parameters": [],
+    "returnType": "string",
+    "returns": "The core documentation which must be known to resolve support requests"
+  },
+  "SupportKnowledgebase_searchDocs": {
+    "class": "SupportKnowledgebase",
+    "name": "SupportKnowledgebase_searchDocs",
+    "description": "",
+    "parameters": [],
+    "returnType": "string",
+    "returns": "The search various sources (docs, wiki, issues etc) for content relevant to the support request."
+  }
+}

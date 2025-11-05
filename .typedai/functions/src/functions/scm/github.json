@@ -1,0 +1,194 @@
+{
+  "GitHub_runIntegrationTest": {
+    "class": "GitHub",
+    "name": "GitHub_runIntegrationTest",
+    "description": "Runs the integration test for the GitHub service class",
+    "parameters": []
+  },
+  "GitHub_createIssue": {
+    "class": "GitHub",
+    "name": "GitHub_createIssue",
+    "description": "Creates an issue in a GitHub repository.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectPathWithNamespace",
+        "type": "string",
+        "description": "The full path of the project, e.g., 'owner/repo'."
+      },
+      {
+        "index": 1,
+        "name": "title",
+        "type": "string",
+        "description": "The title of the issue."
+      },
+      {
+        "index": 2,
+        "name": "body",
+        "type": "string",
+        "description": "Optional description for the issue.",
+        "optional": true
+      },
+      {
+        "index": 3,
+        "name": "labels",
+        "type": "string[]",
+        "description": "Optional array of labels to add to the issue.",
+        "optional": true
+      },
+      {
+        "index": 4,
+        "name": "assignees",
+        "type": "string[]",
+        "description": "Optional array of GitHub usernames to assign to the issue.",
+        "optional": true
+      }
+    ],
+    "returnType": "import(\"/Users/danielcampagnoli/gh/typedai/src/functions/scm/temp\").GitHubIssue",
+    "returns": "A promise that resolves to the created GitHubIssue object."
+  },
+  "GitHub_postCommentOnIssue": {
+    "class": "GitHub",
+    "name": "GitHub_postCommentOnIssue",
+    "description": "Posts a comment on a GitHub issue.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectPathWithNamespace",
+        "type": "string",
+        "description": "The full path of the project, e.g., 'owner/repo'."
+      },
+      {
+        "index": 1,
+        "name": "issueNumber",
+        "type": "number",
+        "description": "The number of the issue to comment on."
+      },
+      {
+        "index": 2,
+        "name": "body",
+        "type": "string",
+        "description": "The content of the comment."
+      }
+    ],
+    "returnType": "import(\"/Users/danielcampagnoli/gh/typedai/src/functions/scm/temp\").GitHubIssueComment",
+    "returns": "A promise that resolves to the created GitHubIssueComment object."
+  },
+  "GitHub_getIssueComments": {
+    "class": "GitHub",
+    "name": "GitHub_getIssueComments",
+    "description": "Gets all comments for a specific GitHub issue.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectPathWithNamespace",
+        "type": "string",
+        "description": "The full path of the project, e.g., 'owner/repo'."
+      },
+      {
+        "index": 1,
+        "name": "issueNumber",
+        "type": "number",
+        "description": "The number of the issue to get comments for."
+      }
+    ],
+    "returnType": "import(\"/Users/danielcampagnoli/gh/typedai/src/functions/scm/temp\").GitHubIssueComment[]",
+    "returns": "A promise that resolves to an array of GitHubIssueComment objects."
+  },
+  "GitHub_cloneProject": {
+    "class": "GitHub",
+    "name": "GitHub_cloneProject",
+    "description": "Clones a project from GitHub to the file system.\nTo use this project the function FileSystem.setWorkingDirectory must be called after with the returned value",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectPathWithNamespace",
+        "type": "string",
+        "description": "The full project path in GitLab"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The file system path where the repository is located. You will need to call FileSystem_setWorkingDirectory() with this result to work with the project."
+  },
+  "GitHub_createMergeRequest": {
+    "class": "GitHub",
+    "name": "GitHub_createMergeRequest",
+    "description": "Creates a Pull Request",
+    "parameters": [],
+    "returnType": "MergeRequest",
+    "returns": "The MergeRequest details"
+  },
+  "GitHub_getProjects": {
+    "class": "GitHub",
+    "name": "GitHub_getProjects",
+    "description": "",
+    "parameters": [],
+    "returnType": "GitProject[]",
+    "returns": "The projects available for the account"
+  },
+  "GitHub_getBranches": {
+    "class": "GitHub",
+    "name": "GitHub_getBranches",
+    "description": "Gets the list of branches for a given GitHub repository.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectId",
+        "type": "string | number",
+        "description": "The project identifier, either as 'owner/repo' string or the numeric repository ID as a string or number."
+      }
+    ],
+    "returnType": "string[]",
+    "returns": "A promise that resolves to an array of branch names."
+  },
+  "GitHub_listJobsForWorkflowRun": {
+    "class": "GitHub",
+    "name": "GitHub_listJobsForWorkflowRun",
+    "description": "Lists all jobs for a specific workflow run.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectPath",
+        "type": "string",
+        "description": "The path to the project, e.g., 'owner/repo'."
+      },
+      {
+        "index": 1,
+        "name": "runId",
+        "type": "number",
+        "description": "The ID of the workflow run."
+      }
+    ],
+    "returnType": "GitHubWorkflowJob[]",
+    "returns": "A promise that resolves to an array of workflow job objects."
+  },
+  "GitHub_testCreateIssueE2E": {
+    "class": "GitHub",
+    "name": "GitHub_testCreateIssueE2E",
+    "description": "Runs an E2E test for creating an issue in a GitHub repository.\nThis method will attempt to create a real issue in a pre-defined test repository.",
+    "parameters": [],
+    "returnType": "import(\"/Users/danielcampagnoli/gh/typedai/src/functions/scm/temp\").GitHubIssue",
+    "returns": "A promise that resolves to the created GitHubIssue object."
+  },
+  "GitHub_getJobLogs": {
+    "class": "GitHub",
+    "name": "GitHub_getJobLogs",
+    "description": "Fetches the logs for a specific job in a GitHub Actions workflow.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectPath",
+        "type": "string",
+        "description": "The path to the project, typically in the format 'owner/repo'"
+      },
+      {
+        "index": 1,
+        "name": "jobId",
+        "type": "string",
+        "description": "The ID of the job for which to fetch logs"
+      }
+    ],
+    "returnType": "string",
+    "returns": "A promise that resolves to the job logs as a string\n\t *"
+  }
+}

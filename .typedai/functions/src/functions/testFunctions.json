@@ -1,0 +1,41 @@
+{
+  "TestFunctions_noop": {
+    "class": "TestFunctions",
+    "name": "TestFunctions_noop",
+    "description": "No-op function",
+    "parameters": []
+  },
+  "TestFunctions_sum": {
+    "class": "TestFunctions",
+    "name": "TestFunctions_sum",
+    "description": "Calculates the sum of two numbers. Always use this when needing to sum numbers.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "num1",
+        "type": "number",
+        "description": "The first number"
+      },
+      {
+        "index": 1,
+        "name": "num2",
+        "type": "number",
+        "description": "The second number"
+      }
+    ],
+    "returnType": "number",
+    "returns": "The sum of the numbers"
+  },
+  "TestFunctions_skyColour": {
+    "class": "TestFunctions",
+    "name": "TestFunctions_skyColour",
+    "description": "Returns what colour the sky is",
+    "parameters": []
+  },
+  "TestFunctions_throwError": {
+    "class": "TestFunctions",
+    "name": "TestFunctions_throwError",
+    "description": "This function always throws an error",
+    "parameters": []
+  }
+}

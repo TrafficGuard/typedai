@@ -1,0 +1,41 @@
+{
+  "SearchReplaceCoder_editFilesToMeetRequirements": {
+    "class": "SearchReplaceCoder",
+    "name": "SearchReplaceCoder_editFilesToMeetRequirements",
+    "description": "Makes the changes to the project files to meet the task requirements using search/replace blocks.\nMax attempts for the LLM to generate valid and applicable edits is 5.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "requirements",
+        "type": "string",
+        "description": "The complete task requirements with all supporting documentation and code samples."
+      },
+      {
+        "index": 1,
+        "name": "filesToEdit",
+        "type": "string[]",
+        "description": "Relative paths of files that can be edited. These will be included in the chat context."
+      },
+      {
+        "index": 2,
+        "name": "readOnlyFiles",
+        "type": "string[]",
+        "description": "Relative paths of files to be used as read-only context."
+      },
+      {
+        "index": 3,
+        "name": "autoCommit",
+        "type": "boolean",
+        "description": "Whether to commit the changes automatically after applying them.",
+        "optional": true
+      },
+      {
+        "index": 4,
+        "name": "dirtyCommits",
+        "type": "boolean",
+        "description": "If files which have uncommitted changes should be committed before applying changes.",
+        "optional": true
+      }
+    ]
+  }
+}

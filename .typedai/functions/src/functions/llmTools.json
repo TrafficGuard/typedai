@@ -1,0 +1,59 @@
+{
+  "LlmTools_countTextTokens": {
+    "class": "LlmTools",
+    "name": "LlmTools_countTextTokens",
+    "description": "Counts the number of tokens in the provided text",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "text",
+        "type": "string",
+        "description": "The text to count tokens for"
+      }
+    ],
+    "returnType": "number",
+    "returns": "The number of tokens in the text"
+  },
+  "LlmTools_processText": {
+    "class": "LlmTools",
+    "name": "LlmTools_processText",
+    "description": "Uses a large language model to transform the input content by applying the provided natural language instruction",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "text",
+        "type": "string",
+        "description": "The input text"
+      },
+      {
+        "index": 1,
+        "name": "descriptionOfChanges",
+        "type": "string",
+        "description": "A description of the changes/processing to apply to the text"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The processed text"
+  },
+  "LlmTools_analyseFile": {
+    "class": "LlmTools",
+    "name": "LlmTools_analyseFile",
+    "description": "Uses a large language model to analyse an image/document",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "filePath",
+        "type": "string",
+        "description": "The path to the image/document"
+      },
+      {
+        "index": 1,
+        "name": "query",
+        "type": "string",
+        "description": "The query ask about the image/document"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The analysis of the image/document"
+  }
+}

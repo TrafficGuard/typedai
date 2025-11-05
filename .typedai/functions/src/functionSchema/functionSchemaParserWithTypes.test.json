@@ -1,0 +1,82 @@
+{
+  "TestClassWithTypes_getProject": {
+    "class": "TestClassWithTypes",
+    "name": "TestClassWithTypes_getProject",
+    "description": "Method that returns a custom interface type",
+    "parameters": [],
+    "returnType": "SimpleProject",
+    "returns": "The project details",
+    "typeDefinitions": [
+      {
+        "name": "SimpleProject",
+        "description": "A simple project interface for testing",
+        "properties": [
+          {
+            "name": "id",
+            "type": "number",
+            "optional": false,
+            "description": "The project ID"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "optional": false,
+            "description": "The project name"
+          },
+          {
+            "name": "description",
+            "type": "string | null",
+            "optional": false,
+            "description": "Optional description"
+          },
+          {
+            "name": "tags",
+            "type": "string[]",
+            "optional": true,
+            "description": "List of tags"
+          }
+        ]
+      }
+    ]
+  },
+  "TestClassWithTypes_getProjects": {
+    "class": "TestClassWithTypes",
+    "name": "TestClassWithTypes_getProjects",
+    "description": "Method that returns an array of custom interface type",
+    "parameters": [],
+    "returnType": "SimpleProject[]",
+    "returns": "Array of projects",
+    "typeDefinitions": [
+      {
+        "name": "SimpleProject",
+        "description": "A simple project interface for testing",
+        "properties": [
+          {
+            "name": "id",
+            "type": "number",
+            "optional": false,
+            "description": "The project ID"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "optional": false,
+            "description": "The project name"
+          },
+          {
+            "name": "description",
+            "type": "string | null",
+            "optional": false,
+            "description": "Optional description"
+          },
+          {
+            "name": "tags",
+            "type": "string[]",
+            "optional": true,
+            "description": "List of tags"
+          }
+        ]
+      }
+    ]
+  }
+}

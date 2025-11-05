@@ -1,0 +1,68 @@
+{
+  "Tempo_getWorklogsForDay": {
+    "class": "Tempo",
+    "name": "Tempo_getWorklogsForDay",
+    "description": "Retrieves all worklogs for a specific calendar day.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "date",
+        "type": "string",
+        "description": "In 'YYYY-MM-DD' format"
+      }
+    ],
+    "returnType": "any",
+    "returns": "Worklogs matching the day"
+  },
+  "Tempo_addWorklog": {
+    "class": "Tempo",
+    "name": "Tempo_addWorklog",
+    "description": "Adds a new worklog entry in Tempo",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "params",
+        "type": "import(\"/Users/danielcampagnoli/gh/sophia/src/functions/temp\").AddWorklogParams",
+        "description": "{ issueKey, hours, startDate, description }"
+      }
+    ],
+    "returnType": "any",
+    "returns": "Tempo worklog response object"
+  },
+  "Tempo_updateWorklog": {
+    "class": "Tempo",
+    "name": "Tempo_updateWorklog",
+    "description": "Updates an existing worklog in Tempo",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "worklogId",
+        "type": "string",
+        "description": "Tempo worklog ID to update"
+      },
+      {
+        "index": 1,
+        "name": "updateData",
+        "type": "import(\"/Users/danielcampagnoli/gh/sophia/src/functions/temp\").UpdateWorklogParams",
+        "description": "{ hours, description }"
+      }
+    ],
+    "returnType": "any",
+    "returns": "Updated Tempo worklog object"
+  },
+  "Tempo_deleteWorklog": {
+    "class": "Tempo",
+    "name": "Tempo_deleteWorklog",
+    "description": "Deletes a worklog in Tempo",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "worklogId",
+        "type": "string",
+        "description": "Tempo worklog ID to delete"
+      }
+    ],
+    "returnType": "boolean",
+    "returns": "True if successful (204 No Content)"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "AiderCodeEditor_editFilesToMeetRequirements": {
+    "class": "AiderCodeEditor",
+    "name": "AiderCodeEditor_editFilesToMeetRequirements",
+    "description": "Makes the changes to the project files to meet the task requirements",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "requirements",
+        "type": "string",
+        "description": "The complete task requirements with all the supporting documentation and code samples"
+      },
+      {
+        "index": 1,
+        "name": "filesToEdit",
+        "type": "string[]",
+        "description": "The names of any existing relevant files to edit"
+      }
+    ]
+  }
+}

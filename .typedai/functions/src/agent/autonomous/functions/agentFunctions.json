@@ -1,0 +1,50 @@
+{
+  "Agent_completed": {
+    "class": "Agent",
+    "name": "Agent_completed",
+    "description": "Notifies that the user request has completed and there is no more work to be done, or that no more useful progress can be made with the functions.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "note",
+        "type": "string",
+        "description": "A detailed description that answers/completes the user request using Markdown formatting."
+      }
+    ]
+  },
+  "Agent_memory": {
+    "class": "Agent",
+    "name": "Agent_memory",
+    "description": "Interacts with the memory entries",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "operation",
+        "type": "\"SAVE\" | \"DELETE\" | \"GET\"",
+        "description": "'SAVE', 'DELETE', or 'GET'"
+      },
+      {
+        "index": 1,
+        "name": "key",
+        "type": "string",
+        "description": "The memory key to save, delete, or get"
+      },
+      {
+        "index": 2,
+        "name": "content",
+        "type": "string",
+        "description": "The content to save to the memory (when operation is 'SAVE')",
+        "optional": true
+      },
+      {
+        "index": 3,
+        "name": "description",
+        "type": "string",
+        "description": "The description to save to the memory (when operation is 'SAVE')",
+        "optional": true
+      }
+    ],
+    "returnType": "string",
+    "returns": "Void, or string when operation is 'GET'"
+  }
+}

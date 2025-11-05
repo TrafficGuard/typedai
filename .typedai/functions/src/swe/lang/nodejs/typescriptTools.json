@@ -1,0 +1,43 @@
+{
+  "TypescriptTools_runNpmScript": {
+    "class": "TypescriptTools",
+    "name": "TypescriptTools_runNpmScript",
+    "description": "Runs the command `npm run <script>`",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "script",
+        "type": "string",
+        "description": "The script in the package.json file to run"
+      },
+      {
+        "index": 1,
+        "name": "args",
+        "type": "string[]",
+        "description": "Arguments to add to the `npm run <script>` command",
+        "optional": true
+      }
+    ]
+  },
+  "TypescriptTools_generateProjectMap": {
+    "class": "TypescriptTools",
+    "name": "TypescriptTools_generateProjectMap",
+    "description": "Generates an outline of a TypeScript repository by running the tsc command with the emitDeclarationOnly flag\nand returning the contents of all the type definition files.",
+    "parameters": [],
+    "returnType": "string",
+    "returns": "A comprehensive outline of the project"
+  },
+  "TypescriptTools_installPackage": {
+    "class": "TypescriptTools",
+    "name": "TypescriptTools_installPackage",
+    "description": "Installs a package using the appropriate package manager (yarn, pnpm, or npm)",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "packageName",
+        "type": "string",
+        "description": "The name of the package to install"
+      }
+    ]
+  }
+}

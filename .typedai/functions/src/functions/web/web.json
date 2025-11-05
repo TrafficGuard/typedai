@@ -1,0 +1,53 @@
+{
+  "PublicWeb_getWebPage": {
+    "class": "PublicWeb",
+    "name": "PublicWeb_getWebPage",
+    "description": "Get the contents of a web page on the public open internet at the provided URL. NOTE: Do NOT use this for URLs websites/SaaS which would require authentication.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "url",
+        "type": "string",
+        "description": "{string} The web page URL (https://...)"
+      }
+    ],
+    "returnType": "string",
+    "returns": "The web page contents in Markdown format"
+  },
+  "PublicWeb_downloadFile": {
+    "class": "PublicWeb",
+    "name": "PublicWeb_downloadFile",
+    "description": "Downloads a file from the specified URL and saves it locally.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "url",
+        "type": "string",
+        "description": "The URL of the file to download."
+      }
+    ],
+    "returnType": "string",
+    "returns": "The local file path where the file was saved."
+  },
+  "PublicWeb_serpApiSearch": {
+    "class": "PublicWeb",
+    "name": "PublicWeb_serpApiSearch",
+    "description": "Performs a Google search and returns the URL and title of the search results",
+    "parameters": []
+  },
+  "PublicWeb_takeScreenshotAndLogs": {
+    "class": "PublicWeb",
+    "name": "PublicWeb_takeScreenshotAndLogs",
+    "description": "Takes a screenshot of a web page while hiding cookie banners",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "url",
+        "type": "string",
+        "description": "The URL of the web page to screenshot. Must be a complete URL with http(s)://"
+      }
+    ],
+    "returnType": "{ image: ImageSource; logs: string[]; }",
+    "returns": "The screenshot image data in .png format, and the browser logs"
+  }
+}

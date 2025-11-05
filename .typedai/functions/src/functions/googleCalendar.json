@@ -1,0 +1,35 @@
+{
+  "GoogleCalendar_listEvents": {
+    "class": "GoogleCalendar",
+    "name": "GoogleCalendar_listEvents",
+    "description": "",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "from",
+        "type": "string",
+        "description": "The start of the time range to get events for"
+      },
+      {
+        "index": 1,
+        "name": "to",
+        "type": "string",
+        "description": "The end of the time range to get events for"
+      },
+      {
+        "index": 2,
+        "name": "targetTimezone",
+        "type": "string",
+        "description": "(Optional) defaults to Australia/Perth",
+        "optional": true
+      },
+      {
+        "index": 3,
+        "name": "calendarId",
+        "type": "string",
+        "description": "(Optional) defaults to primary",
+        "optional": true
+      }
+    ]
+  }
+}

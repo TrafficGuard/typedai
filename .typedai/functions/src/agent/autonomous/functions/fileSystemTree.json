@@ -1,0 +1,38 @@
+{
+  "FileSystemTree_collapseFolder": {
+    "class": "FileSystemTree",
+    "name": "FileSystemTree_collapseFolder",
+    "description": "Collapses a folder in the FileSystemTree view to reduce LLM token usage. Any collapsed child folders are removed from the collapsed list.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "folderPath",
+        "type": "string",
+        "description": "The folder to collapse in the File System tree view"
+      }
+    ],
+    "returnType": "boolean",
+    "returns": "If the node was collapsed, i.e. the folderPath exists and is a folder"
+  },
+  "FileSystemTree_expandAll": {
+    "class": "FileSystemTree",
+    "name": "FileSystemTree_expandAll",
+    "description": "Expands all directories in the file system tree view",
+    "parameters": []
+  },
+  "FileSystemTree_expandFolder": {
+    "class": "FileSystemTree",
+    "name": "FileSystemTree_expandFolder",
+    "description": "Expands a folder in the FileSystemTree view when needing to view a relevant part of the file system",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "folderPath",
+        "type": "string",
+        "description": "The folder to expand in the File System tree view. If no value is provided, then all folders are expanded and always returns true."
+      }
+    ],
+    "returnType": "boolean",
+    "returns": "If the node was expanded, i.e. the folderPath exists and is a folder and was previously collapsed"
+  }
+}
