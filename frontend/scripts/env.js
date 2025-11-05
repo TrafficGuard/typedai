@@ -13,9 +13,9 @@ function generateEnvironmentFile() {
     const explicitApiBaseUrl = process.env.API_BASE_URL;
 
     let resolvedApiBase;
-    // Use explicit API_BASE_URL if set to a non-default value (e.g., production/staging URLs)
+    // Use explicit API_BASE_URL if set to a non-localhost value (e.g., production/staging URLs)
     // This allows prod builds to use explicit URLs like http://ai.synergy:3000/api/
-    if (explicitApiBaseUrl && explicitApiBaseUrl !== 'http://localhost:3000/api/') {
+    if (explicitApiBaseUrl && !explicitApiBaseUrl.includes('localhost')) {
         resolvedApiBase = explicitApiBaseUrl;
     }
     // When running locally with dynamic ports, prioritize the runtime backend port
