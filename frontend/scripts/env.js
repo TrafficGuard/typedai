@@ -10,17 +10,21 @@ function generateEnvironmentFile() {
     hydrateProcessEnv();
 
     const backendPort = determineBackendPort();
+    const explicitApiBaseUrl = process.env.API_BASE_URL;
 
     let resolvedApiBase;
-    // When running locally, we must prioritize the dynamic backend port over any
-    // value from a .env file, which likely contains the default port.
-    if (backendPort) {
+    // Use explicit API_BASE_URL if set to a non-default value (e.g., production/staging URLs)
+    // This allows prod builds to use explicit URLs like http://ai.synergy:3000/api/
+    if (explicitApiBaseUrl && explicitApiBaseUrl !== 'http://localhost:3000/api/') {
+        resolvedApiBase = explicitApiBaseUrl;
+    }
+    // When running locally with dynamic ports, prioritize the runtime backend port
+    else if (backendPort) {
         resolvedApiBase = `http://localhost:${backendPort}/api/`;
     }
-    // For other cases (like CI builds), use the environment variable or a fallback.
+    // Final fallback to explicit API_BASE_URL or default
     else {
-        resolvedApiBase =
-            process.env.API_BASE_URL || 'http://localhost:3000/api/';
+        resolvedApiBase = explicitApiBaseUrl || 'http://localhost:3000/api/';
     }
 
     const frontPort = determineFrontendPort();
