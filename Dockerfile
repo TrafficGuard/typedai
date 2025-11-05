@@ -1,5 +1,6 @@
 # Production Dockerfile
 FROM python:3.11-slim
+FROM google/cloud-sdk:slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
