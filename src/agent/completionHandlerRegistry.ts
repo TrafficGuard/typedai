@@ -1,6 +1,5 @@
 import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
 import { logger } from '#o11y/logger';
-import { GitLabNoteCompletedHandler } from '#routes/webhooks/gitlab/gitlabNoteHandler';
 import type { AgentCompleted } from '#shared/agent/agent.model';
 
 // Use a Map for easier addition/removal during tests
@@ -9,7 +8,6 @@ let handlersMap = new Map<string, new () => AgentCompleted>();
 function initHandlers() {
 	// Initialize with default handlers
 	handlersMap.set(new ConsoleCompletedHandler().agentCompletedHandlerId(), ConsoleCompletedHandler);
-	handlersMap.set(new GitLabNoteCompletedHandler().agentCompletedHandlerId(), GitLabNoteCompletedHandler);
 }
 
 /**

@@ -27,8 +27,9 @@ jobs:
         run: pnpm install --save-dev @biomejs/cli-linux-x64 || true
       - name: Lint (server)
         run: pnpm run lint:ci
-      - name: Generate function schemas
-        run: pnpm functionSchemas
+      # Getting OOM errors, so pre-generate and commit
+      # - name: Generate function schemas
+      #   run: pnpm functionSchemas
       - name: Run unit tests (server)
         run: pnpm run test:unit
 
