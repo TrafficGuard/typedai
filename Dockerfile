@@ -46,6 +46,8 @@ RUN pnpm install --frozen-lockfile
 # 7) Copy the rest of the project (including .git, if present) with proper ownership
 USER root
 COPY --chown=${APP_USER}:${APP_GROUP} . .
+# Explicitly copy pre-generated function schemas
+COPY --chown=${APP_USER}:${APP_GROUP} .typedai/functions .typedai/functions
 
 # 8) Switch back to non-root user for all remaining steps and runtime
 USER ${APP_USER}
@@ -56,8 +58,7 @@ RUN git config --global --add safe.directory ${APP_HOME}
 # 9) Project-specific prefetch/build steps (now writable by ${APP_USER}
 # Download the tiktokenizer model, which is written to node_modules/@microsoft/tiktokenizer/model
 RUN pnpm run initTiktokenizer
-RUN mkdir -p ${APP_HOME}/.typedai
-# Generate the function schemas json files
+# Function schemas are already copied from the build, but run generation to ensure any missing ones are created
 RUN pnpm run functionSchemas
 
 # 10) Runtime configuration
