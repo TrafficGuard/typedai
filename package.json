@@ -42,7 +42,7 @@
     "build": "    tsgo --project ./tsconfig.native.json",
     "build:tsc": "tsc",
     "initTiktokenizer": "node -r esbuild-register -r src/cli/envLoader.ts src/initTiktokenizer.ts",
-    "functionSchemas": "node --max-old-space-size=4096 -r esbuild-register -r src/cli/envLoader.ts src/functionSchema/generateFunctionSchemas.ts",
+    "functionSchemas": "node --max-old-space-size=4096 -r esbuild-register src/functionSchema/generateFunctionSchemas.ts",
     "start": "      node -r ts-node/register --env-file=variables/.env src/index.ts",
     "start:local": "node -r esbuild-register -r src/cli/envLoader.ts src/cli/startLocal.ts",
     "emulators": "gcloud emulators firestore start --host-port=127.0.0.1:8243",
