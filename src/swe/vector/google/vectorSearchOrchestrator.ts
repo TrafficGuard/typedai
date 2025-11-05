@@ -271,35 +271,41 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 	 */
 	private async processFile(fileInfo: FileInfo, stats: IndexingStats, onProgress?: ProgressCallback): Promise<EmbeddedChunk[]> {
 		try {
-			// 1. Chunking (always AST-based)
-			onProgress?.({
-				phase: 'chunking',
-				currentFile: fileInfo.filePath,
-				filesProcessed: stats.filesProcessed,
-				totalFiles: stats.fileCount,
-			});
+			let chunks: Array<RawChunk | ContextualizedChunk>;
 
-			const rawChunks = await this.chunker.chunk(fileInfo, this.config);
-
-			if (rawChunks.length === 0) {
-				logger.debug({ filePath: fileInfo.filePath }, 'No chunks generated');
-				return [];
-			}
-
-			// 2. Contextualization (optional, based on config)
-			let chunks: Array<RawChunk | ContextualizedChunk> = rawChunks;
-
+			// With contextual chunking enabled, LLM does both chunking and contextualization in one call
 			if (this.config.contextualChunking) {
 				onProgress?.({
 					phase: 'contextualizing',
 					currentFile: fileInfo.filePath,
 					filesProcessed: stats.filesProcessed,
 					totalFiles: stats.fileCount,
-					chunksProcessed: 0,
-					totalChunks: rawChunks.length,
 				});
 
-				chunks = await this.contextualizer.contextualize(rawChunks, fileInfo, this.config);
+				// Single-call LLM chunking + contextualization (no AST chunking needed)
+				chunks = await this.contextualizer.contextualize([], fileInfo, this.config);
+
+				if (chunks.length === 0) {
+					logger.debug({ filePath: fileInfo.filePath }, 'No chunks generated from LLM');
+					return [];
+				}
+			} else {
+				// Traditional flow: AST-based chunking without contextualization
+				onProgress?.({
+					phase: 'chunking',
+					currentFile: fileInfo.filePath,
+					filesProcessed: stats.filesProcessed,
+					totalFiles: stats.fileCount,
+				});
+
+				const rawChunks = await this.chunker.chunk(fileInfo, this.config);
+
+				if (rawChunks.length === 0) {
+					logger.debug({ filePath: fileInfo.filePath }, 'No chunks generated');
+					return [];
+				}
+
+				chunks = rawChunks;
 			}
 
 			// 3. Translation (optional, based on config)

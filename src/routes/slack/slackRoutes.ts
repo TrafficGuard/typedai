@@ -16,7 +16,7 @@ export async function slackRoutes(fastify: AppFastifyInstance): Promise<void> {
 	registerApiRoute(fastify, SLACK_API.start, async (_req, reply) => {
 		if (!slackConfig().socketMode) return sendBadRequest(reply, 'Slack chatbot is not configured to use socket mode');
 		try {
-			await slackChatBotService.initSlack();
+			await slackChatBotService.initSlack(true);
 			return reply.sendJSON({ success: true });
 		} catch (error) {
 			logger.error(error, 'Failed to start Slack chatbot [error]');

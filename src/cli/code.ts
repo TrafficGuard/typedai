@@ -11,11 +11,9 @@ import { contentText, messageText } from '#shared/llm/llm.model';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { beep } from '#utils/beep';
 import { parseProcessArgs, saveAgentId } from './cli';
-import { loadCliEnvironment } from './envLoader';
 import { parsePromptWithImages } from './promptParser';
 
 async function main() {
-	loadCliEnvironment();
 	await initApplicationContext();
 	const agentLlms: AgentLLMs = defaultLLMs();
 

@@ -7,7 +7,6 @@ import micromatch from 'micromatch';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
-import { loadCliEnvironment } from './envLoader';
 
 /**
  * If there are no arguments then only write the exported contents to the console
@@ -15,7 +14,6 @@ import { loadCliEnvironment } from './envLoader';
  * If there is the -f arg write it to a file. Default to export.xml. If a value is provided, e.g. -f=export2.xml then write to export2.xml
  */
 async function main() {
-	loadCliEnvironment();
 	const fileSystemService = new FileSystemService();
 	const basePath = fileSystemService.getBasePath();
 

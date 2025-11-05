@@ -4,10 +4,8 @@
  * When using git worktrees enables using the local.env from the main repository
  * Extracted from startLocal.ts to be shared across all CLI tools.
  */
-
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
-import { logger } from '#o11y/logger';
 
 interface ResolveEnvFileOptions {
 	envFile?: string | null;
@@ -20,6 +18,8 @@ interface ApplyEnvOptions {
 }
 
 type ParsedEnv = Record<string, string>;
+
+export let loadedEnvFilePath: string | undefined;
 
 /**
  * Builds an absolute path from a potential relative path.
@@ -125,9 +125,12 @@ export function applyEnvFile(filePath: string, options: ApplyEnvOptions = {}): v
 export function loadCliEnvironment(options: ApplyEnvOptions = {}): void {
 	try {
 		const envFilePath = resolveEnvFilePath();
+		loadedEnvFilePath = envFilePath;
 		applyEnvFile(envFilePath, options);
-		logger.debug(`Loaded environment from ${envFilePath}`);
+		console.log(`Loaded environment from ${envFilePath}`);
 	} catch (err) {
-		logger.debug(err, 'No environment file found; continuing with existing process.env');
+		console.log(err, 'No environment file found; continuing with existing process.env');
 	}
 }
+
+loadCliEnvironment();

@@ -14,11 +14,9 @@ import { logger } from '#o11y/logger';
 import type { AgentContext } from '#shared/agent/agent.model';
 import { registerErrorHandlers } from '../errorHandlers';
 import { parseProcessArgs, saveAgentId } from './cli';
-import { loadCliEnvironment } from './envLoader';
 import { resolveFunctionClasses } from './functionAliases';
 
 export async function main(): Promise<void> {
-	loadCliEnvironment();
 	registerErrorHandlers();
 	await initApplicationContext();
 	const llms = defaultLLMs();

@@ -1,5 +1,4 @@
 import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
-import { SlackChatBotService } from '#modules/slack/slackChatBotService';
 import { logger } from '#o11y/logger';
 import { GitLabNoteCompletedHandler } from '#routes/webhooks/gitlab/gitlabNoteHandler';
 import type { AgentCompleted } from '#shared/agent/agent.model';
@@ -7,10 +6,11 @@ import type { AgentCompleted } from '#shared/agent/agent.model';
 // Use a Map for easier addition/removal during tests
 let handlersMap = new Map<string, new () => AgentCompleted>();
 
-// Initialize with default handlers
-handlersMap.set(new ConsoleCompletedHandler().agentCompletedHandlerId(), ConsoleCompletedHandler);
-handlersMap.set(new SlackChatBotService().agentCompletedHandlerId(), SlackChatBotService);
-handlersMap.set(new GitLabNoteCompletedHandler().agentCompletedHandlerId(), GitLabNoteCompletedHandler);
+function initHandlers() {
+	// Initialize with default handlers
+	handlersMap.set(new ConsoleCompletedHandler().agentCompletedHandlerId(), ConsoleCompletedHandler);
+	handlersMap.set(new GitLabNoteCompletedHandler().agentCompletedHandlerId(), GitLabNoteCompletedHandler);
+}
 
 /**
  * Return the AgentCompleted callback object from its id.
@@ -19,6 +19,8 @@ handlersMap.set(new GitLabNoteCompletedHandler().agentCompletedHandlerId(), GitL
  */
 export function getCompletedHandler(handlerId: string): AgentCompleted | null {
 	if (!handlerId) return null;
+
+	if (handlersMap.size === 0) initHandlers();
 
 	const HandlerCtor = handlersMap.get(handlerId);
 	if (HandlerCtor) return new HandlerCtor();
@@ -47,5 +49,4 @@ export function clearCompletedHandlers(): void {
 	handlersMap = new Map<string, new () => AgentCompleted>();
 	// Re-initialize with default handlers
 	handlersMap.set(new ConsoleCompletedHandler().agentCompletedHandlerId(), ConsoleCompletedHandler);
-	handlersMap.set(new SlackChatBotService().agentCompletedHandlerId(), SlackChatBotService);
 }

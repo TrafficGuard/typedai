@@ -11,11 +11,9 @@ import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import { queryWithFileSelection2 } from '#swe/discovery/selectFilesAgentWithSearch';
 import { parseProcessArgs, saveAgentId } from './cli';
-import { loadCliEnvironment } from './envLoader';
 import { parsePromptWithImages } from './promptParser';
 
 async function main() {
-	loadCliEnvironment();
 	await initApplicationContext();
 	const agentLLMs: AgentLLMs = defaultLLMs();
 	const { initialPrompt: rawPrompt, resumeAgentId, flags } = parseProcessArgs();

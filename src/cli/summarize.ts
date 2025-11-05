@@ -9,10 +9,8 @@ import { SummarizerAgent } from '#functions/text/summarizer';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import { parseProcessArgs, saveAgentId } from './cli';
-import { loadCliEnvironment } from './envLoader';
 
 async function main() {
-	loadCliEnvironment();
 	const agentLlms: AgentLLMs = defaultLLMs();
 	await initApplicationContext();
 

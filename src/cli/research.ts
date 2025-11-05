@@ -8,7 +8,6 @@ import { PublicWeb } from '#functions/web/web';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import { parseProcessArgs, saveAgentId } from './cli';
-import { loadCliEnvironment } from './envLoader';
 
 // Usage:
 // npm run research
@@ -16,7 +15,6 @@ import { loadCliEnvironment } from './envLoader';
 const llms: AgentLLMs = defaultLLMs();
 
 export async function main(): Promise<void> {
-	loadCliEnvironment();
 	const systemPrompt = readFileSync('src/cli/research-system', 'utf-8');
 
 	const { initialPrompt, resumeAgentId } = parseProcessArgs();

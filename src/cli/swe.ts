@@ -10,7 +10,6 @@ import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
 import { CodeEditingAgent } from '#swe/codeEditingAgent';
 import { SoftwareDeveloperAgent } from '#swe/softwareDeveloperAgent';
 import { parseProcessArgs, saveAgentId } from './cli';
-import { loadCliEnvironment } from './envLoader';
 
 // Used to test the SoftwareDeveloperAgent
 
@@ -18,7 +17,6 @@ import { loadCliEnvironment } from './envLoader';
 // npm run swe
 
 async function main() {
-	loadCliEnvironment();
 	await initApplicationContext();
 	const llms: AgentLLMs = defaultLLMs();
 

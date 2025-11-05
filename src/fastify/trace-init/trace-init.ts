@@ -28,7 +28,7 @@ export function getServiceName(): string | undefined {
  * https://opentelemetry.io/docs/instrumentation/js/getting-started/nodejs/
  * https://cloud.google.com/trace/docs/setup/nodejs-ot
  */
-function initTrace(): void {
+export function initTrace(): void {
 	if (initialized) return;
 	initialized = true;
 
@@ -116,5 +116,3 @@ export async function shutdownTrace(): Promise<void> {
 		console.error('Error shutting down trace:', error.message);
 	}
 }
-
-initTrace();

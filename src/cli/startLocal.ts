@@ -1,3 +1,7 @@
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { type Server as NetServer, createServer } from 'node:net';
+import path from 'node:path';
 /**
  * @fileoverview
  * This script is the entry point for starting the backend server in a local development
@@ -12,15 +16,7 @@
  *   frontend dev server) can read to discover the backend's port.
  * - Initializes and starts the Fastify server.
  */
-import '#fastify/trace-init/trace-init';
-
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { open } from 'node:inspector';
-import { createRequire } from 'node:module';
-import { type Server as NetServer, createServer } from 'node:net';
-import path from 'node:path';
-import { logger } from '#o11y/logger';
-import { applyEnvFile, resolveEnvFilePath } from './envLoader';
+import { loadedEnvFilePath } from './envLoader';
 
 type ServerFactory = () => NetServer;
 
@@ -41,19 +37,16 @@ function setServerFactory(factory: ServerFactory | null): void {
  * This function orchestrates the entire startup sequence for local development.
  */
 async function main(): Promise<void> {
-	let envFilePath: string | undefined;
-	try {
-		// 1. Resolve and apply environment variables from a `.env` file.
-		envFilePath = resolveEnvFilePath();
-		applyEnvFile(envFilePath);
-	} catch (err) {
-		logger.warn(err, '[start-local] no environment file found; continuing with existing process.env');
-	}
+	const envFilePath = loadedEnvFilePath;
 
 	process.env.NODE_ENV ??= 'development';
 
+	const { logger } = await import('../o11y/ollyModule.cjs');
+	const { initTrace } = await import('../fastify/trace-init/traceModule.cjs');
+	initTrace();
+
 	// Determine if this is the "default" repository setup (e.g., the main repo at $TYPEDAI_HOME)
-	// or a worktree or seperate clone. This affects port handling.
+	// or a worktree or separate clone. This affects port handling.
 	// In the default setup, we use fixed ports (3000/9229) and fail if they're taken.
 	// In a worktree/forked setup, we find the next available port to avoid conflicts.
 	const repoRoot = path.resolve(process.cwd());
@@ -126,7 +119,9 @@ async function main(): Promise<void> {
 	require('../index');
 }
 
-main().catch((error) => {
+main().catch(async (error) => {
+	// We need to import logger here again because the main() function might fail before the initial import is complete.
+	const { logger } = await import('../o11y/ollyModule.cjs');
 	logger.fatal(error, '[start-local] failed to start backend');
 	process.exitCode = 1;
 });

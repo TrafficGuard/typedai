@@ -1,6 +1,5 @@
 import path from 'node:path';
 import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
-import { ReasonerDebateLLM } from '#llm/multi-agent/reasoning-debate';
 import { extractTag } from '#llm/responseParsers';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
@@ -131,9 +130,9 @@ At the very end of the <result> block, add a line in the format "Confidence: LEV
 	// Perform the additional LLM call to get the answer
 	const xhard = resolvedLLMs.xhard;
 	const llm: LLM = opts.useXtraHardLLM && xhard ? xhard : resolvedLLMs.hard;
-	const thinking: ThinkingLevel = llm instanceof ReasonerDebateLLM ? 'none' : 'high';
+	// const thinking: ThinkingLevel = llm instanceof ReasonerDebateLLM ? 'none' : 'high';
 
-	let answer = await llm.generateText(messages, { id: 'Select Files query Answer', thinking });
+	let answer = await llm.generateText(messages, { id: 'Select Files query Answer', thinking: 'high' });
 	try {
 		answer = extractTag(answer, 'result');
 	} catch {}

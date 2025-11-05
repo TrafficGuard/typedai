@@ -4,6 +4,7 @@ import { llms } from '#agent/agentContextLocalStorage';
 import { AgentExecution, isAgentExecuting } from '#agent/agentExecutions';
 import { getLastFunctionCallArg } from '#agent/autonomous/agentCompletion';
 import { resumeCompletedWithUpdatedUserRequest, startAgent } from '#agent/autonomous/autonomousAgentRunner';
+import { registerCompletedHandler } from '#agent/completionHandlerRegistry';
 import { appContext } from '#app/applicationContext';
 import { GoogleCloud } from '#functions/cloud/google/google-cloud';
 import { Confluence } from '#functions/confluence';
@@ -127,7 +128,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 		this.botMentionCache.clear();
 	}
 
-	async initSlack(): Promise<void> {
+	async initSlack(startSocketListener = false): Promise<void> {
 		if (slackApp) {
 			logger.warn('Slack app already initialized');
 			return;
@@ -156,7 +157,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			logger.error(error, 'Failed to get bot user ID');
 		}
 
-		if (config.socketMode && config.autoStart) {
+		if (config.socketMode && (config.autoStart || startSocketListener === true)) {
 			// Listen for messages in channels
 			slackApp.event('message', async ({ event, say }) => {
 				this.handleMessage(event, say);
@@ -357,3 +358,5 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 		return messages;
 	}
 }
+
+registerCompletedHandler(new SlackChatBotService());

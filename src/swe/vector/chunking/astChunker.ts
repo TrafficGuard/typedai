@@ -1,4 +1,4 @@
-import Parser from 'tree-sitter';
+import Parser from '@keqingmoe/tree-sitter';
 import { VectorStoreConfig } from '../core/config';
 import { ChunkSourceLocation, FileInfo, IChunker, RawChunk } from '../core/interfaces';
 
