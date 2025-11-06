@@ -102,7 +102,7 @@ export class GoogleCloud {
 		const supportedCommands = new Set(['ls', 'query', 'show', 'get-iam-policy', 'head']);
 		if (!supportedCommands.has(cmd)) {
 			throw new Error(
-				`Command "${bqCommand}" does not appear to be a read operation. Only list, describe, get-iam-policy and read operations are allowed. If you feel that this is a mistake, please request for the gcloud command whitelisting to be updated`,
+				`Command "${bqCommand}" does not appear to be a read operation. Only ls, query, show, head and get-iam-policy operations are allowed. If you feel that this is a mistake, please request for the gcloud command whitelisting to be updated`,
 			);
 		}
 

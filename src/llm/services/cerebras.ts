@@ -11,18 +11,18 @@ import { AiLLM } from './ai-llm';
 export const CEREBRAS_SERVICE = 'cerebras';
 
 export function cerebrasLLMRegistry(): Array<() => LLM> {
-	return [cerebrasQwen3_32b, cerebrasQwen3_235b_Instruct, cerebrasQwen3_235b_Thinking, cerebrasQwen3_Coder, cerebrasGptOss_120b];
+	return [cerebrasQwen3_32b, cerebrasQwen3_235b_Instruct, cerebrasQwen3_235b_Thinking, cerebrasZaiGLM_4_6, cerebrasGptOss_120b];
 }
 
 // https://cloud.cerebras.ai/platform/org_<org-id>/models  PAYG rate limits
 // https://inference-docs.cerebras.ai/support/rate-limits. rate limit headers
 // https://cerebras-inference.help.usepylon.com/articles/9996007307-cerebras-code-faq  Cerebras Code rate limits
 /*
-Cerebras Code 
+Cerebras Code Requests/Tokens per time period
 
- Tier    RPM    TPM        TPD
- Pro     15     165,000    24M
- Max     20     275,000    120M
+ Tier    RPM   TPM        RPH    TPH    RPD    TPD
+ Pro     50    1,000,000  3,000  24M    72000  24M
+ Max     120   1,500,000  7,200  120M   172800 120M
 */
 
 // https://inference-docs.cerebras.ai/models/qwen-3-32b
@@ -41,8 +41,8 @@ export function cerebrasQwen3_235b_Thinking(): LLM {
 }
 
 // https://inference-docs.cerebras.ai/models/qwen-3-480b
-export function cerebrasQwen3_Coder(): LLM {
-	return new CerebrasLLM('Qwen3 Coder (Cerebras)', 'qwen-3-coder-480b', 131_000, costPerMilTokens(2, 2), ['qwen-3-235b-a22b']);
+export function cerebrasZaiGLM_4_6(): LLM {
+	return new CerebrasLLM('GLM 4.6 (Cerebras)', 'zai-glm-4-6', 131_000, costPerMilTokens(2, 2), ['qwen-3-235b-a22b', 'qwen-3-coder-480b']);
 }
 
 // https://inference-docs.cerebras.ai/models/gpt-oss-120b

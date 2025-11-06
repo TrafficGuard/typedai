@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileExistsSync } from 'tsconfig-paths/lib/filesystem';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
 import { initInMemoryApplicationContext } from '#app/applicationContext';
-import { cerebrasQwen3_Coder } from '#llm/services/cerebras';
+import { cerebrasZaiGLM_4_6 } from '#llm/services/cerebras';
 import { logger } from '#o11y/logger';
 import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
 import { MorphEditor } from '#swe/morph/morphEditor';
@@ -238,7 +238,7 @@ async function generateCodeEdits(fileContents: string, instructions: string): Pr
 		'Return only the edit snippet.',
 	].join('\n');
 
-	const cerebrasCoder = cerebrasQwen3_Coder();
+	const cerebrasCoder = cerebrasZaiGLM_4_6();
 	const llm = cerebrasCoder.isConfigured() ? cerebrasCoder : llms().medium;
 	let edits = await llm.generateText(prompt, { temperature: 0.1, topP: 0, id: 'morph-edit' });
 

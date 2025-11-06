@@ -1,6 +1,6 @@
 import { anthropicClaude4_5_Haiku } from '#llm/services/anthropic';
 import { Claude4_5_Haiku_Vertex } from '#llm/services/anthropic-vertex';
-import { cerebrasQwen3_Coder } from '#llm/services/cerebras';
+import { cerebrasZaiGLM_4_6 } from '#llm/services/cerebras';
 import { groqKimiK2 } from '#llm/services/groq';
 import { openaiGPT5mini } from '#llm/services/openai';
 import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
@@ -15,7 +15,7 @@ import { BaseLLM } from '../base-llm';
  */
 export class FastMediumLLM extends BaseLLM {
 	private readonly providers: LLM[];
-	private readonly cerebras = cerebrasQwen3_Coder();
+	private readonly cerebras = cerebrasZaiGLM_4_6();
 	private readonly groq = groqKimiK2();
 	private readonly openai = openaiGPT5mini();
 	private readonly gemini = vertexGemini_2_5_Flash({ thinking: 'high' });
@@ -71,6 +71,13 @@ export class FastMediumLLM extends BaseLLM {
 		const textOnlyTokens = await this.textTokens(messages);
 
 		try {
+			if (textOnlyTokens && this.cerebras.isConfigured() && textOnlyTokens < this.cerebras.getMaxInputTokens() * 0.4)
+				return await this.cerebras.generateMessage(messages, opts);
+		} catch (e) {
+			logger.warn(`Error calling ${this.cerebras.getId()} with ${textOnlyTokens} tokens: ${e.message}`);
+		}
+
+		try {
 			if (textOnlyTokens && this.groq.isConfigured() && textOnlyTokens < this.groq.getMaxInputTokens() * 0.9)
 				return await this.groq.generateMessage(messages, opts);
 		} catch (e) {
@@ -78,13 +85,13 @@ export class FastMediumLLM extends BaseLLM {
 		}
 
 		try {
-			if (textOnlyTokens && this.cerebras.isConfigured() && textOnlyTokens < this.cerebras.getMaxInputTokens() * 0.4)
-				return await this.cerebras.generateMessage(messages, opts);
+			if (this.gemini.isConfigured()) return await this.gemini.generateMessage(messages, opts);
 		} catch (e) {
-			logger.warn(`Error calling ${this.cerebras.getId()} with ${textOnlyTokens} tokens: ${e.message}`);
+			logger.warn(`Error calling ${this.gemini.getId()} with ${textOnlyTokens} tokens: ${e.message}`);
 		}
-		if (this.gemini.isConfigured()) return await this.gemini.generateMessage(messages, opts);
+
 		if (this.openai.isConfigured()) return await this.openai.generateMessage(messages, opts);
+
 		throw new Error('No configured LLMs for fastMedium');
 	}
 }

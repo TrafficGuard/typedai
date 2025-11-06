@@ -1,4 +1,4 @@
-import { ConversationsHistoryResponse, ConversationsListResponse, ConversationsRepliesResponse, WebClient } from '@slack/web-api';
+import { ChatPostMessageResponse, ConversationsHistoryResponse, ConversationsListResponse, ConversationsRepliesResponse, WebClient } from '@slack/web-api';
 import { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
 import { llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
@@ -21,30 +21,36 @@ export class SlackAPI {
 		const params: any = {
 			channel: channelId,
 			thread_ts: threadTs,
-			blocks: await formatAsSlackBlocks(message, llms().easy),
+			blocks: await formatAsSlackBlocks(message, llms().medium),
 			text: message,
 		};
 
+		let result: ChatPostMessageResponse;
+
 		try {
-			let result = await this.client.chat.postMessage(params);
+			result = await this.client.chat.postMessage(params);
+			if (result.ok) return;
 
-			if (!result.ok && result.error === 'invalid_blocks_format') {
-				logger.info({ blocks: params.blocks }, 'Slack invalid_blocks_format. Retrying with medium LLM');
-				params.blocks = await formatAsSlackBlocks(message, llms().medium);
-				result = await this.client.chat.postMessage(params);
-			}
-
-			if (!result.ok && result.error === 'invalid_blocks_format') {
-				logger.info({ blocks: params.blocks }, 'Slack invalid_blocks_format. Retrying with textToBlocks');
-				params.blocks = textToBlocks(message);
-				result = await this.client.chat.postMessage(params);
-			}
-
-			if (!result.ok) throw new Error(`Failed to send message to Slack: ${result.error}`);
-		} catch (error) {
-			logger.error(error, 'Error sending message to Slack');
-			throw error;
+			logger.info({ blocks: params.blocks, error: result.error }, 'Slack post message failed. Retrying with hard LLM');
+		} catch (e) {
+			logger.info({ blocks: params.blocks, error: e }, 'Slack message post error. Retrying with hard LLM');
 		}
+
+		params.blocks = await formatAsSlackBlocks(message, llms().hard);
+
+		try {
+			result = await this.client.chat.postMessage(params);
+			if (result.ok) return;
+
+			logger.info({ blocks: params.blocks, error: result.error }, 'Slack post message failed. Retrying with plain text');
+		} catch (e) {
+			logger.info({ blocks: params.blocks, error: e }, 'Slack message post error. Retrying with plain text');
+		}
+
+		params.blocks = textToBlocks(message);
+		result = await this.client.chat.postMessage(params);
+
+		if (!result.ok) throw new Error(`Failed to send message to Slack: ${result.error}`);
 	}
 
 	async getConversationReplies(channelId: string, threadTs: string, limit = 100): Promise<MessageElement[]> {

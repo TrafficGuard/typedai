@@ -2,7 +2,7 @@ import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
 import { openAIFlexGPT5Mini } from '#llm/multi-agent/openaiFlex';
 import { MAD_Balanced, MAD_Fast, MAD_SOTA } from '#llm/multi-agent/reasoning-debate';
 import { Claude4_1_Opus_Vertex } from '#llm/services/anthropic-vertex';
-import { cerebrasQwen3_235b_Thinking, cerebrasQwen3_Coder } from '#llm/services/cerebras';
+import { cerebrasQwen3_235b_Thinking, cerebrasZaiGLM_4_6 } from '#llm/services/cerebras';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { openaiGPT5, openaiGPT5flex, openaiGPT5mini, openaiGPT5nano, openaiGPT5priority } from '#llm/services/openai';
 import { perplexityDeepResearchLLM, perplexityLLM, perplexityReasoningProLLM } from '#llm/services/perplexity-llm';
@@ -16,7 +16,7 @@ export const LLM_CLI_ALIAS: Record<string, () => LLM> = {
 	xh: () => defaultLLMs().xhard!,
 	fm: () => new FastMediumLLM(),
 	f: cerebrasQwen3_235b_Thinking,
-	cc: cerebrasQwen3_Coder,
+	cc: cerebrasZaiGLM_4_6,
 	g5: openaiGPT5,
 	g5p: openaiGPT5priority,
 	g5mf: openAIFlexGPT5Mini,
