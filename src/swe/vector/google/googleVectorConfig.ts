@@ -11,6 +11,15 @@ export const EMBEDDING_API_BATCH_SIZE = 25;
 export const INDEXER_EMBEDDING_PROCESSING_BATCH_SIZE = 100;
 export const TOKENS_PER_MINUTE_QUOTA = 200_000;
 
+// Discovery Engine API rate limiting
+export const DISCOVERY_ENGINE_REQUESTS_PER_MINUTE = 60;
+export const FILE_PROCESSING_PARALLEL_BATCH_SIZE = 15;
+
+// Circuit breaker configuration
+export const CIRCUIT_BREAKER_RETRY_INTERVAL_MS = 5000; // 5 seconds
+export const CIRCUIT_BREAKER_FAILURE_THRESHOLD = 1; // Open circuit after 1 quota error
+export const CIRCUIT_BREAKER_SUCCESS_THRESHOLD = 1; // Close circuit after 1 successful test
+
 export interface GoogleVectorServiceConfig {
 	project: string;
 	/** Embedding service region */
@@ -22,6 +31,7 @@ export interface GoogleVectorServiceConfig {
 }
 
 export function getGoogleVectorServiceConfig(): GoogleVectorServiceConfig {
+	console.log(GCLOUD_PROJECT);
 	return {
 		project: GCLOUD_PROJECT,
 		region: GCLOUD_REGION,

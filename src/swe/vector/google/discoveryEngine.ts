@@ -5,7 +5,13 @@ import { RetryableError, cacheRetry } from '#cache/cacheRetry';
 import { sleep } from '#utils/async-utils';
 import { quotaRetry } from '#utils/quotaRetry';
 import { CodeFile } from '../codeLoader';
-import { GoogleVectorServiceConfig } from './googleVectorConfig';
+import { CircuitBreakerConfig, DiscoveryEngineCircuitBreaker } from './discoveryEngineCircuitBreaker';
+import {
+	CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+	CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
+	CIRCUIT_BREAKER_SUCCESS_THRESHOLD,
+	GoogleVectorServiceConfig,
+} from './googleVectorConfig';
 
 const logger = pino({ name: 'DiscoveryEngineDataStore' });
 
@@ -27,8 +33,9 @@ export class DiscoveryEngine {
 	private dataStorePath: string | null = null;
 	private parentPath: string;
 	private datastoreName: string;
+	private circuitBreaker: DiscoveryEngineCircuitBreaker;
 
-	constructor(config: GoogleVectorServiceConfig) {
+	constructor(config: GoogleVectorServiceConfig, circuitBreakerConfig?: CircuitBreakerConfig) {
 		this.project = config.project;
 		this.location = config.discoveryEngineLocation;
 		this.collection = config.collection;
@@ -46,6 +53,15 @@ export class DiscoveryEngine {
 		this.parentPath = `projects/${this.project}/locations/${this.location}/collections/${this.collection}`;
 		this.datastoreName = `${this.parentPath}/dataStores/${this.dataStoreId}`;
 		this.dataStorePath = this.datastoreName;
+
+		// Initialize circuit breaker with config or defaults
+		this.circuitBreaker = new DiscoveryEngineCircuitBreaker(
+			circuitBreakerConfig || {
+				retryIntervalMs: CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
+				failureThreshold: CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+				successThreshold: CIRCUIT_BREAKER_SUCCESS_THRESHOLD,
+			},
+		);
 	}
 
 	async ensureDataStoreExists(): Promise<void> {
@@ -74,10 +90,22 @@ export class DiscoveryEngine {
 		}
 	}
 
-	@cacheRetry({ retries: 3, backOffMs: 1000 })
-	@quotaRetry()
 	async importDocuments(documents: google.cloud.discoveryengine.v1.IDocument[]): Promise<void> {
 		if (documents.length === 0) return;
+
+		// Execute through circuit breaker for quota management
+		await this.circuitBreaker.execute(async () => {
+			await this._importDocumentsInternal(documents);
+		});
+	}
+
+	/**
+	 * Internal import method with retry decorators
+	 * Circuit breaker wraps this to handle quota exhaustion
+	 */
+	@cacheRetry({ retries: 3, backOffMs: 1000 })
+	@quotaRetry()
+	private async _importDocumentsInternal(documents: google.cloud.discoveryengine.v1.IDocument[]): Promise<void> {
 		await this.ensureDataStoreExists();
 
 		const request: google.cloud.discoveryengine.v1.IImportDocumentsRequest = {
@@ -104,12 +132,22 @@ export class DiscoveryEngine {
 	}
 
 	/**
+	 * Get circuit breaker for status monitoring
+	 */
+	getCircuitBreaker(): DiscoveryEngineCircuitBreaker {
+		return this.circuitBreaker;
+	}
+
+	/**
 	 * https://cloud.google.com/generative-ai-app-builder/docs/delete-datastores#discoveryengine_v1_generated_DocumentService_PurgeDocuments_sync-nodejs
 	 */
 	async purgeAllDocuments(): Promise<void> {
+		await this.ensureDataStoreExists();
+
 		const request: google.cloud.discoveryengine.v1.IPurgeDocumentsRequest = {
-			parent: this.parentPath,
+			parent: `${this.dataStorePath}/branches/default_branch`,
 			filter: '*',
+			force: true,
 		};
 		const [operation] = await this.documentClient.purgeDocuments(request);
 		await operation.promise();

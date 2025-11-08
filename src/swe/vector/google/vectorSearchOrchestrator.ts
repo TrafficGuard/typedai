@@ -4,18 +4,17 @@ import { span } from '#o11y/trace';
 import { ASTChunker } from '../chunking/astChunker';
 import { readFilesToIndex } from '../codeLoader';
 import { LLMCodeTranslator } from '../core/codeTranslator';
-import { VectorStoreConfig, loadVectorConfig, printConfigSummary } from '../core/config';
+import { VectorStoreConfig, buildGoogleVectorServiceConfig, loadVectorConfig, printConfigSummary } from '../core/config';
 import { LLMContextualizer } from '../core/contextualizer';
 import { ContextualizedChunk, EmbeddedChunk, FileInfo, IVectorSearchOrchestrator, ProgressCallback, RawChunk, SearchResult } from '../core/interfaces';
 import { MerkleSynchronizer } from '../sync/merkleSynchronizer';
 import { DiscoveryEngineAdapter } from './discoveryEngineAdapter';
 import { GoogleReranker } from './googleRerank';
+import { FILE_PROCESSING_PARALLEL_BATCH_SIZE } from './googleVectorConfig';
 import { GoogleVectorServiceConfig } from './googleVectorConfig';
 import { DualEmbeddingGenerator, VertexEmbedderAdapter } from './vertexEmbedderAdapter';
 
 const logger = pino({ name: 'VectorSearchOrchestrator' });
-
-const FILE_PROCESSING_PARALLEL_BATCH_SIZE = 20;
 
 interface IndexingStats {
 	fileCount: number;
@@ -84,6 +83,17 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 		}
 
 		printConfigSummary(this.config);
+
+		// Rebuild Google config from merged VectorStoreConfig (allows per-config GCP settings)
+		this.googleConfig = buildGoogleVectorServiceConfig(this.config);
+
+		// Recreate components with updated config
+		this.embedder = new VertexEmbedderAdapter(this.googleConfig);
+		this.dualEmbedder = new DualEmbeddingGenerator(this.embedder);
+		this.vectorStore = new DiscoveryEngineAdapter(this.googleConfig);
+		this.reranker = new GoogleReranker(this.googleConfig, {
+			model: this.config.rerankingModel,
+		});
 
 		// Initialize vector store
 		await this.vectorStore.initialize(this.config);

@@ -40,7 +40,7 @@
         "index": 3,
         "name": "description",
         "type": "string",
-        "description": "The description to save to the memory (when operation is 'SAVE')",
+        "description": "A description identifiying the source of the content (when operation is 'SAVE')",
         "optional": true
       }
     ],

@@ -5,9 +5,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileExistsSync } from 'tsconfig-paths/lib/filesystem';
 import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { RunWorkflowConfig } from '#agent/autonomous/runAgentTypes';
+import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { initInMemoryApplicationContext } from '#app/applicationContext';
 import { cerebrasZaiGLM_4_6 } from '#llm/services/cerebras';
 import { logger } from '#o11y/logger';
+import { AgentContext } from '#shared/agent/agent.model';
 import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
 import { MorphEditor } from '#swe/morph/morphEditor';
 import { beep } from '#utils/beep';
@@ -87,13 +90,13 @@ class RateLimiter {
 export function startWatcher(): void {
 	const opts = parseProcessArgs();
 	const watchPath = opts.flags.fs ? String(opts.flags.fs) : process.cwd();
-
+	initInMemoryApplicationContext();
 	const debounceTimers = new Map<string, NodeJS.Timeout>();
 	const processingFiles = new Set<string>();
 	const rateLimiter = new RateLimiter(3, 10); // Max 3 calls per 10 seconds
 
 	const watcher = fs.watch(watchPath, { recursive: true }, async (event: WatchEventType, filename: string | null) => {
-		console.log(event, filename);
+		// console.log(event, filename);
 		// Early exit if filename is null
 		if (!filename) return;
 		if (filename.endsWith('watch.ts') || filename.endsWith('watch.test.ts')) return; // don't edit this file or the test as there's always @@@ !!!
@@ -149,12 +152,29 @@ export function startWatcher(): void {
 				console.log(`Extracted instructions: ${instructions}`);
 				beep();
 				let start = Date.now();
-				const codeEdits = await generateCodeEdits(fileContents, instructions);
-				const editsTime = Date.now() - start;
-				start = Date.now();
-				await new MorphEditor().editFile(filePath, instructions, codeEdits);
-				const morphTime = Date.now() - start;
-				console.log(`Edits: ${(editsTime / 1000).toFixed(1)}s, Morph: ${(morphTime / 1000).toFixed(1)}s`);
+
+				const llm = cerebrasZaiGLM_4_6();
+				const config: RunWorkflowConfig = {
+					agentName: 'watch-edit',
+					subtype: 'swe',
+					llms: {
+						easy: llm,
+						medium: llm,
+						hard: llm,
+						xhard: undefined,
+					},
+					initialPrompt: '',
+				};
+
+				await runWorkflowAgent(config, async (agent: AgentContext) => {
+					const codeEdits = await generateCodeEdits(fileContents, instructions);
+					const editsTime = Date.now() - start;
+					start = Date.now();
+					await new MorphEditor().editFile(filePath, instructions, codeEdits);
+					const morphTime = Date.now() - start;
+					console.log(`Edits: ${(editsTime / 1000).toFixed(1)}s, Morph: ${(morphTime / 1000).toFixed(1)}s`);
+				});
+
 				beep();
 				// Pass the prompt to the AiderCodeEditor
 				// logger.info('Running SearchReplaceCoder...');

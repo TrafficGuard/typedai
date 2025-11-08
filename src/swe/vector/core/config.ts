@@ -1,10 +1,32 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { envVar } from '#utils/env-var';
+import type { GoogleVectorServiceConfig } from '../google/googleVectorConfig';
 
 /**
  * Core vector store configuration for repository indexing
  */
 export interface VectorStoreConfig {
+	/** Name of the vector store collection (used to map to specific collections) */
+	name?: string;
+
+	// === Google Cloud Discovery Engine Configuration ===
+	/** GCP project ID (overrides env GCLOUD_PROJECT) */
+	gcpProject?: string;
+
+	/** Discovery Engine location (overrides env DISCOVERY_ENGINE_LOCATION, default: 'global') */
+	discoveryEngineLocation?: string;
+
+	/** Discovery Engine collection ID (overrides env DISCOVERY_ENGINE_COLLECTION_ID, default: 'default_collection') */
+	discoveryEngineCollectionId?: string;
+
+	/** GCP region for embedding service (overrides env GCLOUD_REGION, default: 'us-central1') */
+	gcpRegion?: string;
+
+	/** Discovery Engine datastore ID (overrides env DISCOVERY_ENGINE_DATA_STORE_ID) */
+	datastoreId?: string;
+
+	// === Vector Search Settings ===
 	/** Enable dual embedding (code + natural language translation) - ~12% better retrieval */
 	dualEmbedding: boolean;
 
@@ -78,15 +100,38 @@ export const HIGH_QUALITY_CONFIG: VectorStoreConfig = {
 /**
  * Load vector store configuration from repository
  * Checks for .vectorconfig.json or vectorStore field in package.json
+ *
+ * @param repoRoot - Repository root path
+ * @param configName - Optional config name to load from array of configs
+ * @returns Single config or first config from array if no name specified
  */
-export function loadVectorConfig(repoRoot: string): VectorStoreConfig {
+export function loadVectorConfig(repoRoot: string, configName?: string): VectorStoreConfig {
 	// Try .vectorconfig.json first
 	const vectorConfigPath = path.join(repoRoot, '.vectorconfig.json');
 	if (fs.existsSync(vectorConfigPath)) {
 		try {
 			const configContent = fs.readFileSync(vectorConfigPath, 'utf-8');
-			const config = JSON.parse(configContent);
-			return { ...DEFAULT_VECTOR_CONFIG, ...config };
+			const parsed = JSON.parse(configContent);
+
+			// Check if it's an array of configs
+			if (Array.isArray(parsed)) {
+				if (configName) {
+					// Find config by name
+					const config = parsed.find((c) => c.name === configName);
+					if (!config) {
+						throw new Error(`Config with name "${configName}" not found`);
+					}
+					return { ...DEFAULT_VECTOR_CONFIG, ...config };
+				}
+				// Return first config if no name specified
+				if (parsed.length === 0) {
+					throw new Error('Config array is empty');
+				}
+				return { ...DEFAULT_VECTOR_CONFIG, ...parsed[0] };
+			}
+
+			// Single config object
+			return { ...DEFAULT_VECTOR_CONFIG, ...parsed };
 		} catch (error) {
 			console.warn(`Failed to parse .vectorconfig.json: ${error}`);
 		}
@@ -99,7 +144,24 @@ export function loadVectorConfig(repoRoot: string): VectorStoreConfig {
 			const packageContent = fs.readFileSync(packageJsonPath, 'utf-8');
 			const packageJson = JSON.parse(packageContent);
 			if (packageJson.vectorStore) {
-				return { ...DEFAULT_VECTOR_CONFIG, ...packageJson.vectorStore };
+				const vectorStore = packageJson.vectorStore;
+
+				// Check if it's an array of configs
+				if (Array.isArray(vectorStore)) {
+					if (configName) {
+						const config = vectorStore.find((c) => c.name === configName);
+						if (!config) {
+							throw new Error(`Config with name "${configName}" not found`);
+						}
+						return { ...DEFAULT_VECTOR_CONFIG, ...config };
+					}
+					if (vectorStore.length === 0) {
+						throw new Error('Config array is empty');
+					}
+					return { ...DEFAULT_VECTOR_CONFIG, ...vectorStore[0] };
+				}
+
+				return { ...DEFAULT_VECTOR_CONFIG, ...vectorStore };
 			}
 		} catch (error) {
 			console.warn(`Failed to parse package.json: ${error}`);
@@ -111,11 +173,90 @@ export function loadVectorConfig(repoRoot: string): VectorStoreConfig {
 }
 
 /**
- * Save vector store configuration to repository
+ * Load all vector store configurations from repository
+ * Returns array of all configs (even if there's only one)
  */
-export function saveVectorConfig(repoRoot: string, config: VectorStoreConfig): void {
+export function loadAllVectorConfigs(repoRoot: string): VectorStoreConfig[] {
+	// Try .vectorconfig.json first
+	const vectorConfigPath = path.join(repoRoot, '.vectorconfig.json');
+	if (fs.existsSync(vectorConfigPath)) {
+		try {
+			const configContent = fs.readFileSync(vectorConfigPath, 'utf-8');
+			const parsed = JSON.parse(configContent);
+
+			// Check if it's an array of configs
+			if (Array.isArray(parsed)) {
+				return parsed.map((c) => ({ ...DEFAULT_VECTOR_CONFIG, ...c }));
+			}
+
+			// Single config object - wrap in array
+			return [{ ...DEFAULT_VECTOR_CONFIG, ...parsed }];
+		} catch (error) {
+			console.warn(`Failed to parse .vectorconfig.json: ${error}`);
+		}
+	}
+
+	// Try package.json vectorStore field
+	const packageJsonPath = path.join(repoRoot, 'package.json');
+	if (fs.existsSync(packageJsonPath)) {
+		try {
+			const packageContent = fs.readFileSync(packageJsonPath, 'utf-8');
+			const packageJson = JSON.parse(packageContent);
+			if (packageJson.vectorStore) {
+				const vectorStore = packageJson.vectorStore;
+
+				// Check if it's an array of configs
+				if (Array.isArray(vectorStore)) {
+					return vectorStore.map((c) => ({ ...DEFAULT_VECTOR_CONFIG, ...c }));
+				}
+
+				return [{ ...DEFAULT_VECTOR_CONFIG, ...vectorStore }];
+			}
+		} catch (error) {
+			console.warn(`Failed to parse package.json: ${error}`);
+		}
+	}
+
+	// Return default config in array
+	return [DEFAULT_VECTOR_CONFIG];
+}
+
+/**
+ * Save vector store configuration to repository
+ * @param repoRoot - Repository root path
+ * @param config - Single config or array of configs to save
+ */
+export function saveVectorConfig(repoRoot: string, config: VectorStoreConfig | VectorStoreConfig[]): void {
 	const vectorConfigPath = path.join(repoRoot, '.vectorconfig.json');
 	fs.writeFileSync(vectorConfigPath, JSON.stringify(config, null, 2), 'utf-8');
+}
+
+/**
+ * Add or update a vector store configuration in the config file
+ * @param repoRoot - Repository root path
+ * @param config - Config to add or update (matched by name)
+ */
+export function addOrUpdateVectorConfig(repoRoot: string, config: VectorStoreConfig): void {
+	const configs = loadAllVectorConfigs(repoRoot);
+
+	if (!config.name) {
+		// If no name, replace the entire config with a single config
+		saveVectorConfig(repoRoot, config);
+		return;
+	}
+
+	// Find existing config by name
+	const existingIndex = configs.findIndex((c) => c.name === config.name);
+
+	if (existingIndex >= 0) {
+		// Update existing config
+		configs[existingIndex] = { ...configs[existingIndex], ...config };
+	} else {
+		// Add new config
+		configs.push(config);
+	}
+
+	saveVectorConfig(repoRoot, configs);
 }
 
 /**
@@ -123,6 +264,40 @@ export function saveVectorConfig(repoRoot: string, config: VectorStoreConfig): v
  */
 export function validateVectorConfig(config: VectorStoreConfig): { valid: boolean; errors: string[] } {
 	const errors: string[] = [];
+
+	if (config.name !== undefined) {
+		if (typeof config.name !== 'string' || config.name.trim() === '') {
+			errors.push('name must be a non-empty string');
+		}
+		// Validate name format (alphanumeric, dash, underscore)
+		if (config.name && !/^[a-zA-Z0-9_-]+$/.test(config.name)) {
+			errors.push('name must contain only alphanumeric characters, dashes, and underscores');
+		}
+	}
+
+	// GCP configuration validation
+	if (config.gcpProject !== undefined && config.gcpProject.trim() === '') {
+		errors.push('gcpProject must be a non-empty string');
+	}
+
+	if (config.datastoreId !== undefined && config.datastoreId.trim() === '') {
+		errors.push('datastoreId must be a non-empty string');
+	}
+
+	if (config.discoveryEngineLocation !== undefined) {
+		const validLocations = ['global', 'us', 'eu'];
+		if (!validLocations.includes(config.discoveryEngineLocation)) {
+			errors.push(`discoveryEngineLocation must be one of: ${validLocations.join(', ')}`);
+		}
+	}
+
+	if (config.gcpRegion !== undefined && config.gcpRegion.trim() === '') {
+		errors.push('gcpRegion must be a non-empty string');
+	}
+
+	if (config.discoveryEngineCollectionId !== undefined && config.discoveryEngineCollectionId.trim() === '') {
+		errors.push('discoveryEngineCollectionId must be a non-empty string');
+	}
 
 	if (config.chunkSize && config.chunkSize < 100) {
 		errors.push('chunkSize must be at least 100 characters');
@@ -151,6 +326,62 @@ export function validateVectorConfig(config: VectorStoreConfig): { valid: boolea
 	return {
 		valid: errors.length === 0,
 		errors,
+	};
+}
+
+/**
+ * Validate array of vector store configurations
+ * Checks for duplicate names and validates each config
+ */
+export function validateVectorConfigs(configs: VectorStoreConfig[]): { valid: boolean; errors: string[] } {
+	const errors: string[] = [];
+	const names = new Set<string>();
+
+	for (const config of configs) {
+		// Validate individual config
+		const configValidation = validateVectorConfig(config);
+		if (!configValidation.valid) {
+			errors.push(...configValidation.errors.map((e) => `Config "${config.name || 'unnamed'}": ${e}`));
+		}
+
+		// Check for duplicate names
+		if (config.name) {
+			if (names.has(config.name)) {
+				errors.push(`Duplicate config name: "${config.name}"`);
+			}
+			names.add(config.name);
+		}
+	}
+
+	// If there are multiple configs, all should have names
+	if (configs.length > 1) {
+		const unnamedConfigs = configs.filter((c) => !c.name);
+		if (unnamedConfigs.length > 0) {
+			errors.push(`When using multiple configs, all configs must have a "name" property (${unnamedConfigs.length} unnamed config(s) found)`);
+		}
+	}
+
+	return {
+		valid: errors.length === 0,
+		errors,
+	};
+}
+
+/**
+ * Build GoogleVectorServiceConfig from VectorStoreConfig + environment variables
+ * Config values override environment variables
+ *
+ * @param config VectorStoreConfig with optional GCP settings
+ * @returns GoogleVectorServiceConfig for Google Cloud services
+ */
+export function buildGoogleVectorServiceConfig(config: VectorStoreConfig): GoogleVectorServiceConfig {
+	return {
+		project: config.gcpProject || envVar('GCLOUD_PROJECT'),
+		region: config.gcpRegion || envVar('GCLOUD_REGION', 'us-central1'),
+		discoveryEngineLocation: config.discoveryEngineLocation || envVar('DISCOVERY_ENGINE_LOCATION', 'global'),
+		collection: config.discoveryEngineCollectionId || envVar('DISCOVERY_ENGINE_COLLECTION_ID', 'default_collection'),
+		dataStoreId: config.datastoreId || envVar('DISCOVERY_ENGINE_DATA_STORE_ID', 'test-datastore'),
+		embeddingModel: config.embeddingModel || process.env.DISCOVERY_ENGINE_EMBEDDING_MODEL || 'gemini-embedding-001',
 	};
 }
 

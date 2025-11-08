@@ -23,7 +23,7 @@ import type { TypeDefinition, TypeProperty } from './typeDefinition';
 
 const writeFileAsync = promisify(writeFile);
 
-const CACHED_BASE_PATH = `${systemDir()}/functions/`;
+const getCachedBasePath = () => `${systemDir()}/functions/`;
 
 /**
  * Parses a source file which is expected to have a class with the @funClass decorator.
@@ -89,7 +89,7 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 	let cachedPath = path.relative(cwd, sourceFilePath);
 	// trim the .ts file extension
 	cachedPath = cachedPath.slice(0, cachedPath.length - 3);
-	cachedPath = path.join(CACHED_BASE_PATH, cachedPath);
+	cachedPath = path.join(getCachedBasePath(), cachedPath);
 
 	const sourceUpdatedTimestamp = getFileUpdatedTimestamp(sourceFilePath);
 	const jsonUpdatedTimestamp = getFileUpdatedTimestamp(`${cachedPath}.json`);

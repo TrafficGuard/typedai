@@ -11,11 +11,10 @@
  *   pnpm vector:search "<query>"      # Search the index
  */
 
-import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { Command } from 'commander';
 import pino from 'pino';
-import { DEFAULT_VECTOR_CONFIG, loadVectorConfig } from './core/config';
+import { DEFAULT_VECTOR_CONFIG, buildGoogleVectorServiceConfig, loadVectorConfig } from './core/config';
 import type { VectorStoreConfig } from './core/config';
 import { getGoogleVectorServiceConfig } from './google/googleVectorConfig';
 import { VectorSearchOrchestrator } from './google/vectorSearchOrchestrator';
@@ -35,6 +34,8 @@ program
 	.command('sync [path]')
 	.description('Sync repository to vector index (auto-detects full vs incremental)')
 	.option('-c, --config <path>', 'Path to .vectorconfig.json')
+	.option('--config-name <name>', 'Name of config to use from .vectorconfig.json array')
+	.option('--fs <path>', 'Filesystem/working directory for loading .vectorconfig.json (includePatterns are relative to this)')
 	.option('--force-full', 'Force full reindex (skip auto-detection)')
 	.option('--data-store <id>', 'Override data store ID')
 	.option('--dry-run', 'Show what would be indexed without actually indexing')
@@ -42,25 +43,28 @@ program
 		const startTime = Date.now();
 
 		try {
+			// Determine the config root directory
+			const configRoot = options.fs ? path.resolve(options.fs) : repoPath;
+
 			// Load configuration
-			const configPath = options.config || path.join(repoPath, '.vectorconfig.json');
+			const configPath = options.config || path.join(configRoot, '.vectorconfig.json');
 			let config: VectorStoreConfig;
 
 			try {
-				config = loadVectorConfig(repoPath);
-				logger.info({ configPath }, 'Loaded configuration');
+				config = loadVectorConfig(configRoot, options.configName);
+				logger.info({ configPath, configName: options.configName, configRoot }, 'Loaded configuration');
 			} catch (error) {
 				logger.warn('No configuration found, using defaults');
 				config = DEFAULT_VECTOR_CONFIG;
 			}
 
-			// Initialize orchestrator
-			const googleConfig = getGoogleVectorServiceConfig();
+			// Build Google config from VectorStoreConfig (uses config values over env vars)
+			const googleConfig = buildGoogleVectorServiceConfig(config);
 			if (options.dataStore) {
 				googleConfig.dataStoreId = options.dataStore;
 			}
 
-			const orchestrator = new VectorSearchOrchestrator(googleConfig);
+			const orchestrator = new VectorSearchOrchestrator(googleConfig, config);
 
 			// Auto-detect: check if data store is empty
 			const isForceFullReindex = options.forceFull;
@@ -90,6 +94,7 @@ program
 			console.log('Configuration:');
 			console.log('━'.repeat(50));
 			console.log(`  Repository: ${repoPath}`);
+			console.log(`  Config Root: ${configRoot}`);
 			console.log(`  Mode: ${isInitialIndex ? 'Full Index' : 'Incremental Update'}`);
 			console.log(`  Dual Embedding: ${config.dualEmbedding ? '✓' : '✗'}`);
 			console.log(`  Contextual Chunking: ${config.contextualChunking ? '✓' : '✗'}`);
@@ -142,6 +147,8 @@ program
 	.command('search <query>')
 	.description('Search the vector index')
 	.option('-n, --limit <number>', 'Maximum number of results', '10')
+	.option('--config-name <name>', 'Name of config to use from .vectorconfig.json array')
+	.option('--fs <path>', 'Filesystem/working directory for loading .vectorconfig.json')
 	.option('--json', 'Output results as JSON')
 	.option('--data-store <id>', 'Override data store ID')
 	.option('--file <pattern>', 'Filter results by file pattern')
@@ -149,16 +156,13 @@ program
 	.option('--rerank', 'Enable reranking for better result quality')
 	.action(async (query, options) => {
 		try {
-			// Initialize orchestrator
-			const googleConfig = getGoogleVectorServiceConfig();
-			if (options.dataStore) {
-				googleConfig.dataStoreId = options.dataStore;
-			}
+			// Determine the config root directory
+			const configRoot = options.fs ? path.resolve(options.fs) : process.cwd();
 
 			// Load config and apply CLI overrides
 			let config: VectorStoreConfig;
 			try {
-				config = loadVectorConfig(process.cwd());
+				config = loadVectorConfig(configRoot, options.configName);
 			} catch (error) {
 				config = DEFAULT_VECTOR_CONFIG;
 			}
@@ -166,6 +170,12 @@ program
 			// Apply --rerank flag
 			if (options.rerank) {
 				config.reranking = true;
+			}
+
+			// Build Google config from VectorStoreConfig (uses config values over env vars)
+			const googleConfig = buildGoogleVectorServiceConfig(config);
+			if (options.dataStore) {
+				googleConfig.dataStoreId = options.dataStore;
 			}
 
 			const orchestrator = new VectorSearchOrchestrator(googleConfig, config);
@@ -212,6 +222,61 @@ program
 		} catch (error: any) {
 			console.error('❌ Search failed:', error.message);
 			logger.error({ error }, 'Search operation failed');
+			process.exit(1);
+		}
+	});
+
+/**
+ * Purge command: Deletes all documents from the vector store
+ */
+program
+	.command('purge')
+	.description('Delete all documents from the vector store')
+	.option('--config-name <name>', 'Name of config to use from .vectorconfig.json array')
+	.option('--fs <path>', 'Filesystem/working directory for loading .vectorconfig.json')
+	.option('--data-store <id>', 'Override data store ID')
+	.option('--yes', 'Skip confirmation prompt')
+	.action(async (options) => {
+		try {
+			// Load configuration to get the right data store
+			const configRoot = options.fs ? path.resolve(options.fs) : process.cwd();
+			let config: VectorStoreConfig;
+
+			try {
+				config = loadVectorConfig(configRoot, options.configName);
+				logger.info({ configName: options.configName, configRoot }, 'Loaded configuration');
+			} catch (error) {
+				logger.warn('No configuration found, using defaults');
+				config = DEFAULT_VECTOR_CONFIG;
+			}
+
+			// Build Google config from VectorStoreConfig (uses config values over env vars)
+			const googleConfig = buildGoogleVectorServiceConfig(config);
+			if (options.dataStore) {
+				googleConfig.dataStoreId = options.dataStore;
+			}
+
+			const orchestrator = new VectorSearchOrchestrator(googleConfig, config);
+
+			// Confirm before purging
+			if (!options.yes) {
+				console.log('⚠️  WARNING: This will delete ALL documents from the vector store!');
+				console.log(`   Data Store ID: ${googleConfig.dataStoreId}`);
+				console.log(`   Project: ${googleConfig.project}`);
+				console.log();
+				console.log('   This action cannot be undone.');
+				console.log();
+				console.log('   To proceed, run with --yes flag:');
+				console.log(`   pnpm vector:purge --yes ${options.configName ? `--config-name ${options.configName}` : ''}`);
+				process.exit(0);
+			}
+
+			console.log('🗑️  Purging all documents...');
+			await orchestrator.purgeAll();
+			console.log('✅ All documents deleted successfully!');
+		} catch (error: any) {
+			console.error('❌ Purge failed:', error.message);
+			logger.error({ error }, 'Purge operation failed');
 			process.exit(1);
 		}
 	});

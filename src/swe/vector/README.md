@@ -7,6 +7,7 @@ A comprehensive, configurable vector search solution for code repositories using
 - **Dual embeddings**: Code + natural language for 12% better retrieval
 - **Incremental sync**: Merkle tree-based change detection for efficient updates
 - **Hybrid search**: Dense vector + sparse BM25 lexical search
+- **Circuit breaker**: Automatic quota management with intelligent retry and recovery
 
 ## Architecture
 
@@ -32,6 +33,8 @@ Repository Files
 
 Create a `.vectorconfig.json` file in your repository root:
 
+#### Single Configuration
+
 ```json
 {
   "dualEmbedding": true,
@@ -48,6 +51,57 @@ Create a `.vectorconfig.json` file in your repository root:
 }
 ```
 
+#### Multiple Configurations (Array)
+
+You can define multiple configurations with different settings that map to different vector store collections. Each config must have a unique `name` property:
+
+```json
+[
+  {
+    "name": "main",
+    "dualEmbedding": true,
+    "contextualChunking": true,
+    "chunkSize": 2500,
+    "chunkOverlap": 300,
+    "chunkStrategy": "ast",
+    "embeddingProvider": "vertex",
+    "embeddingModel": "gemini-embedding-001",
+    "hybridSearch": true,
+    "reranking": false,
+    "includePatterns": ["src/**", "lib/**"],
+    "maxFileSize": 1048576
+  },
+  {
+    "name": "docs",
+    "dualEmbedding": false,
+    "contextualChunking": true,
+    "chunkSize": 3000,
+    "chunkOverlap": 400,
+    "chunkStrategy": "ast",
+    "embeddingProvider": "vertex",
+    "embeddingModel": "gemini-embedding-001",
+    "hybridSearch": true,
+    "reranking": false,
+    "includePatterns": ["docs/**", "*.md"],
+    "maxFileSize": 1048576
+  }
+]
+```
+
+The `name` property maps to the vector store collection name, allowing you to maintain separate indexes with different configurations. Use the CLI `--config-name` flag to specify which config to use:
+
+```bash
+# Use a specific config by name
+pnpm vector:sync . --config-name main
+pnpm vector:sync . --config-name docs
+pnpm vector:search "query" --config-name main
+
+# Use --fs to specify where to load .vectorconfig.json from
+# (includePatterns in the config are relative to --fs path)
+pnpm vector:sync /path/to/repo --fs /path/to/config/dir --config-name main
+pnpm vector:search "query" --fs /path/to/config/dir --config-name main
+```
+
 Or add to `package.json`:
 
 ```json
@@ -59,12 +113,54 @@ Or add to `package.json`:
 }
 ```
 
+Or with multiple configs in `package.json`:
+
+```json
+{
+  "vectorStore": [
+    {
+      "name": "main",
+      "dualEmbedding": true,
+      "contextualChunking": true
+    },
+    {
+      "name": "docs",
+      "dualEmbedding": false,
+      "contextualChunking": true
+    }
+  ]
+}
+```
+
+### Configuration Directory (`--fs` option)
+
+By default, the CLI loads `.vectorconfig.json` from the repository path you're indexing. However, you can use the `--fs` option to specify a different directory for loading the configuration file. This is useful when:
+
+- Your config file is stored separately from the repository being indexed
+- You want to use a centralized config directory for multiple repositories
+- The `includePatterns` need to be relative to a different base directory
+
+**Important:** When using `--fs`, all `includePatterns` in the configuration are interpreted as relative to the `--fs` path, not the repository path.
+
+**Example:**
+
+```bash
+# Config file at /home/configs/.vectorconfig.json with includePatterns: ["src/**"]
+# Repository to index at /home/repos/myproject
+# The includePatterns will be resolved relative to /home/configs/
+
+pnpm vector:sync /home/repos/myproject --fs /home/configs --config-name main
+```
+
+In this example, the pattern `src/**` will look for `/home/configs/src/**`, not `/home/repos/myproject/src/**`. Make sure your `includePatterns` are set appropriately when using `--fs`.
+
 ### Configuration Options
 
 #### Core Features
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `name` | `string` | `undefined` | Name of the configuration (required when using multiple configs). Maps to the vector store collection name. Must be alphanumeric with dashes/underscores only. |
 | `dualEmbedding` | `boolean` | `false` | Enable dual embedding (code + natural language). **12% better retrieval** but 3x cost. |
 | `contextualChunking` | `boolean` | `false` | Enable LLM-generated context with intelligent chunking. **49-67% better retrieval**. Single LLM call per file (optimized). ~1.2x cost increase over baseline. |
 
@@ -97,6 +193,49 @@ Or add to `package.json`:
 | `includePatterns` | `string[]` | `[]` | Glob patterns to include (e.g., `["src/**", "lib/**"]`). If not specified, all supported files are indexed (excluding common build directories). |
 | `maxFileSize` | `number` | `1048576` | Maximum file size in bytes to index (default: 1MB). |
 | `fileExtensions` | `string[]` | `['.ts', '.js', ...]` | File extensions to index. |
+
+#### Google Cloud Discovery Engine Configuration
+
+These settings allow you to specify Google Cloud project and Discovery Engine configuration per config entry. If not specified, they fall back to environment variables.
+
+| Option | Type | Default (Env Var) | Description |
+|--------|------|-------------------|-------------|
+| `gcpProject` | `string` | `GCLOUD_PROJECT` | GCP project ID for Discovery Engine. |
+| `gcpRegion` | `string` | `GCLOUD_REGION` (default: `'us-central1'`) | GCP region for Vertex AI embedding service. |
+| `discoveryEngineLocation` | `string` | `DISCOVERY_ENGINE_LOCATION` (default: `'global'`) | Discovery Engine location: `'global'`, `'us'`, or `'eu'`. |
+| `discoveryEngineCollectionId` | `string` | `DISCOVERY_ENGINE_COLLECTION_ID` (default: `'default_collection'`) | Discovery Engine collection ID. |
+| `datastoreId` | `string` | `DISCOVERY_ENGINE_DATA_STORE_ID` (default: `'test-datastore'`) | Discovery Engine datastore ID where documents are indexed. |
+
+**Example with GCP configuration:**
+
+```json
+[
+  {
+    "name": "main",
+    "gcpProject": "my-project-123",
+    "gcpRegion": "us-central1",
+    "discoveryEngineLocation": "global",
+    "discoveryEngineCollectionId": "default_collection",
+    "datastoreId": "my-main-datastore",
+    "dualEmbedding": true,
+    "contextualChunking": true,
+    "includePatterns": ["src/**"]
+  },
+  {
+    "name": "docs",
+    "gcpProject": "my-project-123",
+    "gcpRegion": "us-central1",
+    "discoveryEngineLocation": "global",
+    "discoveryEngineCollectionId": "default_collection",
+    "datastoreId": "my-docs-datastore",
+    "dualEmbedding": false,
+    "contextualChunking": true,
+    "includePatterns": ["docs/**"]
+  }
+]
+```
+
+This allows different configs to use different GCP projects, regions, or datastores, enabling multi-tenant or multi-environment setups.
 
 ## Configuration Presets
 
@@ -293,6 +432,60 @@ the token against a secret key."
 - 🎯 Best of both worlds
 - 🔍 Handles both semantic and exact queries
 - 📊 More robust retrieval
+
+### 6. Circuit Breaker for Quota Management
+
+**What it does:**
+- Automatically detects Google Discovery Engine API quota exhaustion
+- Pauses all requests when quota limit hit
+- Tests service recovery every 5 seconds
+- Resumes normal operation once quota resets
+- Queues requests during downtime to prevent data loss
+
+**How it works:**
+```
+1. Normal operation (CLOSED state):
+   - 15 files processed in parallel
+   - Discovery Engine calls proceed normally
+
+2. Quota error detected (OPEN state):
+   - Circuit breaker opens immediately
+   - All new requests queued (FIFO)
+   - Every 5 seconds: test first queued request
+
+3. Service recovery (HALF_OPEN → CLOSED):
+   - Test request succeeds
+   - Circuit closes automatically
+   - All queued requests processed
+   - Normal operation resumes
+```
+
+**Benefits:**
+- 🛡️ Prevents cascading failures from quota errors
+- ♻️ Automatic recovery without manual intervention
+- 📦 Request queuing prevents data loss
+- 🔍 Transparent to application logic
+- ⏱️ Configurable retry interval (default: 5 seconds)
+
+**Configuration:**
+```typescript
+// Default values in googleVectorConfig.ts
+CIRCUIT_BREAKER_RETRY_INTERVAL_MS = 5000    // 5 seconds between retries
+CIRCUIT_BREAKER_FAILURE_THRESHOLD = 1       // Open after 1 quota error
+CIRCUIT_BREAKER_SUCCESS_THRESHOLD = 1       // Close after 1 successful test
+FILE_PROCESSING_PARALLEL_BATCH_SIZE = 15    // Concurrent file processing
+```
+
+**User Experience:**
+When quota exhaustion occurs, you'll see:
+```
+⚠️  Discovery Engine quota limit hit - pausing requests...
+   Will retry every 5 seconds until service recovers
+
+... (automatic retries happening) ...
+
+✅ Discovery Engine service recovered - resuming requests
+```
 
 ## Usage
 

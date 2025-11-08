@@ -19,8 +19,12 @@ export {
 	DEFAULT_VECTOR_CONFIG,
 	HIGH_QUALITY_CONFIG,
 	loadVectorConfig,
+	loadAllVectorConfigs,
 	saveVectorConfig,
+	addOrUpdateVectorConfig,
 	validateVectorConfig,
+	validateVectorConfigs,
+	buildGoogleVectorServiceConfig,
 	estimateCostPerFile,
 	printConfigSummary,
 } from './core/config';
@@ -67,6 +71,10 @@ export { DiscoveryEngineAdapter } from './google/discoveryEngineAdapter';
 // Main Orchestrator
 export { VectorSearchOrchestrator } from './google/vectorSearchOrchestrator';
 
+// Circuit Breaker
+export { DiscoveryEngineCircuitBreaker, CircuitState } from './google/discoveryEngineCircuitBreaker';
+export type { CircuitBreakerConfig, TimerInterface, LoggerInterface } from './google/discoveryEngineCircuitBreaker';
+
 // Legacy exports for backward compatibility
 export { DiscoveryEngine } from './google/discoveryEngine';
 export { VertexAITextEmbeddingService } from './google/vertexEmbedder';
@@ -81,6 +89,10 @@ export {
 	GCLOUD_REGION,
 	DISCOVERY_ENGINE_DATA_STORE_ID,
 	DISCOVERY_ENGINE_EMBEDDING_MODEL,
+	FILE_PROCESSING_PARALLEL_BATCH_SIZE,
+	CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
+	CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+	CIRCUIT_BREAKER_SUCCESS_THRESHOLD,
 } from './google/googleVectorConfig';
 
 // Original interfaces (legacy)
