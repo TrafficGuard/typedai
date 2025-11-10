@@ -107,8 +107,8 @@ describe('codegenAgentRunner', () => {
 	describe('test function calling', () => {
 		it('should be able to call a function with multiple parameters and evolve the prompt', async () => {
 			functions.addFunctionClass(TestFunctions);
-			const initialCode = `${PY_SET_MEMORY('memKey', 'contents')}\nreturn ${PY_TEST_FUNC_SUM(3, 6)}`;
-			const secondCode = `return ${PY_TEST_FUNC_SUM(42, 42)}`;
+			const initialCode = `${PY_SET_MEMORY('memKey', 'contents')}\n${PY_TEST_FUNC_SUM(3, 6)}`;
+			const secondCode = `${PY_TEST_FUNC_SUM(42, 42)}`;
 
 			// Arrange: Queue all necessary LLM responses for the entire agent run
 			mockLLM
@@ -116,8 +116,8 @@ describe('codegenAgentRunner', () => {
 				.addResponse(ITERATION_SUMMARY_RESPONSE) // 2. Summary of first iteration
 				.addResponse(PYTHON_CODE_PLAN(secondCode)) // 3. Second plan to sum 42 and 42
 				.addResponse(ITERATION_SUMMARY_RESPONSE) // 4. Summary of second iteration
-				.addResponse(COMPLETE_FUNCTION_CALL_PLAN); // 5. Final plan to complete
-			// .addResponse(ITERATION_SUMMARY_RESPONSE) // 6. Summary of completion
+				.addResponse(COMPLETE_FUNCTION_CALL_PLAN) // 5. Final plan to complete
+				.addResponse(ITERATION_SUMMARY_RESPONSE); // 6. Summary of completion
 			// No summary needed for completion, as it halts execution.
 
 			// Act: Run the agent and wait for it to finish

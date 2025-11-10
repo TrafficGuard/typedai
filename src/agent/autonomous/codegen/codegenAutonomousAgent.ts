@@ -761,21 +761,27 @@ function cleanupAgentPyodideLogs(agentId: string) {
 async function ensureCorrectSyntax(pythonMainFnCode: string, functionsXml: string): Promise<string> {
 	const MAX_ATTEMPTS = 5;
 	for (let i = 1; i <= MAX_ATTEMPTS; i++) {
-		const lines = mainFnCodeToFullScript(pythonMainFnCode).split('\n');
-		// Strip the main() so nothing executes
-		const main = lines.pop();
-		if (main !== 'main()') throw new Error('Expected last line to be main()');
-		const script = lines.join('\n');
+		const script = mainFnCodeToFullScript(pythonMainFnCode);
 		try {
-			await pyodide.runPythonAsync(script, {});
+			pyodide.globals.set('code_to_check', script);
+			await pyodide.runPythonAsync('import ast\ncompile(code_to_check, "<string>", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)');
 			return pythonMainFnCode;
 		} catch (e) {
 			if ((e.type !== 'IndentationError' && e.type !== 'SyntaxError') || i === MAX_ATTEMPTS) throw e; // Only expect syntax/indent errors
 
 			// Fix the compile issues in the script
 			const prompt = `${functionsXml}\n<python>\n${pythonMainFnCode}</python>\n<error>${e.message}</error>\nPlease adjust/reformat the Python code to fix the issue. Output only the updated code. Do no chat, do not output markdown ticks. Only the updated code.`;
-			pythonMainFnCode = await llms().hard.generateText(prompt, { id: 'Fix python script error' });
+			const fixResponse = await llms().hard.generateText(prompt, { id: 'Fix python script error' });
+			try {
+				// The LLM may return the fix in a full response block
+				pythonMainFnCode = extractPythonCode(fixResponse);
+			} catch (e) {
+				// Or it may return just the code
+				pythonMainFnCode = fixResponse;
+			}
 			pythonMainFnCode = removePythonMarkdownWrapper(pythonMainFnCode);
+		} finally {
+			pyodide.globals.delete('code_to_check');
 		}
 	}
 	return pythonMainFnCode;

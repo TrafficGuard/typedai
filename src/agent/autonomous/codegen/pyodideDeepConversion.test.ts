@@ -38,7 +38,7 @@ for p in projects:
 # Mutate nested field to ensure dict/list semantics work
 first['processed'] = True
 
-return {
+{
     'ok': ok,
     'count': count,
     'ownerName': owner_name,
@@ -86,7 +86,7 @@ data = await Api_getData()
 data['items'][0]['tags'].append('new')
 total = sum([v for v in data['metrics'].values()])
 
-return {
+{
     'firstTags': data['items'][0]['tags'],
     'total': total,
     'hasNew': 'new' in data['items'][0]['tags'],

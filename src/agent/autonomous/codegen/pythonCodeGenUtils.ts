@@ -33,13 +33,8 @@ class JsProxyEncoder(json.JSONEncoder):
         # Let the base class default method raise the TypeError
         return super().default(obj)
 
-async def main():
-${pythonMainFnCode
-	.split('\n')
-	.map((line) => `    ${line}`)
-	.join('\n')}
-
-main()`.trim();
+`.trim();
+	pythonScript += `\n\n${pythonMainFnCode}`;
 	return pythonScript;
 }
 

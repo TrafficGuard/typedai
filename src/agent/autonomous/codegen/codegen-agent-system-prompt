@@ -218,7 +218,7 @@ current_process_knowledge = f'''
 '''
 await Agent_setMemory("current_process_knowledge", current_process_knowledge)
 # The current process knowledge is minimal, request feedback for more
-await AgentFeedback_completed("I have collated a report on the new registration process. My understanding of the current process is limited. Could you provide more details?")
+await Agent_completed("I have collated a report on the new registration process. My understanding of the current process is limited. Could you provide more details?")
 </agent:python_code>
 
 <code-review>
@@ -308,22 +308,24 @@ Otherwise return any values to analyse further.
 Python code instructions:
 - Assume the imports for built-in packages typing, json, re, math and datetime will be added to the start of the script. No import statements or other packages are allowed.
 - await on every call to functions defined previously in the <functions> block.
-- Keep the code as simple as possible. Do not manipulate the function return values unless absolutely necessary. Prefer returning the values returned from the functions directly.
-- For lookups by value where a single item is expected, if the result is not a single match, the full collection must be returned for analysis.
+- Keep the code as simple as possible. Do not manipulate function results unless absolutely necessary.
+- To provide a value for analysis in your next iteration, make it the last expression in the script. The value of the last expression is automatically returned. Do not use the `return` keyword.
+- To make multiple values available for viewing/processing, create a Dict and make it the last expression of the script.
+- For lookups by value where a single item is expected, if the result is not a single match, the full collection must be made the last expression for analysis.
 - Add comments with your reasoning.
-- Add print calls throughout your code
+- Add print calls throughout your code.
 - If defining new variables then add typings from the value being assigned.
-- If you save a variable to memory then do not return it.
-- You don't need to re-save existing memory values
-- Code defensively, checking the properties on objects are expected
+- If you save a variable to memory, do not also make it the last expression of the script.
+- You don't need to re-save existing memory values.
+- Code defensively, checking the properties on objects are expected.
 - For any operation involving user-specified items, refer to 'Interpreting User Requests' items to code defensively, ensuring flexible and context-aware handling.
-- When calling Agent_completed or AgentFeedback_requestFeedback you must directly return its result. (Ensure any required information has already been stored to memory)
+- When calling Agent_completed or AgentFeedback_requestFeedback, it must be the final statement in your script.
 - This script may be running on repositories where the source code files are TypeScript, Java, Terraform, PHP, C#, C++, Ruby etc. Do not assume Python files.
-- You can directly analyze and return text/data/contents from <memory> and <script-result> tags. If you need to analyze unstructured data then include it to a return Dict value to view in the next step.
-- All maths must be done in Python code
-- If calling `json.dumps` it must also be passed the arg cls=JsProxyEncoder. i.e. json.dumps(data, cls=JsProxyEncoder). You can assume the JsProxyEncoder class is available in the execution environment
+- You can directly analyze text/data/contents from <memory> and <script-result> tags. To provide unstructured data for analysis, include it in a Dict as the last expression.
+- All maths must be done in Python code.
+- If calling `json.dumps` it must also be passed the arg cls=JsProxyEncoder. i.e. json.dumps(data, cls=JsProxyEncoder). You can assume the JsProxyEncoder class is available in the execution environment.
 
-- To include an image file (e.g., a screenshot returned by a function) in the prompt for your *next* analysis step, in the returned dictionary, include a key with a value following structure {"type": "image", "source": "", "specifier": "value"}
+- To include an image file (e.g., a screenshot returned by a function) in the prompt for your *next* analysis step, include it in the dictionary that is the last expression of the script. The value should follow the structure {"type": "image", "source": "...", "specifier": "value"}
 i.e. matches the definition of:
 class ImageSource:
     def __init__(self, type: str, source: str, data: str | bytes | Dict[int, str]):
@@ -336,7 +338,7 @@ Example:
 
 screenshot_info: Dict = await PublicWeb_takeScreenshotAndLogs("https://example.com") # Assume returns { image: ImageSource, logs: List[str] }
 image_path: str = await FileSystem_saveFile("screenshot.png", screenshot_info['image'], "Screenshot of example.com") # Saves buffer, returns path
-return {
+{
     "file_image": { "type": "image", "source": "filesystem", "value": "folder/to/image.png" },
     "screenshot_image": screenshot_info['image'],
     "saved_screenshot": { "type": "image", "source": "filesystem", "value": image_path },
@@ -354,9 +356,8 @@ Valid Dict values to return an image:
 - When accessing properties on a Dict result from a function call, using array access. ie. result['propertyName']
 - If f-strings *are* used, any literal curly braces `{` or `}` intended as part of the string content *must* be escaped by doubling them (`{{` and `}}`)
 - Output in a comment what you know with complete confidence about a value returned from a function
-- Do NOT assume anything about the value of the results from functions other than from the function docs and type hints. Return values that require further analysis of the values
-- The script can return a Dict with any values you need to have available to view/process to make a decision for the next step.
-- If you do process an object/collection and the result is unexpected (empty or otherwise), then return the original object/collection so it can be inspected in the next step.
+- Do NOT assume anything about the value of the results from functions other than from the function docs and type hints. Make values that require further analysis of the values the last expression.
+- If you do process an object/collection and the result is unexpected (empty or otherwise), then make the original object/collection the last expression so it can be inspected in the next step.
 - Always use positional arguments when calling functions
 - Assume the objects returns from function calls match the type hints.
 Example:
@@ -365,13 +366,13 @@ Example:
 list1str: str = await Agent_getMemory("list1-json")
 # We can see from the memory contents that it is a JSON array string
 list1: List[str] = json.loads(list1str)
-print("list1.length " + len(list1))
+print("list1.length " + str(len(list1)))
 # list1 is unchanged so do not re-save to memory
 result2: List[str] = await FunctionClass2_returnStringList()
 # The strings in result2 are of an unknown format
-print("result2.length " + len(result2))
-# Do not assume the structure/styles values, return the values for further analysis
-return { list1: list1, list2: list2}
+print("result2.length " + str(len(result2)))
+# Do not assume the structure/styles values, make the values the last expression for further analysis
+{ "list1": list1, "list2": result2 }
 -->
 </agent:python_code>
 
@@ -382,28 +383,28 @@ Provide a review of the draft python code against each of the Python code instru
 - Delete memory items no longer required
 - Assume built-in imports; no other packages/imports.
 - Await all calls to functions defined in `<functions>` block.
-- Keep code simple; prefer direct returns; no manipulation unless necessary.
-- For single-item lookups, return full collection if not single match.
+- Keep code simple; prefer making values the last expression; no manipulation unless necessary.
+- For single-item lookups, make the full collection the last expression if not single match.
 - Add reasoning comments.
 - Add print calls throughout.
 - Add typings for new variables.
-- Do not return variables already saved to memory. This will double token usage.
+- Do not make variables already saved to memory the last expression. This will double token usage.
 - Code defensively; check object properties.
 - Handle user-specified items flexibly (refer to 'Interpreting User Requests').
-- If item not found using assumptions, return all values for further analysis.
-- Directly return `Agent_completed` result (after storing info).
+- If item not found using assumptions, make all values the last expression for further analysis.
+- Ensure `Agent_completed` or `AgentFeedback_requestFeedback` is the final statement if used.
 - Do not assume Python files (e.g., TS, Java, Terraform, PHP, C#, C++, Ruby).
-- Directly analyze/return text/data from `<memory>` and `<script-result>`; return unstructured data in Dict for analysis.
+- Directly analyze text/data from `<memory>` and `<script-result>`; make unstructured data a `Dict` as the last expression for analysis.
 - All math in Python code.
 - Use `json.dumps(data, cls=JsProxyEncoder)`.
-- Return images in Dict with `{"type": "image", "source": "...", "value": "..."}` structure.
+- Make a Dict with images the last expression, using `{"type": "image", "source": "...", "value": "..."}` structure.
 - Comment on property existence; use array access for Dicts.
 - Escape literal curly braces in f-strings (`{{` and `}}`).
 - Comment on known function return values; do not assume others.
-- Return original object/collection if processing results in unexpected (empty) outcome.
+- Make the original object/collection the last expression if processing results in unexpected (empty) outcome.
 - Use positional arguments for function calls.
 - Assume function return objects match type hints.
-- Return Dict with values for next step decision.
+- Make a Dict with values for the next step decision the last expression.
 -->
 </code-review>
 
