@@ -199,49 +199,53 @@ export interface ExecCmdOptions {
 export async function execCommand(command: string, opts?: ExecCmdOptions): Promise<ExecResult> {
 	return withSpan('execCommand', async (span) => {
 		const context = agentContext();
+
+		const redactedCommand = opts?.mask ? command.replace(opts.mask, '***') : command;
+
 		// Docker container Id to run the command in
 		const containerId = context?.containerId;
 
 		if (containerId) {
 			// Running inside a container via docker exec
 			const dockerCommand = buildDockerCommand(containerId, command, opts?.workingDirectory, opts?.envVars);
+			const redactedDockerCommand = opts?.mask ? dockerCommand.replace(opts.mask, '***') : dockerCommand;
 			const hostCwd = getFileSystem().getVcsRoot() ?? undefined;
 			const options: ExecOptions = { cwd: hostCwd, env: process.env };
 
 			try {
-				logger.info(`DOCKER_EXEC: ${command} (in container ${containerId})`);
-				logger.info(`Executing: ${dockerCommand}`);
+				logger.info(`DOCKER_EXEC: ${redactedCommand} (in container ${containerId})`);
+				logger.info(`Executing: ${redactedDockerCommand}`);
 				let { stdout, stderr } = await execAsync(dockerCommand, options);
 				stdout = formatAnsiWithMarkdownLinks(stdout);
 				stderr = formatAnsiWithMarkdownLinks(stderr);
 				span.setAttributes({
 					'container.id': containerId,
-					'container.command': command,
+					'container.command': redactedCommand,
 					cwd: opts?.workingDirectory ?? CONTAINER_PATH,
-					command: dockerCommand,
+					command: redactedDockerCommand,
 					stdout,
 					stderr,
 					exitCode: 0,
 				});
 				span.setStatus({ code: SpanStatusCode.OK });
-				return { stdout, stderr, exitCode: 0, command };
+				return { stdout, stderr, exitCode: 0, command: redactedCommand };
 			} catch (error) {
 				const stdout = formatAnsiWithMarkdownLinks(error.stdout || '');
 				const stderr = formatAnsiWithMarkdownLinks(error.stderr || '');
 				span.setAttributes({
 					'container.id': containerId,
-					'container.command': command,
+					'container.command': redactedCommand,
 					cwd: opts?.workingDirectory ?? CONTAINER_PATH, // Log container CWD
-					command: dockerCommand,
+					command: redactedDockerCommand,
 					stdout,
 					stderr,
 					exitCode: error.code,
 				});
 				span.recordException(error);
 				span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
-				logger.error(error, `Error executing ${command} in container ${containerId}`);
+				logger.error(error, `Error executing ${redactedCommand} in container ${containerId}`);
 				if (opts?.throwOnError) {
-					const e: any = new Error(`Error running ${command} in container. ${stdout} ${stderr}`);
+					const e: any = new Error(`Error running ${redactedCommand} in container. ${stdout} ${stderr}`);
 					e.code = error.code;
 					throw e;
 				}
@@ -255,39 +259,39 @@ export async function execCommand(command: string, opts?: ExecCmdOptions): Promi
 		const env = opts?.envVars ? { ...process.env, ...opts.envVars } : process.env;
 		const options: ExecOptions = { cwd: opts?.workingDirectory ?? getFileSystem().getWorkingDirectory(), shell, env };
 		try {
-			logger.info(`${options.cwd} % ${command}`);
+			logger.info(`${options.cwd} % ${redactedCommand}`);
 			let { stdout, stderr } = await execAsync(command, options);
 			stdout = formatAnsiWithMarkdownLinks(stdout);
 			stderr = formatAnsiWithMarkdownLinks(stderr);
 			span.setAttributes({
 				cwd: options.cwd as string,
 				shell,
-				command,
+				command: redactedCommand,
 				stdout,
 				stderr,
 				exitCode: 0,
 			});
 			span.setStatus({ code: SpanStatusCode.OK });
-			return { stdout, stderr, exitCode: 0, command };
+			return { stdout, stderr, exitCode: 0, command: redactedCommand };
 		} catch (error) {
 			const stdout = formatAnsiWithMarkdownLinks(error.stdout || '');
 			const stderr = formatAnsiWithMarkdownLinks(error.stderr || '');
 			span.setAttributes({
 				cwd: options.cwd as string,
-				command,
+				command: redactedCommand,
 				stdout,
 				stderr,
 				exitCode: error.code,
 			});
 			span.recordException(error);
 			span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
-			logger.error(error, `Error executing ${command}`);
+			logger.error(error, `Error executing ${redactedCommand}`);
 			if (opts?.throwOnError) {
-				const e: any = new Error(`Error running ${command}. ${stdout} ${stderr}`);
+				const e: any = new Error(`Error running ${redactedCommand}. ${stdout} ${stderr}`);
 				e.code = error.code;
 				throw e;
 			}
-			return { stdout, stderr, exitCode: error.code, command };
+			return { stdout, stderr, exitCode: error.code, command: redactedCommand };
 		}
 	});
 }
