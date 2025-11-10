@@ -15,7 +15,7 @@ import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { AgentCompleted, AgentContext } from '#shared/agent/agent.model';
 
-const AGENT_USERNAME = 'typedai';
+const AGENT_USERNAME = process.env.GITLAB_AGENT_USERNAME || 'typedai';
 const AGENT_TAG = `@${AGENT_USERNAME}`;
 
 export class GitLabNoteCompletedHandler implements AgentCompleted {
