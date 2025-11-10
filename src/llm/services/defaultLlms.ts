@@ -34,8 +34,8 @@ export function defaultLLMs(): AgentLLMs {
 	// }
 
 	const easyLLMs = [
-		new FastEasyLLM(),
 		vertexGemini_2_5_Flash_Lite(),
+		new FastEasyLLM(),
 		Gemini_2_5_Flash_Lite(),
 		cerebrasGptOss_120b(),
 		groqLlama4_Scout(),
@@ -45,7 +45,7 @@ export function defaultLLMs(): AgentLLMs {
 	const easy: LLM | undefined = easyLLMs.find((llm) => llm.isConfigured());
 	if (!easy) throw new Error('No default easy LLM configured');
 
-	const mediumLLMs = [new FastMediumLLM(), cerebrasZaiGLM_4_6(), vertexGemini_2_5_Flash(), Gemini_2_5_Flash(), openaiGPT5mini(), anthropicClaude4_5_Haiku()];
+	const mediumLLMs = [vertexGemini_2_5_Flash(), new FastMediumLLM(), cerebrasZaiGLM_4_6(), Gemini_2_5_Flash(), openaiGPT5mini(), anthropicClaude4_5_Haiku()];
 	const medium: LLM | undefined = mediumLLMs.find((llm) => llm.isConfigured());
 	if (!medium) throw new Error('No default medium LLM configured');
 
