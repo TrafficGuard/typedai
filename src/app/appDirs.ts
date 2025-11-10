@@ -1,5 +1,4 @@
 import { join } from 'node:path';
-import { agentContext } from '#agent/agentContextLocalStorage';
 
 /** The default system dir folder */
 export const typedaiDirName = '.typedai';
@@ -22,6 +21,8 @@ export function systemDir(): string {
  */
 export function agentStorageDir(agentId?: string): string {
 	if (agentId) return join(systemDir(), 'agents', agentId);
+	// Need to lazy load for startup dependencies
+	const { agentContext } = require('#agent/agentContextLocalStorage');
 	const agent = agentContext();
 	if (!agent || !agent.agentId) throw new Error('Agent context not available.');
 	return join(systemDir(), 'agents', agent.agentId);
