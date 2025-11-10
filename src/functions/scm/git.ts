@@ -214,30 +214,28 @@ export class Git implements VersionControlSystem {
 	async switchToBranch(branchName: string): Promise<void> {
 		this.previousBranch = await this.getBranchName();
 
-		// First, check if the branch exists locally
-		const localBranchCheck = await execCommand(`git rev-parse --verify ${branchName}`, this.opts());
+		// First, try to switch to the branch directly. This works if it exists locally, even if it's an "unborn" branch.
+		const switchResult = await execCommand(`git switch ${arg(branchName)}`, this.opts());
 
-		if (localBranchCheck.exitCode === 0) {
-			// Branch exists locally, just switch to it
-			const switchResult = await execCommand(`git switch ${branchName}`, this.opts());
-			failOnError(`Failed to switch to existing local branch ${branchName}`, switchResult);
+		if (switchResult.exitCode === 0) {
 			logger.info(`Switched to existing local branch ${branchName}`);
 			return;
 		}
 
-		// Branch doesn't exist locally, check if it exists on remote
+		// If the switch failed, the branch likely doesn't exist locally.
+		// Check if it exists on the remote.
 		const remoteBranchCheck = await execCommand(`git ls-remote --heads origin ${branchName}`, this.opts());
 
 		if (remoteBranchCheck.exitCode === 0 && remoteBranchCheck.stdout.trim().length > 0) {
-			// Branch exists on remote, create local tracking branch
+			// Branch exists on remote, create a local tracking branch.
 			const trackResult = await execCommand(`git switch --track origin/${branchName}`, this.opts());
 			failOnError(`Failed to create tracking branch for origin/${branchName}`, trackResult);
 			logger.info(`Created local tracking branch ${branchName} from origin/${branchName}`);
 			return;
 		}
 
-		// Branch doesn't exist locally or remotely, create new local branch
-		const createResult = await execCommand(`git switch -c ${branchName}`, this.opts());
+		// Branch doesn't exist locally or remotely, so create a new local branch.
+		const createResult = await execCommand(`git switch -c ${arg(branchName)}`, this.opts());
 		failOnError(`Failed to create new branch ${branchName}`, createResult);
 		logger.info(`Created new local branch ${branchName}`);
 	}
