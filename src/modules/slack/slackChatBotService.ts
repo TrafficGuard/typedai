@@ -1,5 +1,6 @@
 import { App, type KnownEventFromType, type SayFn, StringIndexed } from '@slack/bolt';
 import { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
+import { Member } from '@slack/web-api/dist/types/response/UsersListResponse';
 import { llms } from '#agent/agentContextLocalStorage';
 import { AgentExecution, isAgentExecuting } from '#agent/agentExecutions';
 import { getLastFunctionCallArg } from '#agent/autonomous/agentCompletion';
@@ -22,13 +23,39 @@ import { runAsUser } from '#user/userContext';
 import type { ChatBotService } from '../../chatBot/chatBotService';
 import { SupportKnowledgebase } from '../../functions/supportKnowledgebase';
 import { SlackAPI } from './slackApi';
-import { formatAsSlackBlocks } from './slackBlockFormatter';
+import { convertMessageBlocksToMarkdown } from './slackBlocksToText';
 import { slackConfig } from './slackConfig';
-import { textToBlocks } from './slackMessageFormatter';
 
 let slackApp: App<StringIndexed> | undefined;
 
 const CHATBOT_FUNCTIONS: Array<new () => any> = [GitLab, GoogleCloud, PublicWeb, Perplexity, LlmTools, Jira, Confluence];
+
+const SUPPORT_PROMPT = `You are TG AI, the AI support agent in the company Slack channels. Always read the entire thread before acting.
+
+Calling the Agent_completed function with a note will post the note contents as a message to the conversation.
+Calling the Agent_completed function with an empty string will not post a message to the conversation.
+
+Deciding whether to respond:
+- Reply when you can clearly add value: a participant has asked a question, tagged you, or left an issue unresolved, and you have high-confidence, non-duplicative information that moves it forward.
+- This still applies if new messages were added after the question—respond to the outstanding item as long as it remains unresolved and your answer is still relevant.
+- If you have been tagged in a message that you haven't yet replied to, then provide a reply referencing the message you were tagged in, either providing what you know about the issue or informing that you're unable to help with it.
+- If the conversation has shifted to human-only updates, celebrations, or already solved the issue without requesting further input, do not reply, i.e. call the Agent_completed function with an empty string.
+
+When you do reply:
+- Be concise, actionable, and back up guidance with concrete evidence (commands, URLs, logs) when available.
+- Acknowledge uncertainty rather than guessing; never fabricate information.
+- If you encounter an internal problem generating a response, reply only with “Sorry, I'm having difficulties providing a response to your request.”`;
+
+export interface SlackUser {
+	name: string;
+	isBot: boolean;
+	deleted: boolean;
+	realName: string;
+	displayName: string;
+	realNameNormalized: string;
+	displayNameNormalized: string;
+	email: string;
+}
 
 /*
 There's a few steps involved with spotting a thread and then understanding the context of a message within it. Let's unspool them:
@@ -53,6 +80,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 	private agentUser!: User;
 	private botUserId: string | undefined;
 	private botMentionCache: Map<string, boolean> = new Map(); // Cache bot mentions by thread
+	private users: Map<string, SlackUser> = new Map();
 
 	api(): SlackAPI {
 		this.slackApi ??= new SlackAPI();
@@ -148,6 +176,21 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 
 		this.channels = new Set(config.channels);
 
+		const members = await this.slackApi.getUsers();
+		for (const member of members) {
+			if (!member.id) continue;
+			this.users.set(member.id, {
+				name: member.name || '',
+				isBot: member.is_bot || false,
+				deleted: member.deleted || false,
+				realName: member.profile?.real_name || '',
+				displayName: member.profile?.display_name || '',
+				realNameNormalized: member.profile?.real_name_normalized || '',
+				displayNameNormalized: member.profile?.display_name_normalized || '',
+				email: member.profile?.email || '',
+			});
+		}
+
 		// Get bot user ID for mention detection
 		try {
 			const authResult = await slackApp.client.auth.test();
@@ -205,7 +248,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 		}
 
 		try {
-			const messages = await this.fetchThreadMessages(channel, threadTs);
+			const messages = await this.api().fetchThreadMessages(channel, threadTs);
 			// Check if any message in the thread mentions the bot
 			const mentioned = messages.some((msg: any) => this.messageMentionsBot(msg.text));
 			// Cache the result
@@ -262,13 +305,25 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			await this.api().addReaction(event.channel, threadId, 'robot_face');
 
 			try {
-				const agentExec = await this.startAgentForThread(threadId, event.channel, messageText);
+				let enrichedMessageText: string | undefined;
+				try {
+					const blocks = JSON.parse(messageText);
+					if (Array.isArray(blocks)) {
+						enrichedMessageText = await convertMessageBlocksToMarkdown(blocks, this.users);
+					} else {
+						logger.info({ messageText }, 'Message text is not an array of blocks');
+					}
+				} catch (e) {
+					logger.info(e, 'Unable to enrich message text with user profiles');
+				}
+
+				const agentExec = await this.startAgentForThread(threadId, event.channel, enrichedMessageText || messageText);
 				await agentExec.execution;
 				const agent: AgentContext = (await agentService.load(agentExec.agentId))!;
 
 				if (agent.state !== 'completed' && agent.state !== 'hitl_feedback') {
 					logger.error(`Agent did not complete. State was ${agent.state}`);
-					await (await this.api()).addReaction(event.channel, event.ts, 'robot_face::boom');
+					await this.api().addReaction(event.channel, event.ts, 'robot_face::boom');
 					return;
 				}
 				await this.api().removeReaction(event.channel, event.ts, 'robot_face');
@@ -281,12 +336,14 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			logger.info(`Reply to thread ${event.ts}`);
 			const threadId = _event.thread_ts;
 			const agentId = `Slack-${threadId}`;
-			const agent: AgentContext | null = await agentService.load(agentId);
-			const messages = await this.fetchThreadMessages(event.channel, threadId);
+			let agent: AgentContext | null = await agentService.load(agentId);
+			const messagesBlocks = await this.api().fetchThreadMessages(event.channel, threadId);
+
+			const messages = await convertMessageBlocksToMarkdown(messagesBlocks, this.users);
 
 			await this.api().addReaction(event.channel, _event.ts, 'robot_face');
 
-			const prompt = `${JSON.stringify(messages)}\n\nReply to this conversation thread`;
+			const prompt = `${messages}\n\n------\n\nReply to this conversation thread, if appropriate. If `;
 
 			if (!agent) {
 				logger.info(`Starting new agent for thread ${threadId}`);
@@ -294,6 +351,9 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 				await exec.execution;
 			} else if (isAgentExecuting(agentId)) {
 				logger.info(`Adding message to agent ${agentId}`);
+				// TODO need to do this update in a transaction
+				agent = await agentService.load(agentId);
+				if (!agent) return;
 				agent.pendingMessages.push(_event.text);
 				await agentService.save(agent);
 				return;
@@ -317,8 +377,6 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			llms: defaultLLMs(),
 			functions: CHATBOT_FUNCTIONS,
 			agentName: `Slack-${threadId}`,
-			systemPrompt:
-				'You are an AI support agent.  You are responding to support requests on the company Slack account. Respond in a helpful, concise manner. If you encounter an error responding to the request do not provide details of the error to the user, only respond with "Sorry, I\'m having difficulties providing a response to your request"',
 			metadata: { slack: { channel, thread_ts: threadId, reply_ts: replyTs } }, // Use event.ts as thread_ts for new threads
 			completedHandler: this,
 			useSharedRepos: true, // Support bot is read only
@@ -333,30 +391,85 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 		});
 	}
 
-	async fetchThreadMessages(channel: string, parentMessageTs: string): Promise<any> {
-		logger.info(`Fetching thread messages for ${parentMessageTs}`);
-		const result = await slackApp!.client.conversations.replies({
-			ts: parentMessageTs,
-			channel,
-			limit: 1000,
-		});
+	// async convertMessageBlocksToMarkdown(message: string, users: Map<string, SlackUser>): Promise<string> {
+	// 	let prompt = `<slack-messages>\n${message}\n</slack-messages>\n\n`;
+	// 	prompt += 'Convert the Slack message blocks into markdown format, preserving any code blocks, links, formatting etc.\n';
+	// 	prompt += 'Return only the markdown content without any additional explanation.';
 
-		if (result.error) {
-			logger.error(result.error, 'Error fetching thread messages');
-			if (!result.messages) return;
-		}
-		const messages: MessageElement[] = result.messages!;
+	// 	return await llms().medium.generateText(prompt, { id: 'Slack blocks to Markdown', thinking: 'none' });
+	// }
 
-		if (result.has_more) {
-			const nextResult = await slackApp!.client.conversations.replies({
-				ts: parentMessageTs,
-				cursor: result.response_metadata!.next_cursor,
-				channel,
-			});
-			messages.push(...nextResult.messages!);
-		}
-		return messages;
-	}
+	// /**
+	//  * Mutates the messages in place, updating the user ids with the user profiles
+	//  */
+	// updateMessageUserIdsWithProfile(messages: MessageElement[]): void {
+	// 	for (const message of messages) {
+	// 		// Update top-level user field
+	// 		if (message.user && typeof message.user === 'string') {
+	// 			const user = this.users.get(message.user);
+	// 			if (user) {
+	// 				// Replace with readable name or keep full user object if you need more info
+	// 				message.user = user.displayName || user.realName || user.name || message.user;
+	// 			}
+	// 		}
+
+	// 		// Update user mentions in text field
+	// 		if (message.text) {
+	// 			message.text = this.replaceUserMentionsInText(message.text);
+	// 		}
+
+	// 		// Update user references in blocks
+	// 		if (message.blocks) {
+	// 			this.updateBlocksUserReferences(message.blocks);
+	// 		}
+	// 	}
+	// }
+
+	// private replaceUserMentionsInText(text: string): string {
+	// 	// Replace <@USER_ID> with @DisplayName
+	// 	return text.replace(/<@([A-Z0-9]+)>/g, (match, userId) => {
+	// 		const user = this.users.get(userId);
+	// 		if (user) {
+	// 			const name = user.displayName || user.realName || user.name;
+	// 			return `@${name}`;
+	// 		}
+	// 		return match;
+	// 	});
+	// }
+
+	// private updateBlocksUserReferences(blocks: any[]): void {
+	// 	for (const block of blocks) {
+	// 		if (block.elements) {
+	// 			this.updateBlockElements(block.elements);
+	// 		}
+	// 	}
+	// }
+
+	// private updateBlockElements(elements: any[]): void {
+	// 	for (const element of elements) {
+	// 		// Handle user type elements
+	// 		if (element.type === 'user' && element.user_id) {
+	// 			const user = this.users.get(element.user_id);
+	// 			if (user) {
+	// 				const name = user.displayName || user.realName || user.name;
+	// 				// Convert to text mention for clearer markdown conversion
+	// 				element.type = 'text';
+	// 				element.text = `@${name}`;
+	// 				element.user_id = undefined;
+	// 			}
+	// 		}
+
+	// 		// Handle text elements with user mentions
+	// 		if (element.text && typeof element.text === 'string') {
+	// 			element.text = this.replaceUserMentionsInText(element.text);
+	// 		}
+
+	// 		// Recursively handle nested elements (rich_text has nested structures)
+	// 		if (element.elements && Array.isArray(element.elements)) {
+	// 			this.updateBlockElements(element.elements);
+	// 		}
+	// 	}
+	// }
 }
 
 registerCompletedHandler(new SlackChatBotService());

@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
+import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
@@ -29,8 +30,7 @@ export function agentContext(): AgentContext | undefined {
 
 export function llms(): AgentLLMs {
 	const store = agentContextStorage.getStore();
-	if (!store) throw new Error('No agent context available');
-	return store.llms;
+	return store?.llms ?? defaultLLMs();
 }
 
 /**

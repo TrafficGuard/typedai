@@ -1,6 +1,6 @@
 import { llms } from '#agent/agentContextLocalStorage';
 import { LLM } from '#shared/llm/llm.model';
-import { convertMarkdownToMrkdwn } from './slackMessageFormatter';
+import { convertMarkdownToMrkdwn } from './slackConvertToMarkdownBlock';
 
 /*
 https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data
@@ -20,11 +20,16 @@ interface DividerBlock {
 	type: 'divider';
 }
 
+interface TableCell {
+	type: 'mrkdwn';
+	text: string;
+}
+
 // https://docs.slack.dev/reference/block-kit/blocks/table-block
 interface TableBlock {
 	type: 'table';
-	/** An array consisting of table rows. Maximum 100 rows. Each row object is an array with a max of 20 table cells. Table cells can have a type of { type="raw_text", text=""}  */
-	rows: string[][];
+	/** An array of cell objects. Each row is an array of cell objects. Max 100 rows, 10 cells per row. */
+	rows: TableCell[][];
 	column_settings?: Array<{ align?: string; is_wrapped?: boolean }>;
 }
 
@@ -51,7 +56,17 @@ const SLACK_BLOCKS_SCHEMA = {
 						items: {
 							type: 'array',
 							items: {
-								type: 'string',
+								type: 'object',
+								properties: {
+									type: {
+										type: 'string',
+										enum: ['mrkdwn'],
+									},
+									text: {
+										type: 'string',
+									},
+								},
+								required: ['type', 'text'],
 							},
 						},
 					},
@@ -200,6 +215,23 @@ interface TableBlock {
     column_settings?: Array<{ align?: string, is_wrapped?: boolean }>
 }
 
+interface TableCell {
+    type: 'mrkdwn';
+    text: string;
+}
+
+interface TableBlock {
+    type: 'table';
+    /** An array of cell objects. Each row is an array of cell objects. Max 100 rows, 10 cells per row. */
+    rows: TableCell[][];
+    /** 
+     * Optional column settings 
+     * align: The alignment for items in this column. Can be left, center, or right. Defaults to left if not defined.
+     * is_wrapped: Whether the column should be wrapped. Defaults to false if not defined.
+     */
+    column_settings?: Array<{ align?: string, is_wrapped?: boolean }>
+}
+
 interface SlackBlocks {
     blocks: Array<MarkdownBlock | DividerBlock | TableBlock>
 }
@@ -208,6 +240,16 @@ Return only a JSON object matching the type SlackBlocks
 
 </response-format>`;
 	const blocks: { blocks: SlackBlocks } = await llm.generateJson(prompt, { jsonSchema: SLACK_BLOCKS_SCHEMA, id: ' Markdown block formatter', temperature: 0 });
-	for (const block of blocks.blocks) if (block.type === 'markdown') block.text = convertMarkdownToMrkdwn(block.text);
+	for (const block of blocks.blocks) {
+		if (block.type === 'markdown') {
+			block.text = convertMarkdownToMrkdwn(block.text);
+		} else if (block.type === 'table') {
+			for (const row of block.rows) {
+				for (const cell of row) {
+					cell.text = convertMarkdownToMrkdwn(cell.text);
+				}
+			}
+		}
+	}
 	return blocks.blocks;
 }

@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 
-import { textToBlocks } from './slackMessageFormatter';
+import { textToBlocks } from './slackConvertToMarkdownBlock';
 
 describe.skip('textToBlocks()', () => {
 	/**********************************************************************

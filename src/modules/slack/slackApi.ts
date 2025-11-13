@@ -1,10 +1,11 @@
 import { ChatPostMessageResponse, ConversationsHistoryResponse, ConversationsListResponse, ConversationsRepliesResponse, WebClient } from '@slack/web-api';
 import { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
+import { Member } from '@slack/web-api/dist/types/response/UsersListResponse';
 import { llms } from '#agent/agentContextLocalStorage';
 import { logger } from '#o11y/logger';
-import { formatAsSlackBlocks } from './slackBlockFormatter';
 import { SlackConfig, slackConfig } from './slackConfig';
-import { textToBlocks } from './slackMessageFormatter';
+import { formatAsSlackBlocks } from './slackConvertToBlocks';
+import { textToBlocks } from './slackConvertToMarkdownBlock';
 
 /**
  * A class to interact with the Slack API, specifically for fetching conversations and messages.
@@ -15,6 +16,17 @@ export class SlackAPI {
 
 	constructor() {
 		this.client = new WebClient(this.config.botToken);
+	}
+
+	async getUsers(): Promise<Member[]> {
+		const limit = 999;
+		const result = await this.client.users.list({ limit });
+		if (result.members?.length === limit) {
+			logger.error('Slack API limit reached in listing users. Implement pagination');
+		}
+		if (!result.ok) throw new Error(`Failed to list users: ${result.error}`);
+		if (result.members === undefined) throw new Error('members was undefined in users.list response');
+		return result.members;
 	}
 
 	async postMessage(channelId: string, threadTs: string, message: string, reply_ts?: string) {
@@ -70,6 +82,31 @@ export class SlackAPI {
 			cursor = response.response_metadata?.next_cursor;
 		} while (cursor);
 		return allMessages;
+	}
+
+	async fetchThreadMessages(channel: string, parentMessageTs: string): Promise<MessageElement[]> {
+		logger.info(`Fetching thread messages for ${parentMessageTs}`);
+		const result = await this.client.conversations.replies({
+			ts: parentMessageTs,
+			channel,
+			limit: 1000,
+		});
+
+		if (result.error) {
+			logger.error(result.error, 'Error fetching thread messages');
+			if (!result.messages) return [];
+		}
+		const messages: MessageElement[] = result.messages!;
+
+		if (result.has_more) {
+			const nextResult = await this.client.conversations.replies({
+				ts: parentMessageTs,
+				cursor: result.response_metadata!.next_cursor,
+				channel,
+			});
+			messages.push(...nextResult.messages!);
+		}
+		return messages;
 	}
 
 	/**
