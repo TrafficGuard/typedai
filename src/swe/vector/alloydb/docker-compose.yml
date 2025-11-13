@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  alloydb:
+    image: google/alloydbomni:latest
+    container_name: alloydb-vector
+    platform: linux/arm64  # Required for Mac OSX
+    ports:
+      - "5432:5432"
+    environment:
+      # Database credentials
+      POSTGRES_PASSWORD: ${ALLOYDB_PASSWORD:-alloydb123}
+      POSTGRES_USER: ${ALLOYDB_USER:-postgres}
+      POSTGRES_DB: ${ALLOYDB_DATABASE:-vector_db}
+
+      # AlloyDB Omni specific settings
+      ALLOYDB_OMNI_ENABLE_VECTOR: "true"
+      ALLOYDB_OMNI_ENABLE_AI: "true"
+    volumes:
+      - alloydb_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ALLOYDB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    # Resource limits (adjust based on your Mac's capacity)
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+
+volumes:
+  alloydb_data:
+    driver: local
+
+networks:
+  default:
+    name: alloydb-network
