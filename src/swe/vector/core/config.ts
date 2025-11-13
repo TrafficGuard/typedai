@@ -68,6 +68,37 @@ export interface VectorStoreConfig {
 
 	/** Supported file extensions to index */
 	fileExtensions?: string[];
+
+	// === AlloyDB Configuration ===
+	/** AlloyDB instance resource name (e.g., 'projects/PROJECT/locations/REGION/clusters/CLUSTER/instances/INSTANCE') */
+	alloydbInstance?: string;
+
+	/** AlloyDB database name */
+	alloydbDatabase?: string;
+
+	/** AlloyDB connection string (alternative to instance) */
+	alloydbConnectionString?: string;
+
+	/** AlloyDB host (for direct connection) */
+	alloydbHost?: string;
+
+	/** AlloyDB port (default: 5432) */
+	alloydbPort?: number;
+
+	/** AlloyDB user */
+	alloydbUser?: string;
+
+	/** AlloyDB password */
+	alloydbPassword?: string;
+
+	/** AlloyDB embedding model for automated embeddings (default: 'gemini-embedding-001') */
+	alloydbEmbeddingModel?: string;
+
+	/** Enable AlloyDB columnar engine for better filtered vector search (default: true) */
+	alloydbEnableColumnarEngine?: boolean;
+
+	/** Hybrid search vector weight (0-1, text weight = 1 - vectorWeight, default: 0.7) */
+	alloydbVectorWeight?: number;
 }
 
 /**
