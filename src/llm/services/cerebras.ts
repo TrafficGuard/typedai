@@ -42,7 +42,7 @@ export function cerebrasQwen3_235b_Thinking(): LLM {
 
 // https://inference-docs.cerebras.ai/models/qwen-3-480b
 export function cerebrasZaiGLM_4_6(): LLM {
-	return new CerebrasLLM('GLM 4.6 (Cerebras)', 'zai-glm-4-6', 131_000, costPerMilTokens(2, 2), ['qwen-3-235b-a22b', 'qwen-3-coder-480b']);
+	return new CerebrasLLM('GLM 4.6 (Cerebras)', 'zai-glm-4.6', 131_000, costPerMilTokens(2, 2), ['qwen-3-235b-a22b', 'qwen-3-coder-480b']);
 }
 
 // https://inference-docs.cerebras.ai/models/gpt-oss-120b
