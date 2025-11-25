@@ -7,6 +7,7 @@ import { anthropicVertexLLMRegistry } from '#llm/services/anthropic-vertex';
 import { cerebrasLLMRegistry } from '#llm/services/cerebras';
 import { openrouterLLMRegistry } from '#llm/services/cerebras-openrouter';
 import { claudeCodeLLMRegistry } from '#llm/services/claudeCode';
+import { codexLLMRegistry } from '#llm/services/codex';
 import { deepinfraLLMRegistry } from '#llm/services/deepinfra';
 import { deepseekLLMRegistry } from '#llm/services/deepseek';
 import { fireworksLLMRegistry } from '#llm/services/fireworks';
@@ -65,6 +66,7 @@ function ensureLLMFactory(): Record<string, () => LLM> {
 			deepinfraLLMRegistry(),
 			cerebrasLLMRegistry(),
 			claudeCodeLLMRegistry(),
+			codexLLMRegistry(),
 			perplexityLLMRegistry(),
 			// xaiLLMRegistry(),
 			nebiusLLMRegistry(),
