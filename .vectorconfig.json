@@ -1,0 +1,67 @@
+[
+  {
+    "name": "fast",
+    "embedding": {
+      "provider": "vertex",
+      "model": "gemini-embedding-001"
+    },
+    "chunking": {
+      "dualEmbedding": false,
+      "contextualChunking": false,
+      "size": 2500,
+      "overlap": 300,
+      "strategy": "ast"
+    },
+    "search": {
+      "hybridSearch": true
+    },
+    "maxFileSize": 1048576,
+    "fileExtensions": [".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".cpp", ".c", ".h", ".go", ".rs", ".rb", ".php", ".cs", ".swift", ".kt"],
+    "logChunks": false
+  },
+  {
+    "name": "balanced",
+    "embedding": {
+      "provider": "vertex",
+      "model": "gemini-embedding-001"
+    },
+    "chunking": {
+      "dualEmbedding": true,
+      "contextualChunking": true
+    },
+    "search": {
+      "hybridSearch": true,
+      "reranking": {
+        "provider": "vertex",
+        "model": "semantic-ranker-default@latest",
+        "topK": 50
+      }
+    },
+    "maxFileSize": 1048576,
+    "fileExtensions": [".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".cpp", ".c", ".h", ".go", ".rs", ".rb", ".php", ".cs", ".swift", ".kt"],
+    "logChunks": false
+  },
+  {
+    "name": "high-quality",
+    "default": true,
+    "embedding": {
+      "provider": "vertex",
+      "model": "gemini-embedding-001"
+    },
+    "chunking": {
+      "dualEmbedding": true,
+      "contextualChunking": true
+    },
+    "search": {
+      "hybridSearch": true,
+      "reranking": {
+        "provider": "vertex",
+        "model": "semantic-ranker-default@latest",
+        "topK": 50
+      }
+    },
+    "maxFileSize": 1048576,
+    "fileExtensions": [".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".cpp", ".c", ".h", ".go", ".rs", ".rb", ".php", ".cs", ".swift", ".kt"],
+    "logChunks": false
+  }
+]

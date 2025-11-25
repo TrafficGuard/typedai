@@ -6,15 +6,25 @@ import { span } from '#o11y/trace';
 import { ASTChunker } from '../chunking/astChunker';
 import { readFilesToIndex } from '../codeLoader';
 import { LLMCodeTranslator } from '../core/codeTranslator';
-import type { VectorStoreConfig } from '../core/config';
-import { loadVectorConfig, printConfigSummary } from '../core/config';
+import type { RerankingConfig, VectorStoreConfig } from '../core/config';
+import { addOrUpdateVectorConfig, loadVectorConfig, printConfigSummary } from '../core/config';
 import { buildGoogleVectorServiceConfig } from '../core/config';
 import { LLMContextualizer } from '../core/contextualizer';
-import type { ContextualizedChunk, EmbeddedChunk, FileInfo, IVectorSearchOrchestrator, ProgressCallback, RawChunk, SearchResult } from '../core/interfaces';
-import { GoogleReranker } from '../google/googleRerank';
+import type { IReranker } from '../core/interfaces';
+import type {
+	ContextualizedChunk,
+	EmbeddedChunk,
+	FileInfo,
+	IVectorSearchOrchestrator,
+	ProgressCallback,
+	RawChunk,
+	SearchResult,
+	VectorSearchOptions,
+} from '../core/interfaces';
 import { FILE_PROCESSING_PARALLEL_BATCH_SIZE } from '../google/googleVectorConfig';
 import type { GoogleVectorServiceConfig } from '../google/googleVectorConfig';
 import { DualEmbeddingGenerator, VertexEmbedderAdapter } from '../google/vertexEmbedderAdapter';
+import { createReranker } from '../reranking';
 import { MerkleSynchronizer } from '../sync/merkleSynchronizer';
 import { AlloyDBAdapter } from './alloydbAdapter';
 import type { AlloyDBConfig } from './alloydbConfig';
@@ -50,14 +60,17 @@ export class AlloyDBOrchestrator implements IVectorSearchOrchestrator {
 	private dualEmbedder: DualEmbeddingGenerator;
 	private vectorStore: AlloyDBAdapter;
 	private synchronizer: MerkleSynchronizer;
-	private reranker: GoogleReranker;
+	private _reranker: IReranker | null = null;
+	private _rerankerConfig: RerankingConfig | null = null;
 
 	constructor(repoIdentifier: string, alloydbConfig: AlloyDBConfig, config?: VectorStoreConfig) {
 		this.repoIdentifier = repoIdentifier;
 		this.alloydbConfig = alloydbConfig;
 		this.config = config || {
-			dualEmbedding: false,
-			contextualChunking: false,
+			chunking: {
+				dualEmbedding: false,
+				contextualChunking: false,
+			},
 		};
 
 		// Build Google config for reranking and dual embedding support
@@ -71,9 +84,32 @@ export class AlloyDBOrchestrator implements IVectorSearchOrchestrator {
 		this.dualEmbedder = new DualEmbeddingGenerator(this.embedder);
 		this.vectorStore = new AlloyDBAdapter(repoIdentifier, alloydbConfig);
 		this.synchronizer = new MerkleSynchronizer(this.config.includePatterns);
-		this.reranker = new GoogleReranker(this.googleConfig, {
-			model: this.config.rerankingModel,
-		});
+		// Reranker is created lazily via getReranker()
+	}
+
+	/**
+	 * Get or create reranker based on current config
+	 * Returns null if reranking is disabled
+	 */
+	private getReranker(): IReranker | null {
+		const config = this.config.search?.reranking;
+		if (!config) return null;
+
+		// Check if we need to create/recreate reranker
+		if (!this._reranker || !this.configsEqual(this._rerankerConfig, config)) {
+			this._reranker = createReranker(config, this.googleConfig, this.config.ollama);
+			this._rerankerConfig = config;
+		}
+		return this._reranker;
+	}
+
+	/**
+	 * Check if two reranking configs are equivalent
+	 */
+	private configsEqual(a: RerankingConfig | null, b: RerankingConfig | null): boolean {
+		if (a === b) return true;
+		if (!a || !b) return false;
+		return a.provider === b.provider && a.model === b.model && a.topK === b.topK;
 	}
 
 	@span()
@@ -105,9 +141,9 @@ export class AlloyDBOrchestrator implements IVectorSearchOrchestrator {
 		this.embedder = new VertexEmbedderAdapter(this.googleConfig);
 		this.dualEmbedder = new DualEmbeddingGenerator(this.embedder);
 		this.vectorStore = new AlloyDBAdapter(this.repoIdentifier, this.alloydbConfig);
-		this.reranker = new GoogleReranker(this.googleConfig, {
-			model: this.config.rerankingModel,
-		});
+		// Reranker will be recreated lazily on next search if config changed
+		this._reranker = null;
+		this._rerankerConfig = null;
 
 		// Initialize vector store
 		await this.vectorStore.initialize(this.config);
@@ -161,29 +197,33 @@ export class AlloyDBOrchestrator implements IVectorSearchOrchestrator {
 		// Save snapshot for incremental updates
 		await this.synchronizer.saveSnapshot(repoRoot, filesToIndex);
 
+		// Mark repository as indexed in config
+		addOrUpdateVectorConfig(repoRoot, { ...this.config, indexed: true });
+
 		const duration = Date.now() - startTime;
-		logger.info({ duration, fileCount: filesToIndex.length }, 'Repository indexing completed');
+		logger.info({ duration, fileCount: filesToIndex.length }, 'Repository indexing completed, indexed=true set');
 	}
 
-	async search(
-		query: string,
-		options?: {
-			maxResults?: number;
-			fileFilter?: string[];
-			languageFilter?: string[];
-		},
-	): Promise<SearchResult[]> {
+	async search(query: string, options?: VectorSearchOptions): Promise<SearchResult[]> {
 		const maxResults = options?.maxResults || 10;
 
-		logger.info({ query, maxResults, reranking: this.config.reranking }, 'Performing search');
+		// Resolve reranking configuration
+		const rerankConfig = this.config.search?.reranking;
+		const useReranking = !!rerankConfig;
+		const rerankingTopK = rerankConfig?.topK ?? 50;
+		const useHybridSearch = options?.hybridSearch ?? this.config.search?.hybridSearch ?? true;
+
+		logger.info({ query, maxResults, reranking: useReranking, rerankingProvider: rerankConfig?.provider, hybridSearch: useHybridSearch }, 'Performing search');
 
 		const requiresQueryEmbedding = !this.vectorStore.supportsAutomatedEmbeddings();
 		const queryEmbedding = requiresQueryEmbedding ? await this.dualEmbedder.generateQueryEmbedding(query, this.config) : [];
 
 		// Search vector store (get more results if reranking is enabled)
-		const rerankingTopK = this.config.rerankingTopK || 50;
-		const searchLimit = this.config.reranking ? Math.max(maxResults * 2, rerankingTopK) : maxResults;
-		const results = await this.vectorStore.search(query, queryEmbedding, searchLimit, this.config);
+		const searchLimit = useReranking ? Math.max(maxResults * 2, rerankingTopK) : maxResults;
+
+		// Create a config with the effective hybridSearch value for this query
+		const searchConfig = { ...this.config, search: { ...this.config.search, hybridSearch: useHybridSearch } };
+		const results = await this.vectorStore.search(query, queryEmbedding, searchLimit, searchConfig);
 
 		// Apply filters if provided
 		let filteredResults = results;
@@ -199,15 +239,20 @@ export class AlloyDBOrchestrator implements IVectorSearchOrchestrator {
 		// Apply reranking if enabled
 		let finalResults = filteredResults;
 
-		if (this.config.reranking && filteredResults.length > 0) {
-			logger.info({ inputCount: filteredResults.length, maxResults, rerankingTopK }, 'Applying reranking');
-			finalResults = await this.reranker.rerank(query, filteredResults, maxResults);
+		if (useReranking && filteredResults.length > 0) {
+			const reranker = this.getReranker();
+			if (reranker) {
+				logger.info({ inputCount: filteredResults.length, maxResults, rerankingTopK }, 'Applying reranking');
+				finalResults = await reranker.rerank(query, filteredResults, maxResults);
+			} else {
+				finalResults = filteredResults.slice(0, maxResults);
+			}
 		} else {
 			// Limit to maxResults if not reranking
 			finalResults = filteredResults.slice(0, maxResults);
 		}
 
-		logger.info({ resultCount: finalResults.length, reranked: this.config.reranking }, 'Search completed');
+		logger.info({ resultCount: finalResults.length, reranked: useReranking }, 'Search completed');
 
 		return finalResults;
 	}
@@ -302,7 +347,7 @@ export class AlloyDBOrchestrator implements IVectorSearchOrchestrator {
 			let chunks: Array<RawChunk | ContextualizedChunk>;
 
 			// With contextual chunking enabled, LLM does both chunking and contextualization in one call
-			if (this.config.contextualChunking) {
+			if (this.config.chunking?.contextualChunking) {
 				onProgress?.({
 					phase: 'contextualizing',
 					currentFile: fileInfo.filePath,
@@ -361,7 +406,7 @@ export class AlloyDBOrchestrator implements IVectorSearchOrchestrator {
 			}
 
 			// Dual embedding: generate code embedding for separate column (optional)
-			if (this.config.dualEmbedding) {
+			if (this.config.chunking?.dualEmbedding) {
 				const codeTexts = chunks.map((chunk) => chunk.content);
 				codeEmbeddings = await this.embedder.embedBatch(codeTexts, 'RETRIEVAL_DOCUMENT');
 				logger.debug({ chunkCount: chunks.length }, 'Generated dual embeddings (contextual + code)');
@@ -375,7 +420,7 @@ export class AlloyDBOrchestrator implements IVectorSearchOrchestrator {
 				language: fileInfo.language,
 				chunk,
 				embedding: primaryEmbeddings[index], // Used if AlloyDB auto-embedding unavailable
-				secondaryEmbedding: this.config.dualEmbedding ? codeEmbeddings[index] : undefined,
+				secondaryEmbedding: this.config.chunking?.dualEmbedding ? codeEmbeddings[index] : undefined,
 			}));
 
 			return embeddedChunks;

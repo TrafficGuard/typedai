@@ -7,6 +7,7 @@ import { PhpTools } from '#swe/lang/php/phpTools';
 import { PythonTools } from '#swe/lang/python/pythonTools';
 import { TerraformTools } from '#swe/lang/terraform/terraformTools';
 import { projectDetectionAgent as defaultProjectDetectionAgent } from '#swe/projectDetectionAgent';
+import type { RepositoryVectorConfig } from '#swe/vector/core/presets';
 import type { LanguageTools } from './lang/languageTools';
 
 export type LanguageRuntime = 'nodejs' | 'typescript' | 'php' | 'python' | 'terraform' | 'pulumi' | 'angular';
@@ -39,6 +40,8 @@ export interface ProjectInfoFileFormat {
 	format: ScriptCommand;
 	staticAnalysis: ScriptCommand;
 	test: ScriptCommand;
+	/** Vector search configuration - references presets from typedai's .vectorconfig.json */
+	vector?: RepositoryVectorConfig | RepositoryVectorConfig[];
 }
 
 export interface ProjectScripts {

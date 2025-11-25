@@ -1,10 +1,8 @@
 import { DataStoreServiceClient, DocumentServiceClient, SearchServiceClient } from '@google-cloud/discoveryengine';
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import pino from 'pino';
-import { RetryableError, cacheRetry } from '#cache/cacheRetry';
-import { sleep } from '#utils/async-utils';
+import { cacheRetry } from '#cache/cacheRetry';
 import { quotaRetry } from '#utils/quotaRetry';
-import { CodeFile } from '../codeLoader';
 import { CircuitBreakerConfig, GcpQuotaCircuitBreaker } from './gcpQuotaCircuitBreaker';
 import {
 	CIRCUIT_BREAKER_FAILURE_THRESHOLD,

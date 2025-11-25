@@ -48,8 +48,8 @@ export class ASTChunker implements IChunker {
 	}
 
 	async chunk(file: FileInfo, config: VectorStoreConfig): Promise<RawChunk[]> {
-		const chunkSize = config.chunkSize || 2500;
-		const chunkOverlap = config.chunkOverlap || 300;
+		const chunkSize = config.chunking?.size || 2500;
+		const chunkOverlap = config.chunking?.overlap || 300;
 
 		// Check if language is supported by AST splitter
 		const langConfig = this.getLanguageConfig(file.language);
@@ -274,8 +274,8 @@ export class ASTChunker implements IChunker {
  */
 class SimpleFallbackChunker implements IChunker {
 	async chunk(file: FileInfo, config: VectorStoreConfig): Promise<RawChunk[]> {
-		const chunkSize = config.chunkSize || 2500;
-		const chunkOverlap = config.chunkOverlap || 300;
+		const chunkSize = config.chunking?.size || 2500;
+		const chunkOverlap = config.chunking?.overlap || 300;
 
 		const lines = file.content.split('\n');
 		const chunks: RawChunk[] = [];

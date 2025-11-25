@@ -147,7 +147,7 @@ async function contextualizeFile(
 	config: VectorStoreConfig,
 	options: BatchIndexerOptions,
 ): Promise<Array<RawChunk | ContextualizedChunk>> {
-	if (config.contextualChunking) {
+	if (config.chunking?.contextualChunking) {
 		options.progress?.({
 			phase: 'contextualizing',
 			currentFile: fileInfo.relativePath || fileInfo.filePath,
@@ -184,7 +184,7 @@ async function embedChunks(
 	}
 
 	let naturalLanguageDescriptions: string[] = [];
-	if (config.dualEmbedding) {
+	if (config.chunking?.dualEmbedding) {
 		options.progress?.({
 			phase: 'translating',
 			currentFile: fileInfo.relativePath || fileInfo.filePath,
@@ -209,16 +209,16 @@ async function embedChunks(
 		chunks.map(async (chunk, i) => {
 			try {
 				const textToEmbed = 'contextualizedContent' in chunk ? chunk.contextualizedContent : chunk.content;
-				const nlText = config.dualEmbedding ? naturalLanguageDescriptions[i] || textToEmbed : textToEmbed;
+				const nlText = config.chunking?.dualEmbedding ? naturalLanguageDescriptions[i] || textToEmbed : textToEmbed;
 				const { codeEmbedding, naturalLanguageEmbedding } = await deps.embedder.generateDualEmbeddings(textToEmbed, nlText, config);
 
 				return {
 					filePath: fileInfo.filePath,
 					language: fileInfo.language,
 					chunk,
-					embedding: config.dualEmbedding ? naturalLanguageEmbedding : codeEmbedding,
-					secondaryEmbedding: config.dualEmbedding ? codeEmbedding : undefined,
-					naturalLanguageDescription: config.dualEmbedding ? nlText : undefined,
+					embedding: config.chunking?.dualEmbedding ? naturalLanguageEmbedding : codeEmbedding,
+					secondaryEmbedding: config.chunking?.dualEmbedding ? codeEmbedding : undefined,
+					naturalLanguageDescription: config.chunking?.dualEmbedding ? nlText : undefined,
 				} as EmbeddedChunk;
 			} catch (error) {
 				return null;

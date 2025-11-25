@@ -27,9 +27,11 @@ async function main() {
 
 	// Fast config (no LLM features for speed)
 	const config: VectorStoreConfig = {
-		dualEmbedding: false,
-		contextualChunking: false,
-		chunkSize: 2500,
+		chunking: {
+			dualEmbedding: false,
+			contextualChunking: false,
+			size: 2500,
+		},
 	};
 
 	try {

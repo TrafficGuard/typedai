@@ -71,7 +71,7 @@ export class DualEmbeddingGenerator {
 		codeEmbedding: number[];
 		naturalLanguageEmbedding: number[];
 	}> {
-		if (!config.dualEmbedding) {
+		if (!config.chunking?.dualEmbedding) {
 			// If dual embedding is disabled, generate only code embedding
 			const codeEmbedding = await this.embedder.embed(codeText, 'CODE_RETRIEVAL_QUERY');
 			return {
@@ -112,7 +112,7 @@ export class DualEmbeddingGenerator {
 			throw new Error('Code texts and natural language texts must have the same length');
 		}
 
-		if (!config.dualEmbedding) {
+		if (!config.chunking?.dualEmbedding) {
 			// If dual embedding is disabled, generate only code embeddings
 			const codeEmbeddings = await this.embedder.embedBatch(codeTexts, 'CODE_RETRIEVAL_QUERY');
 			return codeEmbeddings.map((codeEmbedding) => ({

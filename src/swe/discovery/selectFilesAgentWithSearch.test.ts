@@ -10,6 +10,7 @@ import * as repoOverviewModule from '#swe/index/repoIndexDocBuilder';
 import * as repoMapModule from '#swe/index/repositoryMap';
 import type { ProjectInfo } from '#swe/projectDetection';
 import * as projectDetectionModule from '#swe/projectDetection';
+import * as vectorConfigModule from '#swe/vector/core/config';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { mockLLM, mockLLMs } from '../../llm/services/mock-llm';
 import { selectFilesAgent } from './selectFilesAgentWithSearch';
@@ -194,6 +195,142 @@ describe('selectFilesAgentWithSearch', () => {
 			} catch (error) {
 				expect((error as Error).message).to.equal('No files were selected to fulfill the requirements.');
 			}
+		});
+	});
+
+	describe('vector search integration', () => {
+		let isVectorSearchAvailableStub: sinon.SinonStub;
+
+		beforeEach(() => {
+			// By default, vector search is not available
+			isVectorSearchAvailableStub = sandbox.stub(vectorConfigModule, 'isVectorSearchAvailable').returns(false);
+		});
+
+		it('does not include vectorSearch option in prompt when vector search is unavailable', async () => {
+			mockLLM
+				.addMessageResponse('<json>{"inspectFiles":["a.txt"]}</json>')
+				.addMessageResponse('<json>{"keepFiles":[{"filePath":"a.txt","reason":"needed"}]}</json>');
+
+			await selectFilesAgent('Find files', {}, llmSet);
+
+			const calls = mockLLM.getMessageCalls();
+			// Check that the iteration prompt does not include vectorSearch
+			const iterationCall = calls.find((call) => call.options?.id === 'Select Files iteration 1');
+			expect(iterationCall).to.not.be.undefined;
+
+			const userPrompt = iterationCall!.messages.find(
+				(m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('You have the following actions'),
+			);
+			expect(userPrompt).to.not.be.undefined;
+			expect(userPrompt!.content as string).to.not.include('vectorSearch');
+			expect(userPrompt!.content as string).to.not.include('Semantic Vector Search');
+		});
+
+		it('includes vectorSearch option in prompt when vector search is available', async () => {
+			isVectorSearchAvailableStub.returns(true);
+			// Stub loadVectorConfig to return a config with indexed: true but no alloydb settings
+			sandbox.stub(vectorConfigModule, 'loadVectorConfig').returns({
+				chunking: { dualEmbedding: false, contextualChunking: false },
+				indexed: true,
+			});
+
+			mockLLM
+				.addMessageResponse('<json>{"inspectFiles":["a.txt"]}</json>')
+				.addMessageResponse('<json>{"keepFiles":[{"filePath":"a.txt","reason":"needed"}]}</json>');
+
+			await selectFilesAgent('Find files', {}, llmSet);
+
+			const calls = mockLLM.getMessageCalls();
+			const iterationCall = calls.find((call) => call.options?.id === 'Select Files iteration 1');
+			expect(iterationCall).to.not.be.undefined;
+
+			const userPrompt = iterationCall!.messages.find(
+				(m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('You have the following actions'),
+			);
+			expect(userPrompt).to.not.be.undefined;
+			expect(userPrompt!.content as string).to.include('vectorSearch');
+			expect(userPrompt!.content as string).to.include('Semantic Vector Search');
+		});
+
+		it('shows unavailable message when LLM requests vectorSearch but no orchestrator exists', async () => {
+			isVectorSearchAvailableStub.returns(true);
+			// loadVectorConfig returns indexed: true but createVectorOrchestrator will fail
+			sandbox.stub(vectorConfigModule, 'loadVectorConfig').returns({
+				chunking: { dualEmbedding: false, contextualChunking: false },
+				indexed: true,
+			});
+
+			mockLLM
+				.addMessageResponse('<json>{"inspectFiles":[]}</json>')
+				.addMessageResponse('<json>{"vectorSearch":"find authentication logic","keepFiles":[],"ignoreFiles":[]}</json>')
+				.addMessageResponse('<json>{"keepFiles":[{"filePath":"a.txt","reason":"found"}]}</json>');
+
+			const files = await selectFilesAgent('Find auth', {}, llmSet);
+			expect(files).to.deep.equal([{ filePath: 'a.txt', reason: 'found' }]);
+
+			const calls = mockLLM.getMessageCalls();
+			const iter2Call = calls.find((call) => call.options?.id === 'Select Files iteration 2');
+			expect(iter2Call).to.not.be.undefined;
+
+			// Should include unavailable message since orchestrator creation failed
+			const unavailableMsg = iter2Call!.messages.find(
+				(m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('<vector_search_unavailable'),
+			);
+			expect(unavailableMsg).to.not.be.undefined;
+		});
+
+		it('handles combined regex and vector search in same response', async () => {
+			isVectorSearchAvailableStub.returns(true);
+			sandbox.stub(vectorConfigModule, 'loadVectorConfig').returns({
+				chunking: { dualEmbedding: false, contextualChunking: false },
+				indexed: true,
+			});
+
+			mockLLM
+				.addMessageResponse('<json>{"inspectFiles":[]}</json>')
+				.addMessageResponse('<json>{"search":"TODO","vectorSearch":"authentication","keepFiles":[],"ignoreFiles":[]}</json>')
+				.addMessageResponse('<json>{"keepFiles":[{"filePath":"a.txt","reason":"found"}]}</json>');
+
+			const files = await selectFilesAgent('Find files', {}, llmSet);
+			expect(files).to.deep.equal([{ filePath: 'a.txt', reason: 'found' }]);
+
+			// Verify regex search was called
+			expect(searchExtractsStub.called).to.equal(true);
+
+			const calls = mockLLM.getMessageCalls();
+			const iter2Call = calls.find((call) => call.options?.id === 'Select Files iteration 2');
+			expect(iter2Call).to.not.be.undefined;
+
+			// Should include regex search results
+			const regexResults = iter2Call!.messages.find(
+				(m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('<search_results regex="TODO"'),
+			);
+			expect(regexResults).to.not.be.undefined;
+		});
+
+		it('includes vectorSearch hint in pending files reminder when available', async () => {
+			isVectorSearchAvailableStub.returns(true);
+			sandbox.stub(vectorConfigModule, 'loadVectorConfig').returns({
+				chunking: { dualEmbedding: false, contextualChunking: false },
+				indexed: true,
+			});
+
+			mockLLM
+				.addMessageResponse('<json>{"inspectFiles":["a.txt"]}</json>')
+				.addMessageResponse('<json>{}</json>') // No decisions, triggers reminder
+				.addMessageResponse('<json>{"keepFiles":[{"filePath":"a.txt","reason":"kept"}]}</json>');
+
+			await selectFilesAgent('Need a.txt', {}, llmSet);
+
+			const calls = mockLLM.getMessageCalls();
+			const iter2Call = calls.find((call) => call.options?.id === 'Select Files iteration 2');
+			expect(iter2Call).to.not.be.undefined;
+
+			const reminderMsg = iter2Call!.messages.find(
+				(m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('You have not resolved the following pending files'),
+			);
+			expect(reminderMsg).to.not.be.undefined;
+			expect(reminderMsg!.content as string).to.include('vectorSearch');
 		});
 	});
 });

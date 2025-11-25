@@ -139,7 +139,7 @@ export class GoogleVectorStore implements VectorStore {
 		try {
 			const contextualizedChunks = await this.contextualizer.contextualize([], fileInfo, {
 				...DEFAULT_VECTOR_CONFIG,
-				contextualChunking: true,
+				chunking: { ...DEFAULT_VECTOR_CONFIG.chunking, contextualChunking: true },
 			});
 
 			return contextualizedChunks.map((chunk) => ({

@@ -60,7 +60,7 @@ async function validateSetup() {
 	try {
 		alloydbConfig = buildAlloyDBConfig({
 			...DEFAULT_VECTOR_CONFIG,
-			alloydbDatabase: process.env.ALLOYDB_DATABASE,
+			alloydb: { database: process.env.ALLOYDB_DATABASE },
 		});
 		addResult('Configuration', 'success', 'Configuration built successfully', {
 			database: alloydbConfig.database,

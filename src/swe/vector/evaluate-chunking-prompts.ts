@@ -17,7 +17,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { cerebrasGptOss_120b } from '#llm/services/cerebras';
-import { claudeCodeDefault } from '#llm/services/claudeCode';
+import { claudeCodeSonnet } from '#llm/services/claudeCode';
 import type { LLM } from '#shared/llm/llm.model';
 import { validateContextQuality } from '#swe/vector/test/llmJudge';
 import { DEFAULT_VECTOR_CONFIG } from './core/config';
@@ -49,7 +49,7 @@ const CONFIG = {
 	chunksPerFile: 3,
 
 	// Judge LLM for quality evaluation (evaluates generated context quality)
-	judgeLLM: claudeCodeDefault,
+	judgeLLM: claudeCodeSonnet,
 };
 
 const GENERATE_CHUNK_CONTEXT_PROMPT = (chunkContent: string, fullDocumentContent: string, language: string): string => `

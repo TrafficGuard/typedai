@@ -72,16 +72,16 @@ export const DEFAULT_ALLOYDB_CONFIG: Partial<AlloyDBConfig> = {
 export function buildAlloyDBConfig(config: VectorStoreConfig): AlloyDBConfig {
 	const alloydbConfig: AlloyDBConfig = {
 		...DEFAULT_ALLOYDB_CONFIG,
-		instance: config.alloydbInstance || process.env.ALLOYDB_INSTANCE,
-		database: config.alloydbDatabase || envVar('ALLOYDB_DATABASE', 'vector_db'),
-		connectionString: config.alloydbConnectionString || process.env.ALLOYDB_CONNECTION_STRING,
-		user: config.alloydbUser || process.env.ALLOYDB_USER || process.env.PGUSER,
-		password: config.alloydbPassword || process.env.ALLOYDB_PASSWORD || process.env.PGPASSWORD,
-		host: config.alloydbHost || process.env.ALLOYDB_HOST || process.env.PGHOST,
-		port: config.alloydbPort || (process.env.ALLOYDB_PORT ? Number.parseInt(process.env.ALLOYDB_PORT) : 5432),
-		embeddingModel: config.alloydbEmbeddingModel || DEFAULT_ALLOYDB_CONFIG.embeddingModel,
-		enableColumnarEngine: config.alloydbEnableColumnarEngine ?? DEFAULT_ALLOYDB_CONFIG.enableColumnarEngine,
-		vectorWeight: config.alloydbVectorWeight ?? DEFAULT_ALLOYDB_CONFIG.vectorWeight,
+		instance: config.alloydb?.instance || process.env.ALLOYDB_INSTANCE,
+		database: config.alloydb?.database || envVar('ALLOYDB_DATABASE', 'vector_db'),
+		connectionString: config.alloydb?.connectionString || process.env.ALLOYDB_CONNECTION_STRING,
+		user: config.alloydb?.user || process.env.ALLOYDB_USER || process.env.PGUSER,
+		password: config.alloydb?.password || process.env.ALLOYDB_PASSWORD || process.env.PGPASSWORD,
+		host: config.alloydb?.host || process.env.ALLOYDB_HOST || process.env.PGHOST,
+		port: config.alloydb?.port || (process.env.ALLOYDB_PORT ? Number.parseInt(process.env.ALLOYDB_PORT) : 5432),
+		embeddingModel: config.alloydb?.embeddingModel || DEFAULT_ALLOYDB_CONFIG.embeddingModel,
+		enableColumnarEngine: config.alloydb?.enableColumnarEngine ?? DEFAULT_ALLOYDB_CONFIG.enableColumnarEngine,
+		vectorWeight: config.alloydb?.vectorWeight ?? DEFAULT_ALLOYDB_CONFIG.vectorWeight,
 	};
 
 	return alloydbConfig;

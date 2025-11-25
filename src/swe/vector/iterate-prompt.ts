@@ -85,10 +85,12 @@ async function testPrompt(promptName: string, promptGenerator: PromptGenerator) 
 
 	const chunker = new ASTChunker();
 	const vectorConfig: VectorStoreConfig = {
-		contextualChunking: false,
-		chunkSize: 1500,
-		chunkOverlap: 200,
-		dualEmbedding: false,
+		chunking: {
+			contextualChunking: false,
+			size: 1500,
+			overlap: 200,
+			dualEmbedding: false,
+		},
 	};
 
 	const rawChunks = await chunker.chunk(

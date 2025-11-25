@@ -416,14 +416,14 @@ export function estimateConfigCost(
 	let totalCost = baseEmbeddingCost;
 
 	// Dual embedding cost (2x embedding)
-	if (config.dualEmbedding) {
+	if (config.chunking?.dualEmbedding) {
 		const dualCost = baseEmbeddingCost * 2; // Translation + second embedding
 		breakdown.dual_embedding = dualCost;
 		totalCost += dualCost;
 	}
 
 	// Contextual chunking cost (5 chunks per file, each with full file context)
-	if (config.contextualChunking) {
+	if (config.chunking?.contextualChunking) {
 		const chunksPerFile = 5;
 		const contextTokens = avgFileSize + 100; // full file + prompt
 		const contextCost = ((chunksPerFile * contextTokens) / 1000) * 0.00001 * fileCount;
@@ -444,9 +444,9 @@ export function estimateConfigCost(
 export function printConfig(config: VectorStoreConfig, label = 'Configuration'): void {
 	console.log(`\n${label}:`);
 	console.log('━'.repeat(50));
-	console.log(`  Dual Embedding: ${config.dualEmbedding ? '✓' : '✗'}`);
-	console.log(`  Contextual Chunking: ${config.contextualChunking ? '✓' : '✗'}`);
-	console.log(`  Chunk Size: ${config.chunkSize || 2500}`);
-	console.log(`  Strategy: ${config.chunkStrategy || 'ast'}`);
+	console.log(`  Dual Embedding: ${config.chunking?.dualEmbedding ? '✓' : '✗'}`);
+	console.log(`  Contextual Chunking: ${config.chunking?.contextualChunking ? '✓' : '✗'}`);
+	console.log(`  Chunk Size: ${config.chunking?.size || 2500}`);
+	console.log(`  Strategy: ${config.chunking?.strategy || 'ast'}`);
 	console.log('━'.repeat(50));
 }

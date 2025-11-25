@@ -81,7 +81,7 @@ describe('batchIndexFiles resume flow', () => {
 		let threw = false;
 		try {
 			await batchIndexFiles(files, deps('two.ts'), {
-				config: { ...DEFAULT_VECTOR_CONFIG, dualEmbedding: true },
+				config: { ...DEFAULT_VECTOR_CONFIG, chunking: { ...DEFAULT_VECTOR_CONFIG.chunking, dualEmbedding: true } },
 				stateFilePath: statePath,
 				continueOnError: false,
 				concurrency: 1,
@@ -98,7 +98,7 @@ describe('batchIndexFiles resume flow', () => {
 		// Second run resumes and only processes the remaining file
 		const depSet = deps();
 		await batchIndexFiles(files, depSet, {
-			config: { ...DEFAULT_VECTOR_CONFIG, dualEmbedding: true },
+			config: { ...DEFAULT_VECTOR_CONFIG, chunking: { ...DEFAULT_VECTOR_CONFIG.chunking, dualEmbedding: true } },
 			stateFilePath: statePath,
 			continueOnError: true,
 			concurrency: 2,

@@ -27,8 +27,10 @@ export class AlloyDBAdapter implements IVectorStore {
 		this.client = new AlloyDBClient(alloydbConfig);
 		this.tableName = getTableNameForRepo(repoIdentifier);
 		this.config = {
-			dualEmbedding: false,
-			contextualChunking: false,
+			chunking: {
+				dualEmbedding: false,
+				contextualChunking: false,
+			},
 		};
 	}
 
@@ -353,9 +355,10 @@ export class AlloyDBAdapter implements IVectorStore {
 
 	async search(query: string, queryEmbedding: number[], maxResults: number, config: VectorStoreConfig): Promise<SearchResult[]> {
 		const configName = config.name || 'default';
-		logger.debug({ query, maxResults, configName, hybridSearch: config.hybridSearch }, 'Searching');
+		const useHybridSearch = config.search?.hybridSearch ?? true;
+		logger.debug({ query, maxResults, configName, hybridSearch: useHybridSearch }, 'Searching');
 
-		if (config.hybridSearch) {
+		if (useHybridSearch) {
 			return this.hybridSearch(query, queryEmbedding, maxResults, configName);
 		}
 

@@ -246,6 +246,23 @@ export interface IReranker {
 }
 
 /**
+ * Search options for vector search operations
+ * These can override config defaults at search-time
+ */
+export interface VectorSearchOptions {
+	/** Maximum number of results to return */
+	maxResults?: number;
+	/** Filter results by file paths (partial match) */
+	fileFilter?: string[];
+	/** Filter results by programming language */
+	languageFilter?: string[];
+	/** Override config's hybridSearch setting for this query */
+	hybridSearch?: boolean;
+	/** Override config's reranking setting for this query */
+	reranking?: boolean;
+}
+
+/**
  * Main orchestrator interface
  */
 export interface IVectorSearchOrchestrator {
@@ -265,14 +282,7 @@ export interface IVectorSearchOrchestrator {
 	/**
 	 * Search the indexed repository
 	 */
-	search(
-		query: string,
-		options?: {
-			maxResults?: number;
-			fileFilter?: string[];
-			languageFilter?: string[];
-		},
-	): Promise<SearchResult[]>;
+	search(query: string, options?: VectorSearchOptions): Promise<SearchResult[]>;
 
 	/**
 	 * Get configuration

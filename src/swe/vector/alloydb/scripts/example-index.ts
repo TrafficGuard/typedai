@@ -30,29 +30,33 @@ async function runExample() {
 	console.log('📦 Creating AlloyDB orchestrator...');
 	const orchestrator = createAlloyDBOrchestrator(repoIdentifier, {
 		// Connection settings
-		alloydbDatabase: process.env.ALLOYDB_DATABASE || 'vector_db',
-		alloydbHost: process.env.ALLOYDB_HOST || 'localhost',
-		alloydbPort: Number.parseInt(process.env.ALLOYDB_PORT || '5432'),
-		alloydbUser: process.env.ALLOYDB_USER || 'postgres',
-		alloydbPassword: process.env.ALLOYDB_PASSWORD || 'alloydb123',
+		alloydb: {
+			database: process.env.ALLOYDB_DATABASE || 'vector_db',
+			host: process.env.ALLOYDB_HOST || 'localhost',
+			port: Number.parseInt(process.env.ALLOYDB_PORT || '5432'),
+			user: process.env.ALLOYDB_USER || 'postgres',
+			password: process.env.ALLOYDB_PASSWORD || 'alloydb123',
+			embeddingModel: 'gemini-embedding-001',
+			enableColumnarEngine: false, // May not be available in Omni
+			vectorWeight: 0.7,
+		},
 
 		// Vector search features
-		contextualChunking: true,
-		hybridSearch: true,
-		dualEmbedding: false,
-
-		// Embedding settings
-		alloydbEmbeddingModel: 'gemini-embedding-001',
-		alloydbEnableColumnarEngine: false, // May not be available in Omni
-		alloydbVectorWeight: 0.7,
+		chunking: {
+			dualEmbedding: false,
+			contextualChunking: true,
+		},
+		search: { hybridSearch: true },
 
 		// File filters (limit to TypeScript files for this example)
 		includePatterns: ['src/**/*.ts'],
 		fileExtensions: ['.ts'],
 
 		// GCP settings (for reranking if enabled)
-		gcpProject: process.env.GCLOUD_PROJECT,
-		gcpRegion: process.env.GCLOUD_REGION || 'us-central1',
+		googleCloud: {
+			projectId: process.env.GCLOUD_PROJECT,
+			region: process.env.GCLOUD_REGION || 'us-central1',
+		},
 	});
 
 	console.log('✅ Orchestrator created\n');
@@ -107,9 +111,9 @@ async function runExample() {
 		// Get stats
 		const config = orchestrator.getConfig();
 		console.log('\n📊 Configuration:');
-		console.log(`   Contextual Chunking: ${config.contextualChunking}`);
-		console.log(`   Hybrid Search: ${config.hybridSearch}`);
-		console.log(`   Dual Embedding: ${config.dualEmbedding}`);
+		console.log(`   Contextual Chunking: ${config.chunking?.contextualChunking}`);
+		console.log(`   Hybrid Search: ${config.search?.hybridSearch}`);
+		console.log(`   Dual Embedding: ${config.chunking?.dualEmbedding}`);
 
 		// Close connections
 		await (orchestrator as any).vectorStore.close();

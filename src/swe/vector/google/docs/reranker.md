@@ -14,9 +14,9 @@ function main(rankingConfig, records) {
   // const rankingConfig = 'abc123'
   /**
    *  The identifier of the model to use. It is one of:
-   *  * `semantic-ranker-512@latest`: Semantic ranking model with maximum input
+   *  * `semantic-ranker-default@latest`: Semantic ranking model with maximum input
    *  token size 512.
-   *  It is set to `semantic-ranker-512@latest` by default if unspecified.
+   *  It is set to `semantic-ranker-default@latest` by default if unspecified.
    */
   // const model = 'abc123'
   /**

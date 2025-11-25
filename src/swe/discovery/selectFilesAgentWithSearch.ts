@@ -21,6 +21,8 @@ import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFile
 import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { type ProjectInfo, getProjectInfos } from '#swe/projectDetection';
+import { createVectorOrchestrator, isVectorSearchAvailable } from '#swe/vector/core/config';
+import type { IVectorSearchOrchestrator, SearchResult as VectorSearchResult } from '#swe/vector/core/interfaces';
 
 /*
 Agent which iteratively loads files to find the file set required for a task/query.
@@ -33,6 +35,7 @@ This agent is designed to utilise LLM prompt caching
 // Constants for search result size management
 const MAX_SEARCH_TOKENS = 8000; // Maximum tokens for search results
 const APPROX_CHARS_PER_TOKEN = 4; // Approximate characters per token
+const MAX_VECTOR_SEARCH_RESULTS = 20; // Maximum results from vector search
 
 function norm(p: string): string {
 	return path.posix.normalize(p.trim().replace(/^\.\/+/, ''));
@@ -68,6 +71,7 @@ interface IterationResponse {
 	ignoreFiles?: SelectedFile[];
 	inspectFiles?: string[];
 	search?: string; // Regex string for searching file contents
+	vectorSearch?: string; // Semantic search query (only available if repository is indexed)
 }
 
 export interface QueryOptions {
@@ -225,6 +229,13 @@ async function selectFilesCore(
 	const initialRawInspectPaths = initialResponse.inspectFiles || [];
 	const workingDir = getFileSystem().getWorkingDirectory();
 
+	// Check if vector search is available and create orchestrator
+	const vectorSearchAvailable = isVectorSearchAvailable(workingDir);
+	let vectorOrchestrator: IVectorSearchOrchestrator | null = null;
+	if (vectorSearchAvailable) {
+		vectorOrchestrator = await createVectorOrchestrator(workingDir);
+	}
+
 	// Validate initial paths (Fix #5)
 	const { validPaths: validatedInitialInspectPaths, invalidPaths: initiallyInvalidPaths } = await validateAndFilterPaths(initialRawInspectPaths, workingDir);
 
@@ -261,6 +272,7 @@ async function selectFilesCore(
 			iterationCount,
 			llm,
 			agentLLMs,
+			vectorSearchAvailable,
 		);
 
 		// Process keep/ignore decisions first
@@ -311,17 +323,18 @@ async function selectFilesCore(
 
 		// If there are still pending files, but the LLM asked for no new action,
 		// remind it and try another iteration instead of failing.
-		if (filesPendingDecision.size > 0 && !response.search && filesToInspect.length === 0) {
+		if (filesPendingDecision.size > 0 && !response.search && !response.vectorSearch && filesToInspect.length === 0) {
 			const pending = [...filesPendingDecision].join(', ');
 			logger.warn(`LLM did not resolve pending files (${pending}). Asking again…`);
 
+			const vectorSearchHint = vectorSearchAvailable ? ' or perform a "vectorSearch"' : '';
 			messages.push({
 				role: 'user',
 				content: `You have not resolved the following pending files:\n${pending}
 Please either:
  • move each of them to "keepFiles" or "ignoreFiles",
  • request them in "inspectFiles", or
- • perform a "search" that will help you decide.
+ • perform a "search"${vectorSearchHint} that will help you decide.
 
 Respond with a valid JSON object that follows the required schema.`,
 			});
@@ -336,9 +349,28 @@ Respond with a valid JSON object that follows the required schema.`,
 			continue; // retry instead of throwing
 		}
 
-		if (response.search) {
-			const searchRegex = response.search;
-			const searchResultsText = await searchFileSystem(searchRegex);
+		// Handle searches - both regex and vector can be used together
+		const hasAnySearch = response.search || response.vectorSearch;
+
+		if (hasAnySearch) {
+			let searchResultsText = '';
+
+			// Perform regex search if requested
+			if (response.search) {
+				searchResultsText += await searchFileSystem(response.search);
+			}
+
+			// Perform vector search if requested
+			if (response.vectorSearch) {
+				if (vectorOrchestrator) {
+					searchResultsText += await performVectorSearch(response.vectorSearch, vectorOrchestrator);
+				} else {
+					searchResultsText += `<vector_search_unavailable query="${response.vectorSearch}">
+Repository has not been indexed for vector search. Use regex search instead.
+</vector_search_unavailable>\n`;
+				}
+			}
+
 			// The assistant message should reflect the actual response, including any keep/ignore/inspect decisions made alongside search.
 			messages.push({ role: 'assistant', content: JSON.stringify(response) });
 			messages.push({ role: 'user', content: searchResultsText, cache: 'ephemeral' });
@@ -467,6 +499,7 @@ async function generateFileSelectionProcessingResponse(
 	iteration: number,
 	llm: LLM,
 	agentLLMs: AgentLLMs,
+	vectorSearchAvailable: boolean,
 ): Promise<IterationResponse> {
 	// filesForContent are the files whose contents will be shown to the LLM in this turn.
 	// These are the newly requested (and validated) filesToInspect.
@@ -496,6 +529,18 @@ These files MUST be addressed by including them in either "keepFiles" or "ignore
 		prompt += '\nNo files are currently pending decision. You can request to inspect new files, search, or complete the selection.';
 	}
 
+	// Build vector search option text if available
+	const vectorSearchOption = vectorSearchAvailable
+		? `
+4.  **Semantic Vector Search**:
+    - "vectorSearch": "natural language query". Use for conceptual/semantic searches (e.g., "authentication logic", "error handling for API calls").
+    - Finds code by meaning, not exact text matches. Good for finding implementations of concepts.
+    - You can use BOTH "search" AND "vectorSearch" in the same response to combine exact and semantic results.
+`
+		: '';
+
+	const vectorSearchHint = vectorSearchAvailable ? ', or use "vectorSearch" for semantic/conceptual queries' : '';
+
 	prompt += `
 
 You have the following actions available in your JSON response:
@@ -505,19 +550,19 @@ You have the following actions available in your JSON response:
     *All files listed above as pending MUST be included in either "keepFiles" or "ignoreFiles". This is crucial.*
 
 2.  **Request to Inspect New Files**:
-    - "inspectFiles": Array of ["path/to/new/file1", "path/to/new/file2"]. Use this if you need to see the content of specific new files. Do NOT use this if you are using "search" in the same response, unless you also have pending files to decide upon.
+    - "inspectFiles": Array of ["path/to/new/file1", "path/to/new/file2"]. Use this if you need to see the content of specific new files.
 
-3.  **Search File Contents**:
-    - "search": "your_regex_pattern_here". Use this if you need to find files based on their content.
+3.  **Search File Contents (Regex)**:
+    - "search": "your_regex_pattern_here". Use for exact pattern matching (function names, imports, specific strings).
     - The search results will be provided in the next turn.
-    - *Important (Fix #4 clarification)*: If you use "search", you **must still** include "keepFiles" and "ignoreFiles" for any files currently pending decision.
-
+    - *Important*: If you use "search", you **must still** include "keepFiles" and "ignoreFiles" for any files currently pending decision.
+${vectorSearchOption}
 **Workflow Strategy**:
 - **Always prioritize deciding on all pending files.** Include them in "keepFiles" or "ignoreFiles".
 - If more information is needed *after* deciding on all pending files:
     - If you know specific file paths, use "inspectFiles".
-    - If you need to discover files based on content, use "search".
-- You can use "inspectFiles" OR "search" in a single response to gather new information, but decisions on pending files are mandatory in every response that involves them.
+    - If you need to discover files based on exact content patterns, use "search"${vectorSearchHint}.
+- You can use "inspectFiles", "search"${vectorSearchAvailable ? ', and/or "vectorSearch"' : ''} in a single response to gather new information, but decisions on pending files are mandatory in every response that involves them.
 
 Have you inspected enough files OR have enough information from searches to confidently determine the minimal essential set?
 If yes, and all pending files are decided (i.e., 'pendingFiles' list above would be empty if this was the start of the turn), return empty arrays for "inspectFiles", no "search" property, and ensure "keepFiles" contains the final selection.
@@ -532,7 +577,7 @@ The final part of the response must be a JSON object in the following format:
     { "reason": "Explains why this file is not needed.", "filePath": "path/to/nonessential/file2" }
   ],
   "inspectFiles": ["path/to/new/file1", "path/to/new/file2"],
-  "search": "regex search pattern if needed (optional)"
+  "search": "regex search pattern if needed (optional)"${vectorSearchAvailable ? ',\n  "vectorSearch": "semantic query if needed (optional)"' : ''}
 }
 </json>
 Only inspect files which are in the provided list.
@@ -649,4 +694,48 @@ async function searchFileSystem(searchRegex: string) {
 		}
 	}
 	return searchResultsText;
+}
+
+/**
+ * Perform semantic vector search on the indexed repository
+ */
+async function performVectorSearch(query: string, orchestrator: IVectorSearchOrchestrator): Promise<string> {
+	try {
+		const results = await orchestrator.search(query, { maxResults: MAX_VECTOR_SEARCH_RESULTS });
+
+		if (results.length === 0) {
+			return `<vector_search_results query="${query}">\nNo results found.\n</vector_search_results>\n`;
+		}
+
+		return formatVectorSearchResults(query, results);
+	} catch (error) {
+		logger.warn(error, `Error during vector search for query: ${query}`);
+		return `<vector_search_error query="${query}">\nError: ${(error as Error).message}\n</vector_search_error>\n`;
+	}
+}
+
+/**
+ * Format vector search results for LLM consumption
+ */
+function formatVectorSearchResults(query: string, results: VectorSearchResult[]): string {
+	let output = `<vector_search_results query="${query}" count="${results.length}">\n`;
+
+	for (const result of results) {
+		const { document, score } = result;
+		output += `<result file="${document.filePath}" lines="${document.startLine}-${document.endLine}" score="${score.toFixed(3)}">\n`;
+
+		if (document.naturalLanguageDescription) {
+			output += `<description>${document.naturalLanguageDescription}</description>\n`;
+		}
+
+		// Include code snippet (truncated if too long)
+		const code = document.originalCode.length > 500 ? `${document.originalCode.substring(0, 500)}...` : document.originalCode;
+		output += `<code>\n${code}\n</code>\n`;
+		output += '</result>\n';
+	}
+
+	output += '</vector_search_results>\n';
+	output += `Note: Use "inspectFiles" to see full file contents of relevant matches.\n`;
+
+	return output;
 }

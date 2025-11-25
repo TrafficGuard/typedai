@@ -7,13 +7,30 @@ import { readFilesToIndex } from '../codeLoader';
 import { batchIndexFiles } from '../core/batchIndexer';
 import { logChunksToDisk } from '../core/chunkLogger';
 import { LLMCodeTranslator } from '../core/codeTranslator';
-import { VectorStoreConfig, buildGoogleVectorServiceConfig, loadVectorConfig, printConfigSummary } from '../core/config';
+import {
+	RerankingConfig,
+	VectorStoreConfig,
+	addOrUpdateVectorConfig,
+	buildGoogleVectorServiceConfig,
+	loadVectorConfig,
+	printConfigSummary,
+} from '../core/config';
 import { LLMContextualizer } from '../core/contextualizer';
-import { ContextualizedChunk, EmbeddedChunk, FileInfo, IVectorSearchOrchestrator, ProgressCallback, RawChunk, SearchResult } from '../core/interfaces';
+import type { IReranker } from '../core/interfaces';
+import {
+	ContextualizedChunk,
+	EmbeddedChunk,
+	FileInfo,
+	IVectorSearchOrchestrator,
+	ProgressCallback,
+	RawChunk,
+	SearchResult,
+	VectorSearchOptions,
+} from '../core/interfaces';
+import { createReranker } from '../reranking';
 import { MerkleSynchronizer } from '../sync/merkleSynchronizer';
 import { DiscoveryEngineAdapter } from './discoveryEngineAdapter';
 import { GcpQuotaCircuitBreaker } from './gcpQuotaCircuitBreaker';
-import { GoogleReranker } from './googleRerank';
 import {
 	CIRCUIT_BREAKER_FAILURE_THRESHOLD,
 	CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
@@ -50,10 +67,13 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 	private dualEmbedder: DualEmbeddingGenerator;
 	private vectorStore: DiscoveryEngineAdapter;
 	private synchronizer: MerkleSynchronizer;
-	private reranker: GoogleReranker;
+	private _reranker: IReranker | null = null;
+	private _rerankerConfig: RerankingConfig | null = null;
 	private readonly DEFAULT_CONFIG = {
-		dualEmbedding: false,
-		contextualChunking: false,
+		chunking: {
+			dualEmbedding: false,
+			contextualChunking: false,
+		},
 	};
 
 	// Circuit breaker for LLM services (contextualization, translation)
@@ -79,9 +99,32 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 		this.dualEmbedder = new DualEmbeddingGenerator(this.embedder);
 		this.vectorStore = new DiscoveryEngineAdapter(googleConfig);
 		this.synchronizer = new MerkleSynchronizer(this.config.includePatterns);
-		this.reranker = new GoogleReranker(googleConfig, {
-			model: this.config.rerankingModel,
-		});
+		// Reranker is created lazily via getReranker()
+	}
+
+	/**
+	 * Get or create reranker based on current config
+	 * Returns null if reranking is disabled
+	 */
+	private getReranker(): IReranker | null {
+		const config = this.config.search?.reranking;
+		if (!config) return null;
+
+		// Check if we need to create/recreate reranker
+		if (!this._reranker || !this.configsEqual(this._rerankerConfig, config)) {
+			this._reranker = createReranker(config, this.googleConfig, this.config.ollama);
+			this._rerankerConfig = config;
+		}
+		return this._reranker;
+	}
+
+	/**
+	 * Check if two reranking configs are equivalent
+	 */
+	private configsEqual(a: RerankingConfig | null, b: RerankingConfig | null): boolean {
+		if (a === b) return true;
+		if (!a || !b) return false;
+		return a.provider === b.provider && a.model === b.model && a.topK === b.topK;
 	}
 
 	@span()
@@ -112,9 +155,9 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 		this.embedder = new VertexEmbedderAdapter(this.googleConfig);
 		this.dualEmbedder = new DualEmbeddingGenerator(this.embedder);
 		this.vectorStore = new DiscoveryEngineAdapter(this.googleConfig);
-		this.reranker = new GoogleReranker(this.googleConfig, {
-			model: this.config.rerankingModel,
-		});
+		// Reranker will be recreated lazily on next search if config changed
+		this._reranker = null;
+		this._rerankerConfig = null;
 
 		// Initialize vector store
 		await this.vectorStore.initialize(this.config);
@@ -168,8 +211,11 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 		// Save snapshot for incremental updates
 		await this.synchronizer.saveSnapshot(repoRoot, filesToIndex);
 
+		// Mark repository as indexed in config
+		addOrUpdateVectorConfig(repoRoot, { ...this.config, indexed: true });
+
 		const duration = Date.now() - startTime;
-		logger.info({ duration, fileCount: filesToIndex.length }, 'Repository indexing completed');
+		logger.info({ duration, fileCount: filesToIndex.length }, 'Repository indexing completed, indexed=true set');
 	}
 
 	/**
@@ -196,7 +242,9 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 		this.embedder = new VertexEmbedderAdapter(this.googleConfig);
 		this.dualEmbedder = new DualEmbeddingGenerator(this.embedder);
 		this.vectorStore = new DiscoveryEngineAdapter(this.googleConfig);
-		this.reranker = new GoogleReranker(this.googleConfig, { model: this.config.rerankingModel });
+		// Reranker will be recreated lazily on next search if config changed
+		this._reranker = null;
+		this._rerankerConfig = null;
 		this.chunker = new ASTChunker();
 		this.contextualizer = new LLMContextualizer(undefined, this.llmCircuitBreaker);
 		this.translator = new LLMCodeTranslator(undefined, this.llmCircuitBreaker);
@@ -246,24 +294,21 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 		);
 	}
 
-	async search(
-		query: string,
-		options?: {
-			maxResults?: number;
-			fileFilter?: string[];
-			languageFilter?: string[];
-		},
-	): Promise<SearchResult[]> {
+	async search(query: string, options?: VectorSearchOptions): Promise<SearchResult[]> {
 		const maxResults = options?.maxResults || 10;
 
-		logger.info({ query, maxResults, reranking: this.config.reranking }, 'Performing search');
+		// Resolve reranking configuration
+		const rerankConfig = this.config.search?.reranking;
+		const useReranking = !!rerankConfig;
+		const rerankingTopK = rerankConfig?.topK ?? 50;
+
+		logger.info({ query, maxResults, reranking: useReranking, rerankingProvider: rerankConfig?.provider }, 'Performing search');
 
 		// Generate query embedding
 		const queryEmbedding = await this.dualEmbedder.generateQueryEmbedding(query, this.config);
 
 		// Search vector store (get more results if reranking is enabled)
-		const rerankingTopK = this.config.rerankingTopK || 50;
-		const searchLimit = this.config.reranking ? Math.max(maxResults * 2, rerankingTopK) : maxResults;
+		const searchLimit = useReranking ? Math.max(maxResults * 2, rerankingTopK) : maxResults;
 		const results = await this.vectorStore.search(query, queryEmbedding, searchLimit, this.config);
 
 		// Apply filters if provided
@@ -280,15 +325,20 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 		// Apply reranking if enabled
 		let finalResults = filteredResults;
 
-		if (this.config.reranking && filteredResults.length > 0) {
-			logger.info({ inputCount: filteredResults.length, maxResults, rerankingTopK }, 'Applying reranking');
-			finalResults = await this.reranker.rerank(query, filteredResults, maxResults);
+		if (useReranking && filteredResults.length > 0) {
+			const reranker = this.getReranker();
+			if (reranker) {
+				logger.info({ inputCount: filteredResults.length, maxResults, rerankingTopK }, 'Applying reranking');
+				finalResults = await reranker.rerank(query, filteredResults, maxResults);
+			} else {
+				finalResults = filteredResults.slice(0, maxResults);
+			}
 		} else {
 			// Limit to maxResults if not reranking
 			finalResults = filteredResults.slice(0, maxResults);
 		}
 
-		logger.info({ resultCount: finalResults.length, reranked: this.config.reranking }, 'Search completed');
+		logger.info({ resultCount: finalResults.length, reranked: useReranking }, 'Search completed');
 
 		return finalResults;
 	}
@@ -379,7 +429,7 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 			let chunks: Array<RawChunk | ContextualizedChunk>;
 
 			// With contextual chunking enabled, LLM does both chunking and contextualization in one call
-			if (this.config.contextualChunking) {
+			if (this.config.chunking?.contextualChunking) {
 				onProgress?.({
 					phase: 'contextualizing',
 					currentFile: fileInfo.filePath,
@@ -421,7 +471,7 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 			// 3. Translation (optional, based on config)
 			let naturalLanguageDescriptions: string[] = [];
 
-			if (this.config.dualEmbedding) {
+			if (this.config.chunking?.dualEmbedding) {
 				onProgress?.({
 					phase: 'translating',
 					currentFile: fileInfo.filePath,
@@ -476,8 +526,8 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 					filePath: fileInfo.filePath,
 					language: fileInfo.language,
 					chunk,
-					embedding: this.config.dualEmbedding ? embeddings.naturalLanguageEmbedding : embeddings.codeEmbedding,
-					secondaryEmbedding: this.config.dualEmbedding ? embeddings.codeEmbedding : undefined,
+					embedding: this.config.chunking?.dualEmbedding ? embeddings.naturalLanguageEmbedding : embeddings.codeEmbedding,
+					secondaryEmbedding: this.config.chunking?.dualEmbedding ? embeddings.codeEmbedding : undefined,
 					naturalLanguageDescription: nlDescription || undefined,
 				};
 			} catch (error) {

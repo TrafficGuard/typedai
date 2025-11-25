@@ -85,7 +85,7 @@ describe('batchIndexFiles', () => {
 		const progress: string[] = [];
 
 		const { stats } = await batchIndexFiles(files, deps, {
-			config: { ...DEFAULT_VECTOR_CONFIG, dualEmbedding: true, contextualChunking: true },
+			config: { ...DEFAULT_VECTOR_CONFIG, chunking: { ...DEFAULT_VECTOR_CONFIG.chunking, dualEmbedding: true, contextualChunking: true } },
 			concurrency: 2,
 			progress: (p) => {
 				if (p.phase && p.currentFile) progress.push(`${p.phase}:${p.currentFile}`);
@@ -121,7 +121,7 @@ describe('batchIndexFiles', () => {
 		const deps = baseDeps();
 
 		const { stats } = await batchIndexFiles(files, deps, {
-			config: { ...DEFAULT_VECTOR_CONFIG, contextualChunking: true },
+			config: { ...DEFAULT_VECTOR_CONFIG, chunking: { ...DEFAULT_VECTOR_CONFIG.chunking, contextualChunking: true } },
 			stateFilePath: statePath,
 			concurrency: 2,
 		});

@@ -3,36 +3,36 @@ import { RankServiceClient } from '@google-cloud/discoveryengine';
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import pino from 'pino';
 import { IReranker, SearchResult } from '../core/interfaces';
-import { GoogleVectorServiceConfig } from './googleVectorConfig';
+import { GoogleVectorServiceConfig } from '../google/googleVectorConfig';
 
-const logger = pino({ name: 'GoogleReranker' });
+const logger = pino({ name: 'VertexReranker' });
+
+export interface VertexRerankerConfig {
+	/** Reranking model (default: 'semantic-ranker-default@latest') */
+	model?: string;
+}
 
 /**
  * Google Vertex AI Ranking service for reranking search results
  * Uses semantic-ranker-default@latest model to reorder results based on semantic relevance
  * https://cloud.google.com/generative-ai-app-builder/docs/ranking
  */
-export class GoogleReranker implements IReranker {
+export class VertexReranker implements IReranker {
 	private rankClient: RankServiceClient;
 	private project: string;
 	private location: string;
 	private model: string;
 
-	constructor(
-		config: GoogleVectorServiceConfig,
-		options?: {
-			model?: string;
-		},
-	) {
-		this.project = config.project;
-		this.location = config.discoveryEngineLocation;
-		this.model = options?.model || 'semantic-ranker-default@latest';
+	constructor(googleConfig: GoogleVectorServiceConfig, config?: VertexRerankerConfig) {
+		this.project = googleConfig.project;
+		this.location = googleConfig.discoveryEngineLocation;
+		this.model = config?.model || 'semantic-ranker-default@latest';
 
 		this.rankClient = new RankServiceClient({
-			apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
+			apiEndpoint: `${googleConfig.discoveryEngineLocation}-discoveryengine.googleapis.com`,
 		});
 
-		logger.info({ project: this.project, location: this.location, model: this.model }, 'GoogleReranker initialized');
+		logger.info({ project: this.project, location: this.location, model: this.model }, 'VertexReranker initialized');
 	}
 
 	/**

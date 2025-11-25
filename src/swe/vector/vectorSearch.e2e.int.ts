@@ -131,9 +131,11 @@ describe('Vector Search E2E Tests', function () {
 
 			// Index with fast config (no LLM features)
 			const fastConfig: VectorStoreConfig = {
-				dualEmbedding: false,
-				contextualChunking: false,
-				chunkSize: 2500,
+				chunking: {
+					dualEmbedding: false,
+					contextualChunking: false,
+					size: 2500,
+				},
 			};
 
 			printConfig(fastConfig, 'Test Config');
@@ -186,7 +188,7 @@ export function validateEmail(email: string): boolean {
 
 			// Index
 			await orchestrator.indexRepository(testRepoDir, {
-				config: { dualEmbedding: false, contextualChunking: false },
+				config: { chunking: { dualEmbedding: false, contextualChunking: false } },
 			});
 			await waitForIndexing(orchestrator, 'function'); // Poll for up to 15 minutes
 
@@ -240,9 +242,11 @@ export class AuthService {
 
 			// Index with contextual chunking enabled
 			const contextualConfig: VectorStoreConfig = {
-				dualEmbedding: false,
-				contextualChunking: true,
-				chunkSize: 1000,
+				chunking: {
+					dualEmbedding: false,
+					contextualChunking: true,
+					size: 1000,
+				},
 			};
 
 			await orchestrator.indexRepository(testRepoDir, {
@@ -294,7 +298,7 @@ export class AuthService {
 			logger.info('Testing BASELINE configuration (no LLM features)');
 			await orchestrator.purgeAll();
 			await orchestrator.indexRepository(testRepoDir, {
-				config: { dualEmbedding: false, contextualChunking: false },
+				config: { chunking: { dualEmbedding: false, contextualChunking: false } },
 			});
 			await waitForIndexing(orchestrator, 'function'); // Poll for up to 15 minutes
 
@@ -310,7 +314,7 @@ export class AuthService {
 			await waitForIndexing(); // Quick wait after purge
 
 			await orchestrator.indexRepository(testRepoDir, {
-				config: { dualEmbedding: false, contextualChunking: true },
+				config: { chunking: { dualEmbedding: false, contextualChunking: true } },
 			});
 			await waitForIndexing(orchestrator, 'function'); // Poll for up to 15 minutes
 
@@ -376,7 +380,7 @@ export class AuthService {
 			const fullIndexStart = Date.now();
 			await orchestrator.indexRepository(testRepoDir, {
 				incremental: false,
-				config: { dualEmbedding: false, contextualChunking: false },
+				config: { chunking: { dualEmbedding: false, contextualChunking: false } },
 			});
 			await waitForIndexing(orchestrator, 'export');
 			const fullIndexDuration = Date.now() - fullIndexStart;
@@ -395,7 +399,7 @@ export class AuthService {
 			const incrementalStart = Date.now();
 			await orchestrator.indexRepository(testRepoDir, {
 				incremental: true,
-				config: { dualEmbedding: false, contextualChunking: false },
+				config: { chunking: { dualEmbedding: false, contextualChunking: false } },
 			});
 			await waitForIndexing(orchestrator, 'export');
 			const incrementalDuration = Date.now() - incrementalStart;
@@ -436,7 +440,7 @@ export class AuthService {
 			await fs.writeFile(path.join(testRepoDir, 'src/file5.ts'), 'export const e = 5;');
 			await orchestrator.indexRepository(testRepoDir, {
 				incremental: true,
-				config: { dualEmbedding: false, contextualChunking: false },
+				config: { chunking: { dualEmbedding: false, contextualChunking: false } },
 			});
 			await waitForIndexing(orchestrator, 'export');
 
@@ -457,7 +461,7 @@ export class AuthService {
 
 			// Index
 			await orchestrator.indexRepository(testRepoDir, {
-				config: { dualEmbedding: false, contextualChunking: false },
+				config: { chunking: { dualEmbedding: false, contextualChunking: false } },
 			});
 			await waitForIndexing(orchestrator, 'function');
 
@@ -468,7 +472,15 @@ export class AuthService {
 			expect(baselineResults.length).to.be.greaterThan(0);
 
 			// Update config to enable reranking
-			orchestrator.updateConfig({ reranking: true, rerankingTopK: 50 });
+			orchestrator.updateConfig({
+				search: {
+					reranking: {
+						provider: 'vertex',
+						model: 'semantic-ranker-default@latest',
+						topK: 50,
+					},
+				},
+			});
 
 			// Search WITH reranking
 			const rerankedResults = await orchestrator.search(query, { maxResults: 5 });
@@ -507,7 +519,7 @@ export class AuthService {
 
 			// Index
 			await orchestrator.indexRepository(testRepoDir, {
-				config: { dualEmbedding: false, contextualChunking: false },
+				config: { chunking: { dualEmbedding: false, contextualChunking: false } },
 			});
 			await waitForIndexing(orchestrator, 'function'); // Poll for up to 15 minutes
 

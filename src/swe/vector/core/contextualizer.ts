@@ -24,7 +24,7 @@ export class LLMContextualizer implements IContextualizer {
 	}
 
 	async contextualize(chunks: RawChunk[], fileInfo: FileInfo, config: VectorStoreConfig): Promise<ContextualizedChunk[]> {
-		if (!config.contextualChunking) {
+		if (!config.chunking?.contextualChunking) {
 			logger.debug({ filePath: fileInfo.relativePath }, 'Contextual chunking disabled, skipping contextualization');
 			// Return chunks as-is but with empty context
 			return chunks.map((chunk) => ({

@@ -10,7 +10,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { cerebrasZaiGLM_4_6 } from '#llm/services/cerebras';
-import { claudeCodeDefault } from '#llm/services/claudeCode';
+import { claudeCodeSonnet } from '#llm/services/claudeCode';
 import { openaiGPT5nano } from '#llm/services/openai';
 import { vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite } from '#llm/services/vertexai';
 import type { LLM } from '#shared/llm/llm.model';
@@ -36,7 +36,7 @@ const CONFIG = {
 	enableQualityEvaluation: true,
 
 	// Judge LLM for quality evaluation (evaluates generated context quality)
-	judgeLLM: claudeCodeDefault,
+	judgeLLM: claudeCodeSonnet,
 };
 
 // ============================================================================
@@ -142,10 +142,12 @@ async function compareLLMs() {
 	// Prepare chunker and config
 	const chunker = new ASTChunker();
 	const vectorConfig: VectorStoreConfig = {
-		contextualChunking: false, // We just need raw chunks
-		chunkSize: 1500,
-		chunkOverlap: 200,
-		dualEmbedding: false,
+		chunking: {
+			contextualChunking: false, // We just need raw chunks
+			size: 1500,
+			overlap: 200,
+			dualEmbedding: false,
+		},
 	};
 
 	// Load and chunk all test files

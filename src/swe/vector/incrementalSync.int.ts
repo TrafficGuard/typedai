@@ -21,9 +21,11 @@ describe('Incremental Sync Integration Tests', function () {
 
 	// Fast config for all tests (no LLM features)
 	const testConfig: VectorStoreConfig = {
-		dualEmbedding: false,
-		contextualChunking: false,
-		chunkSize: 2500,
+		chunking: {
+			dualEmbedding: false,
+			contextualChunking: false,
+			size: 2500,
+		},
 	};
 
 	before(async () => {

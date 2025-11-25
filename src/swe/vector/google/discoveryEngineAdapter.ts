@@ -20,8 +20,10 @@ export class DiscoveryEngineAdapter implements IVectorStore {
 	constructor(googleConfig: GoogleVectorServiceConfig) {
 		this.engine = new DiscoveryEngine(googleConfig);
 		this.config = {
-			dualEmbedding: false,
-			contextualChunking: false,
+			chunking: {
+				dualEmbedding: false,
+				contextualChunking: false,
+			},
 		};
 	}
 
@@ -37,7 +39,7 @@ export class DiscoveryEngineAdapter implements IVectorStore {
 			return;
 		}
 
-		logger.info({ chunkCount: chunks.length, dualEmbedding: this.config.dualEmbedding }, 'Indexing chunks');
+		logger.info({ chunkCount: chunks.length, dualEmbedding: this.config.chunking?.dualEmbedding }, 'Indexing chunks');
 
 		// Convert chunks to Discovery Engine documents
 		const documents = chunks.map((chunk) => this.convertChunkToDocument(chunk));
@@ -59,7 +61,7 @@ export class DiscoveryEngineAdapter implements IVectorStore {
 	}
 
 	async search(query: string, queryEmbedding: number[], maxResults: number, config: VectorStoreConfig): Promise<SearchResult[]> {
-		logger.debug({ query, maxResults, dualEmbedding: config.dualEmbedding }, 'Searching');
+		logger.debug({ query, maxResults, dualEmbedding: config.chunking?.dualEmbedding }, 'Searching');
 
 		const servingConfigPath = this.engine.getServingConfigPath();
 
@@ -78,7 +80,7 @@ export class DiscoveryEngineAdapter implements IVectorStore {
 
 		// If dual embedding is enabled and we have a query embedding, use it
 		// Discovery Engine supports hybrid search (vector + text) natively
-		if (config.dualEmbedding && queryEmbedding && queryEmbedding.length > 0) {
+		if (config.chunking?.dualEmbedding && queryEmbedding && queryEmbedding.length > 0) {
 			// TODO: Add vector search parameters when available in Discovery Engine API
 			// Currently, Discovery Engine automatically uses embeddings if they're present in the documents
 			logger.debug('Using hybrid search (text + vector)');
@@ -132,7 +134,7 @@ export class DiscoveryEngineAdapter implements IVectorStore {
 		};
 
 		// Add natural language description if dual embedding is enabled
-		if (this.config.dualEmbedding && chunk.naturalLanguageDescription) {
+		if (this.config.chunking?.dualEmbedding && chunk.naturalLanguageDescription) {
 			structData.naturalLanguageDescription = chunk.naturalLanguageDescription;
 		}
 
@@ -148,7 +150,7 @@ export class DiscoveryEngineAdapter implements IVectorStore {
 		}
 
 		// Secondary embedding (code embedding when dual embedding is enabled)
-		if (this.config.dualEmbedding && chunk.secondaryEmbedding && chunk.secondaryEmbedding.length > 0) {
+		if (this.config.chunking?.dualEmbedding && chunk.secondaryEmbedding && chunk.secondaryEmbedding.length > 0) {
 			structData.codeEmbedding = chunk.secondaryEmbedding;
 		}
 

@@ -26,9 +26,11 @@ describe('AlloyDBAdapter', () => {
 		};
 
 		mockVectorConfig = {
-			dualEmbedding: false,
-			contextualChunking: true,
-			hybridSearch: true,
+			chunking: {
+				dualEmbedding: false,
+				contextualChunking: true,
+			},
+			search: { hybridSearch: true },
 		};
 
 		adapter = new AlloyDBAdapter('test-repo', mockAlloyDBConfig);
@@ -117,7 +119,7 @@ describe('AlloyDBAdapter', () => {
 		});
 
 		it('uses manual embeddings in vector search when automated embeddings are disabled', async () => {
-			await adapter.search('manual query', [0.1, 0.2], 5, { ...mockVectorConfig, hybridSearch: false });
+			await adapter.search('manual query', [0.1, 0.2], 5, { ...mockVectorConfig, search: { hybridSearch: false } });
 
 			const sql = queryStub.firstCall.args[0];
 			const params = queryStub.firstCall.args[1];
@@ -128,7 +130,7 @@ describe('AlloyDBAdapter', () => {
 		it('calls google_ml.embedding when automated embeddings are enabled', async () => {
 			(adapter as any).automatedEmbeddingsEnabled = true;
 
-			await adapter.search('auto query', [], 5, { ...mockVectorConfig, hybridSearch: false });
+			await adapter.search('auto query', [], 5, { ...mockVectorConfig, search: { hybridSearch: false } });
 
 			const sql = queryStub.firstCall.args[0];
 			const params = queryStub.firstCall.args[1];

@@ -14,7 +14,7 @@
  */
 
 // Core Configuration
-export type { VectorStoreConfig } from './core/config';
+export type { VectorStoreConfig, RerankingConfig, RerankingProvider } from './core/config';
 export {
 	DEFAULT_VECTOR_CONFIG,
 	HIGH_QUALITY_CONFIG,
@@ -27,7 +27,18 @@ export {
 	buildGoogleVectorServiceConfig,
 	estimateCostPerFile,
 	printConfigSummary,
+	resolveProductConfig,
+	isVectorSearchAvailable,
+	createVectorOrchestrator,
 } from './core/config';
+
+// Presets
+export type { RepositoryVectorConfig as ProductVectorConfig } from './core/presets';
+export { getPreset, listPresets, loadPresetRegistry } from './core/presets';
+
+// Backend Auto-Detection
+export type { VectorBackend, BackendDetection } from './core/autoDetect';
+export { detectBackend, requireBackend, buildBackendConfig } from './core/autoDetect';
 
 // Core Interfaces
 export type {

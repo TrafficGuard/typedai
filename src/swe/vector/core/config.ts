@@ -2,6 +2,130 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { envVar } from '#utils/env-var';
 import type { GoogleVectorServiceConfig } from '../google/googleVectorConfig';
+import type { IVectorSearchOrchestrator } from './interfaces';
+
+// === Nested Configuration Types ===
+
+/**
+ * Google Cloud configuration (shared across services)
+ */
+export interface GoogleCloudConfig {
+	/** GCP project ID (overrides env GCLOUD_PROJECT) */
+	projectId?: string;
+	/** GCP region for embedding service (overrides env GCLOUD_REGION, default: 'us-central1') */
+	region?: string;
+}
+
+/**
+ * Discovery Engine configuration
+ */
+export interface DiscoveryEngineConfig {
+	/** Discovery Engine location (default: 'global') */
+	location?: string;
+	/** Discovery Engine collection ID (default: 'default_collection') */
+	collectionId?: string;
+	/** Discovery Engine datastore ID */
+	datastoreId?: string;
+}
+
+/**
+ * AlloyDB configuration
+ */
+export interface AlloyDBNestedConfig {
+	/** AlloyDB instance resource name (e.g., 'projects/PROJECT/locations/REGION/clusters/CLUSTER/instances/INSTANCE') */
+	instance?: string;
+	/** AlloyDB database name */
+	database?: string;
+	/** AlloyDB connection string (alternative to instance) */
+	connectionString?: string;
+	/** AlloyDB host (for direct connection) */
+	host?: string;
+	/** AlloyDB port (default: 5432) */
+	port?: number;
+	/** AlloyDB user */
+	user?: string;
+	/** AlloyDB password */
+	password?: string;
+	/** AlloyDB embedding model for automated embeddings (default: 'gemini-embedding-001') */
+	embeddingModel?: string;
+	/** Enable AlloyDB columnar engine for better filtered vector search (default: true) */
+	enableColumnarEngine?: boolean;
+	/** Hybrid search vector weight (0-1, text weight = 1 - vectorWeight, default: 0.7) */
+	vectorWeight?: number;
+}
+
+/**
+ * Ollama configuration (for local embedding)
+ */
+export interface OllamaNestedConfig {
+	/** Ollama API URL (default: http://localhost:11434 or OLLAMA_API_URL env var) */
+	apiUrl?: string;
+	/** Ollama model for general/text embeddings (default: 'qwen3:8b') */
+	embeddingModel?: string;
+	/** Ollama model for code embeddings when using dual embedding (default: 'nomic-embed-code') */
+	codeEmbeddingModel?: string;
+}
+
+/**
+ * Embedding configuration
+ */
+export interface EmbeddingConfig {
+	/** Embedding provider: 'vertex' | 'openai' | 'voyage' | 'cohere' | 'ollama' */
+	provider?: string;
+	/** Embedding model name (e.g., 'gemini-embedding-001', 'text-embedding-3-small') */
+	model?: string;
+}
+
+/**
+ * Chunking configuration
+ *
+ * NOTE: When contextualChunking is true, the LLM performs both chunking AND
+ * contextualization in a single call, determining chunk boundaries semantically.
+ * In this case, size/overlap/strategy are ignored and should be omitted.
+ * These properties are only required when contextualChunking is false/undefined.
+ */
+export interface ChunkingConfig {
+	/** Enable dual embedding (code + natural language translation) - ~12% better retrieval */
+	dualEmbedding?: boolean;
+	/** Enable contextual chunking (LLM-generated context) - ~49-67% better retrieval.
+	 * When true, size/overlap/strategy are ignored (LLM determines chunk boundaries). */
+	contextualChunking?: boolean;
+	/** Chunk size in characters. Required when contextualChunking is false/undefined. */
+	size?: number;
+	/** Chunk overlap in characters. Required when contextualChunking is false/undefined. */
+	overlap?: number;
+	/** Chunking strategy. Required when contextualChunking is false/undefined.
+	 * 'ast' = fast AST-based semantic chunking, 'llm' = slow LLM-based chunking */
+	strategy?: 'ast' | 'llm';
+}
+
+/**
+ * Reranking provider type
+ */
+export type RerankingProvider = 'vertex' | 'morphllm' | 'ollama';
+
+/**
+ * Reranking configuration
+ * Presence of this object enables reranking
+ */
+export interface RerankingConfig {
+	/** Reranking provider */
+	provider: RerankingProvider;
+	/** Model name (provider-specific defaults apply if not specified) */
+	model?: string;
+	/** Number of candidates to rerank (default: 50, max: 200) */
+	topK?: number;
+}
+
+/**
+ * Search configuration (defaults that can be overridden at search-time)
+ */
+export interface SearchConfig {
+	/** Enable hybrid search (vector + BM25 lexical) */
+	hybridSearch?: boolean;
+	/** Reranking configuration - presence enables reranking */
+	reranking?: RerankingConfig;
+}
 
 /**
  * Core vector store configuration for repository indexing
@@ -10,56 +134,38 @@ export interface VectorStoreConfig {
 	/** Name of the vector store collection (used to map to specific collections) */
 	name?: string;
 
-	// === Google Cloud Discovery Engine Configuration ===
-	/** GCP project ID (overrides env GCLOUD_PROJECT) */
-	gcpProject?: string;
+	/** Mark this config as the default when multiple configs exist (only one can be default) */
+	default?: boolean;
 
-	/** Discovery Engine location (overrides env DISCOVERY_ENGINE_LOCATION, default: 'global') */
-	discoveryEngineLocation?: string;
+	// === Google Cloud Configuration ===
+	/** Google Cloud settings (shared across services) */
+	googleCloud?: GoogleCloudConfig;
 
-	/** Discovery Engine collection ID (overrides env DISCOVERY_ENGINE_COLLECTION_ID, default: 'default_collection') */
-	discoveryEngineCollectionId?: string;
+	// === Discovery Engine Configuration ===
+	/** Discovery Engine settings */
+	discoveryEngine?: DiscoveryEngineConfig;
 
-	/** GCP region for embedding service (overrides env GCLOUD_REGION, default: 'us-central1') */
-	gcpRegion?: string;
+	// === AlloyDB Configuration ===
+	/** AlloyDB settings */
+	alloydb?: AlloyDBNestedConfig;
 
-	/** Discovery Engine datastore ID (overrides env DISCOVERY_ENGINE_DATA_STORE_ID) */
-	datastoreId?: string;
+	// === Ollama Configuration ===
+	/** Ollama settings (for local embedding) */
+	ollama?: OllamaNestedConfig;
 
-	// === Vector Search Settings ===
-	/** Enable dual embedding (code + natural language translation) - ~12% better retrieval */
-	dualEmbedding: boolean;
+	// === Embedding Configuration ===
+	/** Embedding settings */
+	embedding?: EmbeddingConfig;
 
-	/** Enable contextual chunking (LLM-generated context) - ~49-67% better retrieval */
-	contextualChunking: boolean;
+	// === Chunking Configuration ===
+	/** Chunking settings */
+	chunking?: ChunkingConfig;
 
-	/** Chunk size in characters (default: 2500) */
-	chunkSize?: number;
+	// === Search Configuration ===
+	/** Search settings (defaults, can be overridden at search-time) */
+	search?: SearchConfig;
 
-	/** Chunk overlap in characters (default: 300) */
-	chunkOverlap?: number;
-
-	/** Chunking strategy: 'ast' (fast, semantic) or 'llm' (slow, high quality) */
-	chunkStrategy?: 'ast' | 'llm';
-
-	/** Embedding provider: 'vertex' | 'openai' | 'voyage' | 'cohere' */
-	embeddingProvider?: string;
-
-	/** Embedding model name */
-	embeddingModel?: string;
-
-	/** Enable hybrid search (vector + BM25 lexical) */
-	hybridSearch?: boolean;
-
-	/** Enable reranking for search results */
-	reranking?: boolean;
-
-	/** Reranking model (default: 'semantic-ranker-512@latest') */
-	rerankingModel?: string;
-
-	/** Number of candidates to rerank (default: 50, max: 200) */
-	rerankingTopK?: number;
-
+	// === File Selection ===
 	/** File/directory patterns to include (glob patterns, e.g., ['src/**', 'lib/**']) */
 	includePatterns?: string[];
 
@@ -69,54 +175,32 @@ export interface VectorStoreConfig {
 	/** Supported file extensions to index */
 	fileExtensions?: string[];
 
+	// === Debug/Misc ===
 	/** Log contextualized chunks to .typedai/vector/chunks/ for debugging (default: false) */
 	logChunks?: boolean;
 
-	// === AlloyDB Configuration ===
-	/** AlloyDB instance resource name (e.g., 'projects/PROJECT/locations/REGION/clusters/CLUSTER/instances/INSTANCE') */
-	alloydbInstance?: string;
-
-	/** AlloyDB database name */
-	alloydbDatabase?: string;
-
-	/** AlloyDB connection string (alternative to instance) */
-	alloydbConnectionString?: string;
-
-	/** AlloyDB host (for direct connection) */
-	alloydbHost?: string;
-
-	/** AlloyDB port (default: 5432) */
-	alloydbPort?: number;
-
-	/** AlloyDB user */
-	alloydbUser?: string;
-
-	/** AlloyDB password */
-	alloydbPassword?: string;
-
-	/** AlloyDB embedding model for automated embeddings (default: 'gemini-embedding-001') */
-	alloydbEmbeddingModel?: string;
-
-	/** Enable AlloyDB columnar engine for better filtered vector search (default: true) */
-	alloydbEnableColumnarEngine?: boolean;
-
-	/** Hybrid search vector weight (0-1, text weight = 1 - vectorWeight, default: 0.7) */
-	alloydbVectorWeight?: number;
+	/** Whether the repository has been indexed for vector search (default: false) */
+	indexed?: boolean;
 }
 
 /**
  * Default configuration - fast and cost-effective
  */
 export const DEFAULT_VECTOR_CONFIG: VectorStoreConfig = {
-	dualEmbedding: false,
-	contextualChunking: false,
-	chunkSize: 2500,
-	chunkOverlap: 300,
-	chunkStrategy: 'ast',
-	embeddingProvider: 'vertex',
-	embeddingModel: 'gemini-embedding-001',
-	hybridSearch: true,
-	reranking: false,
+	embedding: {
+		provider: 'vertex',
+		model: 'gemini-embedding-001',
+	},
+	chunking: {
+		dualEmbedding: false,
+		contextualChunking: false,
+		size: 2500,
+		overlap: 300,
+		strategy: 'ast',
+	},
+	search: {
+		hybridSearch: true,
+	},
 	maxFileSize: 1024 * 1024, // 1MB
 	fileExtensions: ['.ts', '.tsx', '.js', '.jsx', '.py', '.java', '.cpp', '.c', '.h', '.go', '.rs', '.rb', '.php', '.cs', '.swift', '.kt'],
 	logChunks: false,
@@ -127,133 +211,134 @@ export const DEFAULT_VECTOR_CONFIG: VectorStoreConfig = {
  */
 export const HIGH_QUALITY_CONFIG: VectorStoreConfig = {
 	...DEFAULT_VECTOR_CONFIG,
-	dualEmbedding: true,
-	contextualChunking: true,
-	reranking: true,
+	chunking: {
+		dualEmbedding: true,
+		contextualChunking: true,
+		size: 2500,
+		overlap: 300,
+		strategy: 'ast',
+	},
+	search: {
+		hybridSearch: true,
+		reranking: {
+			provider: 'vertex',
+			model: 'semantic-ranker-default@latest',
+			topK: 50,
+		},
+	},
 };
 
+import { type VectorBackend, buildBackendConfig, requireBackend } from './autoDetect';
+import { type RepositoryVectorConfig, getPreset, listPresets } from './presets';
+
 /**
- * Load vector store configuration from repository
- * Checks for .vectorconfig.json or vectorStore field in package.json
+ * Resolve a product repo's minimal config into a full VectorStoreConfig
  *
- * @param repoRoot - Repository root path
- * @param configName - Optional config name to load from array of configs
- * @returns Single config or first config from array if no name specified
+ * @param productConfig - Minimal config from product repo's .typedai.json
+ * @returns Fully resolved VectorStoreConfig
  */
-export function loadVectorConfig(repoRoot: string, configName?: string): VectorStoreConfig {
-	// Try .vectorconfig.json first
-	const vectorConfigPath = path.join(repoRoot, '.vectorconfig.json');
-	if (fs.existsSync(vectorConfigPath)) {
-		try {
-			const configContent = fs.readFileSync(vectorConfigPath, 'utf-8');
-			const parsed = JSON.parse(configContent);
+export function resolveProductConfig(productConfig: RepositoryVectorConfig): VectorStoreConfig {
+	// 1. Get preset from registry
+	const preset = getPreset(productConfig.preset);
 
-			// Check if it's an array of configs
-			if (Array.isArray(parsed)) {
-				if (configName) {
-					// Find config by name
-					const config = parsed.find((c) => c.name === configName);
-					if (!config) {
-						throw new Error(`Config with name "${configName}" not found`);
-					}
-					return { ...DEFAULT_VECTOR_CONFIG, ...config };
-				}
-				// Return first config if no name specified
-				if (parsed.length === 0) {
-					throw new Error('Config array is empty');
-				}
-				return { ...DEFAULT_VECTOR_CONFIG, ...parsed[0] };
-			}
-
-			// Single config object
-			return { ...DEFAULT_VECTOR_CONFIG, ...parsed };
-		} catch (error) {
-			console.warn(`Failed to parse .vectorconfig.json: ${error}`);
-		}
+	// 2. Auto-detect or use explicit backend
+	let backendConfig: Partial<VectorStoreConfig>;
+	if (productConfig.backend) {
+		backendConfig = buildBackendConfig(productConfig.backend);
+	} else {
+		const detection = requireBackend();
+		backendConfig = detection.config;
 	}
 
-	// Try package.json vectorStore field
-	const packageJsonPath = path.join(repoRoot, 'package.json');
-	if (fs.existsSync(packageJsonPath)) {
-		try {
-			const packageContent = fs.readFileSync(packageJsonPath, 'utf-8');
-			const packageJson = JSON.parse(packageContent);
-			if (packageJson.vectorStore) {
-				const vectorStore = packageJson.vectorStore;
+	// 3. Merge: preset <- backend config <- overrides <- includePatterns
+	const config: VectorStoreConfig = {
+		...preset,
+		...backendConfig,
+		...(productConfig.overrides || {}),
+		includePatterns: productConfig.includePatterns,
+		name: productConfig.name,
+	};
 
-				// Check if it's an array of configs
-				if (Array.isArray(vectorStore)) {
-					if (configName) {
-						const config = vectorStore.find((c) => c.name === configName);
-						if (!config) {
-							throw new Error(`Config with name "${configName}" not found`);
-						}
-						return { ...DEFAULT_VECTOR_CONFIG, ...config };
-					}
-					if (vectorStore.length === 0) {
-						throw new Error('Config array is empty');
-					}
-					return { ...DEFAULT_VECTOR_CONFIG, ...vectorStore[0] };
-				}
+	// Remove preset registry fields (those are for identification, not runtime)
+	config.default = undefined;
 
-				return { ...DEFAULT_VECTOR_CONFIG, ...vectorStore };
-			}
-		} catch (error) {
-			console.warn(`Failed to parse package.json: ${error}`);
-		}
-	}
-
-	// Return default config
-	return DEFAULT_VECTOR_CONFIG;
+	return config;
 }
 
 /**
- * Load all vector store configurations from repository
- * Returns array of all configs (even if there's only one)
+ * Load vector config from product repo's .typedai.json
+ * Resolves preset references and auto-detects backend
+ *
+ * @param repoRoot - Repository root path
+ * @param configName - Optional config name when using array of vector configs
+ * @returns Fully resolved VectorStoreConfig
+ */
+export function loadVectorConfig(repoRoot: string, configName?: string): VectorStoreConfig {
+	const typedaiPath = path.join(repoRoot, '.typedai.json');
+	if (!fs.existsSync(typedaiPath)) {
+		throw new Error(
+			`No .typedai.json found in ${repoRoot}.\nCreate one with a "vector" property:\n  [{ "baseDir": "./", "vector": { "preset": "<preset-name>", "includePatterns": ["src/**"] } }]`,
+		);
+	}
+
+	const content = JSON.parse(fs.readFileSync(typedaiPath, 'utf-8'));
+	const projects = Array.isArray(content) ? content : [content];
+	const project = projects.find((p: Record<string, unknown>) => p.primary) || projects[0];
+
+	if (!project?.vector) {
+		throw new Error(`No "vector" property found in .typedai.json.\n` + `Add: "vector": { "preset": "<preset-name>", "includePatterns": ["src/**"] }`);
+	}
+
+	// Handle array of vector configs
+	const vectorConfigs = Array.isArray(project.vector) ? project.vector : [project.vector];
+
+	// Find the right config
+	let productConfig: RepositoryVectorConfig;
+	if (configName) {
+		const found = vectorConfigs.find((c: RepositoryVectorConfig) => c.name === configName);
+		if (!found) {
+			const available = vectorConfigs
+				.map((c: RepositoryVectorConfig) => c.name)
+				.filter(Boolean)
+				.join(', ');
+			throw new Error(`Vector config "${configName}" not found. Available: ${available || '(unnamed)'}`);
+		}
+		productConfig = found;
+	} else {
+		// Use default or first
+		productConfig = vectorConfigs.find((c: RepositoryVectorConfig) => c.default) || vectorConfigs[0];
+	}
+
+	if (!productConfig.preset) {
+		throw new Error(`Missing "preset" in vector config.\nAvailable presets: ${listPresets().join(', ')}`);
+	}
+
+	return resolveProductConfig(productConfig);
+}
+
+/**
+ * Load all vector configs from product repo's .typedai.json
+ * Returns array of all resolved configs
+ *
+ * @param repoRoot - Repository root path
+ * @returns Array of fully resolved VectorStoreConfig
  */
 export function loadAllVectorConfigs(repoRoot: string): VectorStoreConfig[] {
-	// Try .vectorconfig.json first
-	const vectorConfigPath = path.join(repoRoot, '.vectorconfig.json');
-	if (fs.existsSync(vectorConfigPath)) {
-		try {
-			const configContent = fs.readFileSync(vectorConfigPath, 'utf-8');
-			const parsed = JSON.parse(configContent);
-
-			// Check if it's an array of configs
-			if (Array.isArray(parsed)) {
-				return parsed.map((c) => ({ ...DEFAULT_VECTOR_CONFIG, ...c }));
-			}
-
-			// Single config object - wrap in array
-			return [{ ...DEFAULT_VECTOR_CONFIG, ...parsed }];
-		} catch (error) {
-			console.warn(`Failed to parse .vectorconfig.json: ${error}`);
-		}
+	const typedaiPath = path.join(repoRoot, '.typedai.json');
+	if (!fs.existsSync(typedaiPath)) {
+		throw new Error(`No .typedai.json found in ${repoRoot}`);
 	}
 
-	// Try package.json vectorStore field
-	const packageJsonPath = path.join(repoRoot, 'package.json');
-	if (fs.existsSync(packageJsonPath)) {
-		try {
-			const packageContent = fs.readFileSync(packageJsonPath, 'utf-8');
-			const packageJson = JSON.parse(packageContent);
-			if (packageJson.vectorStore) {
-				const vectorStore = packageJson.vectorStore;
+	const content = JSON.parse(fs.readFileSync(typedaiPath, 'utf-8'));
+	const projects = Array.isArray(content) ? content : [content];
+	const project = projects.find((p: Record<string, unknown>) => p.primary) || projects[0];
 
-				// Check if it's an array of configs
-				if (Array.isArray(vectorStore)) {
-					return vectorStore.map((c) => ({ ...DEFAULT_VECTOR_CONFIG, ...c }));
-				}
-
-				return [{ ...DEFAULT_VECTOR_CONFIG, ...vectorStore }];
-			}
-		} catch (error) {
-			console.warn(`Failed to parse package.json: ${error}`);
-		}
+	if (!project?.vector) {
+		throw new Error(`No "vector" property found in .typedai.json`);
 	}
 
-	// Return default config in array
-	return [DEFAULT_VECTOR_CONFIG];
+	const vectorConfigs = Array.isArray(project.vector) ? project.vector : [project.vector];
+	return vectorConfigs.map((productConfig: RepositoryVectorConfig) => resolveProductConfig(productConfig));
 }
 
 /**
@@ -310,48 +395,97 @@ export function validateVectorConfig(config: VectorStoreConfig): { valid: boolea
 		}
 	}
 
-	// GCP configuration validation
-	if (config.gcpProject !== undefined && config.gcpProject.trim() === '') {
-		errors.push('gcpProject must be a non-empty string');
+	// Google Cloud configuration validation
+	if (config.googleCloud?.projectId !== undefined && config.googleCloud.projectId.trim() === '') {
+		errors.push('googleCloud.projectId must be a non-empty string');
 	}
 
-	if (config.datastoreId !== undefined && config.datastoreId.trim() === '') {
-		errors.push('datastoreId must be a non-empty string');
+	if (config.googleCloud?.region !== undefined && config.googleCloud.region.trim() === '') {
+		errors.push('googleCloud.region must be a non-empty string');
 	}
 
-	if (config.discoveryEngineLocation !== undefined) {
+	// Discovery Engine configuration validation
+	if (config.discoveryEngine?.datastoreId !== undefined && config.discoveryEngine.datastoreId.trim() === '') {
+		errors.push('discoveryEngine.datastoreId must be a non-empty string');
+	}
+
+	if (config.discoveryEngine?.location !== undefined) {
 		const validLocations = ['global', 'us', 'eu'];
-		if (!validLocations.includes(config.discoveryEngineLocation)) {
-			errors.push(`discoveryEngineLocation must be one of: ${validLocations.join(', ')}`);
+		if (!validLocations.includes(config.discoveryEngine.location)) {
+			errors.push(`discoveryEngine.location must be one of: ${validLocations.join(', ')}`);
 		}
 	}
 
-	if (config.gcpRegion !== undefined && config.gcpRegion.trim() === '') {
-		errors.push('gcpRegion must be a non-empty string');
+	if (config.discoveryEngine?.collectionId !== undefined && config.discoveryEngine.collectionId.trim() === '') {
+		errors.push('discoveryEngine.collectionId must be a non-empty string');
 	}
 
-	if (config.discoveryEngineCollectionId !== undefined && config.discoveryEngineCollectionId.trim() === '') {
-		errors.push('discoveryEngineCollectionId must be a non-empty string');
+	// AlloyDB configuration validation
+	if (config.alloydb?.vectorWeight !== undefined && (config.alloydb.vectorWeight < 0 || config.alloydb.vectorWeight > 1)) {
+		errors.push('alloydb.vectorWeight must be between 0 and 1');
 	}
 
-	if (config.chunkSize && config.chunkSize < 100) {
-		errors.push('chunkSize must be at least 100 characters');
+	// Embedding configuration validation
+	if (config.embedding?.provider !== undefined) {
+		const validProviders = ['vertex', 'openai', 'voyage', 'cohere', 'ollama'];
+		if (!validProviders.includes(config.embedding.provider)) {
+			errors.push(`embedding.provider must be one of: ${validProviders.join(', ')}`);
+		}
 	}
 
-	if (config.chunkSize && config.chunkSize > 10000) {
-		errors.push('chunkSize should not exceed 10000 characters');
+	if (config.embedding?.model !== undefined && config.embedding.model.trim() === '') {
+		errors.push('embedding.model must be a non-empty string');
 	}
 
-	if (config.chunkOverlap && config.chunkOverlap < 0) {
-		errors.push('chunkOverlap must be non-negative');
+	// Chunking validation
+	// When contextualChunking is false/undefined, size/overlap/strategy are required
+	// (LLM contextual chunking determines its own chunk boundaries)
+	const usesManualChunking = !config.chunking?.contextualChunking;
+	if (usesManualChunking && config.chunking) {
+		if (config.chunking.size === undefined) {
+			errors.push('chunking.size is required when contextualChunking is false/undefined');
+		}
+		if (config.chunking.overlap === undefined) {
+			errors.push('chunking.overlap is required when contextualChunking is false/undefined');
+		}
+		if (config.chunking.strategy === undefined) {
+			errors.push('chunking.strategy is required when contextualChunking is false/undefined');
+		}
 	}
 
-	if (config.chunkOverlap && config.chunkSize && config.chunkOverlap >= config.chunkSize) {
-		errors.push('chunkOverlap must be less than chunkSize');
+	if (config.chunking?.size !== undefined && config.chunking.size < 100) {
+		errors.push('chunking.size must be at least 100 characters');
 	}
 
-	if (config.chunkStrategy && !['ast', 'llm'].includes(config.chunkStrategy)) {
-		errors.push("chunkStrategy must be 'ast' or 'llm'");
+	if (config.chunking?.size !== undefined && config.chunking.size > 10000) {
+		errors.push('chunking.size should not exceed 10000 characters');
+	}
+
+	if (config.chunking?.overlap !== undefined && config.chunking.overlap < 0) {
+		errors.push('chunking.overlap must be non-negative');
+	}
+
+	if (config.chunking?.overlap && config.chunking?.size && config.chunking.overlap >= config.chunking.size) {
+		errors.push('chunking.overlap must be less than chunking.size');
+	}
+
+	if (config.chunking?.strategy && !['ast', 'llm'].includes(config.chunking.strategy)) {
+		errors.push("chunking.strategy must be 'ast' or 'llm'");
+	}
+
+	// Search configuration validation
+	if (config.search?.reranking !== undefined) {
+		const reranking = config.search.reranking;
+		const validProviders: RerankingProvider[] = ['vertex', 'morphllm', 'ollama'];
+		if (!validProviders.includes(reranking.provider)) {
+			errors.push(`search.reranking.provider must be one of: ${validProviders.join(', ')}`);
+		}
+		if (reranking.model !== undefined && reranking.model.trim() === '') {
+			errors.push('search.reranking.model must be a non-empty string');
+		}
+		if (reranking.topK !== undefined && (reranking.topK < 1 || reranking.topK > 200)) {
+			errors.push('search.reranking.topK must be between 1 and 200');
+		}
 	}
 
 	if (config.maxFileSize && config.maxFileSize < 1024) {
@@ -366,7 +500,7 @@ export function validateVectorConfig(config: VectorStoreConfig): { valid: boolea
 
 /**
  * Validate array of vector store configurations
- * Checks for duplicate names and validates each config
+ * Checks for duplicate names, validates each config, and ensures only one default
  */
 export function validateVectorConfigs(configs: VectorStoreConfig[]): { valid: boolean; errors: string[] } {
 	const errors: string[] = [];
@@ -394,6 +528,18 @@ export function validateVectorConfigs(configs: VectorStoreConfig[]): { valid: bo
 		if (unnamedConfigs.length > 0) {
 			errors.push(`When using multiple configs, all configs must have a "name" property (${unnamedConfigs.length} unnamed config(s) found)`);
 		}
+
+		// Check that only one config has default: true
+		const defaultConfigs = configs.filter((c) => c.default === true);
+		if (defaultConfigs.length > 1) {
+			const defaultNames = defaultConfigs.map((c) => c.name || 'unnamed').join(', ');
+			errors.push(`Only one config can have "default: true" (found ${defaultConfigs.length}: ${defaultNames})`);
+		}
+
+		// Warn if no default is set (not an error, just informational - first config will be used)
+		if (defaultConfigs.length === 0) {
+			// This is allowed - first config becomes default
+		}
 	}
 
 	return {
@@ -411,12 +557,12 @@ export function validateVectorConfigs(configs: VectorStoreConfig[]): { valid: bo
  */
 export function buildGoogleVectorServiceConfig(config: VectorStoreConfig): GoogleVectorServiceConfig {
 	return {
-		project: config.gcpProject || envVar('GCLOUD_PROJECT'),
-		region: config.gcpRegion || envVar('GCLOUD_REGION', 'us-central1'),
-		discoveryEngineLocation: config.discoveryEngineLocation || envVar('DISCOVERY_ENGINE_LOCATION', 'global'),
-		collection: config.discoveryEngineCollectionId || envVar('DISCOVERY_ENGINE_COLLECTION_ID', 'default_collection'),
-		dataStoreId: config.datastoreId || envVar('DISCOVERY_ENGINE_DATA_STORE_ID', 'test-datastore'),
-		embeddingModel: config.embeddingModel || process.env.DISCOVERY_ENGINE_EMBEDDING_MODEL || 'gemini-embedding-001',
+		project: config.googleCloud?.projectId || envVar('GCLOUD_PROJECT'),
+		region: config.googleCloud?.region || envVar('GCLOUD_REGION', 'us-central1'),
+		discoveryEngineLocation: config.discoveryEngine?.location || envVar('DISCOVERY_ENGINE_LOCATION', 'global'),
+		collection: config.discoveryEngine?.collectionId || envVar('DISCOVERY_ENGINE_COLLECTION_ID', 'default_collection'),
+		dataStoreId: config.discoveryEngine?.datastoreId || envVar('DISCOVERY_ENGINE_DATA_STORE_ID', 'test-datastore'),
+		embeddingModel: config.embedding?.model || process.env.DISCOVERY_ENGINE_EMBEDDING_MODEL || 'gemini-embedding-001',
 	};
 }
 
@@ -432,13 +578,13 @@ export function estimateCostPerFile(config: VectorStoreConfig, avgFileSize = 500
 	cost += (tokensPerFile / 1000) * 0.00001;
 
 	// Dual embedding doubles the embedding cost
-	if (config.dualEmbedding) {
+	if (config.chunking?.dualEmbedding) {
 		cost += (tokensPerFile / 1000) * 0.00001; // code-to-english translation
 		cost += (tokensPerFile / 1000) * 0.00001; // second embedding
 	}
 
 	// Contextual chunking adds LLM cost
-	if (config.contextualChunking) {
+	if (config.chunking?.contextualChunking) {
 		// Assume 5 chunks per file, each needing context generation
 		const chunksPerFile = 5;
 		const tokensPerContextGeneration = avgFileSize + 100; // full file + context prompt
@@ -454,23 +600,67 @@ export function estimateCostPerFile(config: VectorStoreConfig, avgFileSize = 500
 export function printConfigSummary(config: VectorStoreConfig): void {
 	console.log('Vector Store Configuration:');
 	console.log('━'.repeat(50));
-	console.log(`  Dual Embedding: ${config.dualEmbedding ? '✓ Enabled' : '✗ Disabled'}`);
-	console.log(`  Contextual Chunking: ${config.contextualChunking ? '✓ Enabled' : '✗ Disabled'}`);
-	console.log(`  Chunk Strategy: ${config.chunkStrategy || 'ast'}`);
-	console.log(`  Chunk Size: ${config.chunkSize || 2500} chars`);
-	console.log(`  Chunk Overlap: ${config.chunkOverlap || 300} chars`);
-	console.log(`  Embedding Provider: ${config.embeddingProvider || 'vertex'}`);
-	console.log(`  Embedding Model: ${config.embeddingModel || 'gemini-embedding-001'}`);
-	console.log(`  Hybrid Search: ${config.hybridSearch ? '✓ Enabled' : '✗ Disabled'}`);
-	console.log(`  Reranking: ${config.reranking ? '✓ Enabled' : '✗ Disabled'}`);
+	console.log(`  Dual Embedding: ${config.chunking?.dualEmbedding ? '✓ Enabled' : '✗ Disabled'}`);
+	console.log(`  Contextual Chunking: ${config.chunking?.contextualChunking ? '✓ Enabled' : '✗ Disabled'}`);
+	console.log(`  Chunk Strategy: ${config.chunking?.strategy || 'ast'}`);
+	console.log(`  Chunk Size: ${config.chunking?.size || 2500} chars`);
+	console.log(`  Chunk Overlap: ${config.chunking?.overlap || 300} chars`);
+	console.log(`  Embedding Provider: ${config.embedding?.provider || 'vertex'}`);
+	console.log(`  Embedding Model: ${config.embedding?.model || 'gemini-embedding-001'}`);
+	console.log(`  Hybrid Search: ${config.search?.hybridSearch ? '✓ Enabled' : '✗ Disabled'}`);
+	const rerankConfig = config.search?.reranking;
+	console.log(`  Reranking: ${rerankConfig ? '✓ Enabled' : '✗ Disabled'}`);
+	if (rerankConfig) {
+		console.log(`  Reranking Provider: ${rerankConfig.provider}`);
+		console.log(`  Reranking Model: ${rerankConfig.model || '(default)'}`);
+	}
 	console.log('━'.repeat(50));
 
 	// Show quality and cost estimates
-	const quality = (config.dualEmbedding ? 12 : 0) + (config.contextualChunking ? 60 : 0);
-	const costMultiplier = 1 + (config.dualEmbedding ? 2 : 0) + (config.contextualChunking ? 5 : 0);
+	const quality = (config.chunking?.dualEmbedding ? 12 : 0) + (config.chunking?.contextualChunking ? 60 : 0);
+	const costMultiplier = 1 + (config.chunking?.dualEmbedding ? 2 : 0) + (config.chunking?.contextualChunking ? 5 : 0);
 
 	console.log(`  Estimated Quality Improvement: ~${quality}%`);
 	console.log(`  Estimated Cost Multiplier: ${costMultiplier}x`);
 	console.log(`  Estimated Cost per File: ~$${estimateCostPerFile(config).toFixed(6)}`);
 	console.log('━'.repeat(50));
+}
+
+/**
+ * Check if vector search is available for a repository
+ * Returns true if .vectorconfig.json exists AND indexed is true
+ */
+export function isVectorSearchAvailable(repoRoot: string): boolean {
+	try {
+		return loadVectorConfig(repoRoot).indexed === true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Create a vector search orchestrator for the given repository
+ * Returns null if vector search is not available or configuration is invalid
+ */
+export async function createVectorOrchestrator(repoRoot: string): Promise<IVectorSearchOrchestrator | null> {
+	try {
+		const config = loadVectorConfig(repoRoot);
+		if (!config.indexed) return null;
+
+		// Determine backend based on config
+		if (config.alloydb?.host || config.alloydb?.instance) {
+			// Use AlloyDB - dynamic import to avoid loading when not needed
+			const { buildAlloyDBConfig, AlloyDBOrchestrator } = await import('../alloydb/index.js');
+			const alloydbConfig = buildAlloyDBConfig(config);
+			return new AlloyDBOrchestrator(repoRoot, alloydbConfig, config);
+		}
+
+		// Default to Discovery Engine - dynamic import to avoid loading when not needed
+		const { VectorSearchOrchestrator } = await import('../index.js');
+		const googleConfig = buildGoogleVectorServiceConfig(config);
+		return new VectorSearchOrchestrator(googleConfig, config);
+	} catch (error) {
+		console.warn('Failed to create vector orchestrator:', error);
+		return null;
+	}
 }

@@ -16,7 +16,6 @@ import { Command } from 'commander';
 import pino from 'pino';
 import { DEFAULT_VECTOR_CONFIG, buildGoogleVectorServiceConfig, loadVectorConfig } from './core/config';
 import type { VectorStoreConfig } from './core/config';
-import { getGoogleVectorServiceConfig } from './google/googleVectorConfig';
 import { VectorSearchOrchestrator } from './google/vectorSearchOrchestrator';
 
 const logger = pino({ name: 'VectorCLI', level: process.env.LOG_LEVEL || 'info' });
@@ -61,7 +60,7 @@ program
 			const repoRoot = repoPath || process.cwd();
 
 			if (options.dataStore) {
-				config.datastoreId = options.dataStore;
+				config.discoveryEngine = { ...config.discoveryEngine, datastoreId: options.dataStore };
 			}
 
 			if (repoPath && path.resolve(repoPath) !== path.resolve(configRoot) && config.includePatterns?.length) {
@@ -106,9 +105,9 @@ program
 			console.log(`  Repository: ${repoPath}`);
 			console.log(`  Config Root: ${configRoot}`);
 			console.log(`  Mode: ${isInitialIndex ? 'Full Index' : 'Incremental Update'}`);
-			console.log(`  Dual Embedding: ${config.dualEmbedding ? '✓' : '✗'}`);
-			console.log(`  Contextual Chunking: ${config.contextualChunking ? '✓' : '✗'}`);
-			console.log(`  Chunk Size: ${config.chunkSize || 2500} chars`);
+			console.log(`  Dual Embedding: ${config.chunking?.dualEmbedding ? '✓' : '✗'}`);
+			console.log(`  Contextual Chunking: ${config.chunking?.contextualChunking ? '✓' : '✗'}`);
+			console.log(`  Chunk Size: ${config.chunking?.size || 2500} chars`);
 			console.log('━'.repeat(50));
 			console.log();
 
@@ -220,9 +219,17 @@ program
 				config = DEFAULT_VECTOR_CONFIG;
 			}
 
-			// Apply --rerank flag
-			if (options.rerank) {
-				config.reranking = true;
+			// Apply --rerank flag (enables vertex reranking with defaults)
+			const useReranking = options.rerank || config.search?.reranking;
+			if (options.rerank && !config.search?.reranking) {
+				config.search = {
+					...config.search,
+					reranking: {
+						provider: 'vertex',
+						model: 'semantic-ranker-default@latest',
+						topK: 50,
+					},
+				};
 			}
 
 			// Build Google config from VectorStoreConfig (uses config values over env vars)
@@ -234,14 +241,14 @@ program
 			const orchestrator = new VectorSearchOrchestrator(googleConfig, config);
 
 			console.log(`🔍 Searching for: "${query}"`);
-			if (config.reranking) {
+			if (useReranking) {
 				console.log('   Reranking: Enabled\n');
 			} else {
 				console.log();
 			}
 
 			const maxResults = Number.parseInt(options.limit);
-			const results = await orchestrator.search(query, { maxResults });
+			const results = await orchestrator.search(query, { maxResults, reranking: useReranking });
 
 			if (results.length === 0) {
 				console.log('No results found.');
