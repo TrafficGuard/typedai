@@ -98,21 +98,13 @@ export class PostgresFunctionCacheService implements FunctionCacheService {
 	}
 
 	async clearAgentCache(agentId: string): Promise<number> {
-		const result = await db
-			.deleteFrom('function_cache')
-			.where('scope', '=', 'agent')
-			.where('scope_identifier', '=', agentId)
-			.executeTakeFirst();
+		const result = await db.deleteFrom('function_cache').where('scope', '=', 'agent').where('scope_identifier', '=', agentId).executeTakeFirst();
 
 		return Number(result.numDeletedRows || 0);
 	}
 
 	async clearUserCache(userId: string): Promise<number> {
-		const result = await db
-			.deleteFrom('function_cache')
-			.where('scope', '=', 'user')
-			.where('scope_identifier', '=', userId)
-			.executeTakeFirst();
+		const result = await db.deleteFrom('function_cache').where('scope', '=', 'user').where('scope_identifier', '=', userId).executeTakeFirst();
 
 		return Number(result.numDeletedRows || 0);
 	}
