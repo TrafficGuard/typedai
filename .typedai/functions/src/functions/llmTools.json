@@ -1,19 +1,4 @@
 {
-  "LlmTools_countTextTokens": {
-    "class": "LlmTools",
-    "name": "LlmTools_countTextTokens",
-    "description": "Counts the number of tokens in the provided text",
-    "parameters": [
-      {
-        "index": 0,
-        "name": "text",
-        "type": "string",
-        "description": "The text to count tokens for"
-      }
-    ],
-    "returnType": "number",
-    "returns": "The number of tokens in the text"
-  },
   "LlmTools_processText": {
     "class": "LlmTools",
     "name": "LlmTools_processText",

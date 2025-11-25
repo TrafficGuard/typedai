@@ -9,16 +9,6 @@ import { LlmMessage, messageText } from '#shared/llm/llm.model';
 @funcClass(__filename)
 export class LlmTools {
 	/**
-	 * Counts the number of tokens in the provided text
-	 * @param text the text to count tokens for
-	 * @returns the number of tokens in the text
-	 */
-	@func()
-	async countTextTokens(text: string): Promise<number> {
-		return await countTokens(text);
-	}
-
-	/**
 	 * Uses a large language model to transform the input content by applying the provided natural language instruction
 	 * @param text the input text
 	 * @param descriptionOfChanges a description of the changes/processing to apply to the text

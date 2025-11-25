@@ -1,5 +1,6 @@
 import { agentContext } from '#agent/agentContextLocalStorage';
 import { func, funcClass } from '#functionSchema/functionDecorators';
+import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 
 export const AGENT_MEMORY = 'Agent_memory';
@@ -90,5 +91,15 @@ export class Agent {
 			return this.getMemory(key);
 		}
 		throw new Error('operations must be SAVE, DELETE, or GET');
+	}
+
+	/**
+	 * Counts the number of tokens in the provided text
+	 * @param text the text to count tokens for
+	 * @returns the number of tokens in the text
+	 */
+	@func()
+	async countTextTokens(text: string): Promise<number> {
+		return await countTokens(text);
 	}
 }

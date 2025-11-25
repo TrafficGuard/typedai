@@ -46,5 +46,20 @@
     ],
     "returnType": "string",
     "returns": "Void, or string when operation is 'GET'"
+  },
+  "Agent_countTextTokens": {
+    "class": "Agent",
+    "name": "Agent_countTextTokens",
+    "description": "Counts the number of tokens in the provided text",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "text",
+        "type": "string",
+        "description": "The text to count tokens for"
+      }
+    ],
+    "returnType": "number",
+    "returns": "The number of tokens in the text"
   }
 }
