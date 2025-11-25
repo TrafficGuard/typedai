@@ -6,6 +6,22 @@ import { currentUser } from '#user/userContext';
 
 export const XAI_SERVICE = 'xai';
 
+export function xaiLLMRegistry(): Array<() => LLM> {
+	return [xai_Grok4, xai_Grok4_Fast_Reasoning, xai_Grok4_Fast_Instruct];
+}
+
+export function xai_Grok4(): LLM {
+	return new XAI('Grok 4', 'grok-4', 131_072, costPerMilTokens(3, 15, 6, 30, 0.75, 128_000));
+}
+
+export function xai_Grok4_Fast_Reasoning(): LLM {
+	return new XAI('Grok 4 Fast Reasoning', 'grok-4-1-fast-reasoning', 2_000_000, costPerMilTokens(0.2, 0.5, 0.05, 0.4, 1, 128_000));
+}
+
+export function xai_Grok4_Fast_Instruct(): LLM {
+	return new XAI('Grok 4 Fast Instruct', 'grok-4-1-fast-non-reasoning', 2_000_000, costPerMilTokens(0.2, 0.5, 0.05, 0.4, 1, 128_000));
+}
+
 export class XAI extends AiLLM<XaiProvider> {
 	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
 		super({ displayName, service: XAI_SERVICE, modelId: model, maxInputTokens: maxOutputTokens, calculateCosts });
@@ -16,27 +32,7 @@ export class XAI extends AiLLM<XaiProvider> {
 	}
 
 	provider(): XaiProvider {
-		if (!this.aiProvider) {
-			this.aiProvider = createXai({
-				apiKey: this.apiKey() ?? '',
-			});
-		}
+		this.aiProvider ??= createXai({ apiKey: this.apiKey() ?? '' });
 		return this.aiProvider;
 	}
-}
-
-export function xaiLLMRegistry(): Array<() => LLM> {
-	return [xai_Grok4, xai_Grok4_Fast_Reasoning, xai_Grok4_Fast_Instruct];
-}
-
-export function xai_Grok4(): LLM {
-	return new XAI('Grok 4', 'grok-4', 131_072, costPerMilTokens(3, 15, 6, 30, 0.75, 128_000));
-}
-
-export function xai_Grok4_Fast_Reasoning(): LLM {
-	return new XAI('Grok 4 Fast Reasoning', 'grok-4-fast-reasoning', 2_000_000, costPerMilTokens(0.2, 0.5, 0.5, 1.0, 0.05, 128_000));
-}
-
-export function xai_Grok4_Fast_Instruct(): LLM {
-	return new XAI('Grok 4 Fast Instruct', 'grok-4-fast-non-reasoning', 2_000_000, costPerMilTokens(0.2, 0.5, 0.5, 1.0, 0.05, 128_000));
 }
