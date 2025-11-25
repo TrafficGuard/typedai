@@ -5,6 +5,7 @@ import { PostgresCodeTaskRepository } from '#modules/postgres/postgresCodeTaskRe
 import { PostgresLlmCallService } from '#modules/postgres/postgresLlmCallService';
 import { PostgresPromptsService } from '#modules/postgres/postgresPromptsService';
 import { ensureAllTablesExist, ensureUsersTableExists } from '#modules/postgres/schemaUtils';
+import { ensurePostgresDockerRunning } from './ensureDockerPostgres';
 import { PostgresAgentStateService } from './postgresAgentStateService';
 import { PostgresChatService } from './postgresChatService';
 import { PostgresFunctionCacheService } from './postgresFunctionCacheService';
@@ -21,6 +22,7 @@ export function postgresApplicationContext(): ApplicationContext {
 		promptsService: new PostgresPromptsService(),
 		codeTaskRepository: new PostgresCodeTaskRepository(),
 		init: async () => {
+			await ensurePostgresDockerRunning();
 			await ensureAllTablesExist(db);
 		},
 	};

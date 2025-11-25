@@ -258,6 +258,98 @@ export async function ensurePromptsTablesExist(dbInstance: Kysely<Database> = db
 		.execute();
 }
 
+export async function ensureFunctionCacheTableExists(dbInstance: Kysely<Database> = db): Promise<void> {
+	await dbInstance.schema
+		.createTable('function_cache')
+		.ifNotExists()
+		.addColumn('id', 'text', (col) => col.primaryKey())
+		.addColumn('scope', 'text', (col) => col.notNull())
+		.addColumn('scope_identifier', 'text')
+		.addColumn('cache_key_hash', 'text', (col) => col.notNull())
+		.addColumn('value_json', 'text', (col) => col.notNull())
+		.addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+		.addColumn('expires_at', 'timestamptz')
+		.execute();
+
+	// Create a unique index to prevent duplicate cache entries
+	try {
+		await dbInstance.schema
+			.createIndex('function_cache_unique_idx')
+			.ifNotExists()
+			.on('function_cache')
+			.columns(['scope', 'scope_identifier', 'cache_key_hash'])
+			.unique()
+			.execute();
+	} catch (error) {
+		// Index may already exist, ignore error
+	}
+}
+
+export async function ensureCodeReviewConfigsTableExists(dbInstance: Kysely<Database> = db): Promise<void> {
+	await dbInstance.schema
+		.createTable('code_review_configs')
+		.ifNotExists()
+		.addColumn('id', 'text', (col) => col.primaryKey())
+		.addColumn('title', 'text', (col) => col.notNull())
+		.addColumn('description', 'text')
+		.addColumn('enabled', 'boolean', (col) => col.notNull().defaultTo(true))
+		.addColumn('file_extensions_serialized', 'text')
+		.addColumn('requires_serialized', 'text')
+		.addColumn('tags_serialized', 'text')
+		.addColumn('project_paths_serialized', 'text')
+		.addColumn('examples_serialized', 'text')
+		.addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+		.addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+		.execute();
+}
+
+export async function ensureMergeRequestReviewCacheTableExists(dbInstance: Kysely<Database> = db): Promise<void> {
+	await dbInstance.schema
+		.createTable('merge_request_review_cache')
+		.ifNotExists()
+		.addColumn('project_id', 'text', (col) => col.notNull())
+		.addColumn('mr_iid', 'integer', (col) => col.notNull())
+		.addColumn('last_updated', 'timestamptz', (col) => col.notNull())
+		.addColumn('fingerprints_serialized', 'text')
+		.addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+		.addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+		// Define composite primary key
+		.addPrimaryKeyConstraint('merge_request_review_cache_pkey', ['project_id', 'mr_iid'])
+		.execute();
+}
+
+export async function ensureCICDStatsTableExists(dbInstance: Kysely<Database> = db): Promise<void> {
+	await dbInstance.schema
+		.createTable('cicd_stats')
+		.ifNotExists()
+		.addColumn('id', 'text', (col) => col.primaryKey())
+		.addColumn('build_id', 'integer', (col) => col.notNull())
+		.addColumn('project', 'text', (col) => col.notNull())
+		.addColumn('status', 'text', (col) => col.notNull())
+		.addColumn('job_name', 'text', (col) => col.notNull())
+		.addColumn('stage', 'text', (col) => col.notNull())
+		.addColumn('started_at', 'text', (col) => col.notNull())
+		.addColumn('duration', 'integer', (col) => col.notNull())
+		.addColumn('pipeline', 'integer', (col) => col.notNull())
+		.addColumn('host', 'text', (col) => col.notNull())
+		.addColumn('failure_reason', 'text')
+		.addColumn('failure_type', 'text')
+		.addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+		.execute();
+
+	// Create indexes for common queries
+	try {
+		await dbInstance.schema
+			.createIndex('cicd_stats_project_job_status_idx')
+			.ifNotExists()
+			.on('cicd_stats')
+			.columns(['project', 'job_name', 'status'])
+			.execute();
+	} catch (error) {
+		// Index may already exist, ignore error
+	}
+}
+
 export async function ensureAllTablesExist(dbInstance: Kysely<Database> = db): Promise<void> {
 	await ensureUsersTableExists(dbInstance);
 	await ensureChatsTableExists(dbInstance);
@@ -266,4 +358,8 @@ export async function ensureAllTablesExist(dbInstance: Kysely<Database> = db): P
 	await ensureCodeTaskTablesExist(dbInstance);
 	await ensureLlmCallsTableExists(dbInstance);
 	await ensurePromptsTablesExist(dbInstance);
+	await ensureFunctionCacheTableExists(dbInstance);
+	await ensureCodeReviewConfigsTableExists(dbInstance);
+	await ensureMergeRequestReviewCacheTableExists(dbInstance);
+	await ensureCICDStatsTableExists(dbInstance);
 }

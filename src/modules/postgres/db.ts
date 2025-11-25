@@ -226,6 +226,22 @@ export interface PromptRevisionsTable {
 	// Consider adding: UNIQUE (prompt_group_id, revision_number)
 }
 
+export interface CICDStatsTable {
+	id: string; // PRIMARY KEY (UUID)
+	build_id: number;
+	project: string;
+	status: string;
+	job_name: string;
+	stage: string;
+	started_at: string; // ISO timestamp string
+	duration: number;
+	pipeline: number;
+	host: string;
+	failure_reason: string | null;
+	failure_type: string | null;
+	created_at: ColumnType<Date, string | undefined, never>; // Default in DB
+}
+
 export interface Database {
 	agent_contexts: AgentContextsTable;
 	agent_iterations: AgentIterationsTable;
@@ -239,6 +255,7 @@ export interface Database {
 	llm_calls: LlmCallsTable;
 	prompt_groups: PromptGroupsTable;
 	prompt_revisions: PromptRevisionsTable;
+	cicd_stats: CICDStatsTable;
 }
 
 const dialect = new PostgresDialect({
