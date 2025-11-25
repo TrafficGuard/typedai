@@ -10,7 +10,7 @@ import { envVar } from '#utils/env-var';
 export const VERTEX_SERVICE = 'vertex';
 
 export function vertexLLMRegistry(): Array<() => LLM> {
-	return [vertexGemini_2_5_Flash_Lite, vertexGemini_2_5_Pro, vertexGemini_2_5_Flash];
+	return [vertexGemini_3_0_Pro, vertexGemini_2_5_Flash_Lite, vertexGemini_2_5_Pro, vertexGemini_2_5_Flash];
 }
 
 // Prompts less than 200,000 tokens: $1.25/million tokens for input, $10/million for output
@@ -44,6 +44,19 @@ export function vertexGemini_2_5_Flash_Lite(): LLM {
 	]);
 }
 
+// https://cloud.google.com/vertex-ai/generative-ai/pricing#gemini_models-3
+export function vertexGemini_3_0_Pro(): LLM {
+	return new VertexLLM(
+		'Gemini 3 Pro',
+		'gemini-3-pro-preview',
+		1_000_000,
+		costPerMilTokens(2, 12, 0.2, 4, 18, 200_000, 0.4),
+		[],
+		undefined,
+		'publishers/google/models/gemini-3-pro-preview',
+	);
+}
+
 const GCLOUD_PROJECTS: string[] = [];
 if (process.env.GCLOUD_PROJECT) GCLOUD_PROJECTS.push(process.env.GCLOUD_PROJECT);
 for (let i = 2; i <= 9; i++) {
@@ -64,8 +77,18 @@ class VertexLLM extends AiLLM<GoogleVertexProvider> {
 		calculateCosts: LlmCostFunction,
 		oldIds?: string[],
 		defaultOptions?: GenerateTextOptions,
+		serviceModelId?: string,
 	) {
-		super({ displayName, service: VERTEX_SERVICE, modelId: model, maxInputTokens: maxInputToken, calculateCosts, oldIds, defaultOptions });
+		super({
+			displayName,
+			service: VERTEX_SERVICE,
+			modelId: model,
+			maxInputTokens: maxInputToken,
+			calculateCosts,
+			oldIds,
+			defaultOptions,
+			serviceModelId,
+		});
 	}
 
 	protected apiKey(): string | undefined {

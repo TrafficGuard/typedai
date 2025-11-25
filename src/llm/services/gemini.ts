@@ -8,7 +8,7 @@ import { currentUser } from '#user/userContext';
 export const GEMINI_SERVICE = 'gemini';
 
 export function geminiLLMRegistry(): Array<() => LLM> {
-	return [Gemini_2_5_Flash_Lite, Gemini_2_5_Flash, Gemini_2_5_Pro];
+	return [Gemini_2_5_Flash_Lite, Gemini_2_5_Flash, Gemini_2_5_Pro, Gemini_3_0_Pro];
 }
 
 export function Gemini_2_5_Pro(): LLM {
@@ -16,6 +16,17 @@ export function Gemini_2_5_Pro(): LLM {
 		'gemini-2.5-pro-preview-05-06',
 		'gemini-2.5-pro-preview-06-05',
 	]);
+}
+
+export function Gemini_3_0_Pro(): LLM {
+	return new GeminiLLM(
+		'Gemini 3 Pro (Gemini)',
+		'gemini-3-pro-preview',
+		1_000_000,
+		costPerMilTokens(2, 12, 0.2, 4, 18, 200_000, 0.4),
+		[],
+		'google/gemini-3-pro-preview',
+	);
 }
 
 export function Gemini_2_5_Flash(): LLM {
@@ -32,8 +43,16 @@ const geminiKeyRotator = createEnvKeyRotator('GEMINI_API_KEY');
  * Gemini AI models
  */
 class GeminiLLM extends AiLLM<GoogleGenerativeAIProvider> {
-	constructor(displayName: string, model: string, maxInputToken: number, costFunction: LlmCostFunction, oldModelIds: string[] = []) {
-		super({ displayName, service: GEMINI_SERVICE, modelId: model, maxInputTokens: maxInputToken, calculateCosts: costFunction, oldIds: oldModelIds });
+	constructor(displayName: string, model: string, maxInputToken: number, costFunction: LlmCostFunction, oldModelIds: string[] = [], serviceModelId?: string) {
+		super({
+			displayName,
+			service: GEMINI_SERVICE,
+			modelId: model,
+			maxInputTokens: maxInputToken,
+			calculateCosts: costFunction,
+			oldIds: oldModelIds,
+			serviceModelId,
+		});
 	}
 
 	protected apiKey(): string | undefined {
