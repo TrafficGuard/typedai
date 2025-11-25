@@ -58,6 +58,16 @@ program
 				config = DEFAULT_VECTOR_CONFIG;
 			}
 
+			const repoRoot = repoPath || process.cwd();
+
+			if (options.dataStore) {
+				config.datastoreId = options.dataStore;
+			}
+
+			if (repoPath && path.resolve(repoPath) !== path.resolve(configRoot) && config.includePatterns?.length) {
+				config.includePatterns = [];
+			}
+
 			// Build Google config from VectorStoreConfig (uses config values over env vars)
 			const googleConfig = buildGoogleVectorServiceConfig(config);
 			if (options.dataStore) {
@@ -138,6 +148,49 @@ program
 			logger.error({ error }, 'Sync operation failed');
 			process.exit(1);
 		}
+	});
+
+program
+	.command('batch [path]')
+	.description('Batch index repository with resumable state file')
+	.option('-c, --config <path>', 'Path to .vectorconfig.json')
+	.option('--config-name <name>', 'Name of config to use from .vectorconfig.json array')
+	.option('--fs <path>', 'Filesystem/working directory for loading .vectorconfig.json')
+	.option('--state-file <path>', 'Path to checkpoint file for resumable batch runs')
+	.option('--concurrency <number>', 'Max concurrent files', '3')
+	.option('--continue-on-error', 'Continue processing other files when one fails', true)
+	.action(async (repoPath, options) => {
+		const root = repoPath || process.cwd();
+		const configRoot = options.fs ? path.resolve(options.fs) : root;
+
+		let config: VectorStoreConfig;
+		try {
+			config = loadVectorConfig(configRoot, options.configName);
+			logger.info({ configRoot, configName: options.configName }, 'Loaded configuration');
+		} catch {
+			config = DEFAULT_VECTOR_CONFIG;
+			logger.warn('No configuration found, using defaults');
+		}
+
+		const googleConfig = buildGoogleVectorServiceConfig(config);
+		const orchestrator = new VectorSearchOrchestrator(googleConfig, config);
+
+		let lastProgress = '';
+		await orchestrator.indexRepositoryBatch(root, {
+			config,
+			stateFilePath: options.stateFile,
+			concurrency: Number.parseInt(options.concurrency, 10),
+			continueOnError: options.continueOnError,
+			onProgress: (progress) => {
+				const msg = `[${progress.phase}] ${progress.filesProcessed}/${progress.totalFiles} ${progress.currentFile || ''}`;
+				if (msg !== lastProgress) {
+					process.stdout.write(`\r${msg}`);
+					lastProgress = msg;
+				}
+			},
+		});
+
+		console.log('\n✅ Batch indexing completed');
 	});
 
 /**

@@ -3,6 +3,7 @@ import { RetryableError, cacheRetry } from '#cache/cacheRetry';
 import { summaryLLM } from '#llm/services/defaultLlms';
 import type { LLM } from '#shared/llm/llm.model';
 import { quotaRetry } from '#utils/quotaRetry';
+import type { GcpQuotaCircuitBreaker } from '../google/gcpQuotaCircuitBreaker';
 import { VectorStoreConfig } from './config';
 import { ContextualizedChunk, FileInfo, IContextualizer, RawChunk } from './interfaces';
 
@@ -15,9 +16,11 @@ const logger = pino({ name: 'Contextualizer' });
  */
 export class LLMContextualizer implements IContextualizer {
 	private llm: LLM;
+	private circuitBreaker?: GcpQuotaCircuitBreaker;
 
-	constructor(llm?: LLM) {
+	constructor(llm?: LLM, circuitBreaker?: GcpQuotaCircuitBreaker) {
 		this.llm = llm || summaryLLM();
+		this.circuitBreaker = circuitBreaker;
 	}
 
 	async contextualize(chunks: RawChunk[], fileInfo: FileInfo, config: VectorStoreConfig): Promise<ContextualizedChunk[]> {
@@ -33,7 +36,7 @@ export class LLMContextualizer implements IContextualizer {
 
 		logger.info({ filePath: fileInfo.relativePath }, 'Starting single-call contextual chunking');
 
-		const fileChunker = new SingleCallFileChunker(this.llm, fileInfo);
+		const fileChunker = new SingleCallFileChunker(this.llm, fileInfo, this.circuitBreaker);
 
 		try {
 			// Generate chunks and context in a single LLM call
@@ -70,57 +73,36 @@ class SingleCallFileChunker {
 	constructor(
 		private llm: LLM,
 		private fileInfo: FileInfo,
+		private circuitBreaker?: GcpQuotaCircuitBreaker,
 	) {}
+
+	async chunkAndContextualize(): Promise<ContextualizedChunk[]> {
+		return this.circuitBreaker
+			? await this.circuitBreaker.execute(async () => await this._chunkAndContextualizeInternal())
+			: await this._chunkAndContextualizeInternal();
+	}
 
 	@cacheRetry({ retries: 2, backOffMs: 2000, version: 4 })
 	@quotaRetry()
-	async chunkAndContextualize(): Promise<ContextualizedChunk[]> {
+	private async _chunkAndContextualizeInternal(): Promise<ContextualizedChunk[]> {
 		const prompt = SINGLE_CALL_CHUNK_AND_CONTEXTUALIZE_PROMPT(this.fileInfo.content, this.fileInfo.language, this.fileInfo.filePath);
 
-		logger.debug(
-			{
-				filePath: this.fileInfo.filePath,
-				llmId: this.llm.getId(),
-			},
-			'Requesting single-call chunk and contextualize from LLM',
-		);
+		logger.debug({ filePath: this.fileInfo.filePath, llmId: this.llm.getId() }, 'Requesting single-call chunk and contextualize from LLM');
 
 		const llmResponse = await this.llm.generateText(prompt, { id: 'Single Call Chunk and Contextualize' });
 
-		logger.debug(
-			{
-				filePath: this.fileInfo.filePath,
-				responseLength: llmResponse.length,
-			},
-			'Received LLM response',
-		);
+		logger.debug({ filePath: this.fileInfo.filePath, responseLength: llmResponse.length }, 'Received LLM response');
 
 		// Parse the XML response
 		try {
 			const chunks = this.parseChunksFromResponse(llmResponse);
 
-			if (chunks.length === 0) {
-				throw new Error('No chunks parsed from LLM response');
-			}
+			if (chunks.length === 0) throw new Error('No chunks parsed from LLM response');
 
-			logger.debug(
-				{
-					filePath: this.fileInfo.filePath,
-					chunkCount: chunks.length,
-				},
-				'Successfully parsed chunks from response',
-			);
-
+			logger.debug({ filePath: this.fileInfo.filePath, chunkCount: chunks.length }, 'Successfully parsed chunks from response');
 			return chunks;
 		} catch (parseError) {
-			logger.warn(
-				{
-					filePath: this.fileInfo.filePath,
-					error: parseError,
-				},
-				'Failed to parse LLM response, retrying with refined prompt',
-			);
-
+			logger.warn({ filePath: this.fileInfo.filePath, error: parseError }, 'Failed to parse LLM response, retrying with refined prompt');
 			// Retry with refined prompt including examples
 			return this.retryWithRefinedPrompt(llmResponse);
 		}
@@ -131,20 +113,13 @@ class SingleCallFileChunker {
 	async retryWithRefinedPrompt(previousResponse: string): Promise<ContextualizedChunk[]> {
 		const refinedPrompt = REFINED_CHUNK_PROMPT(this.fileInfo.content, this.fileInfo.language, this.fileInfo.filePath, previousResponse);
 
-		logger.debug(
-			{
-				filePath: this.fileInfo.filePath,
-			},
-			'Retrying with refined prompt',
-		);
+		logger.debug({ filePath: this.fileInfo.filePath }, 'Retrying with refined prompt');
 
 		const llmResponse = await this.llm.generateText(refinedPrompt, { id: 'Refined Chunk and Contextualize' });
 
 		const chunks = this.parseChunksFromResponse(llmResponse);
 
-		if (chunks.length === 0) {
-			throw new Error('No chunks parsed from refined LLM response');
-		}
+		if (chunks.length === 0) throw new Error('No chunks parsed from refined LLM response');
 
 		return chunks;
 	}

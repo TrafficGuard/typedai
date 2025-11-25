@@ -177,8 +177,8 @@ export class AlloyDBOrchestrator implements IVectorSearchOrchestrator {
 
 		logger.info({ query, maxResults, reranking: this.config.reranking }, 'Performing search');
 
-		// Generate query embedding (only used if AlloyDB embedding doesn't work inline)
-		const queryEmbedding = await this.dualEmbedder.generateQueryEmbedding(query, this.config);
+		const requiresQueryEmbedding = !this.vectorStore.supportsAutomatedEmbeddings();
+		const queryEmbedding = requiresQueryEmbedding ? await this.dualEmbedder.generateQueryEmbedding(query, this.config) : [];
 
 		// Search vector store (get more results if reranking is enabled)
 		const rerankingTopK = this.config.rerankingTopK || 50;
@@ -339,6 +339,7 @@ export class AlloyDBOrchestrator implements IVectorSearchOrchestrator {
 			// Generate embeddings for contextualized chunks
 			// Note: If AlloyDB automated embeddings are available, this will be ignored
 			// If not (e.g., AlloyDB Omni), these embeddings will be used
+			const requiresManualEmbedding = !this.vectorStore.supportsAutomatedEmbeddings();
 			let primaryEmbeddings: number[][] = [];
 			let codeEmbeddings: number[][] = [];
 
@@ -353,7 +354,11 @@ export class AlloyDBOrchestrator implements IVectorSearchOrchestrator {
 
 			// Generate embeddings for contextualized content (used if auto-embedding unavailable)
 			const contextualizedTexts = chunks.map((chunk) => ('contextualizedContent' in chunk ? chunk.contextualizedContent : chunk.content));
-			primaryEmbeddings = await this.embedder.embedBatch(contextualizedTexts, 'RETRIEVAL_DOCUMENT');
+			if (requiresManualEmbedding) {
+				primaryEmbeddings = await this.embedder.embedBatch(contextualizedTexts, 'RETRIEVAL_DOCUMENT');
+			} else {
+				primaryEmbeddings = contextualizedTexts.map(() => []);
+			}
 
 			// Dual embedding: generate code embedding for separate column (optional)
 			if (this.config.dualEmbedding) {

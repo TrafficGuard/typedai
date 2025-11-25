@@ -69,6 +69,9 @@ export interface VectorStoreConfig {
 	/** Supported file extensions to index */
 	fileExtensions?: string[];
 
+	/** Log contextualized chunks to .typedai/vector/chunks/ for debugging (default: false) */
+	logChunks?: boolean;
+
 	// === AlloyDB Configuration ===
 	/** AlloyDB instance resource name (e.g., 'projects/PROJECT/locations/REGION/clusters/CLUSTER/instances/INSTANCE') */
 	alloydbInstance?: string;
@@ -116,6 +119,7 @@ export const DEFAULT_VECTOR_CONFIG: VectorStoreConfig = {
 	reranking: false,
 	maxFileSize: 1024 * 1024, // 1MB
 	fileExtensions: ['.ts', '.tsx', '.js', '.jsx', '.py', '.java', '.cpp', '.c', '.h', '.go', '.rs', '.rb', '.php', '.cs', '.swift', '.kt'],
+	logChunks: false,
 };
 
 /**

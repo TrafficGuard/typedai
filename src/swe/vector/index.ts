@@ -53,11 +53,16 @@ export type {
 // Chunking
 export { ASTChunker } from './chunking/astChunker';
 
+// Chunk Logging
+export { logChunksToDisk, getChunkLogPath } from './core/chunkLogger';
+
 // Contextualization
 export { LLMContextualizer, MetadataContextualizer } from './core/contextualizer';
 
 // Translation
 export { LLMCodeTranslator, SimpleCodeTranslator } from './core/codeTranslator';
+export { contextualizeFilesBatch } from './core/batchContextualizer';
+export { batchIndexFiles } from './core/batchIndexer';
 
 // Embeddings
 export { VertexEmbedderAdapter, DualEmbeddingGenerator, getDocumentTaskType, getQueryTaskType } from './google/vertexEmbedderAdapter';
@@ -72,8 +77,11 @@ export { DiscoveryEngineAdapter } from './google/discoveryEngineAdapter';
 export { VectorSearchOrchestrator } from './google/vectorSearchOrchestrator';
 
 // Circuit Breaker
-export { DiscoveryEngineCircuitBreaker, CircuitState } from './google/discoveryEngineCircuitBreaker';
-export type { CircuitBreakerConfig, TimerInterface, LoggerInterface } from './google/discoveryEngineCircuitBreaker';
+export { GcpQuotaCircuitBreaker, CircuitState } from './google/gcpQuotaCircuitBreaker';
+export type { CircuitBreakerConfig, TimerInterface, LoggerInterface } from './google/gcpQuotaCircuitBreaker';
+
+// Deprecated: Use GcpQuotaCircuitBreaker instead
+export { GcpQuotaCircuitBreaker as DiscoveryEngineCircuitBreaker } from './google/gcpQuotaCircuitBreaker';
 
 // Legacy exports for backward compatibility
 export { DiscoveryEngine } from './google/discoveryEngine';

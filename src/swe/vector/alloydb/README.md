@@ -209,8 +209,9 @@ const orchestrator = createAlloyDBOrchestrator('my-repo', {
 
 | Feature | AlloyDB | Discovery Engine |
 |---------|---------|------------------|
-| Embedding API | Free (automated) | Paid |
-| Storage | Standard PostgreSQL | Premium |
+| Embedding API | Vertex AI (batched automatically) | Vertex AI (manual batching) |
+| Storage | Standard PostgreSQL | Premium managed service |
+| Search Queries | Included in instance cost | Per-query charges |
 | Transactions | ACID | Eventual consistency |
 | Maintenance | Automated | Manual purge/rebuild |
 

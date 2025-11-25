@@ -1,10 +1,14 @@
 import { PredictionServiceClient, helpers, protos } from '@google-cloud/aiplatform';
 import pino from 'pino';
 import { cacheRetry } from '#cache/cacheRetry';
-import { countTokens } from '#llm/tokens';
-import { sleep } from '#utils/async-utils';
 import { quotaRetry } from '#utils/quotaRetry';
-import { GoogleVectorServiceConfig, TOKENS_PER_MINUTE_QUOTA } from './googleVectorConfig';
+import { CircuitBreakerConfig, GcpQuotaCircuitBreaker } from './gcpQuotaCircuitBreaker';
+import {
+	CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+	CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
+	CIRCUIT_BREAKER_SUCCESS_THRESHOLD,
+	GoogleVectorServiceConfig,
+} from './googleVectorConfig';
 
 const logger = pino({ name: 'Embedder' });
 
@@ -32,12 +36,22 @@ function normalizeEmbedding(values: number[]): number[] {
 export class VertexAITextEmbeddingService {
 	private client: PredictionServiceClient;
 	private endpointPath: string;
-	private tokenUsageHistory: { timestamp: number; tokens: number }[] = [];
+	private circuitBreaker: GcpQuotaCircuitBreaker;
 
-	constructor(googleCloudConfig: GoogleVectorServiceConfig) {
+	constructor(googleCloudConfig: GoogleVectorServiceConfig, circuitBreakerConfig?: CircuitBreakerConfig) {
 		const clientOptions = { apiEndpoint: `${googleCloudConfig.region}-aiplatform.googleapis.com` };
 		this.client = new PredictionServiceClient(clientOptions);
 		this.endpointPath = `projects/${googleCloudConfig.project}/locations/${googleCloudConfig.region}/publishers/google/models/${googleCloudConfig.embeddingModel}`;
+
+		// Initialize circuit breaker with config or defaults
+		this.circuitBreaker = new GcpQuotaCircuitBreaker(
+			circuitBreakerConfig || {
+				serviceName: 'Vertex AI Embeddings',
+				retryIntervalMs: CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
+				failureThreshold: CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+				successThreshold: CIRCUIT_BREAKER_SUCCESS_THRESHOLD,
+			},
+		);
 	}
 
 	async generateEmbedding(text: string, taskType: TaskType, outputDimensionality: Dimensionality = 768): Promise<number[]> {
@@ -66,12 +80,13 @@ export class VertexAITextEmbeddingService {
 		return allResults;
 	}
 
+	/**
+	 * Internal embedding generation with retry decorators
+	 * Circuit breaker wraps this to handle quota exhaustion
+	 */
 	@cacheRetry({ retries: 3, backOffMs: 1000, scope: 'global' })
 	@quotaRetry()
-	private async _generateEmbedding(text: string, taskType: TaskType, outputDimensionality: Dimensionality): Promise<number[]> {
-		const tokensInRequest = await countTokens(text);
-		await this.waitForRateLimit(tokensInRequest);
-
+	private async _generateEmbeddingInternal(text: string, taskType: TaskType, outputDimensionality: Dimensionality): Promise<number[]> {
 		const value = helpers.toValue({ content: text, task_type: taskType });
 		if (!value) throw new Error('Invalid data type or NaN in embedding vector.');
 		const instances = [value];
@@ -83,8 +98,6 @@ export class VertexAITextEmbeddingService {
 
 		const [response] = await this.client.predict(request);
 
-		this.tokenUsageHistory.push({ timestamp: Date.now(), tokens: tokensInRequest });
-
 		const prediction = response.predictions?.[0];
 		const embeddingValue = prediction?.structValue?.fields?.embeddings?.structValue?.fields?.values;
 		if (embeddingValue?.listValue?.values) {
@@ -95,26 +108,13 @@ export class VertexAITextEmbeddingService {
 		throw new Error('Invalid embedding structure in response');
 	}
 
-	private async waitForRateLimit(tokensInRequest: number): Promise<void> {
-		while (true) {
-			const now = Date.now();
-			const oneMinuteAgo = now - 60_000;
-
-			this.tokenUsageHistory = this.tokenUsageHistory.filter((record) => record.timestamp >= oneMinuteAgo);
-
-			const currentTokensInLastMinute = this.tokenUsageHistory.reduce((sum, record) => sum + record.tokens, 0);
-
-			if (currentTokensInLastMinute + tokensInRequest > TOKENS_PER_MINUTE_QUOTA) {
-				const oldestTimestamp = this.tokenUsageHistory.length > 0 ? this.tokenUsageHistory[0].timestamp : now;
-				const timeToWait = oldestTimestamp + 60_000 - now + 100;
-
-				if (timeToWait > 0) {
-					logger.warn(`Token quota will be exceeded. Waiting for ${Math.round(timeToWait / 1000)}s to avoid hitting the limit.`);
-					await sleep(timeToWait);
-				}
-			} else {
-				break;
-			}
-		}
+	/**
+	 * Generate embedding with circuit breaker protection
+	 * Relies on circuit breaker for quota management - maximum throughput strategy
+	 */
+	private async _generateEmbedding(text: string, taskType: TaskType, outputDimensionality: Dimensionality): Promise<number[]> {
+		return await this.circuitBreaker.execute(async () => {
+			return await this._generateEmbeddingInternal(text, taskType, outputDimensionality);
+		});
 	}
 }

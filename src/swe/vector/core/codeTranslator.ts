@@ -3,6 +3,7 @@ import { cacheRetry } from '#cache/cacheRetry';
 import { summaryLLM } from '#llm/services/defaultLlms';
 import type { LLM } from '#shared/llm/llm.model';
 import { quotaRetry } from '#utils/quotaRetry';
+import type { GcpQuotaCircuitBreaker } from '../google/gcpQuotaCircuitBreaker';
 import { ContextualizedChunk, FileInfo, ICodeTranslator, RawChunk } from './interfaces';
 
 const logger = pino({ name: 'CodeTranslator' });
@@ -14,9 +15,11 @@ const logger = pino({ name: 'CodeTranslator' });
  */
 export class LLMCodeTranslator implements ICodeTranslator {
 	private llm: LLM;
+	private circuitBreaker?: GcpQuotaCircuitBreaker;
 
-	constructor(llm?: LLM) {
+	constructor(llm?: LLM, circuitBreaker?: GcpQuotaCircuitBreaker) {
 		this.llm = llm || summaryLLM();
+		this.circuitBreaker = circuitBreaker;
 	}
 
 	async translate(chunk: RawChunk | ContextualizedChunk, fileInfo: FileInfo): Promise<string> {
@@ -30,7 +33,7 @@ export class LLMCodeTranslator implements ICodeTranslator {
 		// Translate all chunks in parallel
 		const translationPromises = chunks.map(async (chunk, index) => {
 			try {
-				const translation = await this.translateSingleChunk(chunk, fileInfo);
+				const translation = await this._translateWithCircuitBreaker(chunk, fileInfo);
 				logger.debug(
 					{
 						filePath: fileInfo.relativePath,
@@ -61,9 +64,21 @@ export class LLMCodeTranslator implements ICodeTranslator {
 		return translations;
 	}
 
+	/**
+	 * Wrapper that executes translation through circuit breaker if available
+	 */
+	private async _translateWithCircuitBreaker(chunk: RawChunk | ContextualizedChunk, fileInfo: FileInfo): Promise<string> {
+		if (this.circuitBreaker) {
+			return await this.circuitBreaker.execute(async () => {
+				return await this._translateSingleChunkInternal(chunk, fileInfo);
+			});
+		}
+		return await this._translateSingleChunkInternal(chunk, fileInfo);
+	}
+
 	@cacheRetry({ retries: 2, backOffMs: 2000, version: 1 })
 	@quotaRetry()
-	private async translateSingleChunk(chunk: RawChunk | ContextualizedChunk, fileInfo: FileInfo): Promise<string> {
+	private async _translateSingleChunkInternal(chunk: RawChunk | ContextualizedChunk, fileInfo: FileInfo): Promise<string> {
 		const prompt = TRANSLATE_CODE_TO_NL_PROMPT(fileInfo.language, chunk.content, fileInfo.relativePath);
 
 		logger.debug(

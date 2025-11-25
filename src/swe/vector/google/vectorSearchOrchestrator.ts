@@ -1,16 +1,25 @@
+import * as path from 'node:path';
 import pLimit from 'p-limit';
 import pino from 'pino';
 import { span } from '#o11y/trace';
 import { ASTChunker } from '../chunking/astChunker';
 import { readFilesToIndex } from '../codeLoader';
+import { batchIndexFiles } from '../core/batchIndexer';
+import { logChunksToDisk } from '../core/chunkLogger';
 import { LLMCodeTranslator } from '../core/codeTranslator';
 import { VectorStoreConfig, buildGoogleVectorServiceConfig, loadVectorConfig, printConfigSummary } from '../core/config';
 import { LLMContextualizer } from '../core/contextualizer';
 import { ContextualizedChunk, EmbeddedChunk, FileInfo, IVectorSearchOrchestrator, ProgressCallback, RawChunk, SearchResult } from '../core/interfaces';
 import { MerkleSynchronizer } from '../sync/merkleSynchronizer';
 import { DiscoveryEngineAdapter } from './discoveryEngineAdapter';
+import { GcpQuotaCircuitBreaker } from './gcpQuotaCircuitBreaker';
 import { GoogleReranker } from './googleRerank';
-import { FILE_PROCESSING_PARALLEL_BATCH_SIZE } from './googleVectorConfig';
+import {
+	CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+	CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
+	CIRCUIT_BREAKER_SUCCESS_THRESHOLD,
+	FILE_PROCESSING_PARALLEL_BATCH_SIZE,
+} from './googleVectorConfig';
 import { GoogleVectorServiceConfig } from './googleVectorConfig';
 import { DualEmbeddingGenerator, VertexEmbedderAdapter } from './vertexEmbedderAdapter';
 
@@ -42,18 +51,30 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 	private vectorStore: DiscoveryEngineAdapter;
 	private synchronizer: MerkleSynchronizer;
 	private reranker: GoogleReranker;
+	private readonly DEFAULT_CONFIG = {
+		dualEmbedding: false,
+		contextualChunking: false,
+	};
+
+	// Circuit breaker for LLM services (contextualization, translation)
+	private llmCircuitBreaker: GcpQuotaCircuitBreaker;
 
 	constructor(googleConfig: GoogleVectorServiceConfig, config?: VectorStoreConfig) {
 		this.googleConfig = googleConfig;
-		this.config = config || {
-			dualEmbedding: false,
-			contextualChunking: false,
-		};
+		this.config = config || this.DEFAULT_CONFIG;
+
+		// Create shared circuit breaker for LLM services
+		this.llmCircuitBreaker = new GcpQuotaCircuitBreaker({
+			serviceName: 'LLM Service',
+			retryIntervalMs: CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
+			failureThreshold: CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+			successThreshold: CIRCUIT_BREAKER_SUCCESS_THRESHOLD,
+		});
 
 		// Initialize components
 		this.chunker = new ASTChunker();
-		this.contextualizer = new LLMContextualizer();
-		this.translator = new LLMCodeTranslator();
+		this.contextualizer = new LLMContextualizer(undefined, this.llmCircuitBreaker);
+		this.translator = new LLMCodeTranslator(undefined, this.llmCircuitBreaker);
 		this.embedder = new VertexEmbedderAdapter(googleConfig);
 		this.dualEmbedder = new DualEmbeddingGenerator(this.embedder);
 		this.vectorStore = new DiscoveryEngineAdapter(googleConfig);
@@ -151,6 +172,80 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 		logger.info({ duration, fileCount: filesToIndex.length }, 'Repository indexing completed');
 	}
 
+	/**
+	 * Batch-friendly repository indexing with resumable state file.
+	 * Intended for long-running initial indexing where partial progress may need to resume.
+	 */
+	async indexRepositoryBatch(
+		repoRoot: string,
+		options?: {
+			subFolder?: string;
+			config?: VectorStoreConfig;
+			stateFilePath?: string;
+			concurrency?: number;
+			continueOnError?: boolean;
+			onProgress?: ProgressCallback;
+		},
+	): Promise<void> {
+		// Load config
+		this.config = options?.config ? { ...this.DEFAULT_CONFIG, ...options.config } : loadVectorConfig(repoRoot);
+		printConfigSummary(this.config);
+
+		// rebuild google config and components
+		this.googleConfig = buildGoogleVectorServiceConfig(this.config);
+		this.embedder = new VertexEmbedderAdapter(this.googleConfig);
+		this.dualEmbedder = new DualEmbeddingGenerator(this.embedder);
+		this.vectorStore = new DiscoveryEngineAdapter(this.googleConfig);
+		this.reranker = new GoogleReranker(this.googleConfig, { model: this.config.rerankingModel });
+		this.chunker = new ASTChunker();
+		this.contextualizer = new LLMContextualizer(undefined, this.llmCircuitBreaker);
+		this.translator = new LLMCodeTranslator(undefined, this.llmCircuitBreaker);
+
+		await this.vectorStore.initialize(this.config);
+
+		const codeFiles = await readFilesToIndex(repoRoot, options?.subFolder || './', this.config.includePatterns);
+		if (!codeFiles.length) {
+			logger.info('No files to index');
+			return;
+		}
+
+		const files: FileInfo[] = await Promise.all(
+			codeFiles.map(async (cf) => {
+				const fs = require('node:fs/promises');
+				const stat = await fs.stat(path.join(repoRoot, cf.filePath));
+				const extension = path.extname(cf.filePath);
+				return {
+					filePath: path.join(repoRoot, cf.filePath),
+					relativePath: cf.filePath,
+					language: this.detectLanguage(extension),
+					content: cf.content,
+					size: stat.size,
+					lastModified: stat.mtime,
+				};
+			}),
+		);
+
+		await batchIndexFiles(
+			files,
+			{
+				chunker: this.chunker,
+				contextualizer: this.contextualizer,
+				translator: this.translator,
+				embedder: this.dualEmbedder,
+				vectorStore: this.vectorStore,
+				logChunks: this.config.logChunks ? logChunksToDisk : undefined,
+			},
+			{
+				config: this.config,
+				concurrency: options?.concurrency,
+				continueOnError: options?.continueOnError ?? true,
+				progress: options?.onProgress,
+				repoRoot,
+				stateFilePath: options?.stateFilePath,
+			},
+		);
+	}
+
 	async search(
 		query: string,
 		options?: {
@@ -237,7 +332,7 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 					const fileInfo = await this.loadFile(repoRoot, filePath);
 
 					// Process file through pipeline
-					const chunks = await this.processFile(fileInfo, stats, onProgress);
+					const chunks = await this.processFile(fileInfo, repoRoot, stats, onProgress);
 
 					if (chunks.length > 0) {
 						// Index chunks
@@ -279,7 +374,7 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 	/**
 	 * Process a single file through the complete pipeline
 	 */
-	private async processFile(fileInfo: FileInfo, stats: IndexingStats, onProgress?: ProgressCallback): Promise<EmbeddedChunk[]> {
+	private async processFile(fileInfo: FileInfo, repoRoot: string, stats: IndexingStats, onProgress?: ProgressCallback): Promise<EmbeddedChunk[]> {
 		try {
 			let chunks: Array<RawChunk | ContextualizedChunk>;
 
@@ -296,7 +391,7 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 				chunks = await this.contextualizer.contextualize([], fileInfo, this.config);
 
 				if (chunks.length === 0) {
-					logger.debug({ filePath: fileInfo.filePath }, 'No chunks generated from LLM');
+					logger.info({ filePath: fileInfo.filePath }, 'No chunks generated from LLM');
 					return [];
 				}
 			} else {
@@ -311,11 +406,16 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 				const rawChunks = await this.chunker.chunk(fileInfo, this.config);
 
 				if (rawChunks.length === 0) {
-					logger.debug({ filePath: fileInfo.filePath }, 'No chunks generated');
+					logger.info({ filePath: fileInfo.filePath }, 'No chunks generated');
 					return [];
 				}
 
 				chunks = rawChunks;
+			}
+
+			// Log chunks to disk if enabled
+			if (this.config.logChunks) {
+				await logChunksToDisk(chunks, fileInfo.filePath, repoRoot);
 			}
 
 			// 3. Translation (optional, based on config)
@@ -355,17 +455,14 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 
 	/**
 	 * Generate embeddings for chunks (dual or single based on config)
+	 * Rate limiting and circuit breaker protection handled at the embedding service layer
 	 */
 	private async generateEmbeddings(
 		chunks: Array<RawChunk | ContextualizedChunk>,
 		naturalLanguageDescriptions: string[],
 		fileInfo: FileInfo,
 	): Promise<EmbeddedChunk[]> {
-		const embeddedChunks: EmbeddedChunk[] = [];
-
-		for (let i = 0; i < chunks.length; i++) {
-			const chunk = chunks[i];
-
+		const embeddingPromises = chunks.map(async (chunk, i) => {
 			try {
 				// Get the text to embed (contextualized if available)
 				const textToEmbed = 'contextualizedContent' in chunk ? chunk.contextualizedContent : chunk.content;
@@ -375,20 +472,24 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 				// Generate embeddings (dual or single)
 				const embeddings = await this.dualEmbedder.generateDualEmbeddings(textToEmbed, nlDescription || textToEmbed, this.config);
 
-				embeddedChunks.push({
+				return {
 					filePath: fileInfo.filePath,
 					language: fileInfo.language,
 					chunk,
 					embedding: this.config.dualEmbedding ? embeddings.naturalLanguageEmbedding : embeddings.codeEmbedding,
 					secondaryEmbedding: this.config.dualEmbedding ? embeddings.codeEmbedding : undefined,
 					naturalLanguageDescription: nlDescription || undefined,
-				});
+				};
 			} catch (error) {
 				logger.warn({ error, filePath: fileInfo.filePath, chunkIndex: i }, 'Failed to generate embedding for chunk');
+				return null;
 			}
-		}
+		});
 
-		return embeddedChunks;
+		const results = await Promise.all(embeddingPromises);
+
+		// Filter out failed embeddings (null values)
+		return results.filter((result) => result !== null) as EmbeddedChunk[];
 	}
 
 	/**

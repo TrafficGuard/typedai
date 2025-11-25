@@ -1,6 +1,7 @@
 import pino from 'pino';
 import { VectorStoreConfig } from '../core/config';
 import { IEmbedder } from '../core/interfaces';
+import { CircuitBreakerConfig } from './gcpQuotaCircuitBreaker';
 import { GoogleVectorServiceConfig } from './googleVectorConfig';
 import { TaskType, VertexAITextEmbeddingService } from './vertexEmbedder';
 
@@ -17,8 +18,8 @@ export class VertexEmbedderAdapter implements IEmbedder {
 	private dimension: Dimensionality;
 	private model: string;
 
-	constructor(googleConfig: GoogleVectorServiceConfig, dimension: Dimensionality = 768) {
-		this.service = new VertexAITextEmbeddingService(googleConfig);
+	constructor(googleConfig: GoogleVectorServiceConfig, dimension: Dimensionality = 768, circuitBreakerConfig?: CircuitBreakerConfig) {
+		this.service = new VertexAITextEmbeddingService(googleConfig, circuitBreakerConfig);
 		this.dimension = dimension;
 		this.model = googleConfig.embeddingModel;
 	}

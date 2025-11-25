@@ -131,7 +131,9 @@ const extensionToLanguageMap: Record<string, Language> = {
 export function getLanguageFromPath(filePath: string): Language | undefined {
 	if (!filePath) return undefined;
 	const extension = path.extname(filePath).toLowerCase();
-	return extensionToLanguageMap[extension];
+	if (extension) return extensionToLanguageMap[extension];
+	if (filePath.startsWith('.')) return extensionToLanguageMap[filePath.toLowerCase()];
+	return undefined;
 }
 
 /**
@@ -287,116 +289,91 @@ export async function indexRepository(repositoryId: string, dir = './'): Promise
  * @returns A Promise resolving to an array of number arrays (embeddings), in the same order as the input texts.
  *          Empty arrays are returned for texts that could not be processed or resulted in errors.
  */
-export async function getEmbeddingsBatch(texts: string[]): Promise<number[][]> {
-	if (!texts || texts.length === 0) return [];
+export interface EmbeddingBatchOptions {
+	maxBatchSize?: number;
+	maxTotalTokens?: number;
+	maxSequenceLength?: number;
+	client?: Pick<Mistral, 'embeddings'>;
+	tokenizer?: Pick<MistralTokenizer, 'encode' | 'decode'>;
+	logger?: Pick<Console, 'log' | 'warn' | 'error'>;
+}
 
-	const tokenizer = getMistralTokenizer();
-	const client = getMistralClient();
+export async function getEmbeddingsBatch(texts: string[], options: EmbeddingBatchOptions = {}): Promise<number[][]> {
+	if (!Array.isArray(texts) || texts.length === 0) return [];
 
-	const processedTextData: { textForApi: string; originalIndex: number }[] = [];
+	const tokenizer = options.tokenizer ?? getMistralTokenizer();
+	const client = options.client ?? getMistralClient();
+	const logger = options.logger ?? console;
+	const maxBatchSize = options.maxBatchSize ?? MAX_BATCH_SIZE;
+	const maxTotalTokens = options.maxTotalTokens ?? MAX_TOTAL_TOKENS;
+	const maxSequenceLength = options.maxSequenceLength ?? MAX_SEQUENCE_LENGTH;
+
+	type ProcessableText = { textForApi: string; tokenCount: number; originalIndex: number };
+	const processedTexts: ProcessableText[] = [];
+	const embeddings: number[][] = new Array(texts.length).fill(undefined).map(() => []);
 
 	for (let i = 0; i < texts.length; i++) {
 		const originalText = texts[i];
-		if (typeof originalText !== 'string' || originalText.trim() === '') {
-			// Handle non-strings or effectively empty strings early
-			processedTextData.push({ textForApi: '', originalIndex: i }); // Mark for potential empty embedding later
-			continue;
-		}
+		if (typeof originalText !== 'string' || originalText.trim() === '') continue;
 
-		const tokens = tokenizer.encode(originalText);
-		const tokenCount = tokens.length;
+		const originalTokens = tokenizer.encode(originalText);
+		const originalTokenCount = originalTokens.length;
+		if (originalTokenCount === 0) continue;
 
+		const truncated = originalTokenCount > maxSequenceLength;
+		const tokensForApi = truncated ? originalTokens.slice(0, maxSequenceLength) : originalTokens;
+		const tokenCount = tokensForApi.length;
 		if (tokenCount === 0) {
-			processedTextData.push({ textForApi: '', originalIndex: i }); // Mark for potential empty embedding
+			logger.warn(`Text at index ${i} became empty after truncation`);
 			continue;
 		}
 
-		if (tokenCount > MAX_SEQUENCE_LENGTH) {
-			const truncatedTokens = tokens.slice(0, MAX_SEQUENCE_LENGTH);
-			const textForApi = tokenizer.decode(truncatedTokens);
-			processedTextData.push({ textForApi, originalIndex: i });
-			console.warn(`Truncated text at index ${i} from ${tokenCount} to ${MAX_SEQUENCE_LENGTH} tokens (actual truncated tokens: ${truncatedTokens.length})`);
-		} else {
-			processedTextData.push({ textForApi: originalText, originalIndex: i });
-		}
+		const textForApi = truncated ? tokenizer.decode(tokensForApi) : originalText;
+		if (truncated) logger.warn(`Truncated text at index ${i} from ${originalTokenCount} to ${tokenCount} tokens`);
+
+		processedTexts.push({ textForApi, tokenCount, originalIndex: i });
 	}
 
-	if (processedTextData.length === 0) {
-		// Should not happen if input texts is not empty, but as a safeguard
-		return new Array(texts.length).fill([]);
-	}
+	if (processedTexts.length === 0) return embeddings;
 
-	const embeddingsMap: Map<number, number[]> = new Map();
-	let currentBatchData: { textForApi: string; originalIndex: number; tokenCount: number }[] = [];
-	let currentBatchTotalTokens = 0;
+	let currentBatch: ProcessableText[] = [];
+	let currentBatchTokens = 0;
 
-	for (const item of processedTextData) {
-		// If textForApi was marked as empty earlier (e.g. original was empty, or tokenized to nothing)
-		if (item.textForApi === '') {
-			embeddingsMap.set(item.originalIndex, []);
-			continue;
-		}
+	const flushBatch = async (isFinal = false): Promise<void> => {
+		if (currentBatch.length === 0) return;
 
-		const itemTokens = tokenizer.encode(item.textForApi); // Re-tokenize, as textForApi might be a decoded truncated version
-		const itemTokenCount = itemTokens.length;
+		logger.log(`Processing ${isFinal ? 'final ' : ''}batch of ${currentBatch.length} texts, total tokens: ${currentBatchTokens}...`);
+		const batchInput = currentBatch.map((item) => item.textForApi);
 
-		if (itemTokenCount === 0) {
-			// If even the (potentially truncated) text tokenizes to nothing
-			embeddingsMap.set(item.originalIndex, []);
-			continue;
-		}
-		// A single item cannot exceed MAX_SEQUENCE_LENGTH due to prior truncation.
-		// MAX_TOTAL_TOKENS is for the batch. If a single item is larger than MAX_TOTAL_TOKENS,
-		// it will be processed in its own batch. The API might reject it then.
-
-		if (currentBatchData.length > 0 && (currentBatchData.length >= MAX_BATCH_SIZE || currentBatchTotalTokens + itemTokenCount > MAX_TOTAL_TOKENS)) {
-			// Process currentBatchData
-			console.log(`Processing batch of ${currentBatchData.length} texts, total tokens: ${currentBatchTotalTokens}...`);
-			const textsInBatchForApi = currentBatchData.map((d) => d.textForApi);
-			try {
-				const response = await client.embeddings.create({ model: EMBED_MODEL, inputs: textsInBatchForApi });
-				response.data.forEach((embeddingData, batchIndex) => {
-					const dataItem = currentBatchData[batchIndex];
-					if (embeddingData.embedding) embeddingsMap.set(dataItem.originalIndex, embeddingData.embedding);
-				});
-			} catch (e) {
-				console.error(`Error processing batch: ${e instanceof Error ? e.message : String(e)}`);
-				currentBatchData.forEach((dataItem) => {
-					embeddingsMap.set(dataItem.originalIndex, []); // Store empty array for failed items
-				});
-			}
-			currentBatchData = [];
-			currentBatchTotalTokens = 0;
-		}
-
-		currentBatchData.push({ textForApi: item.textForApi, originalIndex: item.originalIndex, tokenCount: itemTokenCount });
-		currentBatchTotalTokens += itemTokenCount;
-	}
-
-	// Process the last remaining batch
-	if (currentBatchData.length > 0) {
-		console.log(`Processing final batch of ${currentBatchData.length} texts, total tokens: ${currentBatchTotalTokens}...`);
-		const textsInBatchForApi = currentBatchData.map((d) => d.textForApi);
 		try {
-			const response = await client.embeddings.create({ model: EMBED_MODEL, inputs: textsInBatchForApi });
-			response.data.forEach((embeddingData, batchIndex) => {
-				const dataItem = currentBatchData[batchIndex];
-				if (embeddingData.embedding) embeddingsMap.set(dataItem.originalIndex, embeddingData.embedding);
+			const response = await client.embeddings.create({ model: EMBED_MODEL, input: batchInput } as any);
+			response.data.forEach((embeddingData: any, batchIndex: number) => {
+				const dataItem = currentBatch[batchIndex];
+				if (embeddingData.embedding) embeddings[dataItem.originalIndex] = embeddingData.embedding;
 			});
-		} catch (e) {
-			console.error(`Error processing final batch: ${e instanceof Error ? e.message : String(e)}`);
-			currentBatchData.forEach((dataItem) => {
-				embeddingsMap.set(dataItem.originalIndex, []);
+		} catch (error) {
+			logger.error(`Error processing ${isFinal ? 'final ' : ''}batch: ${error instanceof Error ? error.message : String(error)}`);
+			currentBatch.forEach((item) => {
+				embeddings[item.originalIndex] = [];
 			});
 		}
+
+		currentBatch = [];
+		currentBatchTokens = 0;
+	};
+
+	for (const item of processedTexts) {
+		if (currentBatch.length > 0 && (currentBatch.length >= maxBatchSize || currentBatchTokens + item.tokenCount > maxTotalTokens)) {
+			await flushBatch();
+		}
+
+		currentBatch.push(item);
+		currentBatchTokens += item.tokenCount;
 	}
 
-	const allEmbeddings: number[][] = new Array(texts.length);
-	for (let i = 0; i < texts.length; i++) {
-		allEmbeddings[i] = embeddingsMap.get(i) ?? [];
-	}
+	await flushBatch(true);
 
-	return allEmbeddings;
+	return embeddings;
 }
 
 /**

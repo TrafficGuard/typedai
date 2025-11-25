@@ -499,12 +499,13 @@ if (result.warnings.length > 0) {
 
 | Feature | AlloyDB | Discovery Engine |
 |---------|---------|-----------------|
-| Embedding Generation | Automated (free) | Manual (API costs) |
-| Index Maintenance | Automated | Manual purge/rebuild |
-| Storage Cost | Standard PostgreSQL | Premium managed service |
-| Query Cost | Per vCPU-hour | Per 1000 queries |
-| Transactional Updates | Yes | No |
-| Best For | Large datasets, frequent updates | Managed service, less control |
+| Embedding Generation | Vertex AI (batched automatically in background) | Vertex AI (manual batching required) |
+| Index Maintenance | Automated (ScaNN AUTO mode) | Manual purge/rebuild |
+| Storage Cost | Standard PostgreSQL pricing | Premium managed service |
+| Search Query Cost | Included in vCPU-hour cost | Per 1000 queries + compute |
+| Transactional Updates | Yes (ACID) | No (eventual consistency) |
+| Operational Overhead | Manage database infrastructure | Fully managed service |
+| Best For | Large datasets, frequent updates, full SQL control | Simpler setup, less infrastructure management |
 
 ## Troubleshooting
 

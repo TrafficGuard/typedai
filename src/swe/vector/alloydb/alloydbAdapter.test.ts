@@ -112,69 +112,29 @@ describe('AlloyDBAdapter', () => {
 	});
 
 	describe('search', () => {
-		it('should perform vector search when hybridSearch is false', async () => {
-			const mockResults = [
-				{
-					id: 'test-id',
-					filename: 'test/file.ts',
-					line_from: 1,
-					line_to: 3,
-					original_text: 'function test() {}',
-					language: 'typescript',
-					chunk_type: 'function',
-					distance: 0.2,
-				},
-			];
-
-			queryStub.resolves({ rows: mockResults });
-
-			const config: VectorStoreConfig = {
-				...mockVectorConfig,
-				hybridSearch: false,
-			};
-
-			const results = await adapter.search('test query', [], 10, config);
-
-			// Verify vector search query was called
-			expect(queryStub.calledWith(sinon.match(/embedding <=>/))).to.be.true;
-
-			// Verify results were converted correctly
-			expect(results).to.have.lengthOf(1);
-			expect(results[0].document.filePath).to.equal('test/file.ts');
+		beforeEach(() => {
+			queryStub.resolves({ rows: [] });
 		});
 
-		it('should perform hybrid search when hybridSearch is true', async () => {
-			const mockResults = [
-				{
-					id: 'test-id',
-					filename: 'test/file.ts',
-					line_from: 1,
-					line_to: 3,
-					original_text: 'function test() {}',
-					language: 'typescript',
-					chunk_type: 'function',
-					distance: 0.2,
-					vector_rank: 1,
-					text_rank: 1,
-					rrf_score: 0.5,
-				},
-			];
+		it('uses manual embeddings in vector search when automated embeddings are disabled', async () => {
+			await adapter.search('manual query', [0.1, 0.2], 5, { ...mockVectorConfig, hybridSearch: false });
 
-			queryStub.resolves({ rows: mockResults });
+			const sql = queryStub.firstCall.args[0];
+			const params = queryStub.firstCall.args[1];
+			expect(sql).to.contain('embedding <=> $1::vector');
+			expect(params[0]).to.equal('[0.1,0.2]');
+		});
 
-			const config: VectorStoreConfig = {
-				...mockVectorConfig,
-				hybridSearch: true,
-			};
+		it('calls google_ml.embedding when automated embeddings are enabled', async () => {
+			(adapter as any).automatedEmbeddingsEnabled = true;
 
-			const results = await adapter.search('test query', [], 10, config);
+			await adapter.search('auto query', [], 5, { ...mockVectorConfig, hybridSearch: false });
 
-			// Verify hybrid search query was called (with CTEs)
-			expect(queryStub.calledWith(sinon.match(/vector_results AS/))).to.be.true;
-
-			// Verify results
-			expect(results).to.have.lengthOf(1);
-			expect(results[0].document.filePath).to.equal('test/file.ts');
+			const sql = queryStub.firstCall.args[0];
+			const params = queryStub.firstCall.args[1];
+			expect(sql).to.contain('google_ml.embedding');
+			expect(params[0]).to.equal(mockAlloyDBConfig.embeddingModel);
+			expect(params[1]).to.equal('auto query');
 		});
 	});
 

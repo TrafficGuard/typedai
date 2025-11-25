@@ -5,7 +5,7 @@ import { RetryableError, cacheRetry } from '#cache/cacheRetry';
 import { sleep } from '#utils/async-utils';
 import { quotaRetry } from '#utils/quotaRetry';
 import { CodeFile } from '../codeLoader';
-import { CircuitBreakerConfig, DiscoveryEngineCircuitBreaker } from './discoveryEngineCircuitBreaker';
+import { CircuitBreakerConfig, GcpQuotaCircuitBreaker } from './gcpQuotaCircuitBreaker';
 import {
 	CIRCUIT_BREAKER_FAILURE_THRESHOLD,
 	CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
@@ -22,6 +22,12 @@ const logger = pino({ name: 'DiscoveryEngineDataStore' });
  * https://cloud.google.com/generative-ai-app-builder/docs/configure-field-settings
  * https://cloud.google.com/nodejs/docs/reference/discoveryengine/latest
  */
+type DiscoveryEngineClients = {
+	documentClient?: DocumentServiceClient;
+	searchClient?: SearchServiceClient;
+	dataStoreClient?: DataStoreServiceClient;
+};
+
 export class DiscoveryEngine {
 	private readonly project: string;
 	private readonly location: string;
@@ -33,30 +39,39 @@ export class DiscoveryEngine {
 	private dataStorePath: string | null = null;
 	private parentPath: string;
 	private datastoreName: string;
-	private circuitBreaker: DiscoveryEngineCircuitBreaker;
+	private branchPath: string;
+	private circuitBreaker: GcpQuotaCircuitBreaker;
 
-	constructor(config: GoogleVectorServiceConfig, circuitBreakerConfig?: CircuitBreakerConfig) {
+	constructor(config: GoogleVectorServiceConfig, circuitBreakerConfig?: CircuitBreakerConfig, clients?: DiscoveryEngineClients) {
 		this.project = config.project;
 		this.location = config.discoveryEngineLocation;
 		this.collection = config.collection;
 		this.dataStoreId = config.dataStoreId;
 
-		this.documentClient = new DocumentServiceClient({
-			apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
-		});
-		this.searchClient = new SearchServiceClient({
-			apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
-		});
-		this.dataStoreClient = new DataStoreServiceClient({
-			apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
-		});
+		this.documentClient =
+			clients?.documentClient ||
+			new DocumentServiceClient({
+				apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
+			});
+		this.searchClient =
+			clients?.searchClient ||
+			new SearchServiceClient({
+				apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
+			});
+		this.dataStoreClient =
+			clients?.dataStoreClient ||
+			new DataStoreServiceClient({
+				apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
+			});
 		this.parentPath = `projects/${this.project}/locations/${this.location}/collections/${this.collection}`;
 		this.datastoreName = `${this.parentPath}/dataStores/${this.dataStoreId}`;
 		this.dataStorePath = this.datastoreName;
+		this.branchPath = `${this.datastoreName}/branches/default_branch`;
 
 		// Initialize circuit breaker with config or defaults
-		this.circuitBreaker = new DiscoveryEngineCircuitBreaker(
+		this.circuitBreaker = new GcpQuotaCircuitBreaker(
 			circuitBreakerConfig || {
+				serviceName: 'Discovery Engine',
 				retryIntervalMs: CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
 				failureThreshold: CIRCUIT_BREAKER_FAILURE_THRESHOLD,
 				successThreshold: CIRCUIT_BREAKER_SUCCESS_THRESHOLD,
@@ -109,7 +124,7 @@ export class DiscoveryEngine {
 		await this.ensureDataStoreExists();
 
 		const request: google.cloud.discoveryengine.v1.IImportDocumentsRequest = {
-			parent: `${this.dataStorePath}/branches/default_branch`,
+			parent: this.branchPath,
 			inlineSource: { documents },
 			reconciliationMode: google.cloud.discoveryengine.v1.ImportDocumentsRequest.ReconciliationMode.INCREMENTAL,
 		};
@@ -134,7 +149,7 @@ export class DiscoveryEngine {
 	/**
 	 * Get circuit breaker for status monitoring
 	 */
-	getCircuitBreaker(): DiscoveryEngineCircuitBreaker {
+	getCircuitBreaker(): GcpQuotaCircuitBreaker {
 		return this.circuitBreaker;
 	}
 
@@ -145,7 +160,7 @@ export class DiscoveryEngine {
 		await this.ensureDataStoreExists();
 
 		const request: google.cloud.discoveryengine.v1.IPurgeDocumentsRequest = {
-			parent: `${this.dataStorePath}/branches/default_branch`,
+			parent: this.branchPath,
 			filter: '*',
 			force: true,
 		};
@@ -154,33 +169,29 @@ export class DiscoveryEngine {
 	}
 
 	async purgeDocuments(filePaths: string[]): Promise<void> {
-		logger.warn('purging not implemented');
-		if (filePaths.length) return; // this is broken atm
 		if (filePaths.length === 0) return;
 		await this.ensureDataStoreExists();
-		logger.info(`Purging documents for ${filePaths.length} file(s)...`);
 
-		const BATCH_SIZE_PURGE = 20;
-		for (let i = 0; i < filePaths.length; i += BATCH_SIZE_PURGE) {
-			const batchFilePaths = filePaths.slice(i, i + BATCH_SIZE_PURGE);
-			const filter = batchFilePaths.map((p) => `uri = "${p}"`).join(' OR ');
+		const targets = new Set(filePaths);
+		logger.info({ targetCount: targets.size }, 'Purging documents for deleted files');
 
-			const request: google.cloud.discoveryengine.v1.IPurgeDocumentsRequest = {
-				parent: `${this.dataStorePath}/branches/default_branch`,
-				filter: filter,
-				force: true,
-			};
+		const documentNames = await this.findDocumentNamesByFilePath(targets);
 
-			const [operation] = await this.documentClient.purgeDocuments(request);
-			logger.info(`PurgeDocuments operation started for ${batchFilePaths.length} files: ${operation.name}`);
-			await operation.promise(); // wait until the purge finishes
+		if (documentNames.length === 0) {
+			logger.info('No matching documents found to purge');
+			return;
+		}
+
+		for (const name of documentNames) {
+			await this.documentClient.deleteDocument({ name });
+			logger.debug({ documentName: name }, 'Deleted Discovery Engine document');
 		}
 	}
 
 	async search(searchRequest: google.cloud.discoveryengine.v1.ISearchRequest): Promise<google.cloud.discoveryengine.v1.SearchResponse.ISearchResult[]> {
 		const start = Date.now();
 		const [results] = await this.searchClient.search(searchRequest, { autoPaginate: false });
-		console.log(`Search completed in ${Date.now() - start}ms`);
+		logger.info(`DiscoveryEngine vector search completed in ${((Date.now() - start) / 1000).toFixed(1)}s`);
 		return results;
 	}
 
@@ -208,7 +219,7 @@ export class DiscoveryEngine {
 	 */
 	async listDocuments(pageSize = 100): Promise<google.cloud.discoveryengine.v1.IDocument[]> {
 		await this.ensureDataStoreExists();
-		const parent = `${this.dataStorePath}/branches/default_branch`;
+		const parent = this.branchPath;
 
 		try {
 			const [documents] = await this.documentClient.listDocuments({
@@ -229,7 +240,7 @@ export class DiscoveryEngine {
 	 */
 	async getDocument(documentId: string): Promise<google.cloud.discoveryengine.v1.IDocument | null> {
 		await this.ensureDataStoreExists();
-		const name = `${this.dataStorePath}/branches/default_branch/documents/${documentId}`;
+		const name = `${this.branchPath}/documents/${documentId}`;
 
 		try {
 			const [document] = await this.documentClient.getDocument({ name });
@@ -257,5 +268,26 @@ export class DiscoveryEngine {
 			logger.error({ error }, 'Failed to get data store info');
 			throw error;
 		}
+	}
+
+	private async findDocumentNamesByFilePath(targets: Set<string>): Promise<string[]> {
+		const matchingNames: string[] = [];
+		try {
+			const iterable = this.documentClient.listDocumentsAsync({
+				parent: this.branchPath,
+				pageSize: 100,
+			});
+
+			for await (const document of iterable) {
+				const filePath = document.structData?.fields?.filePath?.stringValue;
+				if (filePath && document.name && targets.has(filePath)) {
+					matchingNames.push(document.name);
+				}
+			}
+		} catch (error) {
+			logger.error({ error }, 'Failed to list documents while purging specific files');
+			throw error;
+		}
+		return matchingNames;
 	}
 }

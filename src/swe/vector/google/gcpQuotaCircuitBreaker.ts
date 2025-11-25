@@ -35,7 +35,11 @@ class DefaultTimer implements TimerInterface {
  * Pino logger adapter implementing LoggerInterface
  */
 class PinoLoggerAdapter implements LoggerInterface {
-	private logger = pino({ name: 'DiscoveryEngineCircuitBreaker' });
+	private logger: pino.Logger;
+
+	constructor(serviceName?: string) {
+		this.logger = pino({ name: serviceName || 'GcpQuotaCircuitBreaker' });
+	}
 
 	info(msg: string | object, ...args: any[]): void {
 		this.logger.info(msg, ...args);
@@ -79,6 +83,8 @@ interface QueuedRequest<T> {
  * Configuration for circuit breaker
  */
 export interface CircuitBreakerConfig {
+	/** Service name for logging (e.g., "Discovery Engine", "Vertex AI Embeddings") */
+	serviceName?: string;
 	/** Interval in milliseconds between retry attempts when circuit is OPEN (default: 5000ms) */
 	retryIntervalMs?: number;
 	/** Number of consecutive failures to open circuit (default: 1) */
@@ -92,7 +98,7 @@ export interface CircuitBreakerConfig {
 }
 
 /**
- * Circuit Breaker for Discovery Engine API calls
+ * Circuit Breaker for Google Cloud Platform API calls (Discovery Engine, Vertex AI, etc.)
  *
  * Implements circuit breaker pattern to handle quota exhaustion:
  * - CLOSED: Normal operation, requests proceed
@@ -106,7 +112,7 @@ export interface CircuitBreakerConfig {
  * 4. On success: close circuit and process entire queue
  * 5. On failure: wait another 5 seconds
  */
-export class DiscoveryEngineCircuitBreaker {
+export class GcpQuotaCircuitBreaker {
 	private state: CircuitState = CircuitState.CLOSED;
 	private queue: QueuedRequest<any>[] = [];
 	private retryIntervalMs: number;
@@ -118,13 +124,15 @@ export class DiscoveryEngineCircuitBreaker {
 	private isProcessingQueue = false;
 	private timer: TimerInterface;
 	private logger: LoggerInterface;
+	private serviceName: string;
 
 	constructor(config: CircuitBreakerConfig = {}) {
+		this.serviceName = config.serviceName || 'GCP Service';
 		this.retryIntervalMs = config.retryIntervalMs || 5000;
 		this.failureThreshold = config.failureThreshold || 1;
 		this.successThreshold = config.successThreshold || 1;
 		this.timer = config.timer || new DefaultTimer();
-		this.logger = config.logger || new PinoLoggerAdapter();
+		this.logger = config.logger || new PinoLoggerAdapter(config.serviceName);
 	}
 
 	/**
@@ -174,6 +182,7 @@ export class DiscoveryEngineCircuitBreaker {
 
 	/**
 	 * Check if error is a quota exhaustion error
+	 * Handles GCP errors, HTTP errors, and Vercel AI SDK errors
 	 * Public for testing purposes
 	 */
 	public isQuotaError(error: any): boolean {
@@ -187,9 +196,22 @@ export class DiscoveryEngineCircuitBreaker {
 			return true;
 		}
 
+		// Vercel AI SDK: AI_APICallError with statusCode
+		if (error.name === 'AI_APICallError' && error.statusCode === 429) {
+			return true;
+		}
+
+		// Vercel AI SDK: AI_RetryError with nested quota errors
+		if (error.name === 'AI_RetryError' && Array.isArray(error.errors)) {
+			// Recursively check nested errors
+			if (error.errors.some((e: any) => this.isQuotaError(e))) {
+				return true;
+			}
+		}
+
 		// Check error message for quota-related keywords
-		const message = error.message || '';
-		if (message.includes('RESOURCE_EXHAUSTED') || message.includes('Quota exceeded') || message.includes('quota') || message.includes('rate limit')) {
+		const message = (error.message || '').toLowerCase();
+		if (message.includes('resource_exhausted') || message.includes('quota exceeded') || message.includes('quota') || message.includes('rate limit')) {
 			return true;
 		}
 
@@ -228,8 +250,10 @@ export class DiscoveryEngineCircuitBreaker {
 			return; // Already open
 		}
 
-		this.logger.warn('Circuit breaker OPENING - quota limit hit, pausing Discovery Engine requests');
-		this.logger.warn(`⚠️  Discovery Engine quota limit hit - pausing requests. Will retry every ${this.retryIntervalMs / 1000} seconds until service recovers`);
+		this.logger.warn(`Circuit breaker OPENING - quota limit hit, pausing ${this.serviceName} requests`);
+		this.logger.warn(
+			`⚠️  ${this.serviceName} quota limit hit - pausing requests. Will retry every ${this.retryIntervalMs / 1000} seconds until service recovers`,
+		);
 
 		this.state = CircuitState.OPEN;
 		this.startPeriodicRetry();
@@ -243,12 +267,20 @@ export class DiscoveryEngineCircuitBreaker {
 			return; // Already closed
 		}
 
+		const deferQueueProcessing = this.isProcessingQueue;
+
 		this.logger.info('Circuit breaker CLOSING - service recovered, resuming normal operation');
-		this.logger.info('✅ Discovery Engine service recovered - resuming requests');
+		this.logger.info(`✅ ${this.serviceName} service recovered - resuming requests`);
 
 		this.state = CircuitState.CLOSED;
 		this.stopPeriodicRetry();
-		this.processQueue();
+
+		if (deferQueueProcessing) {
+			queueMicrotask(() => this.processQueue());
+			return;
+		}
+
+		void this.processQueue();
 	}
 
 	/**

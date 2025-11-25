@@ -19,6 +19,7 @@ export class AlloyDBAdapter implements IVectorStore {
 	private alloydbConfig: AlloyDBConfig;
 	private tableName: string;
 	private repoIdentifier: string;
+	private automatedEmbeddingsEnabled = false;
 
 	constructor(repoIdentifier: string, alloydbConfig: AlloyDBConfig) {
 		this.repoIdentifier = repoIdentifier;
@@ -156,6 +157,7 @@ export class AlloyDBAdapter implements IVectorStore {
 	 */
 	private async setupAutomatedEmbeddings(): Promise<void> {
 		const hasAutomatedEmbeddings = await this.client.checkAutomatedEmbeddings();
+		this.automatedEmbeddingsEnabled = hasAutomatedEmbeddings;
 
 		if (!hasAutomatedEmbeddings) {
 			logger.warn(
@@ -248,7 +250,7 @@ export class AlloyDBAdapter implements IVectorStore {
 				);
 
 				// Store manual embedding if provided (for when auto-embedding is unavailable)
-				const manualEmbedding = chunk.embedding && chunk.embedding.length > 0 ? JSON.stringify(chunk.embedding) : null;
+				const manualEmbedding = !this.automatedEmbeddingsEnabled && chunk.embedding && chunk.embedding.length > 0 ? JSON.stringify(chunk.embedding) : null;
 
 				values.push(
 					id,
@@ -296,7 +298,7 @@ export class AlloyDBAdapter implements IVectorStore {
 			await this.client.query(
 				`
 				UPDATE ${this.tableName}
-				SET full_text_search = to_tsvector('english', original_text)
+				SET full_text_search = to_tsvector('english', contextualized_chunk)
 				WHERE id = ANY($1)
 			`,
 				[batch.map((chunk) => this.generateDocumentId(chunk))],
@@ -319,20 +321,22 @@ export class AlloyDBAdapter implements IVectorStore {
 
 		// Trigger refresh of automated embeddings (optional - transactional mode should auto-update)
 		// Only if automated embeddings are enabled
-		try {
-			await this.client.query(
-				`
-				CALL ai.refresh_embeddings(
-					table_name => $1,
-					embedding_column => 'embedding',
-					batch_size => 50
-				)
-			`,
-				[this.tableName],
-			);
-			logger.debug('Triggered automated embedding refresh');
-		} catch (error) {
-			logger.debug({ error }, 'Could not trigger embedding refresh (automated embeddings may not be enabled)');
+		if (this.automatedEmbeddingsEnabled) {
+			try {
+				await this.client.query(
+					`
+					CALL ai.refresh_embeddings(
+						table_name => $1,
+						embedding_column => 'embedding',
+						batch_size => 50
+					)
+				`,
+					[this.tableName],
+				);
+				logger.debug('Triggered automated embedding refresh');
+			} catch (error) {
+				logger.debug({ error }, 'Could not trigger embedding refresh (automated embeddings may not be enabled)');
+			}
 		}
 
 		logger.info({ chunkCount: chunks.length }, 'Successfully indexed all chunks');
@@ -352,16 +356,20 @@ export class AlloyDBAdapter implements IVectorStore {
 		logger.debug({ query, maxResults, configName, hybridSearch: config.hybridSearch }, 'Searching');
 
 		if (config.hybridSearch) {
-			return this.hybridSearch(query, maxResults, configName);
+			return this.hybridSearch(query, queryEmbedding, maxResults, configName);
 		}
 
-		return this.vectorSearch(query, maxResults, configName);
+		return this.vectorSearch(query, queryEmbedding, maxResults, configName);
 	}
 
 	/**
 	 * Pure vector search using ScaNN index
 	 */
-	private async vectorSearch(query: string, maxResults: number, configName: string): Promise<SearchResult[]> {
+	private async vectorSearch(query: string, queryEmbedding: number[], maxResults: number, configName: string): Promise<SearchResult[]> {
+		const context = this.buildVectorQueryContext(query, queryEmbedding, false);
+		const params = [...context.params, configName, maxResults];
+		const nameIndex = context.params.length + 1;
+		const limitIndex = nameIndex + 1;
 		const result = await this.client.query(
 			`
 			SELECT
@@ -374,13 +382,13 @@ export class AlloyDBAdapter implements IVectorStore {
 				chunk_type,
 				function_name,
 				class_name,
-				embedding <=> google_ml.embedding($1, $2)::vector AS distance
+				${context.expression} AS distance
 			FROM ${this.tableName}
-			WHERE name = $3
+			WHERE name = $${nameIndex}
 			ORDER BY distance
-			LIMIT $4
+			LIMIT $${limitIndex}
 		`,
-			[this.alloydbConfig.embeddingModel, query, configName, maxResults],
+			params,
 		);
 
 		return result.rows.map((row) => this.convertRowToSearchResult(row, 1 - row.distance));
@@ -389,7 +397,7 @@ export class AlloyDBAdapter implements IVectorStore {
 	/**
 	 * Hybrid search combining vector search + full-text search using RRF
 	 */
-	private async hybridSearch(query: string, maxResults: number, configName: string): Promise<SearchResult[]> {
+	private async hybridSearch(query: string, queryEmbedding: number[], maxResults: number, configName: string): Promise<SearchResult[]> {
 		const vectorWeight = this.alloydbConfig.vectorWeight ?? 0.7;
 		const textWeight = 1 - vectorWeight;
 
@@ -397,6 +405,15 @@ export class AlloyDBAdapter implements IVectorStore {
 
 		// Get candidates from both vector and text search (get more for RRF)
 		const candidateLimit = maxResults * 2;
+
+		const context = this.buildVectorQueryContext(query, queryEmbedding, true);
+		const params = [...context.params, configName, candidateLimit, vectorWeight, textWeight, maxResults];
+		const nameIndex = context.params.length + 1;
+		const candidateLimitIndex = nameIndex + 1;
+		const vectorWeightIndex = candidateLimitIndex + 1;
+		const textWeightIndex = vectorWeightIndex + 1;
+		const maxResultsIndex = textWeightIndex + 1;
+		const queryPlaceholderIndex = context.queryPlaceholderIndex ?? 2;
 
 		const result = await this.client.query(
 			`
@@ -411,22 +428,22 @@ export class AlloyDBAdapter implements IVectorStore {
 					chunk_type,
 					function_name,
 					class_name,
-					embedding <=> google_ml.embedding($1, $2)::vector AS distance,
-					ROW_NUMBER() OVER (ORDER BY embedding <=> google_ml.embedding($1, $2)::vector) AS vector_rank
+					${context.expression} AS distance,
+					ROW_NUMBER() OVER (ORDER BY ${context.expression}) AS vector_rank
 				FROM ${this.tableName}
-				WHERE name = $3
+				WHERE name = $${nameIndex}
 				ORDER BY distance
-				LIMIT $4
+				LIMIT $${candidateLimitIndex}
 			),
 			text_results AS (
 				SELECT
 					id,
-					ts_rank(full_text_search, plainto_tsquery('english', $2)) AS text_rank,
-					ROW_NUMBER() OVER (ORDER BY ts_rank(full_text_search, plainto_tsquery('english', $2)) DESC) AS text_rank_order
+					ts_rank(full_text_search, plainto_tsquery('english', $${queryPlaceholderIndex})) AS text_rank,
+					ROW_NUMBER() OVER (ORDER BY ts_rank(full_text_search, plainto_tsquery('english', $${queryPlaceholderIndex})) DESC) AS text_rank_order
 				FROM ${this.tableName}
-				WHERE name = $3
-					AND full_text_search @@ plainto_tsquery('english', $2)
-				LIMIT $4
+				WHERE name = $${nameIndex}
+					AND full_text_search @@ plainto_tsquery('english', $${queryPlaceholderIndex})
+				LIMIT $${candidateLimitIndex}
 			),
 			combined AS (
 				SELECT
@@ -443,7 +460,7 @@ export class AlloyDBAdapter implements IVectorStore {
 					v.vector_rank,
 					COALESCE(t.text_rank_order, 999999) AS text_rank,
 					-- Reciprocal Rank Fusion (RRF) score
-					($5 / (60.0 + v.vector_rank)) + ($6 / (60.0 + COALESCE(t.text_rank_order, 999999))) AS rrf_score
+					($${vectorWeightIndex} / (60.0 + v.vector_rank)) + ($${textWeightIndex} / (60.0 + COALESCE(t.text_rank_order, 999999))) AS rrf_score
 				FROM vector_results v
 				LEFT JOIN text_results t ON v.id = t.id
 
@@ -462,19 +479,23 @@ export class AlloyDBAdapter implements IVectorStore {
 					v2.distance,
 					COALESCE(v2.vector_rank, 999999) AS vector_rank,
 					t2.text_rank_order AS text_rank,
-					($5 / (60.0 + COALESCE(v2.vector_rank, 999999))) + ($6 / (60.0 + t2.text_rank_order)) AS rrf_score
+					($${vectorWeightIndex} / (60.0 + COALESCE(v2.vector_rank, 999999))) + ($${textWeightIndex} / (60.0 + t2.text_rank_order)) AS rrf_score
 				FROM text_results t2
 				LEFT JOIN vector_results v2 ON t2.id = v2.id
 				WHERE v2.id IS NULL
 			)
 			SELECT * FROM combined
 			ORDER BY rrf_score DESC
-			LIMIT $7
+			LIMIT $${maxResultsIndex}
 		`,
-			[this.alloydbConfig.embeddingModel, query, configName, candidateLimit, vectorWeight, textWeight, maxResults],
+			params,
 		);
 
 		return result.rows.map((row) => this.convertRowToSearchResult(row, row.rrf_score));
+	}
+
+	supportsAutomatedEmbeddings(): boolean {
+		return this.automatedEmbeddingsEnabled;
 	}
 
 	/**
@@ -498,6 +519,58 @@ export class AlloyDBAdapter implements IVectorStore {
 				vectorRank: row.vector_rank,
 				textRank: row.text_rank,
 			},
+		};
+	}
+
+	private shouldUseServerSideEmbedding(queryEmbedding?: number[]): boolean {
+		return this.automatedEmbeddingsEnabled || !queryEmbedding || queryEmbedding.length === 0;
+	}
+
+	private ensureQueryEmbedding(queryEmbedding?: number[]): number[] {
+		if (!queryEmbedding || queryEmbedding.length === 0) {
+			throw new Error('Query embedding is required when automated embeddings are disabled');
+		}
+		return queryEmbedding;
+	}
+
+	private formatVectorLiteral(embedding: number[]): string {
+		return `[${embedding.map((value) => (Number.isFinite(value) ? value : 0)).join(',')}]`;
+	}
+
+	private buildVectorQueryContext(
+		query: string,
+		queryEmbedding: number[] | undefined,
+		includeQueryText: boolean,
+	): {
+		expression: string;
+		params: any[];
+		queryPlaceholderIndex?: number;
+	} {
+		const useServerSideEmbedding = this.shouldUseServerSideEmbedding(queryEmbedding);
+		if (useServerSideEmbedding) {
+			const params = [this.alloydbConfig.embeddingModel, query];
+			return {
+				expression: 'embedding <=> google_ml.embedding($1, $2)::vector',
+				params,
+				queryPlaceholderIndex: includeQueryText ? 2 : undefined,
+			};
+		}
+
+		const manualEmbedding = this.ensureQueryEmbedding(queryEmbedding);
+		const params = [this.formatVectorLiteral(manualEmbedding)];
+
+		if (includeQueryText) {
+			params.push(query);
+			return {
+				expression: 'embedding <=> $1::vector',
+				params,
+				queryPlaceholderIndex: 2,
+			};
+		}
+
+		return {
+			expression: 'embedding <=> $1::vector',
+			params,
 		};
 	}
 

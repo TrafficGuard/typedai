@@ -74,12 +74,13 @@ Completed implementation of AlloyDB-based vector search as an alternative to Goo
 **Decision**: Use AlloyDB's `ai.initialize_embeddings()` for automated embedding generation.
 
 **Rationale**:
-- Simplifies pipeline - no need to manually generate embeddings
-- Reduces API costs (no Vertex AI embedding calls)
+- Simplifies pipeline - no need to manually batch and call embedding APIs
+- Automated batching to Vertex AI maximizes throughput
 - AlloyDB handles embedding updates automatically on data changes
-- Embeddings are generated in background, non-blocking
+- Embeddings are generated in background, non-blocking transactions
 
 **Trade-offs**:
+- Still incurs Vertex AI embedding API costs (batched automatically in background)
 - Less control over embedding model parameters
 - Requires AlloyDB instance with AI features enabled
 - Initial embedding generation may have latency
@@ -204,10 +205,10 @@ CREATE INDEX idx_code_chunks_filename ON code_chunks_{repo}(filename);
 
 ## Advantages Over Discovery Engine
 
-1. **Cost Efficiency**
-   - No embedding API costs (automated embeddings)
+1. **Operational Efficiency**
+   - Automated embedding generation (batched Vertex AI calls in background)
    - Standard PostgreSQL pricing vs premium managed service
-   - No per-query charges
+   - No per-query search charges (included in AlloyDB instance costs)
 
 2. **Transactional Consistency**
    - ACID guarantees for updates

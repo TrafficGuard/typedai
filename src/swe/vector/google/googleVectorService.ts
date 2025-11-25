@@ -4,8 +4,10 @@ import { struct } from 'pb-util';
 import pino from 'pino';
 import { span } from '#o11y/trace';
 import { ChunkSearchResult, ChunkWithFileContext } from '../chunking/chunkTypes';
-import { generateContextualizedChunks } from '../chunking/contextualizedChunker';
 import { CodeFile, readFilesToIndex } from '../codeLoader';
+import { DEFAULT_VECTOR_CONFIG } from '../core/config';
+import { LLMContextualizer } from '../core/contextualizer';
+import type { FileInfo } from '../core/interfaces';
 import { VectorStore } from '../vector';
 import { DiscoveryEngine } from './discoveryEngine';
 import { GoogleVectorServiceConfig } from './googleVectorConfig';
@@ -24,10 +26,12 @@ class IndexingStats {
 export class GoogleVectorStore implements VectorStore {
 	private dataStore: DiscoveryEngine;
 	private embeddingService: VertexAITextEmbeddingService;
+	private contextualizer: LLMContextualizer;
 
 	constructor(private config: GoogleVectorServiceConfig) {
 		this.dataStore = new DiscoveryEngine(config);
 		this.embeddingService = new VertexAITextEmbeddingService(config);
+		this.contextualizer = new LLMContextualizer();
 	}
 
 	/**
@@ -123,12 +127,32 @@ export class GoogleVectorStore implements VectorStore {
 	}
 
 	private async generateContextualizedChunks(file: CodeFile, stats: IndexingStats): Promise<ChunkWithFileContext[]> {
+		const fileInfo: FileInfo = {
+			filePath: file.filePath,
+			relativePath: file.filePath,
+			language: file.language,
+			content: file.content,
+			size: Buffer.byteLength(file.content, 'utf8'),
+			lastModified: new Date(0),
+		};
+
 		try {
-			const contextualizedItems = await generateContextualizedChunks(file.filePath, file.content, file.language);
-			return contextualizedItems.map((item) => ({
-				...item,
+			const contextualizedChunks = await this.contextualizer.contextualize([], fileInfo, {
+				...DEFAULT_VECTOR_CONFIG,
+				contextualChunking: true,
+			});
+
+			return contextualizedChunks.map((chunk) => ({
 				filePath: file.filePath,
 				language: file.language,
+				source_location: {
+					start_line: chunk.sourceLocation.startLine,
+					end_line: chunk.sourceLocation.endLine,
+				},
+				chunk_type: chunk.chunkType,
+				original_chunk_content: chunk.content,
+				contextualized_chunk_content: chunk.contextualizedContent,
+				generated_context: chunk.context,
 			}));
 		} catch (fileProcessingError: any) {
 			stats.failedFiles.push(file.filePath);
