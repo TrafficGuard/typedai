@@ -37,7 +37,7 @@
     "@angular/router": "19.2.10",
     "@jsverse/transloco": "7.6.1",
     "@sinclair/typebox": "0.34.41",
-    "ai": "5.0.78",
+    "ai": "5.0.97",
     "angular-split": "^19.0.0",
     "apexcharts": "4.7.0",
     "clipboard": "^2.0.11",
