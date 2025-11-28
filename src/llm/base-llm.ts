@@ -45,18 +45,17 @@ export function costPerMilTokens(
 	longThreshold = 128000,
 ): LlmCostFunction {
 	return (inputTokens: number, outputTokens: number, cachedInputTokens: number) => {
-		let inputMilCost = inputMil;
-		let outputMilCost = outputMil;
-		if (longInputMil && longOutputMil && inputTokens >= longThreshold) {
-			inputMilCost = longInputMil;
-			outputMilCost = longOutputMil;
-		}
+		const useLongContext = !!longInputMil && !!longOutputMil && inputTokens >= longThreshold;
+		const inputMilCost = useLongContext ? longInputMil! : inputMil;
+		const outputMilCost = useLongContext ? longOutputMil! : outputMil;
+
 		const standardInputTokens = inputTokens - cachedInputTokens;
+		const cachedMilCost = useLongContext ? (cachedInputMil ?? inputMilCost) : (cachedInputMil ?? inputMil);
 
 		const standardInputCost = (standardInputTokens * inputMilCost) / 1_000_000;
-		const cachedInputCost = (cachedInputTokens * (cachedInputMil ?? inputMilCost)) / 1_000_000;
+		const cachedInputCost = (cachedInputTokens * cachedMilCost) / 1_000_000;
 		const inputCost = standardInputCost + cachedInputCost;
-		const outputCost = (outputTokens * outputMil) / 1_000_000;
+		const outputCost = (outputTokens * outputMilCost) / 1_000_000;
 		return {
 			inputCost,
 			outputCost,

@@ -23,7 +23,7 @@ export function Gemini_3_0_Pro(): LLM {
 		'Gemini 3 Pro (Gemini)',
 		'gemini-3-pro-preview',
 		1_000_000,
-		costPerMilTokens(2, 12, 0.2, 4, 18, 200_000, 0.4),
+		costPerMilTokens(2, 12, 0.2, 4, 18, 200_000),
 		[],
 		'google/gemini-3-pro-preview',
 	);

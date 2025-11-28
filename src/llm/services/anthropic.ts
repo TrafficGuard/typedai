@@ -9,11 +9,14 @@ import { MultiLLM } from '../multi-llm';
 export const ANTHROPIC_SERVICE = 'anthropic';
 
 export function anthropicLLMRegistry(): Array<() => LLM> {
-	return [anthropicClaude4_5_Haiku, anthropicClaude4_5_Sonnet, anthropicClaude4_1_Opus];
+	return [anthropicClaude4_5_Haiku, anthropicClaude4_5_Sonnet, anthropicClaude4_5_Opus];
 }
 
-export function anthropicClaude4_1_Opus(): LLM {
-	return new Anthropic('Claude 4.1 Opus (Anthropic)', 'claude-opus-4-1-20250805', 200_000, 32_000, anthropicCostFunction(15, 75), ['claude-opus-4-0']);
+export function anthropicClaude4_5_Opus(): LLM {
+	return new Anthropic('Claude 4.5 Opus (Anthropic)', 'claude-opus-4-5-20251101', 200_000, 32_000, anthropicCostFunction(5, 25), [
+		'claude-opus-4-0',
+		'claude-opus-4-5-20251101',
+	]);
 }
 
 export function anthropicClaude4_5_Sonnet(): LLM {
@@ -42,7 +45,7 @@ function anthropicCostFunction(inputMil: number, outputMil: number): LlmCostFunc
 
 export function ClaudeLLMs(): AgentLLMs {
 	const sonnet4 = anthropicClaude4_5_Sonnet();
-	const opus = anthropicClaude4_1_Opus();
+	const opus = anthropicClaude4_5_Opus();
 	return {
 		easy: anthropicClaude4_5_Haiku(),
 		medium: sonnet4,

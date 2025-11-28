@@ -4,20 +4,19 @@ import { togetherDeepSeekR1 } from '#llm/services/together';
 import { logger } from '#o11y/logger';
 import type { GenerateTextOptions, LLM, LlmMessage } from '#shared/llm/llm.model';
 import { BaseLLM } from '../base-llm';
-import { fireworksDeepSeekR1_Fast } from '../services/fireworks';
 
 /**
  * LLM implementation for DeepSeek which uses Together.ai and Fireworks.ai for more privacy.
  * Tries Together.ai first as is slightly cheaper, then falls back to Fireworks
  */
 export class DeepSeek_Fallbacks extends BaseLLM {
-	private llms: LLM[] = [togetherDeepSeekR1(), fireworksDeepSeekR1_Fast(), nebiusDeepSeekR1(), sambanovaDeepseekR1()];
+	private llms: LLM[] = [togetherDeepSeekR1(), nebiusDeepSeekR1(), sambanovaDeepseekR1()];
 
 	constructor() {
 		super({
-			displayName: 'DeepSeek (Together, Fireworks, Nebius, SambaNova)',
+			displayName: 'DeepSeek (Together, Nebius, SambaNova)',
 			service: 'DeepSeekFallback',
-			modelId: 'deepseek-together-fireworks-nebius-sambanova',
+			modelId: 'deepseek-together-nebius-sambanova',
 			maxInputTokens: 0,
 			calculateCosts: () => ({
 				inputCost: 0,

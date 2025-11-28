@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import { expect } from 'chai';
 import { appContext } from '#app/applicationContext';
-import { Claude4_1_Opus_Vertex, Claude4_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude4_5_Opus_Vertex, Claude4_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { deepinfraDeepSeekR1, deepinfraQwen3_235B_A22B } from '#llm/services/deepinfra';
 import { deepSeekV3_1 } from '#llm/services/deepseek';
-import { fireworksGLM_4_6 } from '#llm/services/fireworks';
+import { fireworksKimi2thinking } from '#llm/services/fireworks';
 import { nebiusDeepSeekR1 } from '#llm/services/nebius';
 import { Ollama_Phi3 } from '#llm/services/ollama';
 import { openaiGPT5mini } from '#llm/services/openai';
@@ -14,7 +14,7 @@ import { togetherDeepSeekR1_0528_tput } from '#llm/services/together';
 import { vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import type { LlmMessage } from '#shared/llm/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { anthropicClaude4_1_Opus, anthropicClaude4_5_Sonnet } from './anthropic';
+import { anthropicClaude4_5_Opus, anthropicClaude4_5_Sonnet } from './anthropic';
 import { cerebrasQwen3_235b_Instruct } from './cerebras';
 import { openRouterQwen3_235b_Instruct, openRouterQwen3_235b_Thinking } from './cerebras-openrouter';
 import { groqQwen3_32b } from './groq';
@@ -168,7 +168,7 @@ describe('LLMs', () => {
 	});
 
 	describe('Fireworks', () => {
-		const llm = fireworksGLM_4_6();
+		const llm = fireworksKimi2thinking();
 
 		it('should generateText', async () => {
 			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });

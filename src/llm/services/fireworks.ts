@@ -6,6 +6,15 @@ import { currentUser } from '#user/userContext';
 
 export const FIREWORKS_SERVICE = 'fireworks';
 
+export function fireworksLLMRegistry(): Array<() => LLM> {
+	return [fireworksKimi2thinking];
+}
+
+// https://fireworks.ai/models/fireworks/kimi-k2-thinking
+export function fireworksKimi2thinking(): LLM {
+	return new Fireworks('Kimi 2 Thinking (Fireworks)', 'accounts/fireworks/kimi-k2-thinking', 202_000, costPerMilTokens(0.6, 2.5));
+}
+
 export class Fireworks extends AiLLM<FireworksProvider> {
 	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
 		super({ displayName, service: FIREWORKS_SERVICE, modelId: model, maxInputTokens: maxOutputTokens, calculateCosts });
@@ -26,16 +35,4 @@ export class Fireworks extends AiLLM<FireworksProvider> {
 		}
 		return this.aiProvider;
 	}
-}
-
-export function fireworksLLMRegistry(): Array<() => LLM> {
-	return [fireworksGLM_4_6];
-}
-
-export function fireworksGLM_4_6(): LLM {
-	return new Fireworks('GLM-4.6 (Fireworks)', 'accounts/fireworks/models/glm-4p6', 202_000, costPerMilTokens(0.55, 2.19));
-}
-
-export function fireworksDeepSeekR1_Fast(): LLM {
-	return new Fireworks('DeepSeek R1 Fast (Fireworks)', 'accounts/fireworks/models/deepseek-r1', 160_000, costPerMilTokens(3, 8));
 }

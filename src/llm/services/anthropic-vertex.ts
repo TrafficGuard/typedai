@@ -11,7 +11,7 @@ export const ANTHROPIC_VERTEX_SERVICE = 'anthropic-vertex';
 // https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-claude#anthropic_claude_region_availability
 
 export function anthropicVertexLLMRegistry(): Array<() => LLM> {
-	return [Claude4_5_Haiku_Vertex, Claude4_5_Sonnet_Vertex, Claude4_1_Opus_Vertex];
+	return [Claude4_5_Haiku_Vertex, Claude4_5_Sonnet_Vertex, Claude4_5_Opus_Vertex];
 }
 
 // Supported image types image/jpeg', 'image/png', 'image/gif' or 'image/webp'
@@ -19,8 +19,11 @@ export function anthropicVertexLLMRegistry(): Array<() => LLM> {
 // https://cloud.google.com/vertex-ai/generative-ai/pricing#claude-models
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude/opus-4-1
-export function Claude4_1_Opus_Vertex(): LLM {
-	return new AnthropicVertexLLM('Claude 4.1 Opus (Vertex)', 'claude-opus-4-1@20250805', 200_000, 32_000, anthropicCostFunction(15, 75), ['claude-opus-4']);
+export function Claude4_5_Opus_Vertex(): LLM {
+	return new AnthropicVertexLLM('Claude 4.54 Opus (Vertex)', 'claude-opus-4-1@20250805', 200_000, 32_000, anthropicCostFunction(5, 25), [
+		'claude-opus-4',
+		'claude-opus-4-1@20250805',
+	]);
 }
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude/sonnet-4-5
@@ -61,7 +64,7 @@ export function ClaudeVertexLLMs(): AgentLLMs {
 		easy: Claude4_5_Haiku_Vertex(),
 		medium: Claude4_5_Sonnet_Vertex(),
 		hard: Claude4_5_Sonnet_Vertex(),
-		xhard: Claude4_1_Opus_Vertex(),
+		xhard: Claude4_5_Opus_Vertex(),
 	};
 }
 
