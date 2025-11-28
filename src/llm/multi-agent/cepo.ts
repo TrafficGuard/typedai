@@ -1,119 +1,123 @@
 import { BaseLLM } from '#llm/base-llm';
-import { cerebrasQwen3_32b, cerebrasQwen3_235b_Thinking } from '#llm/services/cerebras';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
-import { type GenerateTextOptions, type LLM, type LlmMessage, assistant, lastText, user } from '#shared/llm/llm.model';
-import { FastMediumLLM } from './fastMedium';
+import { type GenerateTextOptions, type LLM, type LlmMessage, type ThinkingLevel, assistant, lastText, user } from '#shared/llm/llm.model';
 
 interface CePOConfig {
+	/** Number of responses to be generated in best of n stage */
 	bestofn_n: number;
+	/** Temperature for verifier in best of n stage (set to 1 for reasoning models) */
 	bestofn_temperature: number;
-	bestofn_max_tokens: number;
-	bestofn_rating_type: 'absolute' | 'pairwise';
+	/** Thinking/reasoning level for rating stage */
+	bestofn_thinking: ThinkingLevel;
+	/** Type of rating in best of n stage */
+	bestofn_rating_type: 'absolute' | 'pairwise' | 'none';
+	/** Number of plans generated in planning stage */
 	planning_n: number;
+	/** Number of attempts to generate n plans in planning stage */
 	planning_m: number;
-	planning_temperature_step0: number;
-	planning_max_tokens_step0: number;
-	planning_temperature_step1: number;
-	planning_temperature_step2: number;
-	planning_temperature_step3: number;
-	planning_temperature_step4: number;
-	planning_max_tokens_step1: number;
-	planning_max_tokens_step2: number;
-	planning_max_tokens_step3: number;
-	planning_max_tokens_step4: number;
+	/** Temperature for planning stages (set to 1 for reasoning models) */
+	planning_temperature: number;
+	/** Thinking/reasoning level for step 0 (approach generation) */
+	planning_thinking_step0: ThinkingLevel;
+	/** Thinking/reasoning level for step 1 (plan generation) */
+	planning_thinking_step1: ThinkingLevel;
+	/** Thinking/reasoning level for step 2 (plan execution) */
+	planning_thinking_step2: ThinkingLevel;
+	/** Thinking/reasoning level for direct response fallback */
+	planning_thinking_direct_resp: ThinkingLevel;
+	/** Thinking/reasoning level for step 3 (refinement) */
+	planning_thinking_step3: ThinkingLevel;
+	/** Thinking/reasoning level for step 4 (final answer) */
+	planning_thinking_step4: ThinkingLevel;
+	/** Whether to use plan diversity (generates diverse approaches for each completion) */
 	use_plan_diversity: boolean;
-	rating_model_id?: string;
+	/** Whether to print debug output */
 	printOutput: boolean;
 }
 
-const limitedConfig: CePOConfig = {
-	bestofn_n: 3,
-	bestofn_temperature: 0.1,
-	bestofn_max_tokens: 4096,
-	bestofn_rating_type: 'absolute',
-	planning_n: 3,
-	planning_m: 6,
-	planning_temperature_step0: 0.7,
-	planning_max_tokens_step0: 1024,
-	planning_temperature_step1: 0.55,
-	planning_temperature_step2: 0.25,
-	planning_temperature_step3: 0.1,
-	planning_temperature_step4: 0,
-	planning_max_tokens_step1: 4096,
-	planning_max_tokens_step2: 4096,
-	planning_max_tokens_step3: 4096,
-	planning_max_tokens_step4: 4096,
-	use_plan_diversity: false,
-	// rating_model_id: undefined, // Default: use the main LLM for rating
-	printOutput: false,
-};
-
+/**
+ * Configuration optimized for SOTA reasoning models (minimal calls).
+ * Note: Latest SOTA reasoning models (Gemini 2.5, OpenAI o-series, Claude with extended thinking)
+ * only support temperature=1 when reasoning is enabled. The LLM implementation handles this.
+ */
 const sotaConfig: CePOConfig = {
-	bestofn_n: 3,
-	bestofn_temperature: 0.1,
-	bestofn_max_tokens: 16_000,
-	bestofn_rating_type: 'absolute',
-	planning_n: 3,
-	planning_m: 6,
-	planning_temperature_step0: 0.7,
-	planning_max_tokens_step0: 16_000,
-	planning_temperature_step1: 0.55,
-	planning_temperature_step2: 0.25,
-	planning_temperature_step3: 0.1,
-	planning_temperature_step4: 0,
-	planning_max_tokens_step1: 16_000,
-	planning_max_tokens_step2: 16_000,
-	planning_max_tokens_step3: 16_000,
-	planning_max_tokens_step4: 16_000,
+	bestofn_n: 1,
+	bestofn_temperature: 1,
+	bestofn_thinking: 'high',
+	bestofn_rating_type: 'none',
+	planning_n: 2,
+	planning_m: 4,
+	planning_temperature: 1,
+	planning_thinking_step0: 'medium',
+	planning_thinking_step1: 'high',
+	planning_thinking_step2: 'high',
+	planning_thinking_direct_resp: 'high',
+	planning_thinking_step3: 'high',
+	planning_thinking_step4: 'medium',
 	use_plan_diversity: false,
-	// rating_model_id: undefined, // Default: use the main LLM for rating
 	printOutput: false,
 };
 
-//  https://github.com/codelion/optillm/blob/main/optillm/cepo/README.md
+/** Configuration for fast/cheap models like OpenAI gpt-oss-120B on Cerebras */
+const gptOssConfig: CePOConfig = {
+	bestofn_n: 3,
+	bestofn_temperature: 0.6,
+	bestofn_thinking: 'high',
+	bestofn_rating_type: 'absolute',
+	planning_n: 2,
+	planning_m: 4,
+	planning_temperature: 1.0,
+	planning_thinking_step0: 'medium',
+	planning_thinking_step1: 'high',
+	planning_thinking_step2: 'high',
+	planning_thinking_direct_resp: 'medium',
+	planning_thinking_step3: 'high',
+	planning_thinking_step4: 'medium',
+	use_plan_diversity: false,
+	printOutput: true,
+};
 
-export function CePO_FastMedium(llmProvider: () => LLM = () => cerebrasQwen3_235b_Thinking(), name?: string): LLM {
-	return new CePO_LLM(() => new FastMediumLLM(), 'CePO (FastMedium)', limitedConfig);
-}
+export { sotaConfig as CePO_SotaConfig, gptOssConfig as CePO_GptOssConfig };
 
 /**
  * The Cerebras Planning and Optimization (CePO) Method
  *
- * CePO is an inference-time computation method designed to enhance the accuracy of large language models (LLMs) on tasks requiring reasoning and planning, such as solving math or coding problems. It integrates several advanced techniques, including Best of N, Chain of Thought (CoT), Self-Reflection, Self-Improvement, and Prompt Engineering.
+ * CePO is an inference-time computation method designed to enhance the accuracy of large language models (LLMs)
+ * on tasks requiring reasoning and planning, such as solving math or coding problems. It integrates several
+ * advanced techniques, including Best of N, Chain of Thought (CoT), Self-Reflection, Self-Improvement, and
+ * Prompt Engineering.
  *
- * If you have any questions or want to contribute, please reach out to us on cerebras.ai/discord
+ * CePO Methodology:
+ * In CePO, the Best of N technique is applied to `bestofn_n` solution candidates. Each solution is generated
+ * through the following four steps:
  *
- * CePO Methodology
+ * Step 1: Plan Generation - The model generates a detailed, step-by-step plan to solve the problem, along with
+ *         its confidence level for each step.
  *
- * In CePO, the Best of N technique is applied to bestofn_n solution candidates. Each solution is generated through the following four steps:
+ * Step 2: Initial Solution - Using the plan from Step 1, the model produces an initial solution.
  *
- * Step 1: Plan Generation The model generates a detailed, step-by-step plan to solve the problem, along with its confidence level for each step.
+ * Steps 1 and 2 are repeated `planning_n` times to generate multiple solution proposals. A maximum of
+ * `planning_m` attempts is made to generate `planning_n` valid proposals.
  *
- * Step 2: Initial Solution Using the plan from Step 1, the model produces an initial solution.
+ * Step 3: Plan Refinement - The model reviews all generated solution proposals and their associated plans,
+ *         identifying inconsistencies. Based on this analysis, a refined, final step-by-step plan is constructed.
  *
- * Steps 1 and 2 are repeated planning_n times to generate multiple solution proposals. If the model exceeds the token budget during Step 1 or 2, the plan/solution is marked as incomplete, rejected, and regenerated. A maximum of planning_m attempts is made to generate planning_n valid proposals.
+ * Step 4: Final Solution - The model uses the refined plan from Step 3 to produce the final answer.
  *
- * Step 3: Plan Refinement The model reviews all generated solution proposals and their associated plans, identifying inconsistencies. Based on this analysis, a refined, final step-by-step plan is constructed.
- *
- * Step 4: Final Solution The model uses the refined plan from Step 3 to produce the final answer.
- * @constructor
+ * @see https://github.com/codelion/optillm/blob/main/optillm/cepo/README.md
  */
 export class CePO_LLM extends BaseLLM {
-	llm: LLM;
-	ratingLlm: LLM; // Added
+	private llm: LLM;
+	private ratingLlm: LLM;
 
-	/**
-	 * @param llmProvider
-	 * @param name
-	 * @param config
-	 */
 	constructor(
 		llmProvider: () => LLM,
-		name: string,
-		private config: CePOConfig /*, ratingLlmResolver?: (id: string) => LLM */,
+		private config: CePOConfig,
+		name?: string,
+		ratingLlmProvider?: () => LLM,
 	) {
-		const baseLlm = llmProvider(); // Call once
+		const baseLlm = llmProvider();
 		super({
 			displayName: name ?? `CePO ${baseLlm.getId()}`,
 			service: 'multi',
@@ -128,17 +132,9 @@ export class CePO_LLM extends BaseLLM {
 		this.llm = baseLlm;
 
 		// Initialize ratingLlm
-		if (this.config.rating_model_id /* && ratingLlmResolver */) {
-			try {
-				// this.ratingLlm = ratingLlmResolver(this.config.rating_model_id);
-				// logger.info(`CePO: Using rating model ${this.config.rating_model_id}`);
-				// For now, without a resolver, default to baseLlm if rating_model_id is set but no resolver
-				this.ratingLlm = this.llm;
-				logger.warn(`CePO: rating_model_id '${this.config.rating_model_id}' is set, but no resolver provided. Defaulting to primary LLM for ratings.`);
-			} catch (error) {
-				logger.warn(`CePO: Failed to get rating model ${this.config.rating_model_id}. Defaulting to primary LLM. Error: ${(error as Error).message}`);
-				this.ratingLlm = this.llm;
-			}
+		if (ratingLlmProvider) {
+			this.ratingLlm = ratingLlmProvider();
+			logger.info(`CePO: Using separate rating model ${this.ratingLlm.getId()}`);
 		} else {
 			this.ratingLlm = this.llm;
 		}
@@ -158,57 +154,76 @@ export class CePO_LLM extends BaseLLM {
 
 	protected override async generateTextFromMessages(initialMessages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string> {
 		opts ??= {};
-		opts.thinking = 'high';
+
 		return withActiveSpan(`CePO id:${opts?.id ?? 'N/A'}`, async () => {
-			const completions: string[] = [];
 			let approaches: string[] | undefined = undefined;
 
-			const systemPromptMessage = initialMessages.find((m) => m.role === 'system');
-			const userQueryMessage = initialMessages.find((m) => m.role === 'user' && m === initialMessages.at(-1)); // Assuming last message is the main user query
+			const systemMessage = initialMessages.find((m) => m.role === 'system');
+			const originalUserQueryText = lastText(initialMessages);
+			const questionOnly = this.extractQuestionOnly(originalUserQueryText);
 
+			// Step 0: Generate diverse approaches if enabled
 			if (this.config.use_plan_diversity) {
-				if (!userQueryMessage) {
-					logger.warn('CePO: use_plan_diversity is true, but could not find the main user query message to generate approaches.');
-				} else {
-					const messagesForApproaches: LlmMessage[] = [];
-					if (systemPromptMessage) messagesForApproaches.push(systemPromptMessage);
-					messagesForApproaches.push(userQueryMessage); // Pass only system and user query for approach generation
-
-					approaches = await this.generateApproaches(messagesForApproaches, this.config.bestofn_n, opts);
-					if (this.config.printOutput && approaches) {
-						logger.debug(`CePO: Plan diversity approaches (${approaches.length}):\n${approaches.join('\n')}\n`);
-					}
+				approaches = await this.generateApproaches(initialMessages, this.config.bestofn_n, opts);
+				if (this.config.printOutput && approaches) {
+					logger.debug(`CePO: Plan diversity approaches (${approaches.length}):\n${approaches.join('\n')}\n`);
 				}
 			}
 
-			for (let i = 0; i < this.config.bestofn_n; i++) {
-				if (this.config.printOutput) {
-					logger.debug(`\nCePO: Generating completion ${i + 1} out of ${this.config.bestofn_n} \n`);
-				}
+			// Generate all completions in parallel
+			if (this.config.printOutput) {
+				logger.debug(`CePO: Generating ${this.config.bestofn_n} completions in parallel`);
+			}
+
+			const completionPromises = Array.from({ length: this.config.bestofn_n }, (_, i) => {
 				const currentApproach = approaches && i < approaches.length ? approaches[i] : undefined;
-				if (this.config.use_plan_diversity && approaches && i >= approaches.length && approaches.length > 0 && approaches.length < this.config.bestofn_n) {
-					logger.warn(
-						`CePO: Not enough diverse approaches generated (${approaches.length}) for bestofn_n (${this.config.bestofn_n}). Re-using last available approach or no approach for completion ${i + 1}.`,
-					);
+				if (this.config.printOutput) {
+					logger.debug(`CePO: Starting completion ${i + 1} of ${this.config.bestofn_n}`);
 				}
+				return this.generateCompletion(systemMessage, questionOnly, originalUserQueryText, opts!, currentApproach);
+			});
 
-				// Pass initialMessages for context, generateCompletion will internally manage history for its steps
-				const completion = await this.generateCompletion(initialMessages, opts, currentApproach);
-				completions.push(completion);
+			const completionResults = await Promise.allSettled(completionPromises);
+
+			// Collect successful completions
+			const completions: string[] = [];
+			for (let i = 0; i < completionResults.length; i++) {
+				const result = completionResults[i];
+				if (result.status === 'fulfilled' && result.value) {
+					completions.push(result.value);
+					if (this.config.printOutput) {
+						logger.debug(`CePO: Completion ${i + 1} succeeded`);
+					}
+				} else if (result.status === 'rejected') {
+					logger.warn(`CePO: Completion ${i + 1} failed: ${result.reason}`);
+				}
 			}
 
+			if (completions.length === 0) {
+				throw new Error('CePO: All completion attempts failed');
+			}
+
+			if (this.config.printOutput) {
+				logger.debug(`CePO: Generated ${completions.length} successful completions`);
+			}
+
+			// Rate and select the best answer
 			const bestAnswer = await this.rateAnswers(completions, initialMessages, opts);
 			return bestAnswer;
 		});
 	}
 
+	/**
+	 * Generates diverse high-level approaches for solving the problem.
+	 * This is Step 0 when use_plan_diversity is enabled.
+	 */
 	private async generateApproaches(
-		messagesForApproachGen: ReadonlyArray<LlmMessage>, // Should contain [system_prompt_msg, user_initial_query_msg]
+		messagesForApproachGen: ReadonlyArray<LlmMessage>,
 		numApproaches: number,
 		opts?: GenerateTextOptions,
 		maxRetry = 2,
 	): Promise<string[]> {
-		const initialQuery = lastText(messagesForApproachGen); // Assumes last message is user query
+		const initialQuery = lastText(messagesForApproachGen);
 		const questionOnly = this.extractQuestionOnly(initialQuery);
 		const generatedApproaches: string[] = [];
 
@@ -219,8 +234,7 @@ export class CePO_LLM extends BaseLLM {
     "approach_3": "<Description of approach 3>",
     ...
 }`;
-		// Python: messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": content}]
-		// We receive messagesForApproachGen which should be [system, user_query]. We replace user_query with approachRequestContent.
+
 		const messages: LlmMessage[] = [...messagesForApproachGen.slice(0, -1), user(approachRequestContent)];
 
 		let retries = 0;
@@ -229,8 +243,8 @@ export class CePO_LLM extends BaseLLM {
 			try {
 				responseText = await this.llm.generateText(messages, {
 					...opts,
-					maxOutputTokens: this.config.planning_max_tokens_step0,
-					temperature: this.config.planning_temperature_step0,
+					thinking: this.config.planning_thinking_step0,
+					temperature: this.config.planning_temperature,
 				});
 
 				let jsonString = responseText;
@@ -246,8 +260,6 @@ export class CePO_LLM extends BaseLLM {
 						jsonString = responseText.substring(firstBrace, lastBrace + 1);
 					}
 				}
-				// Python's cleaning: .replace('\\', '\\\\').replace('json','').replace("```", "")
-				// The regex handles ```json, and JSON.parse handles escapes.
 
 				const parsedOutput = JSON.parse(jsonString);
 				for (const key in parsedOutput) {
@@ -259,32 +271,153 @@ export class CePO_LLM extends BaseLLM {
 				throw new Error('Parsed JSON but no approaches found.');
 			} catch (error) {
 				logger.warn(
-					`CePO: Parsing Error or API error when generating diverse approaches (attempt ${retries + 1}/${maxRetry}): ${(error as Error).message}. Response: ${responseText}`,
+					`CePO: Parsing Error or API error when generating diverse approaches (attempt ${retries + 1}/${maxRetry}): ${(error as Error).message}. Response: ${responseText.substring(0, 200)}`,
 				);
 			}
 			retries++;
 		}
 
 		if (generatedApproaches.length === 0) {
-			logger.warn('CePO: Max retry attempts reached for generateApproaches or no approaches extracted, returning empty list.');
+			logger.warn('CePO: Max retry attempts reached for generateApproaches, returning empty list.');
 		}
 		return generatedApproaches;
 	}
 
+	/**
+	 * Extracts the core question from a task string, removing formatting instructions.
+	 */
 	private extractQuestionOnly(task: string): string {
 		let questionOnly = task.replace('\n## Question: \n\n', '');
 		questionOnly = questionOnly.replace(/\n\n\n## Instruction[\s\S]*```json\n{\n {4}"reasoning": "___",\n {4}"answer": "___"\n}\n```/g, '');
 		return questionOnly.trim();
 	}
 
-	// In CePO_LLM class
-
-	private async generatePlan(
+	/**
+	 * Generates a single completion through the full CePO pipeline (Steps 1-4).
+	 */
+	private async generateCompletion(
 		systemMessage: LlmMessage | undefined,
-		questionOnly: string, // Extracted from original user query
-		opts: GenerateTextOptions | undefined,
+		questionOnly: string,
+		originalUserQueryText: string,
+		opts: GenerateTextOptions,
 		approach?: string,
-	): Promise<{ plan: string; truncated: boolean }> {
+	): Promise<string> {
+		const executedSolutions: string[] = [];
+		let attempts = 0;
+		let lastAttemptedSolution: string | undefined;
+
+		// Generate planning_n valid plan+solution pairs in parallel, with up to planning_m total attempts
+		const planPromises: Promise<{ index: number; solution: string | null }>[] = [];
+
+		for (let i = 0; i < this.config.planning_m; i++) {
+			planPromises.push(
+				this.generatePlanAndExecute(systemMessage, questionOnly, opts, approach, i).then((solution) => ({
+					index: i,
+					solution,
+				})),
+			);
+		}
+
+		// Process results as they complete, stop when we have enough
+		const results = await Promise.allSettled(planPromises);
+
+		for (const result of results) {
+			if (result.status === 'fulfilled' && result.value.solution) {
+				lastAttemptedSolution = result.value.solution;
+				executedSolutions.push(result.value.solution);
+				attempts++;
+				if (this.config.printOutput) {
+					logger.debug(
+						`CePO: Plan+execution attempt ${result.value.index + 1} succeeded. Got ${executedSolutions.length}/${this.config.planning_n} solutions.`,
+					);
+				}
+				if (executedSolutions.length >= this.config.planning_n) {
+					break;
+				}
+			} else if (result.status === 'rejected') {
+				attempts++;
+				if (this.config.printOutput) {
+					logger.warn(`CePO: Plan+execution attempt failed: ${result.reason}`);
+				}
+			}
+		}
+
+		// Fallback: if no valid solutions, try to answer directly
+		if (executedSolutions.length === 0) {
+			if (this.config.printOutput) {
+				logger.warn('CePO: No valid plan+solution pairs generated. Attempting direct answer fallback.');
+			}
+
+			const directAnswer = await this.generateDirectAnswer(systemMessage, questionOnly, opts);
+			if (directAnswer) {
+				executedSolutions.push(directAnswer);
+			} else if (lastAttemptedSolution) {
+				logger.warn('CePO: Direct answer failed. Using last attempted solution as fallback.');
+				executedSolutions.push(lastAttemptedSolution);
+			} else {
+				throw new Error('CePO: Failed to generate any solution for this completion path.');
+			}
+		}
+
+		// Step 3: Refine/consolidate the solutions
+		const refinedOutput = await this.refineOutputs(executedSolutions, questionOnly, opts);
+
+		// Step 4: Generate final answer
+		return await this.generateFinalAnswer(refinedOutput, originalUserQueryText, opts);
+	}
+
+	/**
+	 * Generates a plan (Step 1) and executes it (Step 2).
+	 * Returns the executed solution or null if failed.
+	 */
+	private async generatePlanAndExecute(
+		systemMessage: LlmMessage | undefined,
+		questionOnly: string,
+		opts: GenerateTextOptions,
+		approach: string | undefined,
+		attemptIndex: number,
+	): Promise<string | null> {
+		try {
+			// Step 1: Generate plan
+			const planResult = await this.generatePlan(systemMessage, questionOnly, opts, approach);
+
+			// TODO: Check for truncation once LLM framework supports finish_reason
+			// For now, we proceed assuming the response is complete
+
+			// Step 2: Execute the plan
+			const messagesForExecution: LlmMessage[] = [];
+			if (systemMessage) messagesForExecution.push(systemMessage);
+
+			// Reconstruct the plan prompt for conversation history
+			let planPromptText: string;
+			if (this.config.use_plan_diversity && approach) {
+				planPromptText = `To answer this question, can you come up with a concise plan using to solve it step-by-step but do not provide the final answer. Here is the approach you need to follow to generate the plan: ${approach}. Also, for each step, provide your confidence in the correctness of that step as well as your ability to execute it correctly. Here is the question:\n${questionOnly}\nRead the question again:\n\n${questionOnly}`;
+			} else {
+				planPromptText = `To answer this question, can you come up with a concise plan to solve it step-by-step but do not provide the final answer. Also, for each step, provide your confidence in the correctness of that step as well as your ability to execute it correctly. Here is the question:\n${questionOnly}\nRead the question again:\n\n${questionOnly}`;
+			}
+
+			messagesForExecution.push(user(planPromptText));
+			messagesForExecution.push(assistant(planResult));
+
+			const solution = await this.executePlan(messagesForExecution, opts);
+
+			if (this.config.printOutput) {
+				logger.debug(`CePO: Plan+execute attempt ${attemptIndex + 1} completed successfully`);
+			}
+
+			return solution;
+		} catch (error) {
+			if (this.config.printOutput) {
+				logger.warn(`CePO: Plan+execute attempt ${attemptIndex + 1} failed: ${(error as Error).message}`);
+			}
+			return null;
+		}
+	}
+
+	/**
+	 * Step 1: Generates a detailed plan for solving the problem.
+	 */
+	private async generatePlan(systemMessage: LlmMessage | undefined, questionOnly: string, opts: GenerateTextOptions, approach?: string): Promise<string> {
 		let planPromptText: string;
 		if (this.config.use_plan_diversity && approach) {
 			planPromptText = `To answer this question, can you come up with a concise plan using to solve it step-by-step but do not provide the final answer. Here is the approach you need to follow to generate the plan: ${approach}. Also, for each step, provide your confidence in the correctness of that step as well as your ability to execute it correctly. Here is the question:\n${questionOnly}\nRead the question again:\n\n${questionOnly}`;
@@ -296,183 +429,171 @@ export class CePO_LLM extends BaseLLM {
 		if (systemMessage) messagesForPlan.push(systemMessage);
 		messagesForPlan.push(user(planPromptText));
 
-		// Use generateMessage to access stats for truncation check
-		const response = await this.llm.generateMessage(messagesForPlan, {
+		const plan = await this.llm.generateText(messagesForPlan, {
 			...opts,
-			temperature: this.config.planning_temperature_step1,
-			maxOutputTokens: this.config.planning_max_tokens_step1,
+			thinking: this.config.planning_thinking_step1,
+			temperature: this.config.planning_temperature,
 		});
-		const plan = lastText([response]); // Assuming lastText works with generateMessage's output structure
-		const truncated = (response.stats?.outputTokens ?? 0) >= this.config.planning_max_tokens_step1 * 0.98; // Check if near limit
 
-		if (this.config.printOutput) logger.debug(`CePO: Generated plan (truncated: ${truncated}): ${plan.substring(0, 200)}...`);
-		return { plan, truncated };
+		if (this.config.printOutput) {
+			logger.debug(`CePO: Generated plan: ${plan.substring(0, 200)}...`);
+		}
+
+		return plan;
 	}
 
-	private async executePlan(
-		messagesSoFar: ReadonlyArray<LlmMessage>, // [system?, user_plan_prompt, assistant_plan]
-		opts: GenerateTextOptions | undefined,
-	): Promise<{ solution: string; truncated: boolean }> {
+	/**
+	 * Step 2: Executes the plan to produce an initial solution.
+	 */
+	private async executePlan(messagesWithPlan: LlmMessage[], opts: GenerateTextOptions): Promise<string> {
 		const executePromptText =
 			'Can you execute the above plan step-by-step to produce the final answer. Be extra careful when executing steps where your confidence is lower.';
-		const messagesForExecute: LlmMessage[] = [...messagesSoFar, user(executePromptText)];
 
-		const response = await this.llm.generateMessage(messagesForExecute, {
+		const messagesForExecute: LlmMessage[] = [...messagesWithPlan, user(executePromptText)];
+
+		const solution = await this.llm.generateText(messagesForExecute, {
 			...opts,
-			temperature: this.config.planning_temperature_step2,
-			maxOutputTokens: this.config.planning_max_tokens_step2,
+			thinking: this.config.planning_thinking_step2,
+			temperature: this.config.planning_temperature,
 		});
-		const solution = lastText([response]);
-		const truncated = (response.stats?.outputTokens ?? 0) >= this.config.planning_max_tokens_step2 * 0.98;
 
-		if (this.config.printOutput) logger.debug(`CePO: Execution result (truncated: ${truncated}): ${solution.substring(0, 200)}...`);
-		return { solution, truncated };
+		if (this.config.printOutput) {
+			logger.debug(`CePO: Execution result: ${solution.substring(0, 200)}...`);
+		}
+
+		return solution;
 	}
 
-	// Renamed from refinePlan to refineOutputs, as it refines solutions
-	private async refineOutputs(
-		executedSolutions: string[],
-		questionOnlyContext: string, // The extracted question part for context
-		opts: GenerateTextOptions | undefined,
-	): Promise<string> {
+	/**
+	 * Fallback: Attempts to answer the question directly without the plan+execute flow.
+	 * Used when all plan generation attempts fail.
+	 */
+	private async generateDirectAnswer(systemMessage: LlmMessage | undefined, questionOnly: string, opts: GenerateTextOptions): Promise<string | null> {
+		try {
+			const messages: LlmMessage[] = [];
+			if (systemMessage) messages.push(systemMessage);
+			messages.push(user(questionOnly));
+
+			const response = await this.llm.generateText(messages, {
+				...opts,
+				thinking: this.config.planning_thinking_direct_resp,
+				temperature: this.config.planning_temperature,
+			});
+
+			if (this.config.printOutput) {
+				logger.debug(`CePO: Direct answer fallback succeeded: ${response.substring(0, 200)}...`);
+			}
+
+			return response;
+		} catch (error) {
+			logger.error(`CePO: Direct answer fallback failed: ${(error as Error).message}`);
+			return null;
+		}
+	}
+
+	/**
+	 * Step 3: Reviews and consolidates multiple solutions, identifying inconsistencies.
+	 */
+	private async refineOutputs(executedSolutions: string[], questionOnly: string, opts: GenerateTextOptions): Promise<string> {
 		if (executedSolutions.length === 0) {
-			logger.error('CePO: refineOutputs called with no solutions.');
 			throw new Error('CePO: Cannot refine with no solutions.');
 		}
-		const combinedSolutionsText = executedSolutions.map((out, index) => `Response ${index + 1}:\n${out}`).join('\n\n');
-		const refinePromptText = `Can you review your last ${executedSolutions.length} responses and identify any inconsistency between them. After that, can you address it and present a final step-by-step solution to the problem? Here is the question:\n${questionOnlyContext}`;
 
-		// Python: messages = [{"role": "assistant", "content": plans_message}, {"role": "user", "content": content}]
-		// No original system prompt from initialMessages here.
+		// If only one solution, skip refinement
+		if (executedSolutions.length === 1) {
+			if (this.config.printOutput) {
+				logger.debug('CePO: Only one solution, skipping refinement step');
+			}
+			return executedSolutions[0];
+		}
+
+		const combinedSolutionsText = executedSolutions.map((out, index) => `Response ${index + 1}:\n${out}`).join('\n\n');
+
+		const refinePromptText = `Can you review your last ${executedSolutions.length} responses and identify any inconsistency between them. After that, can you address it and present a final step-by-step solution to the problem? Here is the question:\n${questionOnly}`;
+
 		const messagesForRefinement: LlmMessage[] = [assistant(combinedSolutionsText), user(refinePromptText)];
 
 		try {
 			const refined = await this.llm.generateText(messagesForRefinement, {
 				...opts,
-				temperature: this.config.planning_temperature_step3,
-				maxOutputTokens: this.config.planning_max_tokens_step3,
+				thinking: this.config.planning_thinking_step3,
+				temperature: this.config.planning_temperature,
 			});
-			if (this.config.printOutput) logger.debug(`CePO: Refined output: ${refined.substring(0, 200)}...`);
+
+			if (this.config.printOutput) {
+				logger.debug(`CePO: Refined output: ${refined.substring(0, 200)}...`);
+			}
+
 			return refined;
 		} catch (error) {
-			logger.error(`CePO: Error during output refinement: ${(error as Error).message}. Falling back to the first generated output.`);
-			return executedSolutions[0]; // Python's fallback
+			logger.error(`CePO: Error during output refinement: ${(error as Error).message}. Falling back to the first solution.`);
+			return executedSolutions[0];
 		}
 	}
 
-	// Renamed from generateFinalAnswer
-	private async generateFinalAnswerFromRefined(
-		refinedOutput: string,
-		originalTaskText: string, // The full original user query
-		opts: GenerateTextOptions | undefined,
-	): Promise<string> {
+	/**
+	 * Step 4: Uses the refined solution to produce the final answer.
+	 */
+	private async generateFinalAnswer(refinedOutput: string, originalTaskText: string, opts: GenerateTextOptions): Promise<string> {
 		const finalAnswerPromptText = `Use your final solution from above to correctly answer the question. Here is the question:\n${originalTaskText}`;
 
-		// Python: messages = [{"role": "assistant", "content": final_solution}, {"role": "user", "content": content}]
-		// No original system prompt from initialMessages here.
 		const messagesForFinalAnswer: LlmMessage[] = [assistant(refinedOutput), user(finalAnswerPromptText)];
 
 		const finalAnswer = await this.llm.generateText(messagesForFinalAnswer, {
 			...opts,
-			temperature: this.config.planning_temperature_step4,
-			maxOutputTokens: this.config.planning_max_tokens_step4,
+			thinking: this.config.planning_thinking_step4,
+			temperature: this.config.planning_temperature,
 		});
-		if (this.config.printOutput) logger.debug(`CePO: Final Answer generated: ${finalAnswer.substring(0, 200)}...`);
+
+		if (this.config.printOutput) {
+			logger.debug(`CePO: Final Answer generated: ${finalAnswer.substring(0, 200)}...`);
+		}
+
 		return finalAnswer;
 	}
 
-	private async generateCompletion(initialMessages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions, approach?: string): Promise<string> {
-		const executedSolutions: string[] = [];
-		let attempts = 0;
-		let lastAttemptedSolution: string | undefined; // For Python-like fallback
-
-		const systemMessage = initialMessages.find((m) => m.role === 'system');
-		const originalUserQueryText = lastText(initialMessages); // This is the 'task' or 'initial_query'
-		const questionOnly = this.extractQuestionOnly(originalUserQueryText);
-
-		while (executedSolutions.length < this.config.planning_n && attempts < this.config.planning_m) {
-			attempts++;
-			try {
-				// Step 1: Plan Generation
-				const planResult = await this.generatePlan(systemMessage, questionOnly, opts, approach);
-				if (planResult.truncated) {
-					if (this.config.printOutput) logger.warn(`CePO: Plan generation attempt ${attempts} rejected due to length/truncation.`);
-					// lastAttemptedPlan = planResult.plan; // Save plan if needed for fallback, though Python saves solution
-					continue; // Skip if plan is truncated
-				}
-
-				const messagesForPlan: LlmMessage[] = [];
-				if (systemMessage) messagesForPlan.push(systemMessage);
-				// Reconstruct user prompt for plan to pass to executePlan
-				let planPromptTextForHistory: string;
-				if (this.config.use_plan_diversity && approach) {
-					planPromptTextForHistory = `To answer this question, can you come up with a concise plan using to solve it step-by-step but do not provide the final answer. Here is the approach you need to follow to generate the plan: ${approach}. Also, for each step, provide your confidence in the correctness of that step as well as your ability to execute it correctly. Here is the question:\n${questionOnly}\nRead the question again:\n\n${questionOnly}`;
-				} else {
-					planPromptTextForHistory = `To answer this question, can you come up with a concise plan to solve it step-by-step but do not provide the final answer. Also, for each step, provide your confidence in the correctness of that step as well as your ability to execute it correctly. Here is the question:\n${questionOnly}\nRead the question again:\n\n${questionOnly}`;
-				}
-				messagesForPlan.push(user(planPromptTextForHistory));
-
-				// Step 2: Initial Solution (Execute the plan)
-				const messagesAfterPlan = [...messagesForPlan, assistant(planResult.plan)];
-				const solutionResult = await this.executePlan(messagesAfterPlan, opts);
-				lastAttemptedSolution = solutionResult.solution; // Save last attempted solution
-
-				if (solutionResult.truncated) {
-					if (this.config.printOutput) logger.warn(`CePO: Plan execution attempt ${attempts} rejected due to length/truncation.`);
-					continue; // Skip if solution is truncated
-				}
-
-				executedSolutions.push(solutionResult.solution);
-				if (this.config.printOutput)
-					logger.debug(
-						`CePO: Plan proposal and execution successful. Attempt ${attempts}. Got ${executedSolutions.length}/${this.config.planning_n} solutions.`,
-					);
-			} catch (error) {
-				logger.warn(`CePO: Plan generation/execution attempt ${attempts} failed: ${(error as Error).message}`);
-			}
-		}
-
-		if (executedSolutions.length === 0) {
-			if (lastAttemptedSolution) {
-				logger.warn('CePO: No valid solutions generated from plans. Using the last attempted solution as a fallback.');
-				executedSolutions.push(lastAttemptedSolution);
-			} else {
-				logger.error('CePO: Failed to generate any solution or plan fallback for this completion.');
-				throw new Error('CePO: Failed to generate any candidate solution for this completion path.');
-			}
-		}
-
-		const refinedOutput = await this.refineOutputs(executedSolutions, questionOnly, opts);
-		return await this.generateFinalAnswerFromRefined(refinedOutput, originalUserQueryText, opts);
-	}
-
-	// In CePO_LLM class
-
+	/**
+	 * Rates completions and selects the best one based on the configured rating type.
+	 */
 	private async rateAnswers(answers: string[], initialMessages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string> {
 		if (answers.length === 0) {
-			logger.error('CePO: rateAnswers called with no answers to rate.');
 			throw new Error('CePO: No answers to rate.');
 		}
-		if (answers.length === 1) return answers[0]; // Only one answer, no need to rate
+
+		if (answers.length === 1) {
+			return answers[0];
+		}
+
+		if (this.config.bestofn_rating_type === 'none') {
+			// For SOTA models or when rating is disabled: return the last answer
+			// (which has gone through the full refinement pipeline)
+			if (this.config.printOutput) {
+				logger.debug('CePO: Rating disabled, returning last completion');
+			}
+			return answers[answers.length - 1];
+		}
 
 		if (this.config.bestofn_rating_type === 'absolute') {
 			return this.rateAnswersAbsolute(answers, initialMessages, opts);
 		}
+
 		if (this.config.bestofn_rating_type === 'pairwise') {
 			return this.rateAnswersPairwise(answers, initialMessages, opts);
 		}
-		throw new Error(`Invalid rating type: ${this.config.bestofn_rating_type}`);
+
+		throw new Error(`CePO: Invalid rating type: ${this.config.bestofn_rating_type}`);
 	}
 
+	/**
+	 * Rates each answer independently on a 0/1 scale (incorrect/correct).
+	 */
 	private async rateAnswersAbsolute(answers: string[], initialMessages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string> {
-		const ratings: number[] = [];
 		const originalSystemMessage = initialMessages.find((m) => m.role === 'system');
-		// Use the last user message from initialMessages as the query being answered
 		const originalUserQueryMessage = initialMessages.filter((m) => m.role === 'user').at(-1);
 
 		if (!originalUserQueryMessage) {
 			logger.error('CePO: Cannot perform absolute rating without original user query.');
-			return answers[0]; // Fallback
+			return answers[0];
 		}
 
 		const ratingPreamble = `Please act as an impartial judge and evaluate the accuracy of the response provided by an AI assistant to the user question displayed below. Your evaluation should consider only correctness and accuracy as the primary factor.
@@ -491,58 +612,54 @@ Be as objective as possible. After providing your detailed explanation, please r
 
 		const effectiveSystemContent = originalSystemMessage ? `${originalSystemMessage.content}\n\n${ratingPreamble}` : ratingPreamble;
 
-		for (const answer of answers) {
-			const messagesForRating: LlmMessage[] = [];
-			messagesForRating.push({ role: 'system', content: effectiveSystemContent });
-			messagesForRating.push(originalUserQueryMessage); // The question being answered
-			messagesForRating.push(assistant(answer)); // The answer being rated
-			messagesForRating.push(
+		// Rate all answers in parallel
+		const ratingPromises = answers.map(async (answer, index) => {
+			const messagesForRating: LlmMessage[] = [
+				{ role: 'system', content: effectiveSystemContent },
+				originalUserQueryMessage,
+				assistant(answer),
 				user(
-					`Rate the above response beginning with the detailed explanation followed by a rating of 0 or 1 by strictly following this format: "Explanation: <reason for your rating>\\n\\nRating: [[rating]]".`,
+					'Rate the above response beginning with the detailed explanation followed by a rating of 0 or 1 by strictly following this format: "Explanation: <reason for your rating>\\n\\nRating: [[rating]]".',
 				),
-			);
+			];
 
 			try {
 				const ratingResponseText = await this.ratingLlm.generateText(messagesForRating, {
 					...opts,
+					thinking: this.config.bestofn_thinking,
 					temperature: this.config.bestofn_temperature,
-					maxOutputTokens: this.config.bestofn_max_tokens,
 				});
-				if (this.config.printOutput) logger.debug(`CePO Absolute Rating: Response for answer "${answer.substring(0, 50)}...": ${ratingResponseText}`);
 
-				const ratingMatch = ratingResponseText.match(/Rating: \[\[([01])\]\]/); // Python expects 0 or 1
-				const rating = ratingMatch ? Number.parseInt(ratingMatch[1], 10) : -1; // Default to -1 on parsing error
-				ratings.push(rating);
+				if (this.config.printOutput) {
+					logger.debug(`CePO Absolute Rating: Response for answer ${index + 1}: ${ratingResponseText.substring(0, 200)}...`);
+				}
+
+				const ratingMatch = ratingResponseText.match(/Rating: \[\[([01])\]\]/);
+				return ratingMatch ? Number.parseInt(ratingMatch[1], 10) : -1;
 			} catch (error) {
-				logger.error(`CePO Absolute Rating: Error rating answer: ${(error as Error).message}`);
-				ratings.push(-1); // Error in rating
+				logger.error(`CePO Absolute Rating: Error rating answer ${index + 1}: ${(error as Error).message}`);
+				return -1;
 			}
+		});
+
+		const ratings = await Promise.all(ratingPromises);
+
+		if (this.config.printOutput) {
+			logger.debug(`CePO Absolute Ratings: ${ratings.join(', ')}`);
 		}
 
-		if (this.config.printOutput) logger.debug(`CePO Absolute Ratings: ${ratings.join(', ')}`);
-
 		let bestAnswerIndex = ratings.indexOf(Math.max(...ratings));
-		// If all ratings are -1 (error or all incorrect), Math.max will be -1. indexOf(-1) will be the first occurrence.
 		if (bestAnswerIndex === -1 || (ratings[bestAnswerIndex] === -1 && ratings.every((r) => r === -1))) {
 			logger.warn('CePO Absolute Rating: All ratings were -1 or no valid ratings. Defaulting to the first answer.');
 			bestAnswerIndex = 0;
 		}
+
 		return answers[bestAnswerIndex];
 	}
 
-	private generateAllDistinctPairs(n: number): [number, number][] {
-		// Python: pairs = [(i, j) for i in range(N) for j in range(N) if i != j]
-		const pairs: [number, number][] = [];
-		for (let i = 0; i < n; i++) {
-			for (let j = 0; j < n; j++) {
-				if (i !== j) {
-					pairs.push([i, j]);
-				}
-			}
-		}
-		return pairs;
-	}
-
+	/**
+	 * Rates answers pairwise, comparing each pair head-to-head.
+	 */
 	private async rateAnswersPairwise(answers: string[], initialMessages: ReadonlyArray<LlmMessage>, opts?: GenerateTextOptions): Promise<string> {
 		const numAnswers = answers.length;
 		const ratings: number[] = new Array(numAnswers).fill(0);
@@ -552,7 +669,7 @@ Be as objective as possible. After providing your detailed explanation, please r
 
 		if (!originalUserQueryMessage) {
 			logger.error('CePO: Cannot perform pairwise rating without original user query.');
-			return answers[0]; // Fallback
+			return answers[0];
 		}
 
 		const pairwiseSystemInstructions = `Please act as an impartial judge and compare the quality of the two responses provided by the AI assistant to the user's question displayed below. Evaluation Criteria:
@@ -571,51 +688,69 @@ Reply with "Better Response: [[response id]]".
 If the first response is better, reply with "Better Response: [[0]]".
 If the second response is better, reply with "Better Response: [[1]]".`;
 
-		// Python appends this as a system message *after* assistant content.
-		const pairwiseFormatReminder = `Reply with "Better Response: [[response id]]".
-If the first response is better, reply with "Better Response: [[0]]".
-If the second response is better, reply with "Better Response: [[1]]".`;
+		// Generate all pairs: [(0,1), (0,2), (1,0), (1,2), (2,0), (2,1), ...]
+		const pairs: [number, number][] = [];
+		for (let i = 0; i < numAnswers; i++) {
+			for (let j = 0; j < numAnswers; j++) {
+				if (i !== j) {
+					pairs.push([i, j]);
+				}
+			}
+		}
 
-		const pairs = this.generateAllDistinctPairs(numAnswers);
-
-		for (const [idx1, idx2] of pairs) {
+		// Rate all pairs in parallel
+		const pairRatingPromises = pairs.map(async ([idx1, idx2]) => {
 			const responsesPairText = `Response 0: ${answers[idx1]}\n\nResponse 1: ${answers[idx2]}`;
 
-			// Python: [orig_sys, orig_user, sys_pairwise_instr, assistant_pair, sys_pairwise_format_reminder]
 			const messagesForPairRating: LlmMessage[] = [];
 			if (originalSystemMessage) messagesForPairRating.push(originalSystemMessage);
 			messagesForPairRating.push(originalUserQueryMessage);
 			messagesForPairRating.push({ role: 'system', content: pairwiseSystemInstructions });
 			messagesForPairRating.push(assistant(responsesPairText));
-			messagesForPairRating.push({ role: 'system', content: pairwiseFormatReminder }); // Python puts this as system
+			messagesForPairRating.push({
+				role: 'system',
+				content:
+					'Reply with "Better Response: [[response id]]". If the first response is better, reply with "Better Response: [[0]]". If the second response is better, reply with "Better Response: [[1]]".',
+			});
 
 			try {
 				const ratingResponseText = await this.ratingLlm.generateText(messagesForPairRating, {
 					...opts,
+					thinking: this.config.bestofn_thinking,
 					temperature: this.config.bestofn_temperature,
-					maxOutputTokens: this.config.bestofn_max_tokens,
 				});
-				if (this.config.printOutput) logger.debug(`CePO Pairwise Rating: Response for pair (${idx1}, ${idx2}): ${ratingResponseText}`);
+
+				if (this.config.printOutput) {
+					logger.debug(`CePO Pairwise Rating: Response for pair (${idx1}, ${idx2}): ${ratingResponseText.substring(0, 200)}...`);
+				}
 
 				const match = ratingResponseText.match(/Better Response: \[\[([01])\]\]/);
 				if (match) {
-					const winnerInPair = Number.parseInt(match[1], 10); // 0 or 1
-					ratings[winnerInPair === 0 ? idx1 : idx2]++;
-				} else {
-					ratings[idx1]++; // Python defaults to the first response in the pair if parsing fails
-					logger.warn(`CePO Pairwise Rating: Parsing failed for pair (${idx1}, ${idx2}). Defaulting to first response in pair (idx ${idx1}).`);
+					const winnerInPair = Number.parseInt(match[1], 10);
+					return { winner: winnerInPair === 0 ? idx1 : idx2 };
 				}
+				// Default to first response in pair if parsing fails
+				return { winner: idx1 };
 			} catch (error) {
 				logger.error(`CePO Pairwise Rating: Error rating pair (${idx1}, ${idx2}): ${(error as Error).message}`);
-				ratings[idx1]++; // Default to first on error
+				return { winner: idx1 };
 			}
+		});
+
+		const pairResults = await Promise.all(pairRatingPromises);
+
+		// Tally up the wins
+		for (const result of pairResults) {
+			ratings[result.winner]++;
 		}
 
-		if (this.config.printOutput) logger.debug(`CePO Pairwise Ratings: ${ratings.join(', ')}`);
+		if (this.config.printOutput) {
+			logger.debug(`CePO Pairwise Ratings: ${ratings.join(', ')}`);
+		}
 
 		let bestAnswerIndex = ratings.indexOf(Math.max(...ratings));
-		if (bestAnswerIndex === -1) bestAnswerIndex = 0; // Fallback if all ratings are 0 or issue
+		if (bestAnswerIndex === -1) bestAnswerIndex = 0;
+
 		return answers[bestAnswerIndex];
 	}
-	// Delete the old generatePairs method if it exists.
 }
