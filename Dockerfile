@@ -68,4 +68,4 @@ ENV PORT=8080
 EXPOSE 8080
 
 # Build will have performed type checking. Use esbuild-register for efficiency
-CMD ["node", "--max-old-space-size=4096", "-r", "esbuild-register", "--env-file=variables/.env", "src/index.ts"]
+CMD ["node", "--max-old-space-size=6144", "-r", "esbuild-register", "--env-file=variables/.env", "src/index.ts"]
