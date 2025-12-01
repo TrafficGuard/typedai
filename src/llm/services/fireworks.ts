@@ -12,7 +12,7 @@ export function fireworksLLMRegistry(): Array<() => LLM> {
 
 // https://fireworks.ai/models/fireworks/kimi-k2-thinking
 export function fireworksKimi2thinking(): LLM {
-	return new Fireworks('Kimi 2 Thinking (Fireworks)', 'accounts/fireworks/kimi-k2-thinking', 202_000, costPerMilTokens(0.6, 2.5));
+	return new Fireworks('Kimi 2 Thinking (Fireworks)', 'fireworks/kimi-k2-thinking', 202_000, costPerMilTokens(0.6, 2.5));
 }
 
 export class Fireworks extends AiLLM<FireworksProvider> {
