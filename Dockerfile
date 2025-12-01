@@ -1,5 +1,4 @@
 # Production Dockerfile
-FROM python:3.11-slim
 FROM google/cloud-sdk:slim
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -43,6 +42,7 @@ COPY --chown=${APP_USER}:${APP_GROUP} .husky/install.mjs .husky/install.mjs
 USER ${APP_USER}
 RUN pnpm config set store-dir ${APP_HOME}/.pnpm-store
 RUN pnpm install --frozen-lockfile
+RUN npx puppeteer browsers install chrome
 
 # 7) Copy the rest of the project (including .git, if present) with proper ownership
 USER root
@@ -68,4 +68,4 @@ ENV PORT=8080
 EXPOSE 8080
 
 # Build will have performed type checking. Use esbuild-register for efficiency
-CMD ["node", "-r", "esbuild-register", "--env-file=variables/.env", "src/index.ts"]
+CMD ["node", "--max-old-space-size=4096", "-r", "esbuild-register", "--env-file=variables/.env", "src/index.ts"]
