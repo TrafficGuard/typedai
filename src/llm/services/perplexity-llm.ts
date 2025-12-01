@@ -47,7 +47,8 @@ export function perplexityLLM(): LLM {
 	return new PerplexityLLM(
 		'Perplexity',
 		'sonar',
-		127_000, // maxOutputTokens
+		127_000, // maxInputTokens
+		undefined,
 		perplexityCostFunction(1, 1), // $1/M input, $1/M output
 	);
 }
@@ -56,23 +57,26 @@ export function perplexityReasoningProLLM(): LLM {
 	return new PerplexityLLM(
 		'Perplexity Reasoning Pro',
 		'sonar-reasoning-pro',
-		127_000, // maxOutputTokens
+		127_000, // maxInputTokens
+		undefined,
 		perplexityCostFunction(2, 8), // $2/M input, $8/M output
 	);
 }
 
+// https://docs.perplexity.ai/getting-started/models/models/sonar-deep-research
 export function perplexityDeepResearchLLM(): LLM {
 	return new PerplexityLLM(
 		'Perplexity Deep Research',
 		'sonar-deep-research',
-		60_000, // maxOutputTokens
+		128_000,
+		undefined,
 		perplexityCostFunction(2, 8), // $2/M input, $8/M output
 	);
 }
 
 export class PerplexityLLM extends AiLLM<PerplexityProvider> {
-	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
-		super({ displayName, service: PERPLEXITY_SERVICE, modelId: model, maxInputTokens: maxOutputTokens, calculateCosts });
+	constructor(displayName: string, model: string, maxInputTokens: number, maxOutputTokens: number | undefined, calculateCosts: LlmCostFunction) {
+		super({ displayName, service: PERPLEXITY_SERVICE, modelId: model, maxInputTokens, maxOutputTokens, calculateCosts });
 	}
 
 	protected override apiKey(): string {

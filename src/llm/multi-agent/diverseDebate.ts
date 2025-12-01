@@ -514,37 +514,9 @@ Synthesize these into the best possible final answer to the Original User Query:
 // ============================================================================
 
 import { anthropicClaude4_5_Sonnet } from '#llm/services/anthropic';
-import { Claude4_5_Opus_Vertex, Claude4_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
-import { deepinfraDeepSeekR1 } from '#llm/services/deepinfra';
+import { Claude4_5_Opus_Vertex } from '#llm/services/anthropic-vertex';
 import { openaiGPT5 } from '#llm/services/openai';
-import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
-import { xai_Grok4 } from '#llm/services/xai';
-
-/**
- * Cost-optimized CDD using DeepSeek R1
- */
-export function CDD_Cost(): LLM {
-	return new ConfidentDiverseDebateLLM(
-		'CDD:Cost (DeepSeek R1)',
-		deepinfraDeepSeekR1,
-		[deepinfraDeepSeekR1, deepinfraDeepSeekR1, deepinfraDeepSeekR1],
-		deepinfraDeepSeekR1,
-		defaultConfig,
-	);
-}
-
-/**
- * Balanced CDD with model diversity
- */
-export function CDD_Balanced(): LLM {
-	return new ConfidentDiverseDebateLLM(
-		'CDD:Balanced (Gemini, Grok, GPT5)',
-		vertexGemini_2_5_Pro,
-		[vertexGemini_2_5_Pro, xai_Grok4, openaiGPT5],
-		vertexGemini_2_5_Pro,
-		sotaConfig,
-	);
-}
+import { vertexGemini_3_0_Pro } from '#llm/services/vertexai';
 
 /**
  * SOTA CDD with maximum model diversity
@@ -553,21 +525,8 @@ export function CDD_SOTA(): LLM {
 	return new ConfidentDiverseDebateLLM(
 		'CDD:SOTA (Opus, GPT5, Gemini, Grok)',
 		Claude4_5_Opus_Vertex,
-		[Claude4_5_Opus_Vertex, openaiGPT5, vertexGemini_2_5_Pro, xai_Grok4],
-		openaiGPT5,
-		sotaConfig,
-	);
-}
-
-/**
- * Vertex-only CDD (useful for enterprise environments)
- */
-export function CDD_Vertex(): LLM {
-	return new ConfidentDiverseDebateLLM(
-		'CDD:Vertex (Gemini, Sonnet)',
-		vertexGemini_2_5_Pro,
-		[vertexGemini_2_5_Pro, vertexGemini_2_5_Pro, Claude4_5_Sonnet_Vertex],
-		vertexGemini_2_5_Pro,
+		[Claude4_5_Opus_Vertex, openaiGPT5, vertexGemini_3_0_Pro],
+		Claude4_5_Opus_Vertex,
 		sotaConfig,
 	);
 }

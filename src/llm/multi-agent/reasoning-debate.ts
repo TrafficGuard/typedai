@@ -3,7 +3,6 @@ import { getLLM } from '#llm/llmFactory';
 import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
 import { anthropicClaude4_5_Sonnet } from '#llm/services/anthropic';
 import { Claude4_5_Opus_Vertex, Claude4_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
-import { deepinfraDeepSeekR1 } from '#llm/services/deepinfra';
 import { openaiGPT5 } from '#llm/services/openai';
 import { vertexGemini_2_5_Pro } from '#llm/services/vertexai';
 import { xai_Grok4 } from '#llm/services/xai';
@@ -209,17 +208,17 @@ Answer directly to the original user message and ensure any relevant response fo
 }
 
 export function MoA_reasoningLLMRegistry(): Array<() => LLM> {
-	return [MAD_Cost, MAD_Fast, MAD_SOTA, MAD_Vertex, MAD_Balanced, MAD_Balanced4];
+	return [MAD_Fast, MAD_SOTA, MAD_Vertex, MAD_Balanced, MAD_Balanced4];
 }
 
-export function MAD_Cost(): LLM {
-	return new ReasonerDebateLLM(
-		'Cost',
-		deepinfraDeepSeekR1,
-		[deepinfraDeepSeekR1, deepinfraDeepSeekR1, deepinfraDeepSeekR1],
-		'MAD:Cost multi-agent debate (DeepSeek R1x3)',
-	);
-}
+// export function MAD_Cost(): LLM {
+// 	return new ReasonerDebateLLM(
+// 		'Cost',
+// 		deepinfraDeepSeekR1,
+// 		[deepinfraDeepSeekR1, deepinfraDeepSeekR1, deepinfraDeepSeekR1],
+// 		'MAD:Cost multi-agent debate (DeepSeek R1x3)',
+// 	);
+// }
 
 export function MAD_Fast(): LLM {
 	const fastMedium = new FastMediumLLM();

@@ -13,11 +13,11 @@ export function deepseekLLMRegistry(): Array<() => LLM> {
 // https://api-docs.deepseek.com/quick_start/pricing
 
 export function deepSeekV3_1(): LLM {
-	return new DeepSeekLLM('DeepSeek 3.1', 'deepseek-chat', 64_000, costPerMilTokens(0.56, 1.68, 0.07));
+	return new DeepSeekLLM('DeepSeek 3.1', 'deepseek-chat', 128_000, 8_000, costPerMilTokens(0.56, 1.68, 0.07));
 }
 
 export function deepSeekV3_1_Reasoning(): LLM {
-	return new DeepSeekLLM('DeepSeek 3.1 Reasoning', 'deepseek-reasoner', 64_000, costPerMilTokens(0.56, 1.68, 0.07));
+	return new DeepSeekLLM('DeepSeek 3.1 Reasoning', 'deepseek-reasoner', 128_000, 64_000, costPerMilTokens(0.56, 1.68, 0.07));
 }
 
 /**
@@ -25,8 +25,8 @@ export function deepSeekV3_1_Reasoning(): LLM {
  * @see https://platform.deepseek.com/api-docs/api/create-chat-completion
  */
 export class DeepSeekLLM extends AiLLM<DeepSeekProvider> {
-	constructor(displayName: string, model: string, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
-		super({ displayName, service: DEEPSEEK_SERVICE, modelId: model, maxInputTokens: maxOutputTokens, calculateCosts });
+	constructor(displayName: string, model: string, maxInputTokens: number, maxOutputTokens: number, calculateCosts: LlmCostFunction) {
+		super({ displayName, service: DEEPSEEK_SERVICE, modelId: model, maxInputTokens, maxOutputTokens, calculateCosts });
 	}
 
 	// https://sdk.vercel.ai/providers/ai-sdk-providers/deepseek

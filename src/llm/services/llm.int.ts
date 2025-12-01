@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import { expect } from 'chai';
 import { appContext } from '#app/applicationContext';
 import { Claude4_5_Opus_Vertex, Claude4_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
-import { deepinfraDeepSeekR1, deepinfraQwen3_235B_A22B } from '#llm/services/deepinfra';
 import { deepSeekV3_1 } from '#llm/services/deepseek';
 import { fireworksKimi2thinking } from '#llm/services/fireworks';
 import { nebiusDeepSeekR1 } from '#llm/services/nebius';
@@ -144,19 +143,7 @@ describe('LLMs', () => {
 		});
 	});
 
-	describe('Deepinfra', () => {
-		it('Qwen3_235B_A22B should generateText', async () => {
-			const llm = deepinfraQwen3_235B_A22B();
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
-			expect(response.toLowerCase()).to.include('blue');
-		});
-
-		it('DeepSeek R1 should generateText', async () => {
-			const llm = deepinfraDeepSeekR1();
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
-			expect(response.toLowerCase()).to.include('blue');
-		});
-	});
+	describe('Deepinfra', () => {});
 
 	describe('Deepseek', () => {
 		const llm = deepSeekV3_1();
@@ -171,7 +158,7 @@ describe('LLMs', () => {
 		const llm = fireworksKimi2thinking();
 
 		it('should generateText', async () => {
-			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test', maxOutputTokens: 16000 });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});
