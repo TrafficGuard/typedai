@@ -107,6 +107,7 @@ export class OpenAI extends AiLLM<OpenAIProvider> {
 	}
 
 	override provider(): OpenAIProvider {
+		this.aiProvider ??= createOpenAI({ apiKey: this.apiKey()! });
 		return this.aiProvider;
 	}
 

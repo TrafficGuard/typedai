@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import fastify, { FastifyRequest, FastifyReply } from 'fastify';
 
-import { Claude4_5_Opus_Vertex, Claude4_5_Haiku_Vertex, Claude4_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude4_5_Haiku_Vertex, Claude4_5_Opus_Vertex, Claude4_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import type { AssistantContentExt, LlmMessage, TextPartExt } from '#shared/llm/llm.model';
 
 const PROXY_PORT = Number(process.env.PROXY_PORT ?? 8080);
