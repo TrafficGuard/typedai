@@ -1,4 +1,5 @@
-import { agentContext, getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { getFileSystem, llms } from '#agent/agentContextUtils';
 import { forceStopErrorCheck } from '#agent/forceStopAgent';
 import { appContext } from '#app/applicationContext';
 import { cacheRetry } from '#cache/cacheRetry';

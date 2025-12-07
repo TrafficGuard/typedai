@@ -1,12 +1,10 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
-import { defaultLLMs } from '#llm/services/defaultLlms';
-import { logger } from '#o11y/logger';
 import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import { currentUser } from '#user/userContext';
+import { agentContextStorage } from './agentContext';
 import type { RunAgentConfig, RunWorkflowConfig } from './autonomous/runAgentTypes';
 
 // Lazy load FileSystemService to avoid circular dependencies and minimize startup dependencies
@@ -22,35 +20,18 @@ export function setFileSystemOverride(fs: IFileSystemService | null): void {
 	_fileSystemOverride = fs;
 }
 
-export const agentContextStorage = new AsyncLocalStorage<AgentContext>();
+// Load async on load to avoid circular dependencies and keep the llms() function synchronous
+let _defaultLLMs: AgentLLMs;
 
-export function agentContext(): AgentContext | undefined {
-	return agentContextStorage.getStore();
+async function loadDefaultLLMS() {
+	const { defaultLLMs } = await import('../llm/services/defaultLlmsModule.cjs');
+	_defaultLLMs = defaultLLMs;
 }
+loadDefaultLLMS();
 
 export function llms(): AgentLLMs {
 	const store = agentContextStorage.getStore();
-	return store?.llms ?? defaultLLMs();
-}
-
-/**
- * Adds costs to the current agent context (from LLM calls, Perplexity etc)
- * @param cost the cost spent in $USD
- */
-export function addCost(cost: number): void {
-	const store = agentContextStorage.getStore();
-	if (!store) return;
-	logger.debug(`Adding cost $${cost.toFixed(6)}`);
-	store.cost += cost;
-	store.budgetRemaining -= cost;
-}
-
-/**
- * Adds a note for the agent, which will be included in the prompt for the agent after the tool results
- * @param note
- */
-export function addNote(note: string): void {
-	agentContext()?.notes.push(note);
+	return store?.llms ?? _defaultLLMs;
 }
 
 /**
@@ -102,7 +83,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		hilCount,
 		budgetRemaining: hilBudget,
 		cost: 0,
-		llms: config.llms!, // we can't do `?? defaultLLMs()` as compiling breaks from import cycle dependencies,
+		llms: config.llms ?? _defaultLLMs!,
 		fileSystem,
 		useSharedRepos: config.useSharedRepos ?? true, // Apply default if not provided in config
 		functions: Array.isArray(config.functions) ? new LlmFunctionsImpl(...config.functions) : (config.functions ?? new LlmFunctionsImpl()),

@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
+import { agentContextStorage } from '#agent/agentContext';
 import { SUPERVISOR_CANCELLED_FUNCTION_NAME, cancelAgent, provideFeedback, runAgentAndWait, startAgent } from '#agent/autonomous/autonomousAgentRunner';
 import { AGENT_REQUEST_FEEDBACK, AgentFeedback, REQUEST_FEEDBACK_PARAM_NAME } from '#agent/autonomous/functions/agentFeedback';
 import { AGENT_COMPLETED_NAME } from '#agent/autonomous/functions/agentFunctions';
@@ -14,7 +15,6 @@ import { lastText } from '#shared/llm/llm.model';
 import type { User } from '#shared/user/user.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { sleep } from '#utils/async-utils';
-import { agentContextStorage } from '../../agentContextLocalStorage';
 import { type RunAgentConfig } from '../runAgentTypes';
 
 const REQUEST_FEEDBACK_VALUE = 'question is...';

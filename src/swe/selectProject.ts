@@ -1,4 +1,4 @@
-import { llms } from '#agent/agentContextLocalStorage';
+import { llms } from '#agent/agentContextUtils';
 import { type SourceControlManagement, getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';
 import { GenerateTextWithJsonResponse } from '#shared/llm/llm.model';
 import type { GitProject } from '#shared/scm/git.model';

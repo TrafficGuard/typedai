@@ -1,4 +1,4 @@
-import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { getFileSystem, llms } from '#agent/agentContextUtils';
 import { FileSystemWrite } from '#functions/storage/fileSystemWrite';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';

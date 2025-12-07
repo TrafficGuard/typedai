@@ -58,7 +58,7 @@
         "description": "The branch to merge to"
       }
     ],
-    "returnType": "import(\"/Users/danielcampagnoli/gh/typedai/src/functions/scm/sourceControlManagement\").MergeRequest",
+    "returnType": "MergeRequest",
     "returns": "The merge request URL"
   },
   "GitLab_getMergeRequestLatestPipeline": {

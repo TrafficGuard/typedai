@@ -1,7 +1,6 @@
 import { Agent } from '#agent/autonomous/functions/agentFunctions';
 import { functionFactory } from '#functionSchema/functionDecorators';
 import { FUNC_SEP, type FunctionSchema, getFunctionSchemas } from '#functionSchema/functions';
-import { FileSystemRead } from '#functions/storage/fileSystemRead'; // Ensure FileSystemRead is imported
 import { logger } from '#o11y/logger';
 import type { LlmFunctions } from '#shared/agent/agent.model';
 import { type ToolType, toolType } from '#shared/agent/functions';
@@ -52,9 +51,6 @@ export class LlmFunctionsImpl implements LlmFunctions {
 				} catch (e) {
 					logger.error(`Error instantiating function class ${functionClassName} during fromJSON: ${e.message}`, { error: e });
 				}
-			} else if (functionClassName === 'FileSystem') {
-				// Specific backward compatibility for 'FileSystem' mapping to FileSystemRead
-				this.functionInstances[FileSystemRead.name] = new FileSystemRead();
 			} else {
 				logger.warn(`LlmFunctionsImpl.fromJSON: Function class '${functionClassName}' not found in factory.`);
 			}

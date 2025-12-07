@@ -1,7 +1,7 @@
 import { type Dirent, readdir as nodeReaddir } from 'node:fs';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/files/fileSystemService';

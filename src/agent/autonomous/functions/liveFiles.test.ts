@@ -1,6 +1,6 @@
 import { expect } from 'chai';
+import { agentContextStorage } from '#agent/agentContext';
 import type { AgentContext } from '#shared/agent/agent.model';
-import { agentContextStorage } from '../../agentContextLocalStorage';
 import { LiveFiles } from './liveFiles';
 
 describe('LiveFiles', () => {

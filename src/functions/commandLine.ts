@@ -1,4 +1,5 @@
-import { agentContext, getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { getFileSystem, llms } from '#agent/agentContextUtils';
 import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { system, user } from '#shared/llm/llm.model';

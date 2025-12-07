@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { TextStreamPart } from 'ai';
-import { addCost, agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { addCost } from '#agent/agentContext';
 import { cloneAndTruncateBuffers } from '#agent/trimObject';
 import { ApplicationContext } from '#app/applicationTypes';
 import { BaseLLM, type BaseLlmConfig, costPerMilTokens } from '#llm/base-llm';

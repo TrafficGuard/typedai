@@ -1,13 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { agentContext } from '#agent/agentContext';
 import type { User } from '#shared/user/user.model';
-
-// Lazy accessors – use require() to defer evaluation until first call.
-// This avoids running #agent/… (which indirectly imports functionDecorators)
-// before this module finishes initialising.
-function agentCtx() {
-	// eslint-disable-next-line @typescript-eslint/no-var-requires
-	return (require('#agent/agentContextLocalStorage') as typeof import('#agent/agentContextLocalStorage')).agentContext();
-}
 
 function appCtx() {
 	// eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -47,7 +40,7 @@ export function currentUser(): User {
 	if (_fallbackUser) return _fallbackUser;
 
 	// 3. Existing agent-execution context fallback
-	const agent = agentCtx();
+	const agent = agentContext();
 	if (agent) return agent.user;
 
 	// 4. Single-user / error handling

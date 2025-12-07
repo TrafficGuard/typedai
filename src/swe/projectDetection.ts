@@ -1,5 +1,6 @@
 import path, { join, dirname, resolve } from 'node:path';
-import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { logger } from '#o11y/logger';
 import { IFileSystemService } from '#shared/files/fileSystemService';
 import { TypescriptTools } from '#swe/lang/nodejs/typescriptTools';

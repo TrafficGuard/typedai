@@ -1,6 +1,7 @@
 import axios, { AxiosResponse } from 'axios';
 import ImageGenerateParams, { OpenAI, OpenAI as OpenAISDK } from 'openai';
-import { agentContext, getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { getFileSystem, llms } from '#agent/agentContextUtils';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userContext';

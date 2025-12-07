@@ -1,6 +1,8 @@
 import { expect } from 'chai';
 import { type Db, MongoClient } from 'mongodb';
-import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { agentContextStorage } from '#agent/agentContext';
+import { createContext } from '#agent/agentContextUtils';
 import { initInMemoryApplicationContext } from '#app/applicationContext';
 import { cacheRetry } from '#cache/cacheRetry'; // Assuming cacheRetry decorator uses the FunctionCacheService from app context
 import type { CacheScope } from '#cache/functionCacheService';

@@ -1,7 +1,7 @@
 import { ChatPostMessageResponse, ConversationsHistoryResponse, ConversationsListResponse, ConversationsRepliesResponse, WebClient } from '@slack/web-api';
 import { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
 import { Member } from '@slack/web-api/dist/types/response/UsersListResponse';
-import { llms } from '#agent/agentContextLocalStorage';
+import { llms } from '#agent/agentContextUtils';
 import { logger } from '#o11y/logger';
 import { SlackConfig, slackConfig } from './slackConfig';
 import { formatAsSlackBlocks } from './slackConvertToBlocks';

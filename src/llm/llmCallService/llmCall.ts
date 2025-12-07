@@ -1,4 +1,4 @@
-import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
 import { logger } from '#o11y/logger';
 import { getCurrentCallStack } from '#o11y/trace';
 import type { AgentContext } from '#shared/agent/agent.model';

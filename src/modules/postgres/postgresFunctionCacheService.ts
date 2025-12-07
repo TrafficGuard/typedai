@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
 import { currentUser } from '#user/userContext';
 import type { CacheScope, FunctionCacheService } from '../../cache/functionCacheService';
 import { db } from './db';

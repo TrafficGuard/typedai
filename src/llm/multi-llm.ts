@@ -1,4 +1,4 @@
-import { llms } from '#agent/agentContextLocalStorage';
+import { llms } from '#agent/agentContextUtils';
 import { logger } from '#o11y/logger';
 import { GenerateJsonOptions, type GenerateTextOptions, type LLM, LlmMessage, messageText } from '#shared/llm/llm.model';
 import { BaseLLM } from './base-llm';

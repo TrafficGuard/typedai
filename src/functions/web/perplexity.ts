@@ -1,5 +1,6 @@
 import PerplexitySDK from '@perplexity-ai/perplexity_ai';
-import { agentContext, llms } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { llms } from '#agent/agentContextUtils';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { perplexityReasoningProLLM } from '#llm/services/perplexity-llm';
 import { logger } from '#o11y/logger';

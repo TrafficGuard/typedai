@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { AI_INFO_FILENAME, type ProjectInfo, getProjectInfos } from '#swe/projectDetection';
 
 async function findRepoRoot(start: string, fss: typeof getFileSystem): Promise<string | null> {
