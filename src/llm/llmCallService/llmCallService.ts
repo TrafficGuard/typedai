@@ -1,9 +1,19 @@
 import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
-import type { LlmCall, LlmCallSummary } from '#shared/llmCall/llmCall.model';
+import type { LlmCall, LlmCallMetricsAggregate, LlmCallSummary } from '#shared/llmCall/llmCall.model';
 
 export interface CallerId {
 	agentId?: string;
 	userId?: string;
+}
+
+/**
+ * Partial metrics that can be updated after a call completes
+ */
+export interface LlmCallMetricsUpdate {
+	extractionSuccess?: boolean;
+	promptTemplateId?: string;
+	responseQualityScore?: number;
+	instructionAdherence?: number;
 }
 
 export interface LlmCallService {
@@ -38,4 +48,22 @@ export interface LlmCallService {
 	 * @returns An LlmCall object or null if not found.
 	 */
 	getLlmCallDetail(llmCallId: string): Promise<LlmCall | null>;
+
+	// === Evaluation Metrics Methods ===
+
+	/**
+	 * Updates evaluation metrics for an existing LLM call.
+	 * Used for post-hoc quality assessment.
+	 */
+	updateMetrics?(llmCallId: string, metrics: LlmCallMetricsUpdate): Promise<void>;
+
+	/**
+	 * Gets aggregate metrics for all LLM calls made by an agent.
+	 */
+	getMetricsForAgent?(agentId: string): Promise<LlmCallMetricsAggregate>;
+
+	/**
+	 * Gets aggregate metrics for LLM calls in a specific iteration.
+	 */
+	getMetricsForIteration?(agentId: string, iteration: number): Promise<LlmCallMetricsAggregate>;
 }

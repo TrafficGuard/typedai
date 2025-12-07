@@ -52,6 +52,7 @@ export interface AgentCompleted {
  * hitl_tool - When a function has request real-time HITL in the function calling part of the control loop
  * hitl_feedback - the agent has requested human feedback for a decision. At this point the agent is not executing any LLM/function calls.
  * hitl_user - when the user has requested a HITL (eg from the UI)
+ * hitl_review - Agent paused for human review of a subtask. Work is on a feature branch awaiting approval/changes/abort.
  * feedback - deprecated version of hitl_feedback
  * child_agents - stopped waiting for child agents to complete
  * completed - the agent has called the completed function.
@@ -68,6 +69,7 @@ export type AgentRunningState =
 	| 'hitl_tool'
 	| 'hitl_feedback'
 	| 'hitl_user'
+	| 'hitl_review'
 	| 'completed'
 	| 'restart'
 	| 'child_agents'
@@ -179,6 +181,16 @@ export type { ToolType } from '#shared/agent/functions';
 export type { LLM, FunctionCall, FunctionCallResult } from '#shared/llm/llm.model';
 
 /**
+ * Progress signal indicating direction of agent work
+ */
+export type ProgressSignal = 'forward' | 'lateral' | 'backward' | 'stuck';
+
+/**
+ * Type of decision/activity in an iteration
+ */
+export type DecisionType = 'explore' | 'implement' | 'verify' | 'fix' | 'refactor' | 'other';
+
+/**
  * For autonomous agents we save details of each control loop iteration
  * Keep in sync with frontend/src/app/modules/agents/agent.types.ts
  */
@@ -226,6 +238,46 @@ export interface AutonomousIteration {
 	error?: string | null;
 	/** Plan generation stats */
 	stats: GenerationStats;
+
+	// === Evaluation Metrics ===
+	/** Progress signal: forward (making progress), lateral (activity but unclear progress), backward (regression), stuck (no progress) */
+	progressSignal?: ProgressSignal;
+	/** Confidence in the progress signal assessment (0-1) */
+	progressConfidence?: number;
+	/** Number of files read this iteration */
+	filesRead?: number;
+	/** Number of files created or modified this iteration */
+	filesModified?: number;
+	/** Total lines added across all file changes */
+	linesAdded?: number;
+	/** Total lines removed across all file changes */
+	linesRemoved?: number;
+	/** Whether the codebase compiled successfully at end of iteration */
+	compileSuccess?: boolean;
+	/** Number of tests run this iteration */
+	testsRun?: number;
+	/** Number of tests that passed */
+	testsPassed?: number;
+	/** Number of tests that failed */
+	testsFailed?: number;
+	/** Change in lint error count (negative is improvement) */
+	lintErrorsDelta?: number;
+	/** Semantic similarity to previous iteration (0-1, high indicates potential loop) */
+	similarityToPrevious?: number;
+	/** Count of consecutive similar iterations (for loop detection) */
+	repeatedPatternCount?: number;
+	/** Type of work performed this iteration */
+	decisionType?: DecisionType;
+	/** Number of LLM calls made this iteration */
+	llmCallCount?: number;
+	/** Total cost of LLM calls this iteration */
+	llmTotalCost?: number;
+	/** Total input tokens for LLM calls this iteration */
+	llmTotalInputTokens?: number;
+	/** Total output tokens for LLM calls this iteration */
+	llmTotalOutputTokens?: number;
+	/** Cache hit ratio for LLM calls (0-1) */
+	llmCacheHitRatio?: number;
 }
 
 //#endregion Database models

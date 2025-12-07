@@ -37,11 +37,21 @@ export const LlmCallSchema = Type.Intersect(
 			warning: Type.Optional(Type.String()),
 			error: Type.Optional(Type.String()),
 			chunkCount: Type.Optional(Type.Number()), // Internal ID
+			// Evaluation metrics
+			cachedInputTokens: Type.Optional(Type.Number()),
+			reasoningTokens: Type.Optional(Type.Number()),
+			finishReason: Type.Optional(Type.String()),
+			retryCount: Type.Optional(Type.Number()),
+			extractionSuccess: Type.Optional(Type.Boolean()),
+			promptTemplateId: Type.Optional(Type.String()),
+			responseQualityScore: Type.Optional(Type.Number()),
+			instructionAdherence: Type.Optional(Type.Number()),
 		}),
 	],
 	{ $id: 'LlmCall' },
 );
-const _LlmCallCheck: AreTypesFullyCompatible<LlmCall, Static<typeof LlmCallSchema>> = true;
+// Type check - model must match schema
+type _LlmCallCheck = AreTypesFullyCompatible<LlmCall, Static<typeof LlmCallSchema>>;
 
 export const LlmCallSummarySchema = Type.Object(
 	{
@@ -56,7 +66,12 @@ export const LlmCallSummarySchema = Type.Object(
 		error: Type.Optional(Type.Boolean()),
 		callStack: Type.Optional(Type.String()),
 		messageSummaries: Type.Array(LlmCallMessageSummaryPartSchema),
+		// Evaluation metrics for summary view
+		cachedInputTokens: Type.Optional(Type.Number()),
+		extractionSuccess: Type.Optional(Type.Boolean()),
+		finishReason: Type.Optional(Type.String()),
 	},
 	{ $id: 'LlmCallSummary' },
 );
-const _LlmCallSummaryCheck: AreTypesFullyCompatible<LlmCallSummary, Static<typeof LlmCallSummarySchema>> = true;
+// Type check - model must match schema
+type _LlmCallSummaryCheck = AreTypesFullyCompatible<LlmCallSummary, Static<typeof LlmCallSummarySchema>>;
