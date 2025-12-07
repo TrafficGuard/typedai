@@ -216,10 +216,14 @@ export class DiscoveryEngine {
 		const parent = this.branchPath;
 
 		try {
-			const [documents] = await this.documentClient.listDocuments({
-				parent,
-				pageSize,
-			});
+			// autoPaginate: false is required to respect pageSize, otherwise the client fetches all documents
+			const [documents] = await this.documentClient.listDocuments(
+				{
+					parent,
+					pageSize,
+				},
+				{ autoPaginate: false },
+			);
 
 			logger.info(`Found ${documents.length} documents in data store`);
 			return documents;
