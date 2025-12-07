@@ -9,7 +9,8 @@
       "Bash(pnpm test:unit:*)",
       "Bash(cat:*)",
       "Bash(node --version)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(pnpm run test:postgres:*)"
     ],
     "deny": [],
     "ask": []

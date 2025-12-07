@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
-import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
+import { LoggerCompletedHandler } from '#agent/autonomous/agentCompletion';
 import type { AgentContext, AgentLLMs } from '#shared/agent/agent.model';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import { currentUser } from '#user/userContext';
@@ -87,7 +87,7 @@ export function createContext(config: RunAgentConfig | RunWorkflowConfig): Agent
 		fileSystem,
 		useSharedRepos: config.useSharedRepos ?? true, // Apply default if not provided in config
 		functions: Array.isArray(config.functions) ? new LlmFunctionsImpl(...config.functions) : (config.functions ?? new LlmFunctionsImpl()),
-		completedHandler: config.completedHandler ?? new ConsoleCompletedHandler(),
+		completedHandler: config.completedHandler ?? new LoggerCompletedHandler(),
 		memory: config.initialMemory ?? {},
 		invoking: [],
 		lastUpdate: Date.now(),

@@ -29,9 +29,9 @@ export function completedNotificationMessage(agent: AgentContext): string {
 /**
  * Outputs the standard agent completion message to the console
  */
-export class ConsoleCompletedHandler implements AgentCompleted {
+export class LoggerCompletedHandler implements AgentCompleted {
 	notifyCompleted(agentContext: AgentContext): Promise<void> {
-		console.log(completedNotificationMessage(agentContext));
+		logger.info(completedNotificationMessage(agentContext));
 		return Promise.resolve();
 	}
 

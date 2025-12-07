@@ -1,6 +1,7 @@
 onlyBuiltDependencies:
   - '@biomejs/biome'
   - '@firebase/util'
+  - '@keqingmoe/tree-sitter'
   - '@swc/core'
   - bcrypt
   - es5-ext
