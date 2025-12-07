@@ -188,8 +188,9 @@ export interface IVectorStore {
 
 	/**
 	 * Delete chunks by file path
+	 * @returns Number of documents deleted
 	 */
-	deleteByFilePath(filePath: string): Promise<void>;
+	deleteByFilePath(filePath: string): Promise<number>;
 
 	/**
 	 * Search for similar chunks

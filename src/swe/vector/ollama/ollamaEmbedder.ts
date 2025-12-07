@@ -19,13 +19,13 @@ export interface OllamaEmbeddingModelConfig {
 export const OLLAMA_EMBEDDING_MODELS = {
 	// Qwen3 8B Embedding - general purpose, high quality
 	QWEN3_8B: {
-		model: 'qwen3:8b',
+		model: 'qwen3-embedding:8b',
 		dimension: 4096,
 		description: 'Qwen3 8B - General purpose embedding model with high quality results',
 	},
 	// Nomic Embed Code - optimized for code
 	NOMIC_EMBED_CODE: {
-		model: 'nomic-embed-code',
+		model: 'manutic/nomic-embed-code',
 		dimension: 768,
 		description: 'Nomic Embed Code - Specialized model for code embeddings',
 	},

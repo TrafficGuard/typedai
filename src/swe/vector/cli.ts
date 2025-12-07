@@ -12,11 +12,106 @@
  */
 
 import * as path from 'node:path';
+import * as readline from 'node:readline';
 import { Command } from 'commander';
 import pino from 'pino';
 import { DEFAULT_VECTOR_CONFIG, buildGoogleVectorServiceConfig, loadVectorConfig } from './core/config';
 import type { VectorStoreConfig } from './core/config';
+import type { GoogleVectorServiceConfig } from './google/googleVectorConfig';
 import { VectorSearchOrchestrator } from './google/vectorSearchOrchestrator';
+
+/**
+ * Wait for user to press Enter to continue
+ */
+async function waitForEnter(message = 'Press Enter to continue...'): Promise<void> {
+	const rl = readline.createInterface({
+		input: process.stdin,
+		output: process.stdout,
+	});
+
+	return new Promise((resolve) => {
+		rl.question(message, () => {
+			rl.close();
+			resolve();
+		});
+	});
+}
+
+/**
+ * Print the final resolved configuration
+ */
+async function printConfiguration(
+	config: VectorStoreConfig,
+	googleConfig: GoogleVectorServiceConfig,
+	options: { repoPath?: string; configRoot?: string; mode?: string },
+): Promise<void> {
+	console.log();
+	console.log('Configuration:');
+	console.log('━'.repeat(60));
+
+	// Paths
+	if (options.repoPath) {
+		console.log(`  Repository:          ${options.repoPath}`);
+	}
+	if (options.configRoot) {
+		console.log(`  Config Root:         ${options.configRoot}`);
+	}
+	if (options.mode) {
+		console.log(`  Mode:                ${options.mode}`);
+	}
+
+	// Google Cloud / Discovery Engine
+	console.log();
+	console.log('  Google Cloud:');
+	console.log(`    Project:           ${googleConfig.project}`);
+	console.log(`    Region:            ${googleConfig.region}`);
+	console.log(`    DE Location:       ${googleConfig.discoveryEngineLocation}`);
+	console.log(`    DE Collection:     ${googleConfig.collection}`);
+	console.log(`    DE Datastore:      ${googleConfig.dataStoreId}`);
+
+	// Embedding
+	console.log();
+	console.log('  Embedding:');
+	console.log(`    Provider:          ${config.embedding?.provider || 'vertex'}`);
+	console.log(`    Model:             ${googleConfig.embeddingModel}`);
+
+	// Chunking
+	console.log();
+	console.log('  Chunking:');
+	console.log(`    Dual Embedding:    ${config.chunking?.dualEmbedding ? '✓ Enabled' : '✗ Disabled'}`);
+	if (config.chunking?.contextualChunking) {
+		// Dynamic import to avoid circular dependency at startup
+		const { summaryLLM } = await import('../../llm/services/defaultLlmsModule.cjs');
+		console.log(`    Contextual:        ✓ Enabled (LLM: ${summaryLLM().getId()})`);
+	} else {
+		console.log('    Contextual:        ✗ Disabled');
+		console.log(`    Strategy:          ${config.chunking?.strategy || 'ast'}`);
+		console.log(`    Chunk Size:        ${config.chunking?.size || 2500} chars`);
+		console.log(`    Chunk Overlap:     ${config.chunking?.overlap || 300} chars`);
+	}
+
+	// Search
+	console.log();
+	console.log('  Search:');
+	console.log(`    Hybrid Search:     ${config.search?.hybridSearch ? '✓ Enabled' : '✗ Disabled'}`);
+	if (config.search?.reranking) {
+		console.log(`    Reranking:         ✓ Enabled (${config.search.reranking.provider})`);
+	} else {
+		console.log('    Reranking:         ✗ Disabled');
+	}
+
+	// Include patterns
+	if (config.includePatterns?.length) {
+		console.log();
+		console.log('  Include Patterns:');
+		for (const pattern of config.includePatterns) {
+			console.log(`    - ${pattern}`);
+		}
+	}
+
+	console.log('━'.repeat(60));
+	console.log();
+}
 
 const logger = pino({ name: 'VectorCLI', level: process.env.LOG_LEVEL || 'info' });
 
@@ -38,6 +133,7 @@ program
 	.option('--force-full', 'Force full reindex (skip auto-detection)')
 	.option('--data-store <id>', 'Override data store ID')
 	.option('--dry-run', 'Show what would be indexed without actually indexing')
+	.option('-y, --yes', 'Skip confirmation prompt')
 	.action(async (repoPath, options) => {
 		const startTime = Date.now();
 
@@ -52,12 +148,13 @@ program
 			try {
 				config = loadVectorConfig(configRoot, options.configName);
 				logger.info({ configPath, configName: options.configName, configRoot }, 'Loaded configuration');
+				logger.debug({ googleCloud: config.googleCloud, discoveryEngine: config.discoveryEngine }, 'Resolved GCP config');
 			} catch (error) {
 				logger.warn('No configuration found, using defaults');
 				config = DEFAULT_VECTOR_CONFIG;
 			}
 
-			const repoRoot = repoPath || process.cwd();
+			const repoRoot = repoPath || (options.fs ? path.resolve(options.fs) : process.cwd());
 
 			if (options.dataStore) {
 				config.discoveryEngine = { ...config.discoveryEngine, datastoreId: options.dataStore };
@@ -73,6 +170,12 @@ program
 				googleConfig.dataStoreId = options.dataStore;
 			}
 
+			// Override quota project to match the target project from config
+			// This ensures API quota is charged to the correct project (not ADC default)
+			if (googleConfig.project) {
+				process.env.GOOGLE_CLOUD_QUOTA_PROJECT = googleConfig.project;
+			}
+
 			const orchestrator = new VectorSearchOrchestrator(googleConfig, config);
 
 			// Auto-detect: check if data store is empty
@@ -86,39 +189,39 @@ program
 					isInitialIndex = existingDocs.length === 0;
 
 					if (isInitialIndex) {
-						console.log('📦 Empty data store detected - performing initial full index\n');
+						console.log('📦 Empty data store detected - performing initial full index');
 					} else {
-						console.log(`♻️  Existing data detected (${existingDocs.length > 0 ? 'documents found' : 'empty'}) - performing incremental update\n`);
+						console.log('♻️  Existing data detected - performing incremental update');
 					}
 				} catch (error: any) {
 					logger.warn({ error: error.message }, 'Failed to check data store status, assuming initial index');
 					isInitialIndex = true;
-					console.log('📦 Performing initial full index\n');
+					console.log('📦 Performing initial full index');
 				}
 			} else {
-				console.log('🔄 Force full reindex mode enabled\n');
+				console.log('🔄 Force full reindex mode enabled');
 			}
 
-			// Print configuration summary
-			console.log('Configuration:');
-			console.log('━'.repeat(50));
-			console.log(`  Repository: ${repoPath}`);
-			console.log(`  Config Root: ${configRoot}`);
-			console.log(`  Mode: ${isInitialIndex ? 'Full Index' : 'Incremental Update'}`);
-			console.log(`  Dual Embedding: ${config.chunking?.dualEmbedding ? '✓' : '✗'}`);
-			console.log(`  Contextual Chunking: ${config.chunking?.contextualChunking ? '✓' : '✗'}`);
-			console.log(`  Chunk Size: ${config.chunking?.size || 2500} chars`);
-			console.log('━'.repeat(50));
-			console.log();
+			// Print full configuration and wait for confirmation
+			await printConfiguration(config, googleConfig, {
+				repoPath,
+				configRoot,
+				mode: isInitialIndex ? 'Full Index' : 'Incremental Update',
+			});
 
 			if (options.dryRun) {
 				console.log('🏃 Dry run mode - no actual indexing will be performed');
 				process.exit(0);
 			}
 
+			// Wait for user confirmation unless --yes flag
+			if (!options.yes) {
+				await waitForEnter('Press Enter to start indexing...');
+			}
+
 			// Index repository with progress reporting
 			let lastProgress = '';
-			await orchestrator.indexRepository(repoPath, {
+			await orchestrator.indexRepository(repoRoot, {
 				incremental: !isInitialIndex,
 				config,
 				onProgress: (progress) => {
@@ -158,6 +261,7 @@ program
 	.option('--state-file <path>', 'Path to checkpoint file for resumable batch runs')
 	.option('--concurrency <number>', 'Max concurrent files', '3')
 	.option('--continue-on-error', 'Continue processing other files when one fails', true)
+	.option('-y, --yes', 'Skip confirmation prompt')
 	.action(async (repoPath, options) => {
 		const root = repoPath || process.cwd();
 		const configRoot = options.fs ? path.resolve(options.fs) : root;
@@ -172,6 +276,24 @@ program
 		}
 
 		const googleConfig = buildGoogleVectorServiceConfig(config);
+
+		// Override quota project to match the target project from config
+		if (googleConfig.project) {
+			process.env.GOOGLE_CLOUD_QUOTA_PROJECT = googleConfig.project;
+		}
+
+		// Print full configuration
+		await printConfiguration(config, googleConfig, {
+			repoPath: root,
+			configRoot,
+			mode: 'Batch Index',
+		});
+
+		// Wait for user confirmation unless --yes flag
+		if (!options.yes) {
+			await waitForEnter('Press Enter to start batch indexing...');
+		}
+
 		const orchestrator = new VectorSearchOrchestrator(googleConfig, config);
 
 		let lastProgress = '';
@@ -238,6 +360,11 @@ program
 				googleConfig.dataStoreId = options.dataStore;
 			}
 
+			// Override quota project to match the target project from config
+			if (googleConfig.project) {
+				process.env.GOOGLE_CLOUD_QUOTA_PROJECT = googleConfig.project;
+			}
+
 			const orchestrator = new VectorSearchOrchestrator(googleConfig, config);
 
 			console.log(`🔍 Searching for: "${query}"`);
@@ -274,7 +401,7 @@ program
 					}
 
 					// Show code preview (first 150 characters)
-					const preview = result.document.originalCode.substring(0, 150).replace(/\n/g, ' ').trim();
+					const preview = result.document.originalCode.trim(); //.substring(0, 150).replace(/\n/g, ' ').trim();
 					console.log(`   Preview: ${preview}...`);
 					console.log();
 				}
@@ -316,6 +443,11 @@ program
 				googleConfig.dataStoreId = options.dataStore;
 			}
 
+			// Override quota project to match the target project from config
+			if (googleConfig.project) {
+				process.env.GOOGLE_CLOUD_QUOTA_PROJECT = googleConfig.project;
+			}
+
 			const orchestrator = new VectorSearchOrchestrator(googleConfig, config);
 
 			// Confirm before purging
@@ -337,6 +469,70 @@ program
 		} catch (error: any) {
 			console.error('❌ Purge failed:', error.message);
 			logger.error({ error }, 'Purge operation failed');
+			process.exit(1);
+		}
+	});
+
+/**
+ * Delete command: Deletes a single file from the vector store
+ */
+program
+	.command('delete <filePath>')
+	.description('Delete a single file from the vector store')
+	.option('--config-name <name>', 'Name of config to use from .vectorconfig.json array')
+	.option('--fs <path>', 'Filesystem/working directory for loading .vectorconfig.json')
+	.option('--data-store <id>', 'Override data store ID')
+	.option('--yes', 'Skip confirmation prompt')
+	.action(async (filePath, options) => {
+		try {
+			// Load configuration to get the right data store
+			const configRoot = options.fs ? path.resolve(options.fs) : process.cwd();
+			let config: VectorStoreConfig;
+
+			try {
+				config = loadVectorConfig(configRoot, options.configName);
+				logger.info({ configName: options.configName, configRoot }, 'Loaded configuration');
+			} catch (error) {
+				logger.warn('No configuration found, using defaults');
+				config = DEFAULT_VECTOR_CONFIG;
+			}
+
+			// Build Google config from VectorStoreConfig (uses config values over env vars)
+			const googleConfig = buildGoogleVectorServiceConfig(config);
+			if (options.dataStore) {
+				googleConfig.dataStoreId = options.dataStore;
+			}
+
+			// Override quota project to match the target project from config
+			if (googleConfig.project) {
+				process.env.GOOGLE_CLOUD_QUOTA_PROJECT = googleConfig.project;
+			}
+
+			const orchestrator = new VectorSearchOrchestrator(googleConfig, config);
+
+			// Confirm before deleting
+			if (!options.yes) {
+				console.log('⚠️  WARNING: This will delete the file from the vector store!');
+				console.log(`   File: ${filePath}`);
+				console.log(`   Data Store ID: ${googleConfig.dataStoreId}`);
+				console.log(`   Project: ${googleConfig.project}`);
+				console.log();
+				console.log('   To proceed, run with --yes flag:');
+				console.log(`   pnpm vector:delete "${filePath}" --yes ${options.configName ? `--config-name ${options.configName}` : ''}`);
+				process.exit(0);
+			}
+
+			console.log(`🗑️  Deleting file: ${filePath}...`);
+			const deletedCount = await orchestrator.deleteFile(filePath);
+			if (deletedCount > 0) {
+				console.log(`✅ Deleted ${deletedCount} document(s) successfully!`);
+			} else {
+				console.log(`⚠️  No documents found for file: ${filePath}`);
+				process.exit(1);
+			}
+		} catch (error: any) {
+			console.error('❌ Delete failed:', error.message);
+			logger.error({ error }, 'Delete operation failed');
 			process.exit(1);
 		}
 	});

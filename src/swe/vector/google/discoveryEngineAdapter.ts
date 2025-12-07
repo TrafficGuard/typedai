@@ -55,9 +55,9 @@ export class DiscoveryEngineAdapter implements IVectorStore {
 		logger.info({ chunkCount: chunks.length }, 'Successfully indexed all chunks');
 	}
 
-	async deleteByFilePath(filePath: string): Promise<void> {
+	async deleteByFilePath(filePath: string): Promise<number> {
 		logger.info({ filePath }, 'Deleting documents by file path');
-		await this.engine.purgeDocuments([filePath]);
+		return await this.engine.purgeDocuments([filePath]);
 	}
 
 	async search(query: string, queryEmbedding: number[], maxResults: number, config: VectorStoreConfig): Promise<SearchResult[]> {
