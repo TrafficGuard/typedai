@@ -27,6 +27,9 @@ async function ensureTestDatabaseExists(): Promise<void> {
 export const mochaHooks = {
 	async beforeAll() {
 		await ensurePostgresDockerRunning();
-		await ensureTestDatabaseExists();
+		// Skip in CI - GitHub Actions service container already has the 'test' database created
+		if (process.env.CI !== 'true') {
+			await ensureTestDatabaseExists();
+		}
 	},
 };

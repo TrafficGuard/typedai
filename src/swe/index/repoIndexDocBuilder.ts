@@ -591,13 +591,11 @@ export class IndexDocBuilder {
 		}
 
 		try {
-			logger.debug(`Found ${files.length} files in ${docsDir}`);
 			const useGitIgnore = false;
 			const files = await this.fss.listFilesRecursively(docsDir, useGitIgnore);
+			logger.debug(`Found ${files.length} files in ${docsDir}`);
 
-			if (files.length === 0) {
-				return summaries;
-			}
+			if (files.length === 0) return summaries;
 
 			for (const file of files) {
 				const fileName = basename(file);
