@@ -44,8 +44,45 @@
         "optional": true
       }
     ],
-    "returnType": "import(\"/Users/danielcampagnoli/gh/typedai/src/functions/scm/temp\").GitHubIssue",
-    "returns": "A promise that resolves to the created GitHubIssue object."
+    "returnType": "GitHubIssue",
+    "returns": "A promise that resolves to the created GitHubIssue object.",
+    "typeDefinitions": [
+      {
+        "name": "GitHubIssue",
+        "properties": [
+          {
+            "name": "id",
+            "type": "number",
+            "optional": false
+          },
+          {
+            "name": "number",
+            "type": "number",
+            "optional": false
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "apiUrl",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "title",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "state",
+            "type": "string",
+            "optional": false
+          }
+        ]
+      }
+    ]
   },
   "GitHub_postCommentOnIssue": {
     "class": "GitHub",
@@ -71,8 +108,45 @@
         "description": "The content of the comment."
       }
     ],
-    "returnType": "import(\"/Users/danielcampagnoli/gh/typedai/src/functions/scm/temp\").GitHubIssueComment",
-    "returns": "A promise that resolves to the created GitHubIssueComment object."
+    "returnType": "GitHubIssueComment",
+    "returns": "A promise that resolves to the created GitHubIssueComment object.",
+    "typeDefinitions": [
+      {
+        "name": "GitHubIssueComment",
+        "properties": [
+          {
+            "name": "id",
+            "type": "number",
+            "optional": false
+          },
+          {
+            "name": "html_url",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "body",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "user",
+            "type": "{\n\t\t// Basic user information\n\t\tlogin: string;\n\t\tid: number;\n\t} | null",
+            "optional": false
+          },
+          {
+            "name": "created_at",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "updated_at",
+            "type": "string",
+            "optional": false
+          }
+        ]
+      }
+    ]
   },
   "GitHub_getIssueComments": {
     "class": "GitHub",
@@ -92,8 +166,45 @@
         "description": "The number of the issue to get comments for."
       }
     ],
-    "returnType": "import(\"/Users/danielcampagnoli/gh/typedai/src/functions/scm/temp\").GitHubIssueComment[]",
-    "returns": "A promise that resolves to an array of GitHubIssueComment objects."
+    "returnType": "GitHubIssueComment[]",
+    "returns": "A promise that resolves to an array of GitHubIssueComment objects.",
+    "typeDefinitions": [
+      {
+        "name": "GitHubIssueComment",
+        "properties": [
+          {
+            "name": "id",
+            "type": "number",
+            "optional": false
+          },
+          {
+            "name": "html_url",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "body",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "user",
+            "type": "{\n\t\t// Basic user information\n\t\tlogin: string;\n\t\tid: number;\n\t} | null",
+            "optional": false
+          },
+          {
+            "name": "created_at",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "updated_at",
+            "type": "string",
+            "optional": false
+          }
+        ]
+      }
+    ]
   },
   "GitHub_cloneProject": {
     "class": "GitHub",
@@ -167,8 +278,45 @@
     "name": "GitHub_testCreateIssueE2E",
     "description": "Runs an E2E test for creating an issue in a GitHub repository.\nThis method will attempt to create a real issue in a pre-defined test repository.",
     "parameters": [],
-    "returnType": "import(\"/Users/danielcampagnoli/gh/typedai/src/functions/scm/temp\").GitHubIssue",
-    "returns": "A promise that resolves to the created GitHubIssue object."
+    "returnType": "GitHubIssue",
+    "returns": "A promise that resolves to the created GitHubIssue object.",
+    "typeDefinitions": [
+      {
+        "name": "GitHubIssue",
+        "properties": [
+          {
+            "name": "id",
+            "type": "number",
+            "optional": false
+          },
+          {
+            "name": "number",
+            "type": "number",
+            "optional": false
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "apiUrl",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "title",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "state",
+            "type": "string",
+            "optional": false
+          }
+        ]
+      }
+    ]
   },
   "GitHub_getJobLogs": {
     "class": "GitHub",

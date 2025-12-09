@@ -1,4 +1,4 @@
-import { agentContextStorage } from '#agent/agentContextLocalStorage';
+import { agentContextStorage } from '#agent/agentContext';
 import { logger } from '#o11y/logger';
 import type { CodeTask } from '#shared/codeTask/codeTask.model';
 import type { SelectedFile } from '#shared/files/files.model';

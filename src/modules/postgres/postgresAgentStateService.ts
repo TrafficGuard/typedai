@@ -380,6 +380,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			.selectAll()
 			.where('user_id', '=', userId)
 			.orderBy('last_update', 'desc')
+			.orderBy('created_at', 'desc') // Secondary sort for deterministic ordering
 			.execute();
 		// Use Promise.all with map because _deserializeDbRowToAgentContext is async
 		const agentContexts = await Promise.all(rows.map((row) => this._deserializeDbRowToAgentContext(row)));
@@ -412,6 +413,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			.where('state', 'not in', terminalStates)
 			.orderBy('state', 'asc')
 			.orderBy('last_update', 'desc')
+			.orderBy('created_at', 'desc') // Secondary sort for deterministic ordering
 			.execute();
 		// Use Promise.all with map because _deserializeDbRowToAgentContext is async
 		const agentContexts = await Promise.all(rows.map((row) => this._deserializeDbRowToAgentContext(row)));

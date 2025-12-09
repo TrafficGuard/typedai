@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import mock from 'mock-fs';
 import sinon from 'sinon';
-import { setFileSystemOverride } from '#agent/agentContextLocalStorage';
+import { setFileSystemOverride } from '#agent/agentContextUtils';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { logger } from '#o11y/logger';
 import type { SelectedFile } from '#shared/files/files.model';

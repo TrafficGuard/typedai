@@ -1,4 +1,4 @@
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextUtils';
 import type { AppFastifyInstance } from '#app/applicationTypes';
 import { sendServerError } from '#fastify/responses';
 import { logger } from '#o11y/logger';

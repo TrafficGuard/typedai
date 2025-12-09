@@ -1,7 +1,7 @@
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
-import * as agentContextLocalStorage from '#agent/agentContextLocalStorage';
+import * as agentContextLocalStorage from '#agent/agentContextUtils';
 import { appContext } from '#app/applicationContext';
 import type { ApplicationContext } from '#app/applicationTypes';
 import { FileSystemService } from '#functions/storage/fileSystemService';

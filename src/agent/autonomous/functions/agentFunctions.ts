@@ -1,4 +1,4 @@
-import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';

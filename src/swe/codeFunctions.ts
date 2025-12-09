@@ -1,4 +1,4 @@
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { queryWorkflowWithSearch, selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { type SelectFilesResponse, selectFilesToEdit } from '#swe/discovery/selectFilesToEdit';

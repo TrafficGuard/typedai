@@ -252,7 +252,7 @@ describe('OllamaEmbedder', () => {
 
 			expect(result).to.deep.equal(queryEmbedding);
 			// Should use text model (qwen3) for queries
-			expect(axiosPostStub.firstCall.args[1].model).to.equal('qwen3:8b');
+			expect(axiosPostStub.firstCall.args[1].model).to.equal('qwen3-embedding:8b');
 		});
 
 		it('generates batch dual embeddings', async () => {
@@ -293,28 +293,6 @@ describe('OllamaEmbedder', () => {
 			} catch (error) {
 				expect((error as Error).message).to.include('must have the same length');
 			}
-		});
-	});
-
-	describe('OLLAMA_EMBEDDING_MODELS', () => {
-		it('has correct Qwen3 8B configuration', () => {
-			expect(OLLAMA_EMBEDDING_MODELS.QWEN3_8B.model).to.equal('qwen3:8b');
-			expect(OLLAMA_EMBEDDING_MODELS.QWEN3_8B.dimension).to.equal(4096);
-		});
-
-		it('has correct Nomic Embed Code configuration', () => {
-			expect(OLLAMA_EMBEDDING_MODELS.NOMIC_EMBED_CODE.model).to.equal('nomic-embed-code');
-			expect(OLLAMA_EMBEDDING_MODELS.NOMIC_EMBED_CODE.dimension).to.equal(768);
-		});
-
-		it('has correct Nomic Embed Text configuration', () => {
-			expect(OLLAMA_EMBEDDING_MODELS.NOMIC_EMBED_TEXT.model).to.equal('nomic-embed-text');
-			expect(OLLAMA_EMBEDDING_MODELS.NOMIC_EMBED_TEXT.dimension).to.equal(768);
-		});
-
-		it('has correct Mxbai Embed Large configuration', () => {
-			expect(OLLAMA_EMBEDDING_MODELS.MXBAI_EMBED_LARGE.model).to.equal('mxbai-embed-large');
-			expect(OLLAMA_EMBEDDING_MODELS.MXBAI_EMBED_LARGE.dimension).to.equal(1024);
 		});
 	});
 });

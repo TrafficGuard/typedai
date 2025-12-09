@@ -12,7 +12,8 @@ import {
 	smoothStream,
 	streamText,
 } from 'ai';
-import { addCost, agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { addCost } from '#agent/agentContext';
 import { cloneAndTruncateBuffers } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
 import { BaseLLM, type BaseLlmConfig } from '#llm/base-llm';

@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import mock from 'mock-fs';
 import type sinon from 'sinon';
-import * as agentContextLocalStorageModule from '#agent/agentContextLocalStorage';
+import * as agentContextLocalStorageModule from '#agent/agentContextUtils';
 import { logger } from '#o11y/logger';
 import type { SelectedFile } from '#shared/files/files.model';
 import type { UserContentExt } from '#shared/llm/llm.model';

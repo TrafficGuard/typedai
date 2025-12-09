@@ -2,7 +2,7 @@ import path from 'node:path';
 import { expect } from 'chai';
 import mock from 'mock-fs';
 import sinon from 'sinon';
-import { getFileSystem, setFileSystemOverride } from '#agent/agentContextLocalStorage';
+import { getFileSystem, setFileSystemOverride } from '#agent/agentContextUtils';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { TypescriptTools } from './lang/nodejs/typescriptTools';

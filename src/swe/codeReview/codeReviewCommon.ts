@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import * as micromatch from 'micromatch';
-import { llms } from '#agent/agentContextLocalStorage';
+import { llms } from '#agent/agentContextUtils';
 import { logger } from '#o11y/logger';
 import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import { type CodeReviewResult, type CodeReviewTask, codeReviewToXml } from '#swe/codeReview/codeReviewTaskModel';

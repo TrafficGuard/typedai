@@ -1,5 +1,7 @@
 import type { Span } from '@opentelemetry/api';
-import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { agentContextStorage } from '#agent/agentContext';
+import { createContext } from '#agent/agentContextUtils';
 import { type AgentExecution } from '#agent/agentExecutions';
 import { agentExecutions } from '#agent/agentExecutions';
 import { type RunWorkflowConfig } from '#agent/autonomous/runAgentTypes';

@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { setFileSystemOverride } from '#agent/agentContextLocalStorage';
+import { setFileSystemOverride } from '#agent/agentContextUtils';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { removeNonExistingFiles } from '#swe/discovery/selectFilesToEdit';
 import { setupConditionalLoggerOutput } from '#test/testUtils';

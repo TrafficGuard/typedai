@@ -1,5 +1,6 @@
 import path from 'node:path';
-import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { extractTag } from '#llm/responseParsers';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';

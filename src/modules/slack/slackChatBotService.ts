@@ -1,7 +1,7 @@
 import { App, type KnownEventFromType, type SayFn, StringIndexed } from '@slack/bolt';
 import { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
 import { Member } from '@slack/web-api/dist/types/response/UsersListResponse';
-import { llms } from '#agent/agentContextLocalStorage';
+import { llms } from '#agent/agentContextUtils';
 import { AgentExecution, isAgentExecuting } from '#agent/agentExecutions';
 import { getLastFunctionCallArg } from '#agent/autonomous/agentCompletion';
 import { resumeCompletedWithUpdatedUserRequest, startAgent } from '#agent/autonomous/autonomousAgentRunner';

@@ -1,4 +1,4 @@
-import { llms } from '#agent/agentContextLocalStorage';
+import { llms } from '#agent/agentContextUtils';
 import { logger } from '#o11y/logger';
 import { queryWorkflowWithSearch } from '#swe/discovery/selectFilesAgentWithSearch';
 import { type ExecResult, execCommand } from '#utils/exec';

@@ -1,4 +1,4 @@
-import { llms } from '#agent/agentContextLocalStorage';
+import { llms } from '#agent/agentContextUtils';
 import type { FunctionSchema } from '#functionSchema/functions';
 import type { AgentContext } from '#shared/agent/agent.model';
 import type { FunctionCall } from '#shared/llm/llm.model';

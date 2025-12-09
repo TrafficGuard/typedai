@@ -1,4 +1,4 @@
-import { llms } from '#agent/agentContextLocalStorage';
+import { llms } from '#agent/agentContextUtils';
 import { buildPrompt } from '#swe/prompt';
 
 export async function summariseRequirements(requirements: string): Promise<string> {

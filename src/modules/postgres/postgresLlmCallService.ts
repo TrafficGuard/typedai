@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Insertable, Selectable, Updateable } from 'kysely';
 
-import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
 import { callStack as getCallStackString } from '#llm/llmCallService/llmCall';
 import type { CreateLlmRequest } from '#llm/llmCallService/llmCall';
 import type { LlmCallService } from '#llm/llmCallService/llmCallService';

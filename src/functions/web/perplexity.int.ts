@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { agentContextStorage } from '#agent/agentContextLocalStorage';
+import { agentContextStorage } from '#agent/agentContext';
 import type { AgentContext } from '#shared/agent/agent.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { Perplexity } from './perplexity';

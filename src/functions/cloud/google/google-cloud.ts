@@ -1,6 +1,6 @@
 import { GoogleAuth } from 'google-auth-library';
 import { stringify as yamlStringify } from 'yaml';
-import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
 import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { extractCommonProperties } from '#utils/arrayUtils';

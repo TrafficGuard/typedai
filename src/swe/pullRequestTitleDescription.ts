@@ -1,4 +1,4 @@
-import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { getFileSystem, llms } from '#agent/agentContextUtils';
 
 export async function generatePullRequestTitleDescription(requirements: string, baseBranch: string): Promise<{ title: string; description: string }> {
 	const pullRequestDescriptionPrompt = `<requirement>\n${requirements}\n</requirement><diff>\n${await getFileSystem()

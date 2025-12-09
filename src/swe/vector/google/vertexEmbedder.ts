@@ -39,9 +39,14 @@ export class VertexAITextEmbeddingService {
 	private circuitBreaker: GcpQuotaCircuitBreaker;
 
 	constructor(googleCloudConfig: GoogleVectorServiceConfig, circuitBreakerConfig?: CircuitBreakerConfig) {
-		const clientOptions = { apiEndpoint: `${googleCloudConfig.region}-aiplatform.googleapis.com` };
+		// Vertex AI embeddings are only available in specific regions - use us-central1 by default
+		const embeddingRegion = 'us-central1';
+		const clientOptions = {
+			apiEndpoint: `${embeddingRegion}-aiplatform.googleapis.com`,
+			projectId: googleCloudConfig.project,
+		};
 		this.client = new PredictionServiceClient(clientOptions);
-		this.endpointPath = `projects/${googleCloudConfig.project}/locations/${googleCloudConfig.region}/publishers/google/models/${googleCloudConfig.embeddingModel}`;
+		this.endpointPath = `projects/${googleCloudConfig.project}/locations/${embeddingRegion}/publishers/google/models/${googleCloudConfig.embeddingModel}`;
 
 		// Initialize circuit breaker with config or defaults
 		this.circuitBreaker = new GcpQuotaCircuitBreaker(

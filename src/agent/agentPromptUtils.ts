@@ -1,4 +1,4 @@
-import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import type { FileStore } from '#functions/storage/filestore';
@@ -11,6 +11,7 @@ import { loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
 import { generateFileSystemTreeWithSummaries } from '#swe/index/repositoryMap';
 import { getProjectInfo } from '#swe/projectDetection';
 import path from 'node:path';
+import { agentContext } from './agentContext';
 
 /**
  * @return An XML representation of the agent's memory

@@ -1,4 +1,4 @@
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextUtils';
 import type { EditBlock } from '../coderTypes';
 import type { ValidationIssue, ValidationRule } from './validationRule';
 

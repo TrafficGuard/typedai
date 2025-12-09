@@ -1,4 +1,5 @@
-import { agentContext, agentContextStorage } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { agentContextStorage } from '#agent/agentContext';
 import { checkForceStopped } from '#agent/forceStopAgent';
 import { inMemoryApplicationContext } from '#modules/memory/inMemoryApplicationContext';
 import { InMemoryUserService } from '#modules/memory/inMemoryUserService';

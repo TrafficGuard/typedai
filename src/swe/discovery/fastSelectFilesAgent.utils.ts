@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 

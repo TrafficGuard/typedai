@@ -13,7 +13,7 @@
 
 import { createHash } from 'node:crypto';
 import { type Firestore, Timestamp } from '@google-cloud/firestore';
-import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
 import { firestoreDb } from '#firestore/firestore';
 import { logger } from '#o11y/logger';
 import { currentUser } from '#user/userContext';

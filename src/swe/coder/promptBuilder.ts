@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
 import { buildFileSystemTreePrompt } from '#agent/agentPromptUtils';
 import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/files/fileSystemService';

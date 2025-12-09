@@ -5,7 +5,7 @@ import chai, { expect } from 'chai';
 import chaiSubset from 'chai-subset';
 import mock from 'mock-fs';
 import sinon from 'sinon';
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { typedaiDirName } from '#app/appDirs';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { LLM } from '#shared/llm/llm.model';

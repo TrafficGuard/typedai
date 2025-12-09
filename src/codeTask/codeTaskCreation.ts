@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { appContext } from '#app/applicationContext';
 import { GitHub } from '#functions/scm/github';
 import { GitLab } from '#functions/scm/gitlab';

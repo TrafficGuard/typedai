@@ -6,6 +6,11 @@
       "Bash(echo:*)",
       "Bash(pnpm run build:*)",
       "Bash(pnpm test:*)",
+      "Bash(pnpm test:unit:*)",
+      "Bash(cat:*)",
+      "Bash(node --version)",
+      "Bash(grep:*)",
+      "Bash(pnpm run test:postgres:*)"
     ],
     "deny": [],
     "ask": []

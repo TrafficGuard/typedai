@@ -17,7 +17,24 @@
     "name": "NpmPackages_getPackageInfo",
     "description": "Gets the GitHub URL and the documentation site URL, if either exist, for a NPM package.",
     "parameters": [],
-    "returnType": "import(\"/Users/danielcampagnoli/gh/sophia/src/swe/lang/nodejs/temp\").NpmPackageInfo",
-    "returns": "Promise<{docUrl: string; gitHubUrl: string;}>"
+    "returnType": "NpmPackageInfo",
+    "returns": "Promise<{docUrl: string; gitHubUrl: string;}>",
+    "typeDefinitions": [
+      {
+        "name": "NpmPackageInfo",
+        "properties": [
+          {
+            "name": "docUrl",
+            "type": "string | null",
+            "optional": false
+          },
+          {
+            "name": "gitHubUrl",
+            "type": "string | null",
+            "optional": false
+          }
+        ]
+      }
+    ]
   }
 }

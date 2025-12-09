@@ -30,7 +30,6 @@ export interface GoogleVectorServiceConfig {
 }
 
 export function getGoogleVectorServiceConfig(): GoogleVectorServiceConfig {
-	console.log(GCLOUD_PROJECT);
 	return {
 		project: GCLOUD_PROJECT,
 		region: GCLOUD_REGION,

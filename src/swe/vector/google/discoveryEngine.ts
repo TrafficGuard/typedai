@@ -46,21 +46,15 @@ export class DiscoveryEngine {
 		this.collection = config.collection;
 		this.dataStoreId = config.dataStoreId;
 
-		this.documentClient =
-			clients?.documentClient ||
-			new DocumentServiceClient({
-				apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
-			});
-		this.searchClient =
-			clients?.searchClient ||
-			new SearchServiceClient({
-				apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
-			});
-		this.dataStoreClient =
-			clients?.dataStoreClient ||
-			new DataStoreServiceClient({
-				apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
-			});
+		// Client options - pass projectId to ensure correct project is used for API calls
+		const clientOptions = {
+			apiEndpoint: `${config.discoveryEngineLocation}-discoveryengine.googleapis.com`,
+			projectId: config.project,
+		};
+
+		this.documentClient = clients?.documentClient || new DocumentServiceClient(clientOptions);
+		this.searchClient = clients?.searchClient || new SearchServiceClient(clientOptions);
+		this.dataStoreClient = clients?.dataStoreClient || new DataStoreServiceClient(clientOptions);
 		this.parentPath = `projects/${this.project}/locations/${this.location}/collections/${this.collection}`;
 		this.datastoreName = `${this.parentPath}/dataStores/${this.dataStoreId}`;
 		this.dataStorePath = this.datastoreName;
@@ -166,8 +160,8 @@ export class DiscoveryEngine {
 		await operation.promise();
 	}
 
-	async purgeDocuments(filePaths: string[]): Promise<void> {
-		if (filePaths.length === 0) return;
+	async purgeDocuments(filePaths: string[]): Promise<number> {
+		if (filePaths.length === 0) return 0;
 		await this.ensureDataStoreExists();
 
 		const targets = new Set(filePaths);
@@ -177,13 +171,15 @@ export class DiscoveryEngine {
 
 		if (documentNames.length === 0) {
 			logger.info('No matching documents found to purge');
-			return;
+			return 0;
 		}
 
 		for (const name of documentNames) {
 			await this.documentClient.deleteDocument({ name });
 			logger.debug({ documentName: name }, 'Deleted Discovery Engine document');
 		}
+
+		return documentNames.length;
 	}
 
 	async search(searchRequest: google.cloud.discoveryengine.v1.ISearchRequest): Promise<google.cloud.discoveryengine.v1.SearchResponse.ISearchResult[]> {
@@ -220,10 +216,14 @@ export class DiscoveryEngine {
 		const parent = this.branchPath;
 
 		try {
-			const [documents] = await this.documentClient.listDocuments({
-				parent,
-				pageSize,
-			});
+			// autoPaginate: false is required to respect pageSize, otherwise the client fetches all documents
+			const [documents] = await this.documentClient.listDocuments(
+				{
+					parent,
+					pageSize,
+				},
+				{ autoPaginate: false },
+			);
 
 			logger.info(`Found ${documents.length} documents in data store`);
 			return documents;

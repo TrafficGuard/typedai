@@ -1,5 +1,7 @@
 import { expect } from 'chai';
-import { agentContext, agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { agentContextStorage } from '#agent/agentContext';
+import { createContext } from '#agent/agentContextUtils';
 import { initInMemoryApplicationContext } from '#app/applicationContext';
 import { mockLLMs } from '#llm/services/mock-llm';
 import { setupConditionalLoggerOutput } from '#test/testUtils';

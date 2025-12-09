@@ -3,7 +3,7 @@ import { promises as fs, Stats } from 'node:fs';
 import path, { basename, dirname, join } from 'node:path';
 import type { Span } from '@opentelemetry/api';
 import micromatch from 'micromatch';
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { typedaiDirName } from '#app/appDirs';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';

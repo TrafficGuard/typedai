@@ -263,7 +263,7 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 				const stat = await fs.stat(path.join(repoRoot, cf.filePath));
 				const extension = path.extname(cf.filePath);
 				return {
-					filePath: path.join(repoRoot, cf.filePath),
+					filePath: cf.filePath, // Store relative path for portability across machines
 					relativePath: cf.filePath,
 					language: this.detectLanguage(extension),
 					content: cf.content,
@@ -469,9 +469,27 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 			}
 
 			// 3. Translation (optional, based on config)
+			// Only translate actual code files, not documentation (markdown, text, etc.)
 			let naturalLanguageDescriptions: string[] = [];
+			const codeLanguages = new Set([
+				'typescript',
+				'javascript',
+				'python',
+				'java',
+				'cpp',
+				'c',
+				'go',
+				'rust',
+				'ruby',
+				'php',
+				'csharp',
+				'swift',
+				'kotlin',
+				'scala',
+			]);
+			const isCodeFile = codeLanguages.has(fileInfo.language);
 
-			if (this.config.chunking?.dualEmbedding) {
+			if (this.config.chunking?.dualEmbedding && isCodeFile) {
 				onProgress?.({
 					phase: 'translating',
 					currentFile: fileInfo.filePath,
@@ -556,7 +574,7 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 		const language = this.detectLanguage(ext);
 
 		return {
-			filePath: fullPath,
+			filePath: filePath, // Store relative path for portability across machines
 			relativePath: filePath,
 			language,
 			content,
@@ -598,6 +616,16 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 	async purgeAll(): Promise<void> {
 		logger.warn('Purging all documents');
 		await this.vectorStore.purge();
+	}
+
+	/**
+	 * Delete a single file from the vector store
+	 * @returns Number of documents deleted
+	 */
+	async deleteFile(filePath: string): Promise<number> {
+		const count = await this.vectorStore.deleteByFilePath(filePath);
+		logger.info({ filePath, deletedCount: count }, 'Deleted file from vector store');
+		return count;
 	}
 
 	/**
