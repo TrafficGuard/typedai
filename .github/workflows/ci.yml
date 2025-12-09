@@ -11,6 +11,8 @@ jobs:
   unit-tests:
     name: Backend (Unit Tests)
     runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v3
       - uses: pnpm/action-setup@v2
@@ -32,8 +34,6 @@ jobs:
       #   run: pnpm functionSchemas
       - name: Run unit tests (server)
         run: pnpm run test:unit
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
 
   db-tests-firestore:
     name: Database tests (firestore)
