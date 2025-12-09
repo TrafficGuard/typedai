@@ -82,7 +82,7 @@ async function main() {
 
 		// Query with file selection
 		const { files, answer } = await queryWithFileSelection2(textPrompt, {
-			useXtraHardLLM: useXhard,
+			useHardLLM: useXhard,
 			initialFilePaths: initialFilePaths.length > 0 ? initialFilePaths : undefined,
 		});
 

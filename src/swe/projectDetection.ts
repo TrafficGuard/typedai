@@ -43,7 +43,7 @@ export interface ProjectInfoFileFormat {
 	test: ScriptCommand;
 	/** Vector search configuration - references presets from typedai's .vectorconfig.json */
 	vector?: RepositoryVectorConfig | RepositoryVectorConfig[];
-	fileSelection?: string,
+	fileSelection?: string;
 	/** File system tree display configuration */
 	fileSystemTree?: {
 		/** Folders to exclude from the tree display */

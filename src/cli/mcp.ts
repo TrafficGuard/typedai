@@ -80,13 +80,13 @@ server.tool(
 	{
 		workingDirectory: z.string().describe('Absolute path to the project/repository directory'),
 		query: z.string().describe('Natural language question about the codebase'),
-		useXtraHardLLM: z.boolean().optional().describe('Use more powerful LLM for complex queries (slower but more accurate)'),
+		useHardLLM: z.boolean().optional().describe('Use more powerful LLM for complex queries (slower but more accurate)'),
 	},
-	async ({ workingDirectory, query, useXtraHardLLM }) => {
+	async ({ workingDirectory, query, useHardLLM }) => {
 		try {
 			const answer = await executeWithContext(workingDirectory, async () => {
 				return await queryWorkflowWithSearch(query, {
-					useXtraHardLLM: useXtraHardLLM ?? false,
+					useHardLLM: useHardLLM ?? false,
 				});
 			});
 
@@ -114,14 +114,14 @@ server.tool(
 	{
 		workingDirectory: z.string().describe('Absolute path to the project/repository directory'),
 		query: z.string().describe('Natural language question about the codebase'),
-		useXtraHardLLM: z.boolean().optional().describe('Use more powerful LLM for complex queries (slower but more accurate)'),
+		useHardLLM: z.boolean().optional().describe('Use more powerful LLM for complex queries (slower but more accurate)'),
 		initialFilePaths: z.array(z.string()).optional().describe('Optional initial file paths to include in context'),
 	},
-	async ({ workingDirectory, query, useXtraHardLLM, initialFilePaths }) => {
+	async ({ workingDirectory, query, useHardLLM, initialFilePaths }) => {
 		try {
 			const result = await executeWithContext(workingDirectory, async () => {
 				return await queryWithFileSelection2(query, {
-					useXtraHardLLM: useXtraHardLLM ?? false,
+					useHardLLM: useHardLLM ?? false,
 					initialFilePaths: initialFilePaths ?? undefined,
 				});
 			});

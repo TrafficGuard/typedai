@@ -190,7 +190,9 @@ export class PostgresAgentStateService implements AgentContextService {
 			userPrompt: row.user_prompt ?? '',
 			inputPrompt: row.input_prompt, // Schema expects string, DB schema for input_prompt is NOT NULL.
 			messages: this.safeJsonParse(row.messages_serialized, 'messages_serialized_schema_align') ?? [],
-			functionCallHistory: ((this.safeJsonParse(row.function_call_history_serialized, 'function_call_history_serialized_schema_align') ?? []) as FunctionCallResult[]).map(normalizeFunctionCall),
+			functionCallHistory: (
+				(this.safeJsonParse(row.function_call_history_serialized, 'function_call_history_serialized_schema_align') ?? []) as FunctionCallResult[]
+			).map(normalizeFunctionCall),
 			childAgents: this.safeJsonParse(row.child_agents_ids, 'child_agents_ids_schema_align') ?? [],
 			hilRequested: row.hil_requested === null ? undefined : row.hil_requested,
 

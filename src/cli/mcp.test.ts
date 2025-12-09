@@ -175,7 +175,7 @@ describe('MCP Server Tools', () => {
 				.addMessageResponse('<json>{"keepFiles":[{"filePath":"src/index.ts","reason":"main"}]}</json>')
 				.addMessageResponse('<result>Complex analysis result.\nConfidence: VERY_HIGH</result>');
 
-			const result = await queryWithFileSelection2('Complex query', { useXtraHardLLM: true }, llmSet);
+			const result = await queryWithFileSelection2('Complex query', { useHardLLM: true }, llmSet);
 
 			expect(result.answer).to.be.a('string');
 		});

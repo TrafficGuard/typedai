@@ -70,7 +70,7 @@ async function main() {
 		await appContext().agentStateService.save(agent);
 
 		// Query the codebase
-		const answer = await queryWorkflowWithSearch(textPrompt, { useXtraHardLLM: useXhard });
+		const answer = await queryWorkflowWithSearch(textPrompt, { useHardLLM: useXhard });
 
 		// Output results
 		console.log(`\n${'='.repeat(80)}`);
