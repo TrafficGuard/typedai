@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import pino from 'pino';
-import { DISCOVERY_ENGINE_EMBEDDING_MODEL, DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT, GCLOUD_REGION, GoogleVectorServiceConfig } from './googleVectorConfig';
+import { GoogleVectorServiceConfig, getGoogleVectorServiceConfig } from './googleVectorConfig';
 import { GoogleVectorStore } from './googleVectorService';
 
 import * as fs from 'node:fs/promises';
@@ -14,25 +14,17 @@ const logger = pino({ name: 'GoogleVectorStoreIntTest' });
 describe('GoogleVectorStore Integration Test', function () {
 	this.timeout(300000); // 5 minutes
 
-	const project = GCLOUD_PROJECT;
-	const region = GCLOUD_REGION;
-	const location = DISCOVERY_ENGINE_LOCATION;
-	const collection = 'default_collection';
-
 	let vectorStore: GoogleVectorStore;
 	let testDataStoreId: string;
 
 	before(async () => {
+		const baseConfig = getGoogleVectorServiceConfig();
 		const uniqueSuffix = Date.now();
 		testDataStoreId = `test-datastore-${uniqueSuffix}`;
 
 		const config: GoogleVectorServiceConfig = {
-			project,
-			region,
-			discoveryEngineLocation: location,
-			collection,
+			...baseConfig,
 			dataStoreId: testDataStoreId,
-			embeddingModel: DISCOVERY_ENGINE_EMBEDDING_MODEL,
 		};
 		vectorStore = new GoogleVectorStore(config);
 
