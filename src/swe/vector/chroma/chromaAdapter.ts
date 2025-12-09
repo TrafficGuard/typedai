@@ -191,7 +191,7 @@ export class ChromaAdapter implements IVectorStore {
 				queryEmbeddings: [queryEmbedding],
 				nResults: maxResults,
 				where: { config_name: { $eq: configName } },
-				include: [IncludeEnum.Metadatas, IncludeEnum.Documents, IncludeEnum.Distances],
+				include: [IncludeEnum.metadatas, IncludeEnum.documents, IncludeEnum.distances],
 			});
 
 			if (!results.ids[0] || results.ids[0].length === 0) {

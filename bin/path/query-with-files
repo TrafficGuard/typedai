@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Standalone CLI command to query a codebase and get both answer and analyzed files
+# Usage: query-with-files "How is authentication implemented?"
+#        query-with-files --xhr "Explain the complete architecture"
+#        query-with-files --initial-files=src/auth.ts "What does this connect to?"
+
+if [ -z "$TYPEDAI_HOME" ]; then
+  echo "Error: TYPEDAI_HOME is not set."
+  exit 1
+fi
+
+CWD=$(pwd)
+
+# Run the query-with-files npm script with all arguments and the filesystem arg
+(
+  cd "$TYPEDAI_HOME"
+  npm run query-with-files -- --fs="${CWD}" "$@"
+)

@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Standalone CLI command to query a codebase and get answers with citations
+# Usage: query-codebase "How does the authentication system work?"
+#        query-codebase --xhr "Explain the complete data flow architecture"
+
+if [ -z "$TYPEDAI_HOME" ]; then
+  echo "Error: TYPEDAI_HOME is not set."
+  exit 1
+fi
+
+CWD=$(pwd)
+
+# Run the query-codebase npm script with all arguments and the filesystem arg
+(
+  cd "$TYPEDAI_HOME"
+  npm run query-codebase -- --fs="${CWD}" "$@"
+)
