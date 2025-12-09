@@ -32,6 +32,8 @@ jobs:
       #   run: pnpm functionSchemas
       - name: Run unit tests (server)
         run: pnpm run test:unit
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
   db-tests-firestore:
     name: Database tests (firestore)
@@ -56,10 +58,10 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:15-alpine
+        image: postgres:16-alpine
         env:
-          POSTGRES_USER: user
-          POSTGRES_PASSWORD: password
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: test
         ports:
           - 5432:5432
