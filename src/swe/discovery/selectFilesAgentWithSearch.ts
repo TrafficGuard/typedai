@@ -75,8 +75,8 @@ interface IterationResponse {
 }
 
 export interface QueryOptions {
-	/** Use the xtra hard LLM for the final answer if available */
-	useXtraHardLLM?: boolean;
+	/** Use the hard LLM for the final answer if available */
+	useHardLLM?: boolean;
 	projectInfo?: ProjectInfo;
 	/** File paths which will be used as the initial file selection */
 	initialFilePaths?: string[];
@@ -132,8 +132,8 @@ At the very end of the <result> block, add a line in the format "Confidence: LEV
 	messages.push({ role: 'user', content: finalPrompt });
 
 	// Perform the additional LLM call to get the answer
-	const xhard = resolvedLLMs.xhard;
-	const llm: LLM = opts.useXtraHardLLM && xhard ? xhard : resolvedLLMs.hard;
+	const hard = resolvedLLMs.hard;
+	const llm: LLM = opts.useHardLLM && hard ? hard : resolvedLLMs.hard;
 	// const thinking: ThinkingLevel = llm instanceof ReasonerDebateLLM ? 'none' : 'high';
 
 	let answer = await llm.generateText(messages, { id: 'Select Files query Answer', thinking: 'high' });

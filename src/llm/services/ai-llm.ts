@@ -176,6 +176,8 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 		// Gemini Flash 2.0 thinking max is about 42
 		if (opts.topK && opts.topK > 40) opts.topK = 40;
 
+		if (!opts.maxOutputTokens && this.getMaxOutputTokens()) opts.maxOutputTokens = this.getMaxOutputTokens();
+
 		opts.providerOptions ??= {};
 		const providerOptions: any = opts.providerOptions;
 		if (opts.thinking) {
@@ -188,7 +190,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 			let thinkingBudget: number | undefined;
 			// https://sdk.vercel.ai/docs/guides/sonnet-3-7#reasoning-ability
 			// https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
-			if (this.getModel().includes('claude-3-7') || this.getModel().includes('opus-4') || this.getModel().includes('sonnet-4')) {
+			if (this.getService() === 'anthropic') {
 				if (opts.thinking === 'low') thinkingBudget = 3000;
 				if (opts.thinking === 'medium') thinkingBudget = 8192;
 				else if (opts.thinking === 'high') thinkingBudget = 21_333; // maximum without streaming

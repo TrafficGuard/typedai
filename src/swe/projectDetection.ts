@@ -42,6 +42,14 @@ export interface ProjectInfoFileFormat {
 	test: ScriptCommand;
 	/** Vector search configuration - references presets from typedai's .vectorconfig.json */
 	vector?: RepositoryVectorConfig | RepositoryVectorConfig[];
+	fileSelection?: string,
+	/** File system tree display configuration */
+	fileSystemTree?: {
+		/** Folders to exclude from the tree display */
+		exclude?: string[];
+		/** Folders to collapse by default */
+		collapse?: string[];
+	};
 }
 
 export interface ProjectScripts {
@@ -64,13 +72,20 @@ export interface ProjectInfo extends ProjectScripts {
 	fileSelection: string;
 	/** GLob paths of which files should be processed by the buildIndexDocs function in repoIndexDocBuilder.ts */
 	indexDocs: string[];
+	/** File system tree display configuration */
+	fileSystemTree?: {
+		/** Folders to exclude from the tree display */
+		exclude?: string[];
+		/** Folders to collapse by default */
+		collapse?: string[];
+	};
 }
 
 // Helper function to convert ProjectInfo to ProjectInfoFileFormat for saving
 export function mapProjectInfoToFileFormat(projectInfo: ProjectInfo): ProjectInfoFileFormat {
 	// Destructure to explicitly pick fields for ProjectInfoFileFormat
-	const { baseDir, primary, language, devBranch, initialise, compile, format, staticAnalysis, test, indexDocs } = projectInfo;
-	return {
+	const { baseDir, primary, language, devBranch, initialise, compile, format, staticAnalysis, test, indexDocs, fileSystemTree, fileSelection } = projectInfo;
+	const result: ProjectInfoFileFormat = {
 		baseDir,
 		primary,
 		language,
@@ -82,6 +97,16 @@ export function mapProjectInfoToFileFormat(projectInfo: ProjectInfo): ProjectInf
 		test: normalizeScriptCommandToFileFormat(test),
 		indexDocs,
 	};
+
+	// Only include optional fields if they have meaningful values
+	if (fileSelection && fileSelection.trim() !== '') {
+		result.fileSelection = fileSelection;
+	}
+	if (fileSystemTree) {
+		result.fileSystemTree = fileSystemTree;
+	}
+
+	return result;
 }
 
 export function normalizeScriptCommandToArray(command: ScriptCommand | undefined | null): string[] {
@@ -131,8 +156,9 @@ export function parseProjectInfo(fileContents: string): ProjectInfo[] | null {
 				languageTools: getLanguageTools(language),
 				devBranch: typeof infoFromFile.devBranch === 'string' && infoFromFile.devBranch.trim() !== '' ? infoFromFile.devBranch.trim() : 'main',
 				...scripts,
-				fileSelection: 'Do not include package manager lock files',
+				fileSelection: infoFromFile.fileSelection || '',
 				indexDocs: Array.isArray(infoFromFile.indexDocs) ? infoFromFile.indexDocs : [],
+				fileSystemTree: infoFromFile.fileSystemTree,
 			};
 		});
 	} catch (e) {

@@ -1,3 +1,4 @@
+packages: []
 onlyBuiltDependencies:
   - '@biomejs/biome'
   - '@parcel/watcher'

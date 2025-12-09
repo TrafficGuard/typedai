@@ -14,6 +14,10 @@
       "frontend/src/**/*.ts",
       "bin/**",
       "shared/**"
-    ]
+    ],
+    "fileSystemTree": {
+      "exclude": [".cache", ".local", ".npm", ".pnpm-store", ".typedai", "frontend/dist"],
+      "collapse": ["variables", "test/filesystem", "resources/codeReview"]
+    }
   }
 ]

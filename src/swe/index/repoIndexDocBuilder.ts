@@ -52,7 +52,7 @@ export class IndexDocBuilder {
 		const sortedFileSummaries = fileSummaries.sort((a, b) => a.path.localeCompare(b.path));
 
 		const allSummaries = [...sortedSubFolderSummaries, ...sortedFileSummaries];
-		return allSummaries.map((summary) => `${summary.path}\n${summary.long}`).join('\n\n');
+		return allSummaries.map((summary) => `${summary.path}:\n${summary.long}`).join('\n\n');
 	}
 
 	async buildIndexDocsInternal(): Promise<void> {
@@ -591,8 +591,9 @@ export class IndexDocBuilder {
 		}
 
 		try {
-			const files = await this.fss.listFilesRecursively(docsDir, true);
 			logger.debug(`Found ${files.length} files in ${docsDir}`);
+			const useGitIgnore = false;
+			const files = await this.fss.listFilesRecursively(docsDir, useGitIgnore);
 
 			if (files.length === 0) {
 				return summaries;

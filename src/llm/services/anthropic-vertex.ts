@@ -20,7 +20,7 @@ export function anthropicVertexLLMRegistry(): Array<() => LLM> {
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude/opus-4-1
 export function Claude4_5_Opus_Vertex(): LLM {
-	return new AnthropicVertexLLM('Claude 4.54 Opus (Vertex)', 'claude-opus-4-1@20250805', 200_000, 32_000, anthropicCostFunction(5, 25), [
+	return new AnthropicVertexLLM('Claude 4.5 Opus (Vertex)', 'claude-opus-4-5@20251101', 200_000, 64_000, anthropicCostFunction(5, 25), [
 		'claude-opus-4',
 		'claude-opus-4-1@20250805',
 	]);

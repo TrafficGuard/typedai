@@ -95,13 +95,15 @@ Respond only with JSON in this format:
 	return (await llm.generateJson(prompt, {
 		id: 'Generate file summary',
 		jsonSchema: SUMMARY_JSON_SCHEMA,
+		thinking: 'none',
 	})) as any;
 }
 
 /**
  * Generates a summary for a folder.
+ * @param combinedSummary summaries of all the files and folders within this folder
  */
-export async function generateFolderSummary(llm: any, combinedSummary: string, parentSummaries: Summary[] = []): Promise<Summary> {
+export async function generateFolderSummary(llm: LLM, combinedSummary: string, parentSummaries: Summary[] = []): Promise<Summary> {
 	let parentSummaryText = '';
 	if (parentSummaries.length) {
 		parentSummaryText = '<parent-summaries>\n';
@@ -141,7 +143,8 @@ CRITICAL JSON FORMATTING:
 - Reference code elements without markdown formatting (e.g., "AuthService" not "\`AuthService\`")
 - Use plain text for all function names, class names, file names, and code references
 
-Examples of good vs bad:
+# Examples of good vs bad summaries:
+
 ❌ "This folder plays a crucial role in the project's authentication architecture"
 ✅ "Authentication: JWT middleware, session management, OAuth providers"
 
@@ -150,6 +153,10 @@ Examples of good vs bad:
 
 ❌ "Contains \`userService.ts\` and \`authService.ts\`"
 ✅ "Contains userService.ts and authService.ts"
+
+Folder: frontend/src/@fuse/components/navigation/vertical/components/divider/ 
+❌  The \`divider\` folder within \`frontend/src/@fuse/components/navigation/vertical/components\` houses the component responsible for rendering visual dividers within the vertical navigation structure.
+✅ Components responsible for rendering visual dividers within the vertical navigation structure.
 
 Respond only with JSON in this format:
 <json>
@@ -164,6 +171,7 @@ Respond only with JSON in this format:
 	return (await llm.generateJson(prompt, {
 		id: 'Generate folder summary',
 		jsonSchema: SUMMARY_JSON_SCHEMA,
+		thinking: 'none',
 	})) as any;
 }
 
