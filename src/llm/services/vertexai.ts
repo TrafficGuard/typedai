@@ -27,17 +27,18 @@ export function vertexGemini_2_5_Pro(): LLM {
 export function vertexGemini_2_5_Flash(defaultOpts?: GenerateTextOptions): LLM {
 	return new VertexLLM(
 		'Gemini 2.5 Flash',
-		'gemini-2.5-flash-preview-09-2025',
+		'gemini-2.5-flash',
 		1_000_000,
 		costPerMilTokens(0.3, 2.5),
-		['gemini-2.5-flash-preview-05-20', 'gemini-2.5-flash'],
+		['gemini-2.5-flash-preview-09-2025', 'gemini-2.5-flash-preview-05-20', 'gemini-2.5-flash'],
 		defaultOpts,
 	);
 }
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash-lite
 export function vertexGemini_2_5_Flash_Lite(): LLM {
-	return new VertexLLM('Gemini 2.5 Flash Lite', 'gemini-2.5-flash-lite-preview-09-2025', 1_000_000, costPerMilTokens(0.1, 0.4), [
+	return new VertexLLM('Gemini 2.5 Flash Lite', 'gemini-2.5-flash-lite', 1_000_000, costPerMilTokens(0.1, 0.4), [
+		'gemini-2.5-flash-lite-preview-09-2025',
 		'gemini-2.5-flash-lite',
 		'gemini-2.0-flash-lite-preview-02-05',
 		'gemini-2.5-flash-lite-preview-06-17',
@@ -46,15 +47,7 @@ export function vertexGemini_2_5_Flash_Lite(): LLM {
 
 // https://cloud.google.com/vertex-ai/generative-ai/pricing#gemini_models-3
 export function vertexGemini_3_0_Pro(): LLM {
-	return new VertexLLM(
-		'Gemini 3 Pro',
-		'gemini-3-pro-preview',
-		1_000_000,
-		costPerMilTokens(2, 12, 0.2, 4, 18, 200_000),
-		[],
-		undefined,
-		'publishers/google/models/gemini-3-pro-preview',
-	);
+	return new VertexLLM('Gemini 3 Pro', 'gemini-3-pro-preview', 1_000_000, costPerMilTokens(2, 12, 0.2, 4, 18, 200_000), [], undefined);
 }
 
 const GCLOUD_PROJECTS: string[] = [];
@@ -106,10 +99,9 @@ class VertexLLM extends AiLLM<GoogleVertexProvider> {
 
 		// console.log(`Configuring vertex provider with ${project}`);
 		let location = currentUser()?.llmConfig.vertexRegion || envVar('GCLOUD_REGION');
-		// Currently a note at https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash-lite states that the model is only available in global location
-		if (this.getId().includes('gemini-2.5-flash')) {
-			location = 'global';
-		}
+
+		location = 'global';
+
 		this.aiProvider ??= createVertex({
 			project: project,
 			location: location,
