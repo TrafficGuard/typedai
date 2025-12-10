@@ -356,6 +356,8 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 				if (!agent) return;
 				agent.pendingMessages.push(_event.text);
 				await agentService.save(agent);
+				// Remove reaction since message has been queued for processing
+				await this.api().removeReaction(event.channel, _event.ts, 'robot_face');
 				return;
 			} else {
 				logger.info(`Resuming completed agent ${agentId}`);
