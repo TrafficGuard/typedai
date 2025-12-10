@@ -27,18 +27,17 @@ export function vertexGemini_2_5_Pro(): LLM {
 export function vertexGemini_2_5_Flash(defaultOpts?: GenerateTextOptions): LLM {
 	return new VertexLLM(
 		'Gemini 2.5 Flash',
-		'gemini-2.5-flash',
+		'gemini-2.5-flash-preview-09-2025',
 		1_000_000,
 		costPerMilTokens(0.3, 2.5),
-		['gemini-2.5-flash-preview-09-2025', 'gemini-2.5-flash-preview-05-20', 'gemini-2.5-flash'],
+		['gemini-2.5-flash-preview-05-20', 'gemini-2.5-flash'],
 		defaultOpts,
 	);
 }
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash-lite
 export function vertexGemini_2_5_Flash_Lite(): LLM {
-	return new VertexLLM('Gemini 2.5 Flash Lite', 'gemini-2.5-flash-lite', 1_000_000, costPerMilTokens(0.1, 0.4), [
-		'gemini-2.5-flash-lite-preview-09-2025',
+	return new VertexLLM('Gemini 2.5 Flash Lite', 'gemini-2.5-flash-lite-preview-09-2025', 1_000_000, costPerMilTokens(0.1, 0.4), [
 		'gemini-2.5-flash-lite',
 		'gemini-2.0-flash-lite-preview-02-05',
 		'gemini-2.5-flash-lite-preview-06-17',
