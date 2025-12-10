@@ -20,18 +20,18 @@ export function setFileSystemOverride(fs: IFileSystemService | null): void {
 	_fileSystemOverride = fs;
 }
 
-// Load async on load to avoid circular dependencies and keep the llms() function synchronous
+// Defer loading to avoid circular dependencies
 let _defaultLLMs: AgentLLMs;
 
-async function loadDefaultLLMS() {
-	const { defaultLLMs } = await import('../llm/services/defaultLlmsModule.cjs');
-	_defaultLLMs = defaultLLMs;
-}
-loadDefaultLLMS();
-
 export function llms(): AgentLLMs {
-	const store = agentContextStorage.getStore();
-	return store?.llms ?? _defaultLLMs;
+	const agentContext = agentContextStorage.getStore();
+	if (agentContext?.llms) return agentContext.llms;
+
+	if (!_defaultLLMs) {
+		const { defaultLLMs } = require('../llm/services/defaultLlmsModule.cjs');
+		_defaultLLMs = defaultLLMs();
+	}
+	return _defaultLLMs;
 }
 
 /**
