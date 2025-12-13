@@ -268,6 +268,7 @@ export class PostgresAgentStateService implements AgentContextService {
 	async save(state: AgentContext): Promise<void> {
 		const dbData = this._serializeContextForDb(state);
 		const now = new Date();
+		const lastUpdate = state.lastUpdate ? new Date(state.lastUpdate) : now;
 
 		const valuesToInsert: Insertable<AgentContextsTable> = {
 			...dbData,
@@ -277,7 +278,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			// cost is part of dbData
 			// etc.
 			created_at: now,
-			last_update: now,
+			last_update: lastUpdate,
 		};
 
 		const valuesToUpdate: Updateable<AgentContextsTable> = {
@@ -286,7 +287,7 @@ export class PostgresAgentStateService implements AgentContextService {
 			// state is part of dbData
 			// cost is part of dbData
 			// etc.
-			last_update: now,
+			last_update: lastUpdate,
 		};
 
 		const saveOperation = async (trx: Transaction<Database>) => {
