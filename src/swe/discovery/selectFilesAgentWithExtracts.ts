@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { getFileSystem, llms } from '#agent/agentContextUtils';
 import { logger } from '#o11y/logger';
 import type { SelectedFile } from '#shared/files/files.model';
 import { type LlmMessage, type UserContentExt, user } from '#shared/llm/llm.model';

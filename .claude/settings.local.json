@@ -6,6 +6,18 @@
       "Bash(echo:*)",
       "Bash(pnpm run build:*)",
       "Bash(pnpm test:*)",
+      "Bash(pnpm test:unit:*)",
+      "Bash(cat:*)",
+      "Bash(node --version)",
+      "Bash(grep:*)",
+      "Bash(pnpm run test:postgres:*)",
+      "Bash(pnpm run lint:*)",
+      "Bash(pnpm run test:unit:*)",
+      "Bash(pnpm lint:*)",
+      "WebFetch(domain:github.com)",
+      "mcp__perplexity__search",
+      "Bash(pnpm run test:single:*)",
+      "Bash(chmod:*)"
     ],
     "deny": [],
     "ask": []

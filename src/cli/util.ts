@@ -1,7 +1,8 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
-import { agentContextStorage, createContext, getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { agentContextStorage } from '#agent/agentContext';
+import { createContext, getFileSystem, llms } from '#agent/agentContextUtils';
 import type { RunWorkflowConfig } from '#agent/autonomous/runAgentTypes';
 import { appContext } from '#app/applicationContext';
 import { Jira } from '#functions/jira';

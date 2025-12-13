@@ -3,7 +3,7 @@ import { promises as fs, Stats } from 'node:fs';
 import path, { basename, dirname, join } from 'node:path';
 import type { Span } from '@opentelemetry/api';
 import micromatch from 'micromatch';
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { typedaiDirName } from '#app/appDirs';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
@@ -52,7 +52,7 @@ export class IndexDocBuilder {
 		const sortedFileSummaries = fileSummaries.sort((a, b) => a.path.localeCompare(b.path));
 
 		const allSummaries = [...sortedSubFolderSummaries, ...sortedFileSummaries];
-		return allSummaries.map((summary) => `${summary.path}\n${summary.long}`).join('\n\n');
+		return allSummaries.map((summary) => `${summary.path}:\n${summary.long}`).join('\n\n');
 	}
 
 	async buildIndexDocsInternal(): Promise<void> {
@@ -591,12 +591,11 @@ export class IndexDocBuilder {
 		}
 
 		try {
-			const files = await this.fss.listFilesRecursively(docsDir, true);
+			const useGitIgnore = false;
+			const files = await this.fss.listFilesRecursively(docsDir, useGitIgnore);
 			logger.debug(`Found ${files.length} files in ${docsDir}`);
 
-			if (files.length === 0) {
-				return summaries;
-			}
+			if (files.length === 0) return summaries;
 
 			for (const file of files) {
 				const fileName = basename(file);

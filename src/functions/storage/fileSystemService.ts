@@ -4,7 +4,7 @@ import path, { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import ignore, { type Ignore } from 'ignore';
 import type Pino from 'pino';
-import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
 import { TYPEDAI_FS } from '#app/appDirs';
 import { parseArrayParameterValue } from '#functionSchema/functionUtils';
 import { LlmTools } from '#functions/llmTools';

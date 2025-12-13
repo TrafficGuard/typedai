@@ -1,7 +1,8 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
 import { writeFileSync } from 'node:fs';
-import { agentContextStorage, createContext } from '#agent/agentContextLocalStorage';
+import { agentContextStorage } from '#agent/agentContext';
+import { createContext } from '#agent/agentContextUtils';
 import { countTokens } from '#llm/tokens';
 import { terminalLog } from './terminal';
 

@@ -1,5 +1,5 @@
 import { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
-import { llms } from '#agent/agentContextLocalStorage';
+import { llms } from '#agent/agentContextUtils';
 import { SlackUser } from './slackChatBotService';
 /**
  * Converts a list of Slack message blocks into markdown format, preserving any code blocks, links, formatting etc.

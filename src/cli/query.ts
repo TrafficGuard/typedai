@@ -1,7 +1,8 @@
 import '#fastify/trace-init/trace-init'; // leave an empty line next so this doesn't get sorted from the first line
 
 import { writeFileSync } from 'node:fs';
-import { agentContext, getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { getFileSystem, llms } from '#agent/agentContextUtils';
 import type { RunWorkflowConfig } from '#agent/autonomous/runAgentTypes';
 import { runWorkflowAgent } from '#agent/workflow/workflowAgentRunner';
 import { appContext, initApplicationContext } from '#app/applicationContext';
@@ -49,7 +50,7 @@ async function main() {
 		await appContext().agentStateService.save(agent);
 
 		// Pass the text part of the prompt to the query workflow
-		const { files, answer } = await queryWithFileSelection2(textPrompt, { useXtraHardLLM: useXhard });
+		const { files, answer } = await queryWithFileSelection2(textPrompt, { useHardLLM: useXhard });
 		console.log(JSON.stringify(files));
 		console.log(answer);
 

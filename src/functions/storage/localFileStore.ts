@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
 import { systemDir } from '#app/appDirs';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import type { FileStore } from '#functions/storage/filestore';

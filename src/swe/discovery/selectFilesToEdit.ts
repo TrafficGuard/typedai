@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { createByModelName } from '@microsoft/tiktokenizer';
-import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { getFileSystem, llms } from '#agent/agentContextUtils';
 import { logger } from '#o11y/logger';
 import type { SelectedFile } from '#shared/files/files.model';
 import type { GenerateTextWithJsonResponse } from '#shared/llm/llm.model';

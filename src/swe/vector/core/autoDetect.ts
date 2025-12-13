@@ -1,6 +1,6 @@
-import type { AlloyDBNestedConfig, DiscoveryEngineConfig, GoogleCloudConfig, VectorStoreConfig } from './config';
+import type { AlloyDBNestedConfig, ChromaNestedConfig, DiscoveryEngineConfig, GoogleCloudConfig, VectorStoreConfig } from './config';
 
-export type VectorBackend = 'alloydb' | 'discovery-engine';
+export type VectorBackend = 'alloydb' | 'discovery-engine' | 'chroma';
 
 export interface BackendDetection {
 	backend: VectorBackend | null;
@@ -12,12 +12,36 @@ export interface BackendDetection {
  * Auto-detect available vector backend from environment variables
  *
  * Detection Priority:
- * 1. AlloyDB - ALLOYDB_HOST or PGHOST
- * 2. Discovery Engine - GCLOUD_PROJECT
- * 3. null - No backend detected
+ * 1. ChromaDB - CHROMA_URL (local-first, most common for development)
+ * 2. AlloyDB - ALLOYDB_HOST or PGHOST
+ * 3. Discovery Engine - GCLOUD_PROJECT
+ * 4. null - No backend detected
  */
 export function detectBackend(): BackendDetection {
-	// 1. Check for AlloyDB/Postgres
+	// 1. Check for ChromaDB (local-first)
+	const chromaUrl = process.env.CHROMA_URL;
+	if (chromaUrl) {
+		const chroma: ChromaNestedConfig = {
+			url: chromaUrl,
+			authToken: process.env.CHROMA_AUTH_TOKEN,
+			tenant: process.env.CHROMA_TENANT || 'default_tenant',
+			database: process.env.CHROMA_DATABASE || 'default_database',
+		};
+
+		return {
+			backend: 'chroma',
+			reason: 'ChromaDB detected via CHROMA_URL',
+			config: {
+				chroma,
+				embedding: {
+					provider: 'ollama',
+					model: process.env.OLLAMA_EMBEDDING_MODEL || 'manutic/nomic-embed-code',
+				},
+			},
+		};
+	}
+
+	// 2. Check for AlloyDB/Postgres
 	const pgHost = process.env.ALLOYDB_HOST || process.env.PGHOST;
 	if (pgHost) {
 		const alloydb: AlloyDBNestedConfig = {
@@ -35,7 +59,7 @@ export function detectBackend(): BackendDetection {
 		};
 	}
 
-	// 2. Check for Discovery Engine
+	// 3. Check for Discovery Engine
 	const gcpProject = process.env.GCLOUD_PROJECT;
 	if (gcpProject) {
 		const googleCloud: GoogleCloudConfig = {
@@ -56,7 +80,7 @@ export function detectBackend(): BackendDetection {
 		};
 	}
 
-	// 3. No backend detected
+	// 4. No backend detected
 	return {
 		backend: null,
 		reason: 'No backend detected',
@@ -71,7 +95,10 @@ export function requireBackend(): BackendDetection {
 	const detection = detectBackend();
 	if (!detection.backend) {
 		throw new Error(
-			'No vector backend detected. Set one of:\n' + '  - ALLOYDB_HOST or PGHOST (for AlloyDB/Postgres)\n' + '  - GCLOUD_PROJECT (for Discovery Engine)',
+			'No vector backend detected. Set one of:\n' +
+				'  - CHROMA_URL (for ChromaDB + Ollama, local development)\n' +
+				'  - ALLOYDB_HOST or PGHOST (for AlloyDB/Postgres)\n' +
+				'  - GCLOUD_PROJECT (for Discovery Engine)',
 		);
 	}
 	return detection;
@@ -82,6 +109,21 @@ export function requireBackend(): BackendDetection {
  */
 export function buildBackendConfig(backend: VectorBackend): Partial<VectorStoreConfig> {
 	switch (backend) {
+		case 'chroma': {
+			const chroma: ChromaNestedConfig = {
+				url: process.env.CHROMA_URL || 'http://localhost:8000',
+				authToken: process.env.CHROMA_AUTH_TOKEN,
+				tenant: process.env.CHROMA_TENANT || 'default_tenant',
+				database: process.env.CHROMA_DATABASE || 'default_database',
+			};
+			return {
+				chroma,
+				embedding: {
+					provider: 'ollama',
+					model: process.env.OLLAMA_EMBEDDING_MODEL || 'manutic/nomic-embed-code',
+				},
+			};
+		}
 		case 'alloydb': {
 			const alloydb: AlloyDBNestedConfig = {
 				host: process.env.ALLOYDB_HOST || process.env.PGHOST,

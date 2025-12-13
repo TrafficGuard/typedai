@@ -1,4 +1,4 @@
-import { llms } from '#agent/agentContextLocalStorage';
+import { llms } from '#agent/agentContextUtils';
 import { LLM } from '#shared/llm/llm.model';
 import { convertMarkdownToMrkdwn } from './slackConvertToMarkdownBlock';
 

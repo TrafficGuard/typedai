@@ -4,7 +4,7 @@ import path from 'node:path';
 import { expect } from 'chai';
 import sinon from 'sinon';
 
-import { agentContextStorage } from '#agent/agentContextLocalStorage';
+import { agentContextStorage } from '#agent/agentContext';
 import * as appDirs from '#app/appDirs';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { LocalFileStore } from './localFileStore';

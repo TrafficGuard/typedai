@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
 import { type PyodideInterface, loadPyodide } from 'pyodide';
+import { agentContext } from '#agent/agentContext';
+import { agentContextStorage } from '#agent/agentContext';
 import { type AgentExecution } from '#agent/agentExecutions';
 import { buildFunctionCallHistoryPrompt, buildMemoryPrompt, buildToolStatePrompt, updateFunctionSchemas } from '#agent/agentPromptUtils';
 import { runAgentCompleteHandler } from '#agent/autonomous/agentCompletion';
@@ -17,7 +19,7 @@ import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import type { AgentContext } from '#shared/agent/agent.model';
 import { errorToString } from '#utils/errors';
-import { agentContext, agentContextStorage, llms } from '../../agentContextLocalStorage';
+import { llms } from '../../agentContextUtils';
 
 const stopSequences = ['</response>'];
 

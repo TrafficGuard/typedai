@@ -1,4 +1,4 @@
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { funcClass } from '#functionSchema/functionDecorators';
 import type { LanguageTools } from '../languageTools';
 

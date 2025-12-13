@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { expect } from 'chai';
 import { appContext } from '#app/applicationContext';
-import { Claude4_5_Opus_Vertex, Claude4_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
+import { Claude4_5_Sonnet_Vertex } from '#llm/services/anthropic-vertex';
 import { deepSeekV3_1 } from '#llm/services/deepseek';
 import { fireworksKimi2thinking } from '#llm/services/fireworks';
 import { nebiusDeepSeekR1 } from '#llm/services/nebius';
@@ -10,7 +10,7 @@ import { openaiGPT5mini } from '#llm/services/openai';
 import { perplexityLLM } from '#llm/services/perplexity-llm';
 import { sambanovaDeepseekR1 } from '#llm/services/sambanova';
 import { togetherDeepSeekR1_0528_tput } from '#llm/services/together';
-import { vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite, vertexGemini_2_5_Pro } from '#llm/services/vertexai';
+import { vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite, vertexGemini_3_0_Pro } from '#llm/services/vertexai';
 import type { LlmMessage } from '#shared/llm/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { anthropicClaude4_5_Opus, anthropicClaude4_5_Sonnet } from './anthropic';
@@ -233,17 +233,18 @@ describe('LLMs', () => {
 				expect(response.toLowerCase()).to.include('blue');
 			});
 
-			it.skip('should stream text', async () => {
-				const response = await llm.streamText(
+			it('should stream text', async () => {
+				let response = '';
+				await llm.streamText(
 					SKY_PROMPT,
 					(chunk) => {
-						expect(chunk.type).to.equal('text-delta');
 						if (chunk.type === 'text-delta') {
-							expect(chunk.text).to.include('blue');
+							response += chunk.text;
 						}
 					},
 					{ temperature: 0, id: 'test' },
 				);
+				expect(response.toLowerCase()).to.include('blue');
 			});
 
 			it('should handle image attachments', async () => {
@@ -257,8 +258,8 @@ describe('LLMs', () => {
 			});
 		});
 
-		it('Gemini 2.5 Pro should generateText', async () => {
-			const response = await vertexGemini_2_5_Pro().generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
+		it('Gemini 3 Pro should generateText', async () => {
+			const response = await vertexGemini_3_0_Pro().generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
 			expect(response.toLowerCase()).to.include('blue');
 		});
 

@@ -1,7 +1,7 @@
 import { App, type KnownEventFromType, type SayFn, StringIndexed } from '@slack/bolt';
 import { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
 import { Member } from '@slack/web-api/dist/types/response/UsersListResponse';
-import { llms } from '#agent/agentContextLocalStorage';
+import { llms } from '#agent/agentContextUtils';
 import { AgentExecution, isAgentExecuting } from '#agent/agentExecutions';
 import { getLastFunctionCallArg } from '#agent/autonomous/agentCompletion';
 import { resumeCompletedWithUpdatedUserRequest, startAgent } from '#agent/autonomous/autonomousAgentRunner';
@@ -356,6 +356,8 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 				if (!agent) return;
 				agent.pendingMessages.push(_event.text);
 				await agentService.save(agent);
+				// Remove reaction since message has been queued for processing
+				await this.api().removeReaction(event.channel, _event.ts, 'robot_face');
 				return;
 			} else {
 				logger.info(`Resuming completed agent ${agentId}`);

@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { addCost } from '#agent/agentContextLocalStorage';
+import { addCost } from '#agent/agentContext';
 import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { currentUser } from '#user/userContext';

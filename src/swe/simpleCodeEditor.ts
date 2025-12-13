@@ -1,4 +1,4 @@
-import { getFileSystem, llms } from '#agent/agentContextLocalStorage';
+import { getFileSystem, llms } from '#agent/agentContextUtils';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { CDATA_END, CDATA_START } from '#utils/xml-utils';
 import { buildPrompt } from './codeEditingAgent';

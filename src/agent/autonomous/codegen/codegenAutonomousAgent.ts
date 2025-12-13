@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
 import { type PyodideInterface, loadPyodide } from 'pyodide';
+import { agentContext } from '#agent/agentContext';
+import { agentContextStorage } from '#agent/agentContext';
 import type { AgentExecution } from '#agent/agentExecutions';
 import {
 	buildFileSystemTreePrompt,
@@ -38,7 +40,7 @@ import { FILE_STORE_NAME, type FileMetadata } from '#shared/files/files.model';
 import { type FunctionCallResult, type ImagePartExt, type LlmMessage, type UserContentExt, messageText, system, text, user } from '#shared/llm/llm.model';
 import { errorToString } from '#utils/errors';
 import { CDATA_END, CDATA_START } from '#utils/xml-utils';
-import { agentContext, agentContextStorage, llms } from '../../agentContextLocalStorage';
+import { llms } from '../../agentContextUtils';
 import { type HitlCounters, checkHumanInTheLoop } from '../humanInTheLoopChecks';
 import { getMetricsCollector, type IterationMetricsBuilder } from '../../nextgen/metrics/metricsCollectorService';
 import { checkForImageSources } from './agentImageUtils';

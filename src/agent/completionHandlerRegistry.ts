@@ -1,4 +1,4 @@
-import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
+import { LoggerCompletedHandler } from '#agent/autonomous/agentCompletion';
 import { logger } from '#o11y/logger';
 import type { AgentCompleted } from '#shared/agent/agent.model';
 
@@ -7,7 +7,7 @@ let handlersMap = new Map<string, new () => AgentCompleted>();
 
 function initHandlers() {
 	// Initialize with default handlers
-	handlersMap.set(new ConsoleCompletedHandler().agentCompletedHandlerId(), ConsoleCompletedHandler);
+	handlersMap.set(new LoggerCompletedHandler().agentCompletedHandlerId(), LoggerCompletedHandler);
 }
 
 /**
@@ -46,5 +46,5 @@ export function registerCompletedHandler(handler: AgentCompleted): void {
 export function clearCompletedHandlers(): void {
 	handlersMap = new Map<string, new () => AgentCompleted>();
 	// Re-initialize with default handlers
-	handlersMap.set(new ConsoleCompletedHandler().agentCompletedHandlerId(), ConsoleCompletedHandler);
+	handlersMap.set(new LoggerCompletedHandler().agentCompletedHandlerId(), LoggerCompletedHandler);
 }

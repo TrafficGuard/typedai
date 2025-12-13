@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ClassDeclaration, type EnumDeclaration, type InterfaceDeclaration, Project } from 'ts-morph';
 import { funcClass } from '#functionSchema/functionDecorators';
@@ -30,6 +31,12 @@ export class TypescriptRefactor {
 
 		// Save all changes
 		project.saveSync();
+
+		// Explicitly delete the source file to ensure cleanup
+		// (ts-morph's rmSync may not work with mock-fs on newer Node.js versions)
+		if (fs.existsSync(oldFilePath)) {
+			fs.unlinkSync(oldFilePath);
+		}
 
 		console.log(`Successfully moved ${oldFilePath} to ${newFilePath} and updated all imports.`);
 	}

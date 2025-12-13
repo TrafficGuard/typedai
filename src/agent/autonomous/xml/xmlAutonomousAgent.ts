@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
+import { agentContextStorage } from '#agent/agentContext';
 import { type AgentExecution } from '#agent/agentExecutions';
 import {
 	buildFileSystemTreePrompt,
@@ -22,7 +23,7 @@ import { withActiveSpan } from '#o11y/trace';
 import type { AgentContext } from '#shared/agent/agent.model';
 import type { FunctionResponse } from '#shared/llm/llm.model';
 import { errorToString } from '#utils/errors';
-import { agentContextStorage, llms } from '../../agentContextLocalStorage';
+import { llms } from '../../agentContextUtils';
 import { type HitlCounters, checkHumanInTheLoop } from '../humanInTheLoopChecks';
 
 export const XML_AGENT_SPAN = 'XmlAgent';

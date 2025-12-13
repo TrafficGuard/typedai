@@ -67,6 +67,26 @@ export interface OllamaNestedConfig {
 }
 
 /**
+ * ChromaDB configuration (for local vector storage)
+ */
+export interface ChromaNestedConfig {
+	/** ChromaDB server URL (default: http://localhost:8000 or CHROMA_URL env var) */
+	url?: string;
+	/** Authentication token (optional, for ChromaDB Cloud or authenticated servers) */
+	authToken?: string;
+	/** Tenant name (default: 'default_tenant') */
+	tenant?: string;
+	/** Database name (default: 'default_database') */
+	database?: string;
+	/** Collection name prefix (default: 'code_chunks') */
+	collectionPrefix?: string;
+	/** Distance function: 'cosine' | 'l2' | 'ip' (default: 'cosine') */
+	distanceFunction?: 'cosine' | 'l2' | 'ip';
+	/** Hybrid search text weight (0-1, vector weight = 1 - textWeight, default: 0.3) */
+	textWeight?: number;
+}
+
+/**
  * Embedding configuration
  */
 export interface EmbeddingConfig {
@@ -153,6 +173,10 @@ export interface VectorStoreConfig {
 	/** Ollama settings (for local embedding) */
 	ollama?: OllamaNestedConfig;
 
+	// === ChromaDB Configuration ===
+	/** ChromaDB settings (for local vector storage) */
+	chroma?: ChromaNestedConfig;
+
 	// === Embedding Configuration ===
 	/** Embedding settings */
 	embedding?: EmbeddingConfig;
@@ -232,6 +256,35 @@ import { type VectorBackend, buildBackendConfig, requireBackend } from './autoDe
 import { type RepositoryVectorConfig, getPreset, listPresets } from './presets';
 
 /**
+ * Deep merge two objects, with source values taking precedence
+ * Only merges plain objects, not arrays or other types
+ */
+function deepMerge<T>(target: T, source: Partial<T>): T {
+	const result = { ...target } as T;
+	for (const key of Object.keys(source) as (keyof T)[]) {
+		const sourceValue = source[key];
+		const targetValue = target[key];
+		if (
+			sourceValue !== undefined &&
+			sourceValue !== null &&
+			typeof sourceValue === 'object' &&
+			!Array.isArray(sourceValue) &&
+			targetValue !== undefined &&
+			targetValue !== null &&
+			typeof targetValue === 'object' &&
+			!Array.isArray(targetValue)
+		) {
+			// Deep merge nested objects
+			result[key] = deepMerge(targetValue as Record<string, unknown>, sourceValue as Record<string, unknown>) as T[keyof T];
+		} else if (sourceValue !== undefined) {
+			// Overwrite with source value
+			result[key] = sourceValue as T[keyof T];
+		}
+	}
+	return result;
+}
+
+/**
  * Resolve a product repo's minimal config into a full VectorStoreConfig
  *
  * @param productConfig - Minimal config from product repo's .typedai.json
@@ -251,13 +304,12 @@ export function resolveProductConfig(productConfig: RepositoryVectorConfig): Vec
 	}
 
 	// 3. Merge: preset <- backend config <- overrides <- includePatterns
-	const config: VectorStoreConfig = {
-		...preset,
-		...backendConfig,
-		...(productConfig.overrides || {}),
-		includePatterns: productConfig.includePatterns,
-		name: productConfig.name,
-	};
+	// Use deep merge to properly combine nested objects like googleCloud and discoveryEngine
+	let config: VectorStoreConfig = { ...preset };
+	config = deepMerge(config, backendConfig);
+	config = deepMerge(config, productConfig.overrides || {});
+	config.includePatterns = productConfig.includePatterns;
+	config.name = productConfig.name;
 
 	// Remove preset registry fields (those are for identification, not runtime)
 	config.default = undefined;

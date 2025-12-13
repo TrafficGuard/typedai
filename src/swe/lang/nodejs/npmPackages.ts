@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { PublicWeb } from '#functions/web/web';
 import { defaultLLMs } from '#llm/services/defaultLlms';

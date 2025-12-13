@@ -1,5 +1,5 @@
 import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
-import { ConsoleCompletedHandler } from '#agent/autonomous/agentCompletion';
+import { LoggerCompletedHandler } from '#agent/autonomous/agentCompletion';
 import { getCompletedHandler } from '#agent/completionHandlerRegistry';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { deserializeLLMs } from '#llm/llmFactory';
@@ -106,10 +106,10 @@ export function deserializeContext(data: AgentContextApi): AgentContext {
 		completedHandlerImpl = getCompletedHandler(data.completedHandler);
 		if (!completedHandlerImpl) {
 			logger.warn(`Unknown completedHandler during deserialization: ${data.completedHandler}, defaulting to ConsoleCompletedHandler`);
-			completedHandlerImpl = new ConsoleCompletedHandler();
+			completedHandlerImpl = new LoggerCompletedHandler();
 		}
 	} else {
-		completedHandlerImpl = new ConsoleCompletedHandler(); // Default if no ID
+		completedHandlerImpl = new LoggerCompletedHandler(); // Default if no ID
 	}
 
 	const toolStateImpl = typeof data.toolState === 'string' ? JSON.parse(data.toolState) : (data.toolState ?? {});

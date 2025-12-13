@@ -1,4 +1,5 @@
-import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import path from 'node:path';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
 import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
 import type { FileStore } from '#functions/storage/filestore';
@@ -9,6 +10,8 @@ import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFile
 import type { Summary } from '#swe/index/llmSummaries';
 import { loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
 import { generateFileSystemTreeWithSummaries } from '#swe/index/repositoryMap';
+import { getProjectInfo } from '#swe/projectDetection';
+import { agentContext } from './agentContext';
 
 /**
  * @return An XML representation of the agent's memory
@@ -38,12 +41,46 @@ export async function buildFileSystemTreePrompt(): Promise<string> {
 		return ''; // Tool not active
 	}
 
+	// Initialize toolState from projectInfo config if not already set
+	if (!agent.toolState?.FileSystemTree) {
+		const projectInfo = await getProjectInfo();
+		const defaultCollapsed = projectInfo?.fileSystemTree?.collapse || [];
+
+		if (defaultCollapsed.length > 0) {
+			// Get file system paths for translation
+			const fss = getFileSystem();
+			const vcsRoot = fss.getVcsRoot();
+			const workingDir = fss.getWorkingDirectory();
+
+			// Translate config paths to be relative to current working directory
+			const translatedPaths = defaultCollapsed
+				.map((configPath) => {
+					// Config paths are relative to VCS root (where .typedai.json lives)
+					const absolutePath = path.isAbsolute(configPath) ? configPath : path.resolve(vcsRoot || workingDir, configPath);
+
+					// Make it relative to current working directory
+					const relativePath = path.relative(workingDir, absolutePath);
+					return relativePath;
+				})
+				.filter((p) => p && !p.startsWith('..')); // Filter out invalid/parent paths
+
+			// Store in agent toolState
+			agent.toolState ??= {};
+			agent.toolState.FileSystemTree = Array.from(new Set(translatedPaths));
+		} else {
+			// Initialize as empty array if no defaults
+			agent.toolState ??= {};
+			agent.toolState.FileSystemTree = [];
+		}
+	}
+
 	// Ensure agent.toolState.FileSystemTree is treated as an array, defaulting to empty if not present or not an array.
 	let collapsedFolders: string[] = agent.toolState?.FileSystemTree ?? [];
 	if (!Array.isArray(collapsedFolders)) {
-		logger.warn(`agent.toolState.FileSystemTree was not an array (type: ${typeof collapsedFolders}). Defaulting to empty array.`, {
-			currentToolState: agent.toolState?.FileSystemTree,
-		});
+		logger.warn(
+			{ currentToolState: agent.toolState?.FileSystemTree },
+			`agent.toolState.FileSystemTree was not an array (type: ${typeof collapsedFolders}). Defaulting to empty array.`,
+		);
 		collapsedFolders = [];
 	}
 
@@ -51,7 +88,7 @@ export async function buildFileSystemTreePrompt(): Promise<string> {
 		const summaries: Map<string, Summary> = await loadBuildDocsSummaries();
 		// For this prompt, we typically don't want file summaries to keep it concise,
 		// focusing on folder structure and collapsed state.
-		const treeString = await generateFileSystemTreeWithSummaries(summaries, false, collapsedFolders);
+		const treeString = await generateFileSystemTreeWithSummaries(summaries, true, collapsedFolders);
 
 		if (!treeString.trim()) return '\n<file_system_tree>\n<!-- File system is empty or all folders are collapsed at the root. -->\n</file_system_tree>\n';
 
@@ -145,9 +182,11 @@ export function buildFunctionCallHistoryPrompt(type: 'history' | 'results', maxL
 	// Iterate over function calls in reverse order (newest first)
 	for (let i = functionCalls.length - 1; i >= 0; i--) {
 		const call = functionCalls[i]!;
+		// Ensure parameters is always an object
+		const parameters = call.parameters || {};
 		let params = '';
-		if (call.parameters) {
-			for (let [name, value] of Object.entries(call.parameters)) {
+		if (Object.keys(parameters).length > 0) {
+			for (let [name, value] of Object.entries(parameters)) {
 				if (Array.isArray(value)) value = JSON.stringify(value, null, ' ');
 				// if (typeof value === 'string' && value.length > 150) value = `${value.slice(0, 150)}...`;
 				// if (typeof value === 'string') value = value.replace('"', '\\"');
@@ -173,7 +212,7 @@ export function buildFunctionCallHistoryPrompt(type: 'history' | 'results', maxL
 		}
 
 		// Construct the function call string
-		const paramString = Object.keys(call.parameters).length > 0 ? `{${params}}` : '';
+		const paramString = Object.keys(parameters).length > 0 ? `{${params}}` : '';
 		const functionCallString = `<function_call>\n ${call.function_name}(${paramString})\n ${output}</function_call>\n`;
 		const newLength = currentLength + functionCallString.length;
 

@@ -1,4 +1,4 @@
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { cacheRetry } from '#cache/cacheRetry';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { type MergeRequest, getSourceControlManagementTool } from '#functions/scm/sourceControlManagement';

@@ -1,4 +1,4 @@
-import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
 import type { GetToolType } from '#shared/agent/functions';
 
 import type { GitProject } from '#shared/scm/git.model';

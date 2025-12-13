@@ -344,13 +344,14 @@ export class AlloyDBAdapter implements IVectorStore {
 		logger.info({ chunkCount: chunks.length }, 'Successfully indexed all chunks');
 	}
 
-	async deleteByFilePath(filePath: string): Promise<void> {
+	async deleteByFilePath(filePath: string): Promise<number> {
 		const configName = this.config.name || 'default';
 		logger.info({ filePath, configName, tableName: this.tableName }, 'Deleting chunks by file path');
 
 		const result = await this.client.query(`DELETE FROM ${this.tableName} WHERE filename = $1 AND name = $2`, [filePath, configName]);
 
 		logger.info({ deletedCount: result.rowCount }, 'Deleted chunks');
+		return result.rowCount || 0;
 	}
 
 	async search(query: string, queryEmbedding: number[], maxResults: number, config: VectorStoreConfig): Promise<SearchResult[]> {

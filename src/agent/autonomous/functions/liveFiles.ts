@@ -1,4 +1,4 @@
-import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 
 export const LIVE_FILES_ADD = 'LiveFiles_addFiles';

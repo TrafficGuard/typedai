@@ -1,7 +1,8 @@
 import { promises as fs } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { agentStorageDir, systemDir } from '#app/appDirs';
 import type { MergeRequest, SourceControlManagement } from '#functions/scm/sourceControlManagement';
 import { logger } from '#o11y/logger';

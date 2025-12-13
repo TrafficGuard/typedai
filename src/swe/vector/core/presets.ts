@@ -20,7 +20,7 @@ export interface RepositoryVectorConfig {
 	includePatterns: string[];
 
 	/** Optional: Override auto-detected backend */
-	backend?: 'alloydb' | 'discovery-engine';
+	backend?: 'alloydb' | 'discovery-engine' | 'chroma';
 
 	/** Optional: Override preset values */
 	overrides?: Partial<VectorStoreConfig>;

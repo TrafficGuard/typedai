@@ -102,12 +102,6 @@ export { GoogleVectorStore, sanitizeGitUrlForDataStoreId } from './google/google
 export type { GoogleVectorServiceConfig } from './google/googleVectorConfig';
 export {
 	getGoogleVectorServiceConfig,
-	GCLOUD_PROJECT,
-	DISCOVERY_ENGINE_LOCATION,
-	DISCOVERY_ENGINE_COLLECTION_ID,
-	GCLOUD_REGION,
-	DISCOVERY_ENGINE_DATA_STORE_ID,
-	DISCOVERY_ENGINE_EMBEDDING_MODEL,
 	FILE_PROCESSING_PARALLEL_BATCH_SIZE,
 	CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
 	CIRCUIT_BREAKER_FAILURE_THRESHOLD,

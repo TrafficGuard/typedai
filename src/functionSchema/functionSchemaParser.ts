@@ -94,8 +94,9 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 	const sourceUpdatedTimestamp = getFileUpdatedTimestamp(sourceFilePath);
 	const jsonUpdatedTimestamp = getFileUpdatedTimestamp(`${cachedPath}.json`);
 
-	// If the cached schemas are newer than the source file, then we can use them
-	if (jsonUpdatedTimestamp && sourceUpdatedTimestamp && jsonUpdatedTimestamp > sourceUpdatedTimestamp) {
+	// If the cached schemas are newer than or equal to the source file, then we can use them
+	// Using >= handles fresh git checkouts where all files have the same timestamp
+	if (jsonUpdatedTimestamp && sourceUpdatedTimestamp && jsonUpdatedTimestamp >= sourceUpdatedTimestamp) {
 		try {
 			const json = readFileSync(`${cachedPath}.json`).toString();
 			if (logger) logger.debug(`Loading cached function schemas from ${cachedPath}.json`);

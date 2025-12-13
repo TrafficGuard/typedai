@@ -454,6 +454,19 @@ export interface FunctionCallResult extends FunctionCall {
 	stderrSummary?: string;
 }
 
+/**
+ * Ensures a FunctionCall object has a valid parameters object.
+ * This is needed when loading from storage where parameters might be undefined or null.
+ * @param call The function call to normalize
+ * @returns The same object with parameters defaulted to {} if missing
+ */
+export function normalizeFunctionCall<T extends FunctionCall>(call: T): T {
+	if (!call.parameters) {
+		call.parameters = {};
+	}
+	return call;
+}
+
 export function combinePrompts(userPrompt: string, systemPrompt?: string): string {
 	systemPrompt = systemPrompt ? `${systemPrompt}\n` : '';
 	return `${systemPrompt}${userPrompt}`;

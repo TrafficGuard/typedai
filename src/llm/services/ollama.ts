@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { agentContext } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
 import { appContext } from '#app/applicationContext';
 import { callStack } from '#llm/llmCallService/llmCall';
 import { countTokens } from '#llm/tokens';

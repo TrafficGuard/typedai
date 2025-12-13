@@ -4,8 +4,8 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import mockFs from 'mock-fs';
 import sinon from 'sinon';
-import * as agentContextLocalStorage from '#agent/agentContextLocalStorage';
-import { setFileSystemOverride } from '#agent/agentContextLocalStorage';
+import * as agentContextLocalStorage from '#agent/agentContextUtils';
+import { setFileSystemOverride } from '#agent/agentContextUtils';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import {

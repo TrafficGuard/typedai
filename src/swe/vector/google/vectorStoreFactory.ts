@@ -1,7 +1,7 @@
-import { getFileSystem } from '#agent/agentContextLocalStorage';
+import { getFileSystem } from '#agent/agentContextUtils';
 import { Git } from '#functions/scm/git';
 import { VectorStore } from '../vector';
-import { DISCOVERY_ENGINE_COLLECTION_ID, DISCOVERY_ENGINE_LOCATION, GCLOUD_PROJECT } from './googleVectorConfig';
+import { getGoogleVectorServiceConfig } from './googleVectorConfig';
 import { GoogleVectorStore, sanitizeGitUrlForDataStoreId } from './googleVectorService';
 
 /**
@@ -21,13 +21,9 @@ export async function createGoogleVectorService(repoPath: string): Promise<Vecto
 	}
 	const dataStoreId = sanitizeGitUrlForDataStoreId(originUrl);
 
+	const config = getGoogleVectorServiceConfig();
 	return new GoogleVectorStore({
-		project: GCLOUD_PROJECT,
-		discoveryEngineLocation: DISCOVERY_ENGINE_LOCATION,
-		collection: DISCOVERY_ENGINE_COLLECTION_ID,
+		...config,
 		dataStoreId: dataStoreId,
-		// Assuming a default or configurable embedding model is needed here
-		embeddingModel: 'gemini-embedding-001', // Or import from config if available
-		region: 'us-central1', // Or import from config if available
 	});
 }
