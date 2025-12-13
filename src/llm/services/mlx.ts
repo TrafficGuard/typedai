@@ -11,6 +11,8 @@ import { BaseLLM } from '../base-llm';
 
 export const MLX_SERVICE = 'mlx';
 
+// https://machinelearning.apple.com/research/exploring-llms-mlx-m5
+
 /**
  * Configuration for MLX LLM models
  */
