@@ -6,6 +6,7 @@
 
 import { spawn } from 'node:child_process';
 import { logger } from '#o11y/logger';
+import type { ProgressSignal } from '#shared/agent/agent.model';
 import type {
 	CheckpointCondition,
 	CheckpointConfig,
@@ -19,7 +20,6 @@ import type {
 	CheckpointTrigger,
 } from '#shared/evaluation/checkpoint.model';
 import type { CheckpointResult, CriterionResult } from '#shared/evaluation/taskEvaluation.model';
-import type { ProgressSignal } from '#shared/agent/agent.model';
 import { getMetricsCollector } from '../metrics/metricsCollectorService';
 
 /**
@@ -136,9 +136,10 @@ export class CheckpointManager {
 			case 'cost_threshold':
 				return condition.threshold !== undefined && this.context.totalCost >= condition.threshold;
 
-			case 'time_threshold':
+			case 'time_threshold': {
 				const elapsedMinutes = (Date.now() - this.context.startTime) / 60000;
 				return condition.threshold !== undefined && elapsedMinutes >= condition.threshold;
+			}
 
 			case 'milestone':
 				return condition.milestoneId !== undefined && this.completedMilestones.has(condition.milestoneId);

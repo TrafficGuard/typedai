@@ -8,8 +8,8 @@
  * - Diff generation for review
  */
 
-import { execCommand, failOnError, arg } from '#utils/exec';
 import { logger } from '#o11y/logger';
+import { arg, execCommand, failOnError } from '#utils/exec';
 import type { Subtask, SubtaskToolState } from './subtask.model';
 
 /**
@@ -121,9 +121,9 @@ export class GitBranchingService {
 		const deletionsMatch = output.match(/(\d+) deletions?\(-\)/);
 
 		return {
-			filesChanged: filesMatch ? parseInt(filesMatch[1], 10) : 0,
-			linesAdded: insertionsMatch ? parseInt(insertionsMatch[1], 10) : 0,
-			linesRemoved: deletionsMatch ? parseInt(deletionsMatch[1], 10) : 0,
+			filesChanged: filesMatch ? Number.parseInt(filesMatch[1], 10) : 0,
+			linesAdded: insertionsMatch ? Number.parseInt(insertionsMatch[1], 10) : 0,
+			linesRemoved: deletionsMatch ? Number.parseInt(deletionsMatch[1], 10) : 0,
 		};
 	}
 
@@ -154,7 +154,7 @@ export class GitBranchingService {
 		const head = headCommit || 'HEAD';
 		const result = await execCommand(`git rev-list --count ${baseCommit}..${head}`, this.opts);
 		failOnError('Failed to count commits', result);
-		return parseInt(result.stdout.trim(), 10);
+		return Number.parseInt(result.stdout.trim(), 10);
 	}
 
 	/**
@@ -231,7 +231,7 @@ export class GitBranchingService {
  * Creates a subtask branch name from subtask ID and optional parent
  */
 export function createSubtaskBranchName(subtaskId: string, parentBranch?: string, prefix = 'subtask'): string {
-	if (parentBranch && parentBranch.startsWith(`${prefix}/`)) {
+	if (parentBranch?.startsWith(`${prefix}/`)) {
 		// Nested: subtask/parent/child
 		return `${parentBranch}/${subtaskId}`;
 	}

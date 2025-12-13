@@ -145,12 +145,7 @@ export type AgentContextApi = Static<typeof AgentContextSchema>;
 export const AgentContextPreviewSchema = Type.Pick(AgentContextSchema, AGENT_PREVIEW_KEYS, { $id: 'AgentContextPreview' });
 const _agentContextPreviewCheck: AreTypesFullyCompatible<AgentContextPreview, Static<typeof AgentContextPreviewSchema>> = true;
 
-const ProgressSignalSchema = Type.Union([
-	Type.Literal('forward'),
-	Type.Literal('lateral'),
-	Type.Literal('backward'),
-	Type.Literal('stuck'),
-]);
+const ProgressSignalSchema = Type.Union([Type.Literal('forward'), Type.Literal('lateral'), Type.Literal('backward'), Type.Literal('stuck')]);
 
 const DecisionTypeSchema = Type.Union([
 	Type.Literal('explore'),

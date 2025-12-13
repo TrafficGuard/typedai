@@ -9,12 +9,12 @@ import type { AutonomousIteration, DecisionType, ProgressSignal } from '#shared/
 import type { CheckpointResult, IterationPatternSummary, TaskEvaluation, TaskStatus } from '#shared/evaluation/taskEvaluation.model';
 import type { LlmCall, LlmCallMetricsAggregate } from '#shared/llmCall/llmCall.model';
 import {
+	type LoopDetectionResult,
 	calculateIterationSimilarity,
 	calculateProgressSignal,
 	countFileOperations,
 	detectLoop,
 	inferDecisionType,
-	type LoopDetectionResult,
 } from './progressDetector';
 
 /**
@@ -210,7 +210,7 @@ export class MetricsCollectorService {
 	/**
 	 * Detects if the agent is stuck in a loop
 	 */
-	detectLoop(agentId: string, lookback: number = 5): LoopDetectionResult {
+	detectLoop(agentId: string, lookback = 5): LoopDetectionResult {
 		const history = this.iterationHistory.get(agentId) || [];
 		return detectLoop(history, { lookbackWindow: lookback, similarityThreshold: 0.85, minLoopLength: 3 });
 	}
@@ -237,7 +237,7 @@ export class MetricsCollectorService {
 		const iterationPatterns = this.analyzeIterationPatterns(history);
 
 		// Calculate file change totals
-		let filesCreated = 0;
+		const filesCreated = 0;
 		let filesModified = 0;
 		let linesAdded = 0;
 		let linesRemoved = 0;

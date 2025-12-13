@@ -41,8 +41,8 @@ import { type FunctionCallResult, type ImagePartExt, type LlmMessage, type UserC
 import { errorToString } from '#utils/errors';
 import { CDATA_END, CDATA_START } from '#utils/xml-utils';
 import { llms } from '../../agentContextUtils';
+import { type IterationMetricsBuilder, getMetricsCollector } from '../../nextgen/metrics/metricsCollectorService';
 import { type HitlCounters, checkHumanInTheLoop } from '../humanInTheLoopChecks';
-import { getMetricsCollector, type IterationMetricsBuilder } from '../../nextgen/metrics/metricsCollectorService';
 import { checkForImageSources } from './agentImageUtils';
 import {
 	convertJsonToPythonDeclaration,

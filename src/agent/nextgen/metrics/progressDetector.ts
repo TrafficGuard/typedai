@@ -268,7 +268,7 @@ export function inferDecisionType(iteration: Partial<AutonomousIteration>): Deci
 	const verifyCount = funcNames.filter((fn) => verifyPatterns.some((p) => fn.includes(p))).length;
 
 	// Check for fixing (based on error presence)
-	if (iteration.error || (iteration.agentPlan && iteration.agentPlan.toLowerCase().includes('fix'))) {
+	if (iteration.error || iteration.agentPlan?.toLowerCase().includes('fix')) {
 		return 'fix';
 	}
 
@@ -315,8 +315,8 @@ export function countFileOperations(functionCalls: FunctionCallResult[]): {
 			if (fc.stdout) {
 				const addMatch = fc.stdout.match(/(\d+) insertion/);
 				const removeMatch = fc.stdout.match(/(\d+) deletion/);
-				if (addMatch) linesAdded += parseInt(addMatch[1], 10);
-				if (removeMatch) linesRemoved += parseInt(removeMatch[1], 10);
+				if (addMatch) linesAdded += Number.parseInt(addMatch[1], 10);
+				if (removeMatch) linesRemoved += Number.parseInt(removeMatch[1], 10);
 			}
 		}
 	}

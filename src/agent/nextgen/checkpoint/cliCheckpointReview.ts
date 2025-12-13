@@ -239,7 +239,7 @@ export async function cliCheckpointReview(request: CheckpointReviewRequest): Pro
 						break;
 
 					case 'x':
-					case 'abort':
+					case 'abort': {
 						const confirm = await promptChoice(rl, `${colors.red}Are you sure you want to abort? (y/n): ${colors.reset}`);
 						if (confirm === 'y' || confirm === 'yes') {
 							decision = 'abort';
@@ -248,6 +248,7 @@ export async function cliCheckpointReview(request: CheckpointReviewRequest): Pro
 							displayOptions();
 						}
 						break;
+					}
 
 					case 'n':
 					case 'notes':

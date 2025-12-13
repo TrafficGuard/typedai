@@ -201,13 +201,7 @@ export const DEFAULT_CHECKPOINT_TRIGGERS: CheckpointCondition[] = [
 /**
  * Creates a basic checkpoint for a milestone
  */
-export function createMilestoneCheckpoint(
-	id: string,
-	name: string,
-	description: string,
-	criteria: CheckpointCriterion[],
-	order: number,
-): CheckpointDefinition {
+export function createMilestoneCheckpoint(id: string, name: string, description: string, criteria: CheckpointCriterion[], order: number): CheckpointDefinition {
 	return {
 		id,
 		name,

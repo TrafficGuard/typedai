@@ -8,23 +8,23 @@
  * - Query subtask status
  */
 
-import { agentContext, getFileSystem } from '#agent/agentContextLocalStorage';
+import { agentContext } from '#agent/agentContext';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { logger } from '#o11y/logger';
 import type { AgentContext } from '#shared/agent/agent.model';
-import { GitBranchingService, createSubtaskBranchName, completeSubtask as gitCompleteSubtask, abortSubtask as gitAbortSubtask } from './gitBranching';
+import { GitBranchingService, createSubtaskBranchName, abortSubtask as gitAbortSubtask, completeSubtask as gitCompleteSubtask } from './gitBranching';
 import {
+	DEFAULT_SUBTASK_CONFIG,
+	type ReviewRound,
 	type Subtask,
-	type SubtaskToolState,
+	type SubtaskConfig,
 	type SubtaskContextStatus,
 	type SubtaskSummary,
-	type ReviewRound,
-	type SubtaskConfig,
-	DEFAULT_SUBTASK_CONFIG,
+	type SubtaskToolState,
+	createEmptySubtaskToolState,
 	getCurrentSubtask,
 	getParentChain,
 	getSubtaskDepth,
-	createEmptySubtaskToolState,
 } from './subtask.model';
 
 import type { AgentRunningState } from '#shared/agent/agent.model';

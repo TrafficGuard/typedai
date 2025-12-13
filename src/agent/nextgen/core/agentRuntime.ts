@@ -19,6 +19,7 @@ import { ContextManager, type ContextManagerConfig } from '../context/contextMan
 import { KnowledgeBase, type KnowledgeBaseConfig } from '../learning/knowledgeBase';
 import { LearningExtractor, type LearningExtractorConfig } from '../learning/learningExtractor';
 import { type OrchestratorConfig, SubAgentOrchestrator } from '../subagent/subAgentOrchestrator';
+import { HITL_REVIEW_STATE } from '../subtask/subtaskManager';
 import { ToolLoader, type ToolLoaderConfig } from '../tools/toolLoader';
 import type {
 	CompactionResult,
@@ -29,7 +30,6 @@ import type {
 	NextGenAgentContext,
 	SubAgentResult,
 } from './types';
-import { HITL_REVIEW_STATE } from '../subtask/subtaskManager';
 
 /**
  * Configuration for the agent runtime
