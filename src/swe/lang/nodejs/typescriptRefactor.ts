@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type ClassDeclaration, type EnumDeclaration, type InterfaceDeclaration, Project } from 'ts-morph';
 import { funcClass } from '#functionSchema/functionDecorators';
+import { logger } from '#o11y/logger';
 
 export type TypeScriptIdentifierType = 'class' | 'interface' | 'enum';
 
@@ -22,7 +23,7 @@ export class TypescriptRefactor {
 		// Get the source file
 		const sourceFile = project.getSourceFile(oldFilePath);
 		if (!sourceFile) {
-			console.error(`File not found: ${oldFilePath}`);
+			logger.warn(`File not found: ${oldFilePath}`);
 			return;
 		}
 
@@ -38,7 +39,7 @@ export class TypescriptRefactor {
 			fs.unlinkSync(oldFilePath);
 		}
 
-		console.log(`Successfully moved ${oldFilePath} to ${newFilePath} and updated all imports.`);
+		logger.info(`Successfully moved ${oldFilePath} to ${newFilePath} and updated all imports.`);
 	}
 
 	/**
@@ -61,7 +62,7 @@ export class TypescriptRefactor {
 
 		const sourceFile = project.getSourceFile(filePath);
 		if (!sourceFile) {
-			console.error(`File not found: ${filePath}`);
+			logger.warn(`File not found: ${filePath}`);
 			return;
 		}
 
@@ -81,12 +82,12 @@ export class TypescriptRefactor {
 				break;
 			default:
 				// It's good to log an error or throw if the type is unsupported.
-				console.error(`Unsupported identifier type: ${identifierType}. Must be 'class', 'interface', or 'enum'.`);
+				logger.warn(`Unsupported identifier type: ${identifierType}. Must be 'class', 'interface', or 'enum'.`);
 				return; // Exit if type is invalid
 		}
 
 		if (!identifierNode) {
-			console.error(`Identifier "${existingName}" of type "${identifierType}" not found in file "${filePath}".`);
+			logger.warn(`Identifier "${existingName}" of type "${identifierType}" not found in file "${filePath}".`);
 			return; // Exit if identifier is not found
 		}
 
@@ -99,10 +100,10 @@ export class TypescriptRefactor {
 		// project.save() or project.saveSync() saves all modified files in the project.
 		try {
 			project.saveSync();
-			console.log(`Successfully renamed ${identifierType} "${existingName}" to "${newName}" in ${filePath} and updated all references across the project.`);
+			logger.info(`Successfully renamed ${identifierType} "${existingName}" to "${newName}" in ${filePath} and updated all references across the project.`);
 		} catch (e: any) {
 			// Catching 'any' for error object is common in TS for unknown error structures
-			console.error(`Error saving changes after rename: ${e.message}`);
+			logger.error(e, `Error saving changes after rename: ${e.message}`);
 			// Optionally, re-throw or handle more gracefully depending on desired error management.
 		}
 	}

@@ -29,8 +29,6 @@
     "files": "    node -r esbuild-register -r src/cli/envLoader.ts src/cli/files.ts",
     "query": "    node -r esbuild-register -r src/cli/envLoader.ts src/cli/query.ts",
     "select-files": "     node -r esbuild-register -r src/cli/envLoader.ts src/cli/select-files.ts",
-    "query-codebase": "   node -r esbuild-register -r src/cli/envLoader.ts src/cli/query-codebase.ts",
-    "query-with-files": " node -r esbuild-register -r src/cli/envLoader.ts src/cli/query-with-files.ts",
     "mcp": "              node -r esbuild-register -r src/cli/envLoader.ts src/cli/mcp.ts",
     "file-tree": "        node -r esbuild-register -r src/cli/envLoader.ts src/cli/file-tree.ts",
     "repos": "    node -r esbuild-register -r src/cli/envLoader.ts src/cli/repos.ts",

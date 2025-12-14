@@ -2,9 +2,8 @@ import * as fs from 'node:fs';
 import { join, resolve } from 'node:path';
 import { expect } from 'chai';
 import mock from 'mock-fs';
-import sinon from 'sinon';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { TypeScriptIdentifierType, TypescriptRefactor } from './typescriptRefactor';
+import { TypescriptRefactor } from './typescriptRefactor';
 
 describe('TypeScriptRefactor', () => {
 	setupConditionalLoggerOutput();
@@ -13,18 +12,13 @@ describe('TypeScriptRefactor', () => {
 	const repoRoot = resolve('/mock-repo');
 
 	let refactor: TypescriptRefactor;
-	let consoleErrorSpy: sinon.SinonSpy;
-	let consoleLogSpy: sinon.SinonSpy;
 
 	beforeEach(() => {
 		// mock-fs is configured per test for renameType scenarios
 		refactor = new TypescriptRefactor();
-		consoleErrorSpy = sinon.spy(console, 'error');
-		consoleLogSpy = sinon.spy(console, 'log');
 	});
 
 	afterEach(() => {
-		sinon.restore(); // This will restore consoleErrorSpy and consoleLogSpy as well
 		mock.restore();
 	});
 
@@ -55,8 +49,6 @@ describe('TypeScriptRefactor', () => {
 			expect(fileBContent).to.include(`import { ${newClassName} } from './${fileADefinitionPath.replace('.ts', '')}'`);
 			expect(fileBContent).to.include(`new ${newClassName}()`);
 			expect(fileBContent).to.not.include(oldClassName);
-
-			expect(consoleLogSpy.calledWith(sinon.match(/Successfully renamed class/))).to.be.true;
 		});
 
 		it('should rename an interface and update its references', () => {
@@ -85,8 +77,6 @@ describe('TypeScriptRefactor', () => {
 			expect(userFileContent).to.include(`import { ${newInterfaceName} } from './${interfaceDefPath.replace('.ts', '')}'`);
 			expect(userFileContent).to.include(`const obj: ${newInterfaceName}`);
 			expect(userFileContent).to.not.include(oldInterfaceName);
-
-			expect(consoleLogSpy.calledWith(sinon.match(/Successfully renamed interface/))).to.be.true;
 		});
 
 		it('should rename an enum and update its references', () => {
@@ -114,11 +104,9 @@ describe('TypeScriptRefactor', () => {
 			expect(userFileContent).to.include(`import { ${newEnumName} } from './${enumDefPath.replace('.ts', '')}'`);
 			expect(userFileContent).to.include(`const val = ${newEnumName}.Member1`);
 			expect(userFileContent).to.not.include(oldEnumName);
-
-			expect(consoleLogSpy.calledWith(sinon.match(/Successfully renamed enum/))).to.be.true;
 		});
 
-		it('should log an error when trying to rename a non-existent identifier', () => {
+		it('should not modify file when trying to rename a non-existent identifier', () => {
 			const filePath = 'fileA.ts';
 			const existingName = 'NonExistentIdentifier';
 			const newName = 'NewIdentifier';
@@ -134,10 +122,9 @@ describe('TypeScriptRefactor', () => {
 
 			const fileContent = fs.readFileSync(join(repoRoot, filePath), 'utf-8');
 			expect(fileContent).to.include('export class SomeClass {}'); // Content should be unchanged
-			expect(consoleErrorSpy.calledWith(sinon.match(`Identifier "${existingName}" of type "class" not found`))).to.be.true;
 		});
 
-		it('should log an error when trying to rename in a non-existent file', () => {
+		it('should handle non-existent file gracefully', () => {
 			const filePath = 'nonExistentFile.ts';
 			const existingName = 'AnyIdentifier';
 			const newName = 'NewIdentifier';
@@ -149,27 +136,28 @@ describe('TypeScriptRefactor', () => {
 				// No actual file created for nonExistentFile.ts
 			});
 
+			// Should not throw
 			refactor.renameType(join(repoRoot, filePath), 'class', existingName, newName, repoRoot);
-
-			expect(consoleErrorSpy.calledWith(sinon.match(`File not found: ${join(repoRoot, filePath)}`))).to.be.true;
 		});
 
-		it('should log an error for an unsupported identifier type', () => {
+		it('should not modify file for an unsupported identifier type', () => {
 			const filePath = 'fileA.ts';
 			const existingName = 'SomeName';
 			const newName = 'NewName';
+			const originalContent = `export function ${existingName}() {}`;
 
 			mock({
 				[join(repoRoot, 'tsconfig.json')]: JSON.stringify({
 					files: [filePath],
 				}),
-				[join(repoRoot, filePath)]: `export function ${existingName}() {}`, // A function, not class/interface/enum
+				[join(repoRoot, filePath)]: originalContent, // A function, not class/interface/enum
 			});
 
 			// Cast to any to bypass TypeScript type checking for the test
 			refactor.renameType(join(repoRoot, filePath), 'function' as any, existingName, newName, repoRoot);
 
-			expect(consoleErrorSpy.calledWith(sinon.match('Unsupported identifier type: function'))).to.be.true;
+			const fileContent = fs.readFileSync(join(repoRoot, filePath), 'utf-8');
+			expect(fileContent).to.equal(originalContent); // Content should be unchanged
 		});
 	});
 
@@ -193,8 +181,6 @@ describe('TypeScriptRefactor', () => {
 			const importerFileContent = fs.readFileSync(join(repoRoot, 'src/importer.ts'), 'utf-8');
 			expect(importerFileContent).to.include("import { MyClassToMove } from './fileHasBeenMoved';");
 			expect(importerFileContent).to.include('const instance = new MyClassToMove();');
-			expect(consoleLogSpy.calledWith(sinon.match(/Successfully moved .*src(\/|\\)fileToMove.ts to .*src(\/|\\)fileHasBeenMoved.ts and updated all imports./)))
-				.to.be.true;
 		});
 
 		it('should move a file to a different directory and update imports', () => {
@@ -217,12 +203,9 @@ describe('TypeScriptRefactor', () => {
 			const importerFileContent = fs.readFileSync(join(repoRoot, 'src/importerForSubdir.ts'), 'utf-8');
 			expect(importerFileContent).to.include("import { MyClassForSubdir } from '../dest/movedToDest';"); // Note relative path
 			expect(importerFileContent).to.include('const instance = new MyClassForSubdir();');
-			expect(
-				consoleLogSpy.calledWith(sinon.match(/Successfully moved .*src(\/|\\)fileToMoveToSubdir.ts to .*dest(\/|\\)movedToDest.ts and updated all imports./)),
-			).to.be.true;
 		});
 
-		it('should log an error when trying to move a non-existent file', () => {
+		it('should not create destination file when trying to move a non-existent file', () => {
 			mock({
 				[join(repoRoot, 'tsconfig.json')]: JSON.stringify({
 					files: [], // No files relevant to the non-existent one
@@ -230,12 +213,9 @@ describe('TypeScriptRefactor', () => {
 				}),
 			});
 
+			// Should not throw
 			refactor.moveFile(join(repoRoot, 'nonExistentSourceFile.ts'), join(repoRoot, 'anywhere.ts'), repoRoot);
 
-			const expectedErrorPath = join(repoRoot, 'nonExistentSourceFile.ts');
-			// Need to escape backslashes for Windows paths in sinon.match
-			const expectedErrorMessage = `File not found: ${expectedErrorPath.replace(/\\/g, '\\\\')}`;
-			expect(consoleErrorSpy.calledWith(sinon.match(new RegExp(expectedErrorMessage)))).to.be.true;
 			expect(fs.existsSync(join(repoRoot, 'anywhere.ts'))).to.be.false;
 		});
 	});
@@ -295,8 +275,6 @@ describe('TypeScriptRefactor', () => {
 			expect(frontendContent).to.include("import { MyGlobalStandardInterface } from '../../shared/commonType'");
 			expect(frontendContent).to.include('data: MyGlobalStandardInterface');
 			expect(frontendContent).to.not.include('MySharedInterface');
-
-			expect(consoleLogSpy.calledWith(sinon.match(/Successfully renamed interface MySharedInterface to MyGlobalStandardInterface/))).to.be.true;
 		});
 	});
 });

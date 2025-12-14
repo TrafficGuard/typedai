@@ -17,9 +17,25 @@
       "WebFetch(domain:github.com)",
       "mcp__perplexity__search",
       "Bash(pnpm run test:single:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(timeout 30 pnpm test:single:*)",
+      "Bash(pnpm summaries build:*)",
+      "Bash(pnpm summaries:*)"
     ],
     "deny": [],
     "ask": []
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/ensure-pnpm-check.sh"
+          }
+        ]
+      }
+    ]
   }
 }

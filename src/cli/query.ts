@@ -20,11 +20,19 @@ async function main() {
 	const { initialPrompt: rawPrompt, resumeAgentId, flags } = parseProcessArgs();
 	const { textPrompt, userContent } = await parsePromptWithImages(rawPrompt);
 
-	const useXhard: boolean = !!flags.xhr && !!llms().xhard;
-	if (flags.xhr && !useXhard) {
-		logger.error('Xhard LLM not cofigured. Check defaultLLMs.ts');
+	const useHardLLM: boolean = !!flags.h && !!llms().hard;
+	if (flags.h && !useHardLLM) {
+		logger.error('Hard LLM not configured. Check defaultLLMs.ts');
 		return;
 	}
+
+	// Parse --initial-files flag (comma-separated list of file paths)
+	const initialFilePaths: string[] = flags['initial-files']
+		? String(flags['initial-files'])
+				.split(',')
+				.map((f) => f.trim())
+				.filter(Boolean)
+		: [];
 
 	console.log(`Prompt: ${textPrompt}`);
 
@@ -50,7 +58,7 @@ async function main() {
 		await appContext().agentStateService.save(agent);
 
 		// Pass the text part of the prompt to the query workflow
-		const { files, answer } = await queryWithFileSelection2(textPrompt, { useHardLLM: useXhard });
+		const { files, answer } = await queryWithFileSelection2(textPrompt, { useHardLLM, initialFilePaths });
 		console.log(JSON.stringify(files));
 		console.log(answer);
 
@@ -63,7 +71,7 @@ async function main() {
 		agent.output = response;
 
 		writeFileSync('src/cli/query-out.md', response);
-		console.log('Wrote output to src/cli/query-out.md');
+		logger.info('Wrote output to src/cli/query-out.md');
 	});
 
 	if (agentId) {

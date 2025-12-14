@@ -1,9 +1,8 @@
 #!/bin/bash
 
-# Standalone CLI command to generate a file tree with summaries, collapsing irrelevant folders
-# Usage: file-tree "Find authentication implementation"
-#        file-tree --no-collapse "Show full tree"
-#        file-tree --include-file-summaries "Task description"
+# Generate a file tree with summaries
+# Usage: file-tree                              Show full tree with file summaries
+#        file-tree "Find authentication files"  Collapse irrelevant folders
 
 if [ -z "$TYPEDAI_HOME" ]; then
   echo "Error: TYPEDAI_HOME is not set."
@@ -15,5 +14,5 @@ CWD=$(pwd)
 # Run the file-tree npm script with all arguments and the filesystem arg
 (
   cd "$TYPEDAI_HOME"
-  npm run file-tree -- --fs="${CWD}" "$@"
+  LOG_LEVEL=fatal npm run file-tree -- --fs="${CWD}" "$@"
 )

@@ -15,40 +15,26 @@ import { loadBuildDocsSummaries } from '#swe/summaries/summaryBuilder';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 /**
- * CLI command to generate a file system tree with summaries, collapsing folders
- * not relevant to the given task/query.
+ * CLI command to generate a file system tree with summaries.
  *
  * Usage:
- *   file-tree "Find authentication implementation"
- *   file-tree --no-collapse "Show full tree"
- *   file-tree --include-file-summaries "Task description"
+ *   file-tree                                    Show full tree with file summaries
+ *   file-tree "Find authentication files"       Collapse irrelevant folders
  *
  * Flags:
- *   --no-collapse              Show full tree without collapsing any folders
- *   --include-file-summaries   Include file-level summaries (default: folder summaries only)
- *   -r                         Resume from previous agent
+ *   -r   Resume from previous agent
  */
 async function main() {
 	await initApplicationContext();
 	const agentLLMs: AgentLLMs = defaultLLMs();
-	const { initialPrompt: rawPrompt, resumeAgentId, flags } = parseProcessArgs();
-
-	const noCollapse = !!flags['no-collapse'];
-	const includeFileSummaries = !!flags['include-file-summaries'];
-
-	if (!rawPrompt.trim() && !noCollapse) {
-		console.error('Error: Please provide a task/query description');
-		console.error('Usage: file-tree "description of what you are looking for"');
-		console.error('       file-tree --no-collapse  (to show full tree)');
-		process.exit(1);
-	}
+	const { initialPrompt: rawPrompt, resumeAgentId } = parseProcessArgs();
 
 	const query = rawPrompt.trim();
+
 	if (query) {
-		console.log(`Task/Query: ${query}`);
+		console.log(`Query: ${query}`);
+		console.log('Irrelevant folders will be collapsed');
 	}
-	console.log(`Include file summaries: ${includeFileSummaries}`);
-	console.log(`Collapse irrelevant folders: ${!noCollapse}`);
 
 	const config: RunWorkflowConfig = {
 		agentName: 'File Tree',
@@ -71,21 +57,17 @@ async function main() {
 		console.log('Loading repository summaries...');
 		const summaries = await loadBuildDocsSummaries();
 
+		// Determine which folders to collapse (only if query provided)
 		let collapsedFolders: string[] = [];
-
-		if (!noCollapse && query) {
-			// Get all folder paths from summaries
-			const folderPaths = Array.from(summaries.keys()).filter((p) => !p.includes('.') || p.endsWith('/'));
-
-			// Use LLM to determine which folders to collapse
+		if (query) {
 			console.log('Analyzing folder relevance...');
 			collapsedFolders = await determineIrrelevantFolders(query, summaries, agentLLMs);
 			console.log(`Collapsing ${collapsedFolders.length} irrelevant folders`);
 		}
 
-		// Generate the tree
+		// Generate the tree with file summaries
 		console.log('Generating file tree...');
-		const tree = await generateFileSystemTreeWithSummaries(summaries, includeFileSummaries, collapsedFolders);
+		const tree = await generateFileSystemTreeWithSummaries(summaries, true, collapsedFolders);
 
 		// Output
 		console.log(`\n${'='.repeat(80)}`);
@@ -97,7 +79,7 @@ async function main() {
 
 		// Write to file
 		writeFileSync('src/cli/file-tree-out.txt', tree);
-		console.log('\nWrote output to src/cli/file-tree-out.txt');
+		logger.info('Wrote output to src/cli/file-tree-out.txt');
 	});
 
 	if (agentId) {
