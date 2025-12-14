@@ -53,8 +53,17 @@ export function openaiGPT5mini(serviceTier?: 'auto' | 'flex' | 'priority'): LLM 
 	return new OpenAI('GPT5 mini', 'gpt-5-mini', 'gpt-5-mini', costPerMilTokens(0.25, 2), 400_000, 128_000, ['gpt-4.1-mini', 'o3-mini', 'o4-mini'], serviceTier);
 }
 
-export function openaiGPT5nano(): LLM {
-	return new OpenAI('GPT5 nano', 'gpt-5-nano', 'gpt-5-nano', costPerMilTokens(0.05, 0.4), 400_000, 128_000, ['gpt-4.1-nano', 'o3-nano', 'o4-mini']);
+export function openaiGPT5nano(serviceTier?: 'auto' | 'flex' | 'priority'): LLM {
+	return new OpenAI(
+		'GPT5 nano',
+		'gpt-5-nano',
+		'gpt-5-nano',
+		costPerMilTokens(0.05, 0.4),
+		400_000,
+		128_000,
+		['gpt-4.1-nano', 'o3-nano', 'o4-mini'],
+		serviceTier,
+	);
 }
 
 export function openaiGPT5codex(): LLM {

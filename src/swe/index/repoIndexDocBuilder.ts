@@ -5,12 +5,28 @@ import type { Span } from '@opentelemetry/api';
 import micromatch from 'micromatch';
 import { getFileSystem } from '#agent/agentContextUtils';
 import { typedaiDirName } from '#app/appDirs';
+import { openAIFlexGPT5Nano } from '#llm/multi-agent/openaiFlex';
+import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
 import type { LLM } from '#shared/llm/llm.model';
 import { AI_INFO_FILENAME } from '#swe/projectDetection';
+// Cloud SQL Summary Store imports
+import { getSummaryStoreConfig, isDatabaseEnabled } from '#swe/summaryStore/config';
+import { hydrateLocalSummaries, readLocalSummaries } from '#swe/summaryStore/localHydration';
+import { getRepositoryId } from '#swe/summaryStore/repoId';
+import { createSummaryStore } from '#swe/summaryStore/summaryStoreAdapter';
+import { loadSyncState, recordPendingPush, recordSuccessfulPull, recordSuccessfulPush } from '#swe/summaryStore/syncState';
 import { errorToString } from '#utils/errors';
+import {
+	type BatchSummaryResult,
+	type FileSummaryRequest,
+	createBatchSummaryGenerator,
+	hasPendingBatchJob,
+	resumeBatchJob,
+	submitBatchJobWithPersistence,
+} from './batchSummaryGenerator';
 import { type Summary, generateDetailedSummaryPrompt, generateFileSummary, generateFolderSummary } from './llmSummaries';
 
 /**
@@ -669,4 +685,408 @@ export async function getRepositoryOverview(fss: IFileSystemService = getFileSys
 export async function loadBuildDocsSummaries(fss: IFileSystemService = getFileSystem()): Promise<Map<string, Summary>> {
 	const builder = new IndexDocBuilder(fss, {} as LLM); // LLM not used when only loading
 	return builder.loadBuildDocsSummariesInternal();
+}
+
+// ============================================================================
+// Cloud SQL Sync Integration
+// ============================================================================
+
+export interface BuildIndexDocsOptions {
+	/** Whether to sync with Cloud SQL (if configured). Default: true */
+	syncToCloud?: boolean;
+	/** Whether to pull from Cloud SQL before building. Default: true */
+	pullFirst?: boolean;
+	/** Whether to push to Cloud SQL after building. Default: true */
+	pushAfter?: boolean;
+}
+
+/**
+ * Builds index documentation with optional Cloud SQL sync.
+ *
+ * If Cloud SQL is configured in .typedai.json or env vars:
+ * 1. Pulls summaries from Cloud SQL to local cache
+ * 2. Runs incremental build (existing logic, unchanged)
+ * 3. Pushes updated summaries back to Cloud SQL
+ *
+ * If Cloud SQL is not configured, runs the existing local-only flow.
+ */
+export async function buildIndexDocsWithSync(llm: LLM, fss: IFileSystemService = getFileSystem(), options: BuildIndexDocsOptions = {}): Promise<void> {
+	const { syncToCloud = true, pullFirst = true, pushAfter = true } = options;
+
+	const config = await getSummaryStoreConfig();
+
+	// If no cloud config, run existing local-only flow (unchanged behavior)
+	if (!syncToCloud || !isDatabaseEnabled(config)) {
+		logger.debug('Database not configured, running local-only build');
+		await buildIndexDocs(llm, fss);
+		return;
+	}
+
+	const repoId = await getRepositoryId();
+	const store = await createSummaryStore(config);
+	if (!store) {
+		logger.warn('Failed to create summary store, running local-only build');
+		await buildIndexDocs(llm, fss);
+		return;
+	}
+
+	try {
+		// 1. Pull from Cloud SQL (if enabled)
+		if (pullFirst) {
+			try {
+				logger.info({ repoId }, 'Pulling summaries from Cloud SQL');
+				const cloudSummaries = await store.pull(repoId);
+				await hydrateLocalSummaries(cloudSummaries, fss);
+				await recordSuccessfulPull(repoId, fss);
+			} catch (error) {
+				logger.warn({ error }, 'Failed to pull from Cloud SQL, using local cache');
+				const syncState = await loadSyncState(fss);
+				if (syncState?.lastSuccessfulPull) {
+					logger.info({ lastPull: syncState.lastSuccessfulPull }, 'Using cached summaries from last successful pull');
+				}
+			}
+		}
+
+		// 2. Run existing incremental build (unchanged)
+		await buildIndexDocs(llm, fss);
+
+		// 3. Push to Cloud SQL (if enabled)
+		if (pushAfter) {
+			try {
+				logger.info({ repoId }, 'Pushing summaries to Cloud SQL');
+				const localSummaries = await readLocalSummaries(fss);
+				await store.push(repoId, localSummaries);
+				await recordSuccessfulPush(repoId, fss);
+			} catch (error) {
+				logger.error({ error }, 'Failed to push to Cloud SQL');
+				// Record pending paths for later retry
+				const localSummaries = await readLocalSummaries(fss);
+				await recordPendingPush(repoId, Array.from(localSummaries.keys()), fss);
+			}
+		}
+	} finally {
+		await store.close();
+	}
+}
+
+/**
+ * Pulls summaries from Cloud SQL to local cache without rebuilding.
+ * Useful for quickly getting the latest team summaries.
+ */
+export async function pullSummariesFromCloud(fss: IFileSystemService = getFileSystem()): Promise<void> {
+	const config = await getSummaryStoreConfig();
+
+	if (!isDatabaseEnabled(config)) {
+		throw new Error('Summary store database not configured');
+	}
+
+	const repoId = await getRepositoryId();
+	const store = await createSummaryStore(config);
+	if (!store) {
+		throw new Error('Failed to create summary store');
+	}
+
+	try {
+		logger.info({ repoId }, 'Pulling summaries from Cloud SQL');
+		const cloudSummaries = await store.pull(repoId);
+		await hydrateLocalSummaries(cloudSummaries, fss);
+		await recordSuccessfulPull(repoId, fss);
+		logger.info({ count: cloudSummaries.size }, 'Successfully pulled summaries from Cloud SQL');
+	} finally {
+		await store.close();
+	}
+}
+
+/**
+ * Pushes local summaries to Cloud SQL without rebuilding.
+ * Useful for syncing after manual edits.
+ */
+export async function pushSummariesToCloud(fss: IFileSystemService = getFileSystem()): Promise<void> {
+	const config = await getSummaryStoreConfig();
+
+	if (!isDatabaseEnabled(config)) {
+		throw new Error('Summary store database not configured');
+	}
+
+	const repoId = await getRepositoryId();
+	const store = await createSummaryStore(config);
+	if (!store) {
+		throw new Error('Failed to create summary store');
+	}
+
+	try {
+		logger.info({ repoId }, 'Pushing summaries to Cloud SQL');
+		const localSummaries = await readLocalSummaries(fss);
+		await store.push(repoId, localSummaries);
+		await recordSuccessfulPush(repoId, fss);
+		logger.info({ count: localSummaries.size }, 'Successfully pushed summaries to Cloud SQL');
+	} finally {
+		await store.close();
+	}
+}
+
+// ============================================================================
+// Smart LLM Selection and Batch Mode
+// ============================================================================
+
+export type SummaryMode = 'auto' | 'batch' | 'realtime';
+
+export interface SmartBuildOptions extends BuildIndexDocsOptions {
+	/**
+	 * Summary generation mode:
+	 * - 'auto': Use batch API if summary store is empty, otherwise use real-time with optimal LLM
+	 * - 'batch': Force batch API (Vertex AI Batch Prediction)
+	 * - 'realtime': Force real-time API
+	 * Default: 'auto'
+	 */
+	mode?: SummaryMode;
+	/**
+	 * Override the LLM to use for real-time processing.
+	 * If not provided, uses OpenAI Flex Nano (if configured) or defaultLLMs().easy
+	 */
+	llm?: LLM;
+	/**
+	 * Job name for batch processing. Default: 'summary-batch'
+	 */
+	batchJobName?: string;
+}
+
+/**
+ * Checks if the local summary store is empty (no summaries exist).
+ */
+export async function isSummaryStoreEmpty(fss: IFileSystemService = getFileSystem()): Promise<boolean> {
+	const repoFolder = fss.getVcsRoot() ?? fss.getWorkingDirectory();
+	const docsDir = join(repoFolder, typedaiDirName, 'docs');
+
+	try {
+		const exists = await fss.directoryExists(docsDir);
+		if (!exists) return true;
+
+		const files = await fss.listFilesRecursively(docsDir, true);
+		const summaryFiles = files.filter((f) => f.endsWith('.json') && !f.endsWith('_project_summary.json'));
+		return summaryFiles.length === 0;
+	} catch (e) {
+		return true;
+	}
+}
+
+/**
+ * Gets the optimal LLM for incremental summary updates.
+ *
+ * Prefers OpenAI Flex Nano (batch pricing with real-time API) if configured,
+ * otherwise falls back to defaultLLMs().easy.
+ */
+export function getIncrementalUpdateLLM(): LLM {
+	const flexNano = openAIFlexGPT5Nano();
+	if (flexNano.isConfigured()) {
+		logger.info('Using OpenAI Flex Nano for incremental summary updates (batch pricing)');
+		return flexNano;
+	}
+
+	const easy = defaultLLMs().easy;
+	logger.info({ llm: easy.getId() }, 'Using default easy LLM for incremental summary updates');
+	return easy;
+}
+
+/**
+ * Collects all file paths that should be indexed based on indexDocs patterns.
+ */
+async function collectIndexableFilePaths(fss: IFileSystemService): Promise<string[]> {
+	const workingDir = fss.getWorkingDirectory();
+	const projectInfoPath = path.join(workingDir, AI_INFO_FILENAME);
+
+	let projectInfoData: string;
+	try {
+		projectInfoData = await fss.readFile(projectInfoPath);
+	} catch (e: any) {
+		if (e.code === 'ENOENT') {
+			logger.warn(`${AI_INFO_FILENAME} not found. Cannot determine indexDocs patterns.`);
+			return [];
+		}
+		throw e;
+	}
+
+	const projectInfos = JSON.parse(projectInfoData);
+	const projectInfo = projectInfos[0];
+	const indexDocsPatterns: string[] = projectInfo.indexDocs || [];
+
+	if (indexDocsPatterns.length === 0) {
+		return [];
+	}
+
+	// List all files and filter by patterns
+	const allFiles = await fss.listFilesRecursively(workingDir, true);
+	const matchedFiles: string[] = [];
+
+	for (const file of allFiles) {
+		const relativePath = path.relative(workingDir, file);
+		const normalizedPath = relativePath.split(path.sep).join('/');
+		if (micromatch.isMatch(normalizedPath, indexDocsPatterns, { dot: true })) {
+			matchedFiles.push(file);
+		}
+	}
+
+	return matchedFiles;
+}
+
+/**
+ * Builds summaries using Vertex AI Batch Prediction API.
+ *
+ * This is optimal for initial indexing of a repository, offering 50% cost savings.
+ * The batch job may take up to 24 hours to complete.
+ *
+ * If a pending batch job exists, it will be resumed instead of starting a new one.
+ * If no pending job exists, a new batch job will be submitted and the function
+ * will return immediately (the job runs asynchronously in Vertex AI).
+ *
+ * Use `pnpm summaries resume` to check status and retrieve results.
+ */
+export async function buildIndexDocsWithBatch(fss: IFileSystemService = getFileSystem(), jobName = 'summary-batch'): Promise<BatchSummaryResult> {
+	return withActiveSpan('buildIndexDocsWithBatch', async (span) => {
+		// Check if there's a pending batch job to resume
+		if (await hasPendingBatchJob(fss)) {
+			logger.info('Found pending batch job, attempting to resume');
+			const resumeResult = await resumeBatchJob(fss);
+
+			if (resumeResult.status === 'succeeded' && resumeResult.result) {
+				span.setAttributes({
+					resumed: true,
+					successCount: resumeResult.result.successCount,
+					failureCount: resumeResult.result.failureCount,
+				});
+
+				// Generate folder summaries after file summaries are complete
+				if (resumeResult.result.successCount > 0) {
+					logger.info('Generating folder summaries using real-time LLM');
+					const llm = getIncrementalUpdateLLM();
+					const builder = new IndexDocBuilder(fss, llm);
+					await builder.buildIndexDocsInternal();
+				}
+
+				return resumeResult.result;
+			}
+
+			if (resumeResult.status === 'pending' || resumeResult.status === 'running') {
+				// Job still in progress
+				console.log(`\nBatch job is still ${resumeResult.status} (${resumeResult.elapsedTime}).`);
+				console.log(`Run 'pnpm summaries resume' later to check status.\n`);
+				return {
+					totalFiles: 0,
+					successCount: 0,
+					failureCount: 0,
+					skippedCount: 0,
+					jobId: resumeResult.jobId,
+					summaries: new Map(),
+				};
+			}
+
+			// Job failed, cancelled, or expired - continue to submit new job
+			logger.info({ status: resumeResult.status }, 'Previous batch job did not complete, starting new job');
+		}
+
+		logger.info('Building summaries using Vertex AI Batch Prediction');
+
+		// Collect all files to index
+		const filePaths = await collectIndexableFilePaths(fss);
+		span.setAttribute('totalFiles', filePaths.length);
+
+		if (filePaths.length === 0) {
+			logger.warn('No files to index');
+			return {
+				totalFiles: 0,
+				successCount: 0,
+				failureCount: 0,
+				skippedCount: 0,
+				summaries: new Map(),
+			};
+		}
+
+		// Collect files needing summaries
+		const batchGenerator = createBatchSummaryGenerator(fss);
+		const fileRequests = await batchGenerator.collectFilesNeedingSummaries(filePaths);
+		const skippedCount = filePaths.length - fileRequests.length;
+
+		if (fileRequests.length === 0) {
+			logger.info('All summaries up to date, nothing to process');
+			return {
+				totalFiles: filePaths.length,
+				successCount: 0,
+				failureCount: 0,
+				skippedCount,
+				summaries: new Map(),
+			};
+		}
+
+		// Submit batch job with persistence (returns immediately, job runs async)
+		const { jobId, requestCount } = await submitBatchJobWithPersistence(fss, fileRequests, jobName);
+
+		span.setAttributes({
+			jobId,
+			requestCount,
+			skippedCount,
+		});
+
+		// Return immediately - job runs asynchronously in Vertex AI
+		// User should run `pnpm summaries resume` to check status and get results
+		return {
+			totalFiles: filePaths.length,
+			successCount: 0,
+			failureCount: 0,
+			skippedCount,
+			jobId,
+			summaries: new Map(),
+		};
+	});
+}
+
+/**
+ * Builds index documentation with smart LLM selection.
+ *
+ * Behavior:
+ * - If summary store is empty (new project): Uses Vertex AI Batch Prediction for 50% cost savings
+ * - For incremental updates: Uses OpenAI Flex Nano (batch pricing) if available, otherwise defaultLLMs().easy
+ * - mode='realtime' forces real-time processing
+ * - mode='batch' forces batch processing
+ */
+export async function buildIndexDocsWithSmartLlm(fss: IFileSystemService = getFileSystem(), options: SmartBuildOptions = {}): Promise<void> {
+	const { mode = 'auto', llm, batchJobName = 'summary-batch', ...syncOptions } = options;
+
+	return withActiveSpan('buildIndexDocsWithSmartLlm', async (span) => {
+		span.setAttribute('mode', mode);
+
+		// Determine if we should use batch mode
+		let useBatch = mode === 'batch';
+
+		if (mode === 'auto') {
+			const isEmpty = await isSummaryStoreEmpty(fss);
+			span.setAttribute('summaryStoreEmpty', isEmpty);
+
+			if (isEmpty) {
+				logger.info('Summary store is empty, using batch mode for initial indexing');
+				useBatch = true;
+			}
+		}
+
+		if (useBatch) {
+			// Use Vertex AI Batch Prediction
+			const result = await buildIndexDocsWithBatch(fss, batchJobName);
+			span.setAttributes({
+				batchSuccessCount: result.successCount,
+				batchFailureCount: result.failureCount,
+			});
+
+			// Sync to cloud if configured
+			const config = await getSummaryStoreConfig();
+			if (syncOptions.syncToCloud !== false && isDatabaseEnabled(config)) {
+				await pushSummariesToCloud(fss);
+			}
+		} else {
+			// Use real-time processing with optimal LLM selection
+			const selectedLlm = llm ?? getIncrementalUpdateLLM();
+			span.setAttribute('llm', selectedLlm.getId());
+
+			logger.info({ llm: selectedLlm.getId() }, 'Using real-time processing for summary generation');
+			await buildIndexDocsWithSync(selectedLlm, fss, syncOptions);
+		}
+	});
 }

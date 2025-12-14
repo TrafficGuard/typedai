@@ -73,7 +73,7 @@ describe('xmlAgentRunner', () => {
 	async function waitForAgent(): Promise<AgentContext | null> {
 		let previewList = await appContext().agentStateService.list();
 		while (previewList.filter((agent) => agent.state === 'agent' || agent.state === 'functions').length > 0) {
-			await sleep(1000);
+			await sleep(5);
 			previewList = await appContext().agentStateService.list();
 		}
 		const agents = previewList; // previews

@@ -18,7 +18,8 @@ const reportErrors = process.env.REPORT_ERROR_LOGS?.toLowerCase() === 'true';
 
 const transportTargets: any[] = [];
 //
-// // When running locally log in a human-readable format and not JSO
+// // When running locally log in a human-readable format and not JSON
+// This creates a worker thread that keeps the Node.js event loop active. Mocha scripts need the --exit flag, otherwise it waits for the event loop to drain, causing a ~5 minute hang.
 if (process.env.LOG_PRETTY === 'true') {
 	transportTargets.push({
 		target: 'pino-pretty',

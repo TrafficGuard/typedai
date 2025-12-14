@@ -11,7 +11,37 @@ import { BaseLLM } from '../base-llm';
 
 export const MLX_SERVICE = 'mlx';
 
-// https://machinelearning.apple.com/research/exploring-llms-mlx-m5
+/**
+ * MLX LLM Provider - Local inference on Apple Silicon
+ *
+ * MLX is Apple's machine learning framework optimized for Apple Silicon (M1/M2/M3/M4).
+ * This module provides integration with mlx-lm for running LLMs locally.
+ *
+ * ## Environment Setup
+ *
+ * 1. Install mlx-lm using pipx (recommended):
+ *    ```bash
+ *    brew install pipx
+ *    pipx install mlx-lm
+ *    ```
+ *
+ * 2. Enable MLX in your environment:
+ *    ```bash
+ *    export MLX_ENABLED=true
+ *    ```
+ *
+ * 3. Models are automatically downloaded from HuggingFace on first use.
+ *    They are cached in ~/.cache/huggingface/hub/
+ *
+ * ## Troubleshooting
+ *
+ * - If you get "ENOENT" errors, ensure mlx-lm is installed and ~/.local/bin is in your PATH
+ * - For "externally-managed-environment" pip errors, use pipx instead of pip
+ * - Memory usage depends on model size. 4-bit quantized models use ~0.5GB per billion parameters
+ *
+ * @see https://github.com/ml-explore/mlx-lm
+ * @see https://machinelearning.apple.com/research/exploring-llms-mlx-m5
+ */
 
 /**
  * Configuration for MLX LLM models
@@ -217,9 +247,22 @@ export class MlxLLM extends BaseLLM {
 				args.push('--system-prompt', systemPrompt);
 			}
 
+			// Add common pip/pipx binary locations to PATH
+			const homeDir = process.env.HOME || '';
+			const additionalPaths = [
+				`${homeDir}/.local/bin`, // pipx default location
+				`${homeDir}/Library/Python/3.11/bin`, // macOS Python 3.11
+				`${homeDir}/Library/Python/3.12/bin`, // macOS Python 3.12
+				`${homeDir}/Library/Python/3.13/bin`, // macOS Python 3.13
+				`${homeDir}/Library/Python/3.14/bin`, // macOS Python 3.14
+			].join(':');
+
 			const mlxProcess = spawn('mlx_lm.generate', args, {
 				stdio: ['pipe', 'pipe', 'pipe'],
-				env: { ...process.env },
+				env: {
+					...process.env,
+					PATH: `${additionalPaths}:${process.env.PATH || ''}`,
+				},
 			});
 
 			let stdout = '';
@@ -245,6 +288,19 @@ export class MlxLLM extends BaseLLM {
 
 				// Clean up the output - remove any trailing stats
 				output = output.trim();
+
+				// Strip model-specific special tokens (e.g., Qwen3 chain-of-thought tokens)
+				// If the output has a "final" channel, extract just that content
+				const finalChannelMatch = output.match(/<\|channel\|>final<\|message\|>([\s\S]*?)(?:<\||$)/);
+				if (finalChannelMatch) {
+					output = finalChannelMatch[1].trim();
+				} else {
+					// Strip any remaining special tokens
+					output = output
+						.replace(/<\|channel\|>analysis<\|message\|>[\s\S]*?<\|end\|>/g, '')
+						.replace(/<\|(?:start|end|channel|message|assistant|user|system)[^>]*\|>/g, '')
+						.trim();
+				}
 
 				// Parse stats from stderr or stdout
 				let promptTokens = 0;

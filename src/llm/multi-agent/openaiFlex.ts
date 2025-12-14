@@ -1,12 +1,16 @@
 import type { TextStreamPart } from 'ai';
 import { BaseLLM } from '#llm/base-llm';
-import { openaiGPT5, openaiGPT5mini } from '#llm/services/openai';
+import { openaiGPT5, openaiGPT5mini, openaiGPT5nano } from '#llm/services/openai';
 import { logger } from '#o11y/logger';
 import type { GenerateTextOptions, GenerationStats, LLM, LlmMessage } from '#shared/llm/llm.model';
+import { sleep } from '#utils/async-utils';
+import { isQuotaError, parseRetryDelay } from '#utils/quotaRetry';
 
 export const OPENAI_FLEX_SERVICE = 'openai_flex';
 
 const DEFAULT_FLEX_TIMEOUT_MS = 5 * 60 * 1000; // default 5 minutes
+const DEFAULT_RATE_LIMIT_RETRIES = 10;
+const DEFAULT_RATE_LIMIT_BACKOFF_MS = 1000;
 
 export function openAIFlexLLMRegistry(): Array<() => LLM> {
 	return [openAIFlexGPT5, openAIFlexGPT5Mini];
@@ -20,9 +24,9 @@ export function openAIFlexGPT5Mini(): LLM {
 	return new OpenAIFlex('GPT5 Mini Flex', 'gpt-5-mini', openaiGPT5mini(), openaiGPT5mini('flex'));
 }
 
-// export function openAIFlexGPT5Nano(): LLM {
-// 	return new OpenAIFlex('GPT5 Nano Flex', 'gpt-5-nano', openaiGPT5nano(), openaiGPT5nano('flex'));
-// }
+export function openAIFlexGPT5Nano(): LLM {
+	return new OpenAIFlex('GPT5 Nano Flex', 'gpt-5-nano', openaiGPT5nano(), openaiGPT5nano('flex'));
+}
 
 /*
 Flex processing (OpenAI documentation)
@@ -191,41 +195,70 @@ export class OpenAIFlex extends BaseLLM {
 	}
 
 	override async generateTextFromMessages(messages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
-		const startTime = Date.now();
-		this.recordFlexAttempt();
+		for (let rateLimitAttempt = 0; rateLimitAttempt < DEFAULT_RATE_LIMIT_RETRIES; rateLimitAttempt++) {
+			const startTime = Date.now();
+			this.recordFlexAttempt();
 
-		const flexAttempt = this.createStreamAttempt(this.flexLLM, messages, opts, { collectText: true });
-		let fallbackReason: 'timeout' | 'error-before-response' | null = null;
+			const flexAttempt = this.createStreamAttempt(this.flexLLM, messages, opts, { collectText: true });
+			let fallbackReason: 'timeout' | 'error-before-response' | null = null;
+			let caughtError: unknown = null;
 
-		const timeoutHandle = this.createTimeout(() => {
-			if (flexAttempt.hasFirstChunk()) return;
-			fallbackReason = 'timeout';
-			flexAttempt.abort();
-		}, this.flexTimeoutMs);
+			const timeoutHandle = this.createTimeout(() => {
+				if (flexAttempt.hasFirstChunk()) return;
+				fallbackReason = 'timeout';
+				flexAttempt.abort();
+			}, this.flexTimeoutMs);
 
-		try {
-			const firstChunkTimestamp = await flexAttempt.firstChunk;
-			clearTimeout(timeoutHandle);
-			this.recordFlexResponse(firstChunkTimestamp - startTime);
-		} catch (error) {
-			clearTimeout(timeoutHandle);
-			if (!fallbackReason) fallbackReason = 'error-before-response';
+			try {
+				const firstChunkTimestamp = await flexAttempt.firstChunk;
+				clearTimeout(timeoutHandle);
+				this.recordFlexResponse(firstChunkTimestamp - startTime);
+			} catch (error) {
+				clearTimeout(timeoutHandle);
+				caughtError = error;
+				if (!fallbackReason) fallbackReason = 'error-before-response';
+			}
+
+			if (fallbackReason) {
+				flexAttempt.abort();
+				flexAttempt.suppressCompletionErrors();
+
+				// Check if this is a rate limit error - if so, retry flex tier instead of falling back
+				if (caughtError && isQuotaError(caughtError)) {
+					const retryDelay = parseRetryDelay(caughtError) ?? DEFAULT_RATE_LIMIT_BACKOFF_MS * 2 ** rateLimitAttempt;
+					logger.info({ model: this.getId(), attempt: rateLimitAttempt + 1, retryDelay }, 'OpenAIFlex rate limit hit, retrying flex tier after delay.');
+					await sleep(retryDelay + 100); // Add small buffer
+					continue;
+				}
+
+				this.recordFallback(fallbackReason);
+				return await this.standardLLM.generateText(messages, opts);
+			}
+
+			try {
+				const result = await flexAttempt.completion;
+				return result.text ?? '';
+			} catch (error) {
+				// Check if completion error is a rate limit error
+				if (isQuotaError(error)) {
+					const retryDelay = parseRetryDelay(error) ?? DEFAULT_RATE_LIMIT_BACKOFF_MS * 2 ** rateLimitAttempt;
+					logger.info(
+						{ model: this.getId(), attempt: rateLimitAttempt + 1, retryDelay },
+						'OpenAIFlex rate limit hit during completion, retrying flex tier after delay.',
+					);
+					await sleep(retryDelay + 100);
+					continue;
+				}
+
+				this.recordFallback('error-after-response');
+				return await this.standardLLM.generateText(messages, opts);
+			}
 		}
 
-		if (fallbackReason) {
-			this.recordFallback(fallbackReason);
-			flexAttempt.abort();
-			flexAttempt.suppressCompletionErrors();
-			return await this.standardLLM.generateText(messages, opts);
-		}
-
-		try {
-			const result = await flexAttempt.completion;
-			return result.text ?? '';
-		} catch (error) {
-			this.recordFallback('error-after-response');
-			return await this.standardLLM.generateText(messages, opts);
-		}
+		// Exhausted rate limit retries, fall back to standard tier
+		logger.warn({ model: this.getId() }, 'OpenAIFlex exhausted rate limit retries, falling back to standard tier.');
+		this.recordFallback('rate-limit-retries-exhausted');
+		return await this.standardLLM.generateText(messages, opts);
 	}
 
 	override async streamText(
@@ -233,51 +266,80 @@ export class OpenAIFlex extends BaseLLM {
 		onChunk: (chunk: TextStreamPart<any>) => void,
 		opts?: GenerateTextOptions,
 	): Promise<GenerationStats> {
-		const startTime = Date.now();
-		this.recordFlexAttempt();
+		for (let rateLimitAttempt = 0; rateLimitAttempt < DEFAULT_RATE_LIMIT_RETRIES; rateLimitAttempt++) {
+			const startTime = Date.now();
+			this.recordFlexAttempt();
 
-		let selected: 'flex' | 'standard' | null = null;
-		const flexAttempt = this.createStreamAttempt(this.flexLLM, messages as LlmMessage[], opts, {
-			onChunk: (chunk) => {
-				if (selected === null && this.isMeaningfulChunk(chunk)) selected = 'flex';
-				if (selected === 'flex') onChunk(chunk);
-			},
-		});
+			let selected: 'flex' | 'standard' | null = null;
+			const flexAttempt = this.createStreamAttempt(this.flexLLM, messages as LlmMessage[], opts, {
+				onChunk: (chunk) => {
+					if (selected === null && this.isMeaningfulChunk(chunk)) selected = 'flex';
+					if (selected === 'flex') onChunk(chunk);
+				},
+			});
 
-		let fallbackReason: 'timeout' | 'error-before-response' | null = null;
-		const timeoutHandle = this.createTimeout(() => {
-			if (flexAttempt.hasFirstChunk()) return;
-			fallbackReason = 'timeout';
-			flexAttempt.abort();
-		}, this.flexTimeoutMs);
+			let fallbackReason: 'timeout' | 'error-before-response' | null = null;
+			let caughtError: unknown = null;
+			const timeoutHandle = this.createTimeout(() => {
+				if (flexAttempt.hasFirstChunk()) return;
+				fallbackReason = 'timeout';
+				flexAttempt.abort();
+			}, this.flexTimeoutMs);
 
-		let firstChunkArrived = false;
-		try {
-			const firstChunkTimestamp = await flexAttempt.firstChunk;
-			clearTimeout(timeoutHandle);
-			firstChunkArrived = true;
-			this.recordFlexResponse(firstChunkTimestamp - startTime);
-		} catch (error) {
-			clearTimeout(timeoutHandle);
-			if (!fallbackReason) fallbackReason = 'error-before-response';
+			let firstChunkArrived = false;
+			try {
+				const firstChunkTimestamp = await flexAttempt.firstChunk;
+				clearTimeout(timeoutHandle);
+				firstChunkArrived = true;
+				this.recordFlexResponse(firstChunkTimestamp - startTime);
+			} catch (error) {
+				clearTimeout(timeoutHandle);
+				caughtError = error;
+				if (!fallbackReason) fallbackReason = 'error-before-response';
+			}
+
+			if (!firstChunkArrived) {
+				flexAttempt.abort();
+				flexAttempt.suppressCompletionErrors();
+
+				// Check if this is a rate limit error - if so, retry flex tier instead of falling back
+				if (caughtError && isQuotaError(caughtError)) {
+					const retryDelay = parseRetryDelay(caughtError) ?? DEFAULT_RATE_LIMIT_BACKOFF_MS * 2 ** rateLimitAttempt;
+					logger.info({ model: this.getId(), attempt: rateLimitAttempt + 1, retryDelay }, 'OpenAIFlex rate limit hit, retrying flex tier after delay.');
+					await sleep(retryDelay + 100); // Add small buffer
+					continue;
+				}
+
+				this.recordFallback(fallbackReason ?? 'error-before-response');
+				selected = 'standard';
+				return await this.standardLLM.streamText(messages as LlmMessage[], onChunk, opts);
+			}
+
+			try {
+				const { stats } = await flexAttempt.completion;
+				return stats;
+			} catch (error) {
+				// Check if completion error is a rate limit error
+				if (isQuotaError(error)) {
+					const retryDelay = parseRetryDelay(error) ?? DEFAULT_RATE_LIMIT_BACKOFF_MS * 2 ** rateLimitAttempt;
+					logger.info(
+						{ model: this.getId(), attempt: rateLimitAttempt + 1, retryDelay },
+						'OpenAIFlex rate limit hit during completion, retrying flex tier after delay.',
+					);
+					await sleep(retryDelay + 100);
+					continue;
+				}
+
+				this.recordFallback('error-after-response');
+				selected = 'standard';
+				return await this.standardLLM.streamText(messages as LlmMessage[], onChunk, opts);
+			}
 		}
 
-		if (!firstChunkArrived) {
-			this.recordFallback(fallbackReason ?? 'error-before-response');
-			flexAttempt.abort();
-			flexAttempt.suppressCompletionErrors();
-			selected = 'standard';
-			return await this.standardLLM.streamText(messages as LlmMessage[], onChunk, opts);
-		}
-
-		try {
-			const { stats } = await flexAttempt.completion;
-			return stats;
-		} catch (error) {
-			this.recordFallback('error-after-response');
-			selected = 'standard';
-			return await this.standardLLM.streamText(messages as LlmMessage[], onChunk, opts);
-		}
+		// Exhausted rate limit retries, fall back to standard tier
+		logger.warn({ model: this.getId() }, 'OpenAIFlex exhausted rate limit retries, falling back to standard tier.');
+		this.recordFallback('rate-limit-retries-exhausted');
+		return await this.standardLLM.streamText(messages as LlmMessage[], onChunk, opts);
 	}
 
 	private createStreamAttempt(

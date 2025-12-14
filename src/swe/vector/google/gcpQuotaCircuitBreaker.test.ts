@@ -23,7 +23,7 @@ async function triggerRecovery(breaker: GcpQuotaCircuitBreaker): Promise<void> {
 	const recovery = (breaker as any).testServiceRecovery;
 	if (typeof recovery !== 'function') throw new Error('testServiceRecovery not accessible');
 	await recovery.call(breaker);
-	await waitForAsync(50);
+	await waitForAsync(5);
 }
 
 describe('GcpQuotaCircuitBreaker', () => {
@@ -259,7 +259,7 @@ describe('GcpQuotaCircuitBreaker', () => {
 			expect(results.every((r) => r.status === 'fulfilled')).to.be.true;
 
 			// Queue should be empty
-			await waitForAsync(50);
+			await waitForAsync(5);
 			expect(circuitBreaker.getQueueDepth()).to.equal(0);
 
 			// Circuit should be closed
@@ -349,7 +349,7 @@ describe('GcpQuotaCircuitBreaker', () => {
 
 			// Trigger recovery
 			await triggerRecovery(circuitBreaker);
-			await waitForAsync(100);
+			await waitForAsync(5);
 
 			// Queue should be empty
 			expect(circuitBreaker.getQueueDepth()).to.equal(0);
@@ -470,7 +470,7 @@ describe('GcpQuotaCircuitBreaker', () => {
 		it('should log when circuit closes', async () => {
 			await triggerExecution(circuitBreaker, createFailNTimesThenSucceed(1));
 			await fakeTimer.tick();
-			await waitForAsync(50);
+			await waitForAsync(5);
 
 			expect(mockLogger.infoCalls.length).to.be.greaterThan(0);
 			const infoMessages = mockLogger.infoCalls.map((call) => JSON.stringify(call));
@@ -510,7 +510,7 @@ describe('GcpQuotaCircuitBreaker', () => {
 
 			// Trigger recovery
 			await triggerRecovery(circuitBreaker);
-			await waitForAsync(50);
+			await waitForAsync(5);
 
 			// Should close and process queue
 			expect(circuitBreaker.getState()).to.equal(CircuitState.CLOSED);
@@ -528,7 +528,7 @@ describe('GcpQuotaCircuitBreaker', () => {
 
 				// Trigger recovery
 				await fakeTimer.tick();
-				await waitForAsync(50);
+				await waitForAsync(5);
 				expect(circuitBreaker.getState()).to.equal(CircuitState.CLOSED);
 			}
 

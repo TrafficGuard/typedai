@@ -92,6 +92,9 @@ importers:
       '@google-cloud/bigquery':
         specifier: ^8.1.1
         version: 8.1.1
+      '@google-cloud/cloud-sql-connector':
+        specifier: ^1.3.5
+        version: 1.8.2
       '@google-cloud/discoveryengine':
         specifier: 2.5.2
         version: 2.5.2
@@ -366,6 +369,9 @@ importers:
       '@biomejs/biome':
         specifier: 1.9.4
         version: 1.9.4
+      '@electric-sql/pglite':
+        specifier: ^0.2.17
+        version: 0.2.17
       '@secretlint/secretlint-rule-preset-recommend':
         specifier: ^8.2.4
         version: 8.5.0
@@ -9897,7 +9903,7 @@ snapshots:
     dependencies:
       '@googleapis/sqladmin': 31.1.0
       gaxios: 7.1.1
-      google-auth-library: 10.3.0
+      google-auth-library: 10.5.0
       p-throttle: 7.0.0
     transitivePeerDependencies:
       - supports-color
@@ -14413,7 +14419,7 @@ snapshots:
     dependencies:
       extend: 3.0.2
       gaxios: 7.1.1
-      google-auth-library: 10.3.0
+      google-auth-library: 10.5.0
       qs: 6.14.0
       url-template: 2.0.8
     transitivePeerDependencies:

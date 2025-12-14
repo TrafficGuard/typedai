@@ -17,6 +17,7 @@ import { anthropicClaude4_5_Opus, anthropicClaude4_5_Sonnet } from './anthropic'
 import { cerebrasQwen3_235b_Instruct } from './cerebras';
 import { openRouterQwen3_235b_Instruct, openRouterQwen3_235b_Thinking } from './cerebras-openrouter';
 import { groqQwen3_32b } from './groq';
+import { mlxGptOss20b } from './mlx';
 
 const elephantBase64 = fs.readFileSync('test/llm/purple.jpg', 'base64');
 const pdfBase64 = fs.readFileSync('test/llm/document.pdf', 'base64');
@@ -168,6 +169,17 @@ describe('LLMs', () => {
 
 		it('should generateText', async () => {
 			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
+			expect(response.toLowerCase()).to.include('blue');
+		});
+	});
+
+	// Mac OSX only
+	describe.skip('Mlx', () => {
+		const llm = mlxGptOss20b();
+
+		it('should generateText', async () => {
+			const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });
+			console.log(response);
 			expect(response.toLowerCase()).to.include('blue');
 		});
 	});

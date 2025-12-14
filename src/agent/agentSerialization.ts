@@ -2,7 +2,6 @@ import { LlmFunctionsImpl } from '#agent/LlmFunctionsImpl';
 import { LoggerCompletedHandler } from '#agent/autonomous/agentCompletion';
 import { getCompletedHandler } from '#agent/completionHandlerRegistry';
 import { FileSystemService } from '#functions/storage/fileSystemService';
-import { deserializeLLMs } from '#llm/llmFactory';
 import { logger } from '#o11y/logger';
 import type { AgentCompleted, AgentContext, AgentLLMs, AgentRunningState, AgentType, AutonomousSubType } from '#shared/agent/agent.model';
 import type { AgentContextApi } from '#shared/agent/agent.schema';
@@ -98,6 +97,7 @@ export function deserializeContext(data: AgentContextApi): AgentContext {
 		functionConfig: {},
 	};
 
+	const { deserializeLLMs } = require('../llm/llmFactoryModule.cjs');
 	const llmsImpl = deserializeLLMs(data.llms as Record<keyof AgentLLMs, string | undefined>);
 
 	let completedHandlerImpl: AgentCompleted | null = null;
