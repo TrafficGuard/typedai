@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import type { BatchJobState } from '#llm/services/vertexBatch';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import {
 	acquireBatchLock,
 	buildFileSummaryPrompt,
@@ -54,6 +55,8 @@ function createMockFileSystem(workingDir = '/test/project'): IFileSystemService 
 }
 
 describe('batchSummaryGenerator', () => {
+	setupConditionalLoggerOutput();
+
 	describe('buildFileSummaryPrompt', () => {
 		it('should generate prompt without parent summaries', () => {
 			const fileContents = 'export function hello() { return "world"; }';

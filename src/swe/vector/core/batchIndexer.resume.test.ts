@@ -3,6 +3,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { BatchIndexerDeps, batchIndexFiles } from './batchIndexer';
 import { DEFAULT_VECTOR_CONFIG } from './config';
 import { ContextualizedChunk, FileInfo, RawChunk } from './interfaces';
@@ -72,6 +73,8 @@ const deps = (failOn?: string): BatchIndexerDeps => ({
 });
 
 describe('batchIndexFiles resume flow', () => {
+	setupConditionalLoggerOutput();
+
 	it('reuses state file to skip completed work across runs', async () => {
 		const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'vector-batch-resume-'));
 		const files = [await createFile(dir, 'one.ts'), await createFile(dir, 'two.ts')];

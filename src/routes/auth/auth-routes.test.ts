@@ -1,10 +1,12 @@
 import { expect } from 'chai';
 import { initInMemoryApplicationContext } from '#app/applicationContext';
 import type { AppFastifyInstance } from '#app/applicationTypes';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { initFastify } from '../../fastify';
 import { authRoutes } from './index'; // Ensure this import points to the correct index.ts
 
 describe.skip('Auth Routes', () => {
+	setupConditionalLoggerOutput();
 	// Note: .skip is added here
 	let fastify: AppFastifyInstance;
 	const testUser = {

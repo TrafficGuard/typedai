@@ -1,4 +1,5 @@
 import { expect } from 'chai';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { SecretManager, getSecretEnvVar, loadSecrets } from './secretConfig';
 
 class FakeSecretManager implements SecretManager {
@@ -15,6 +16,8 @@ class FakeSecretManager implements SecretManager {
 }
 
 describe('configuration', () => {
+	setupConditionalLoggerOutput();
+
 	it('loads secrets via mapping and allows getSecret/getSetting', async () => {
 		process.env.SLACK_BOT_TOKEN = 'secret://SLACK_BOT_TOKEN';
 

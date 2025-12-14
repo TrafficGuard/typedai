@@ -1,8 +1,10 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { batch, resolvablePromise, sleep } from './async-utils';
 
 describe('async-utils', () => {
+	setupConditionalLoggerOutput();
 	describe('sleep', () => {
 		it('should resolve after the specified number of milliseconds', async () => {
 			const start = Date.now();

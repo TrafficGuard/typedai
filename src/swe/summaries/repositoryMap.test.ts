@@ -6,12 +6,15 @@ import mock from 'mock-fs';
 import sinon from 'sinon';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import * as tokens from '#llm/tokens';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { File, Folder, buildFolderStructure } from './repositoryMap';
 
 // Enable chai-subset
 chai.use(chaiSubset);
 
 describe.skip('buildFolderStructure', () => {
+	setupConditionalLoggerOutput();
+
 	let fileSystemService: FileSystemService;
 	let countTokensStub: sinon.SinonStub;
 

@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import type { LlmMessage } from '#shared/llm/llm.model';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { BaseLLM } from './base-llm';
 
 // Create a concrete subclass of BaseLLM for testing
@@ -25,6 +26,8 @@ class TestLLM extends BaseLLM {
 }
 
 describe('BaseLLM.parseGenerateTextParameters', () => {
+	setupConditionalLoggerOutput();
+
 	const testLLM = new TestLLM();
 
 	it('should handle userPrompt and opts', () => {

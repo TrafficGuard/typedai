@@ -1,7 +1,7 @@
 import { DataStoreServiceClient, DocumentServiceClient, SearchServiceClient } from '@google-cloud/discoveryengine';
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
-import pino from 'pino';
 import { cacheRetry } from '#cache/cacheRetry';
+import { logger } from '#o11y/logger';
 import { quotaRetry } from '#utils/quotaRetry';
 import { CircuitBreakerConfig, GcpQuotaCircuitBreaker } from './gcpQuotaCircuitBreaker';
 import {
@@ -10,8 +10,6 @@ import {
 	CIRCUIT_BREAKER_SUCCESS_THRESHOLD,
 	GoogleVectorServiceConfig,
 } from './googleVectorConfig';
-
-const logger = pino({ name: 'DiscoveryEngineDataStore' });
 
 /**
  * Vector Search engine using Google AI Application Vertex AI Search (Discovery Engine)

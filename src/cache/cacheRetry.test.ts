@@ -1,7 +1,9 @@
 import { expect } from 'chai';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { cacheRetry } from './cacheRetry';
 
 describe.skip('@cache decorator', () => {
+	setupConditionalLoggerOutput();
 	// Mock cacheService for testing
 	const mockCacheService = {
 		get: async (key: string) => undefined,

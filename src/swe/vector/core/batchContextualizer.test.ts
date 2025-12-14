@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { contextualizeFilesBatch } from './batchContextualizer';
 import { DEFAULT_VECTOR_CONFIG, VectorStoreConfig } from './config';
 import { ContextualizedChunk, FileInfo, IChunker, IContextualizer } from './interfaces';
@@ -43,6 +44,8 @@ const makeFile = (filePath: string): FileInfo => ({
 });
 
 describe('contextualizeFilesBatch', () => {
+	setupConditionalLoggerOutput();
+
 	it('processes files in batches and preserves order', async () => {
 		const files = [makeFile('a.ts'), makeFile('b.ts'), makeFile('c.ts')];
 		const progressCalls: string[] = [];

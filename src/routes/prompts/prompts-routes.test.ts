@@ -5,6 +5,7 @@ import { createTestFastify } from '#routes/routeTestUtils';
 import type { PromptGenerateResponseSchemaModel } from '#shared/prompts/prompts.schema';
 import type { User } from '#shared/user/user.model';
 import type { ChatSettings, LLMServicesConfig } from '#shared/user/user.model';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { promptRoutes } from './prompts-routes';
 
 // Mock currentUser from #user/userContext
@@ -23,6 +24,8 @@ const mockUser: User = {
 };
 
 describe.skip('POST /api/prompts/:promptId/generate', () => {
+	setupConditionalLoggerOutput();
+
 	let app: AppFastifyInstance;
 
 	before(async () => {

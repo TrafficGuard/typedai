@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { DiscoveryEngine } from './discoveryEngine';
 import type { GoogleVectorServiceConfig } from './googleVectorConfig';
 
@@ -55,6 +56,8 @@ const createDocument = (name: string, filePath: string) => ({
 });
 
 describe('DiscoveryEngine purgeDocuments', () => {
+	setupConditionalLoggerOutput();
+
 	it('deletes matching documents for provided file paths', async () => {
 		const documentClient = new FakeDocumentClient([
 			createDocument(`${branchPath}/documents/docA`, 'src/foo.ts'),

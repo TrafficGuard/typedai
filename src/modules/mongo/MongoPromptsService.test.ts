@@ -1,8 +1,10 @@
 import { type Db, MongoClient } from 'mongodb';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { runPromptsServiceTests } from '../../../prompts/promptsService.test';
 import { MongoPromptsService } from './MongoPromptsService';
 
 describe.skip('MongoPromptsService', () => {
+	setupConditionalLoggerOutput();
 	let client: MongoClient;
 	let db: Db;
 

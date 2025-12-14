@@ -1,7 +1,9 @@
 import { expect } from 'chai';
 import { type DiffInfo, parseGitDiff } from '#swe/codeReview/local/parseGitDiff';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 describe('parseGitDiff', () => {
+	setupConditionalLoggerOutput();
 	const diff = `diff --git a/file1.ts b/file1.ts
 index e4c2480..fb74586 100644
 --- a/file1.ts

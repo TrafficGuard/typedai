@@ -3,8 +3,10 @@ import { expect } from 'chai';
 
 import { extractPythonGlobals } from '#agent/autonomous/codegen/codegenAutonomousAgentUtils';
 import { convertTypeScriptToPython } from '#agent/autonomous/codegen/pythonCodeGenUtils';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 describe('codegenAgentUtils', () => {
+	setupConditionalLoggerOutput();
 	describe('TypeScript to Python Type Conversion', () => {
 		// --- Primitives ---
 		it('should convert "string" to "str"', () => {

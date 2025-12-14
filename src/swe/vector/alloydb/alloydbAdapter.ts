@@ -1,12 +1,9 @@
-import crypto from 'node:crypto';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import type { VectorStoreConfig } from '../core/config';
 import type { EmbeddedChunk, IVectorStore, SearchResult } from '../core/interfaces';
 import { AlloyDBClient } from './alloydbClient';
 import type { AlloyDBConfig } from './alloydbConfig';
 import { buildAlloyDBConfig, getTableNameForRepo } from './alloydbConfig';
-
-const logger = pino({ name: 'AlloyDBAdapter' });
 
 /**
  * AlloyDB adapter implementing IVectorStore
@@ -18,11 +15,9 @@ export class AlloyDBAdapter implements IVectorStore {
 	private config: VectorStoreConfig;
 	private alloydbConfig: AlloyDBConfig;
 	private tableName: string;
-	private repoIdentifier: string;
 	private automatedEmbeddingsEnabled = false;
 
 	constructor(repoIdentifier: string, alloydbConfig: AlloyDBConfig) {
-		this.repoIdentifier = repoIdentifier;
 		this.alloydbConfig = alloydbConfig;
 		this.client = new AlloyDBClient(alloydbConfig);
 		this.tableName = getTableNameForRepo(repoIdentifier);

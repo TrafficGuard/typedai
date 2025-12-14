@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect } from 'chai';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 const projectRoot = path.resolve(__dirname, '..');
 
@@ -56,6 +57,8 @@ async function runConfigure(envVars: Record<string, string> = {}): Promise<{ std
 }
 
 describe.skip('bin/configure script end-to-end tests', () => {
+	setupConditionalLoggerOutput();
+
 	describe('Initial Setup (Prerequisites)', () => {
 		// Set a long timeout for this test as it involves Docker builds and package installations.
 		const TEST_TIMEOUT = 5 * 60 * 1000; // 5 minutes

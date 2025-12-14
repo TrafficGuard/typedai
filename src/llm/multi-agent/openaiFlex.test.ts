@@ -1,6 +1,7 @@
 import type { TextStreamPart } from 'ai';
 import { expect } from 'chai';
 import type { GenerateTextOptions, GenerationStats, LLM, LlmMessage } from '#shared/llm/llm.model';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { type FlexMetricsSnapshot, OPENAI_FLEX_SERVICE, OpenAIFlex } from './openaiFlex';
 
 type GenerateHandler = (messages: LlmMessage[], opts?: GenerateTextOptions) => Promise<string>;
@@ -122,6 +123,8 @@ class TestLLM implements LLM {
 }
 
 describe('OpenAIFlex', () => {
+	setupConditionalLoggerOutput();
+
 	const messages: LlmMessage[] = [{ role: 'user', content: 'hello' }];
 
 	it('uses flex response when first chunk arrives before timeout', async () => {

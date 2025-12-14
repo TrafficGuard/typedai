@@ -1,7 +1,9 @@
 import { expect } from 'chai';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { extractInstructionBlock } from './watch';
 
 describe('extractInstructionBlock', () => {
+	setupConditionalLoggerOutput();
 	it('extracts single-line instruction block', () => {
 		const content = ['const x = 1;', '@@@ Replace x with x @@', 'console.log(x);'].join('\n');
 

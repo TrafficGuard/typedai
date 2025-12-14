@@ -77,7 +77,6 @@ export function shouldApplyCodeReview(codeReview: CodeReviewConfig, projectPath:
 
 	// If project paths are provided, then there must be a match
 	if (codeReview.projectPaths.length && !micromatch.isMatch(projectPath, codeReview.projectPaths)) {
-		console.log(`Project path globs ${codeReview.projectPaths} dont match ${projectPath}`);
 		return false;
 	}
 

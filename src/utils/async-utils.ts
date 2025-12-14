@@ -73,8 +73,6 @@ export async function allSettledAndFulFilled<T>(promises: Promise<T>[]): Promise
 }
 
 export function getFulfilled<T>(settledResults: PromiseSettledResult<T>[]): T[] {
-	const rejects = settledResults.filter((result) => result.status === 'rejected').map((result) => (result as PromiseRejectedResult).reason);
-	console.log(rejects);
 	return settledResults.filter((result) => result.status === 'fulfilled').map((result) => (result as PromiseFulfilledResult<T>).value);
 }
 

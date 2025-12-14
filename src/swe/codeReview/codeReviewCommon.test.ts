@@ -3,6 +3,7 @@ import { expect } from 'chai';
 import type { CodeReviewConfig } from '#shared/codeReview/codeReview.model';
 import { addCodeWithLineNumbers, getStartingLineNumber, shouldApplyCodeReview } from '#swe/codeReview/codeReviewCommon';
 import type { CodeReviewTask } from '#swe/codeReview/codeReviewTaskModel';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 function codeReviewConfig(codeReview: Partial<CodeReviewConfig>) {
 	return {
@@ -16,6 +17,8 @@ function codeReviewConfig(codeReview: Partial<CodeReviewConfig>) {
 }
 
 describe('GitLabCodeReview', () => {
+	setupConditionalLoggerOutput();
+
 	describe('diff', () => {
 		it('should get the starting line number', async () => {
 			expect(getStartingLineNumber(' @@ -0,0 +1,76 @@\n+async function()[]\n{')).to.equal(1);

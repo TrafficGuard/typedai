@@ -1,7 +1,9 @@
 import { expect } from 'chai';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { deepEqual, extractCommonProperties } from './arrayUtils';
 
 describe('arrayUtils', () => {
+	setupConditionalLoggerOutput();
 	describe('extractCommonProperties', () => {
 		it('should return empty common properties for empty array', () => {
 			const result = extractCommonProperties([]);

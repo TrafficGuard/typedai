@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import { afterEach, beforeEach, describe, it } from 'mocha';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { CircuitState, GcpQuotaCircuitBreaker } from './gcpQuotaCircuitBreaker';
 import {
 	FakeTimer,
@@ -27,6 +28,8 @@ async function triggerRecovery(breaker: GcpQuotaCircuitBreaker): Promise<void> {
 }
 
 describe('GcpQuotaCircuitBreaker', () => {
+	setupConditionalLoggerOutput();
+
 	let circuitBreaker: GcpQuotaCircuitBreaker;
 	let fakeTimer: FakeTimer;
 	let mockLogger: MockLogger;

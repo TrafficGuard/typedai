@@ -152,16 +152,7 @@ export function extractJsonResult(rawText: string): any {
 }
 
 function parseJson(json: string, rawText: string): any {
-	try {
-		return JSON.parse(json);
-	} catch (e) {
-		console.error('-- RESPONSE --');
-		console.error(rawText);
-		console.error('-- JSON --');
-		console.log(json);
-		console.error(e);
-		throw e;
-	}
+	return JSON.parse(json);
 }
 
 /**
@@ -231,9 +222,6 @@ export function extractReasoningAndJson<T>(rawText: string): { reasoning: string
 			const object = JSON.parse(jsonString) as T;
 			return { reasoning, object, jsonString };
 		} catch (e: any) {
-			// logger.error(e, `Failed to parse extracted JSON string. Reasoning: "${reasoning}", JSON String: "${jsonString}"`);
-			console.log(`\nRaw Text:\n${rawText}\n`);
-			console.log(`\nJSON String:\n${jsonString}\n`);
 			throw new SyntaxError(`Failed to parse JSON content: ${e.message}. Extracted JSON string: "${jsonString}"`);
 		}
 	}
@@ -248,6 +236,5 @@ export function extractReasoningAndJson<T>(rawText: string): { reasoning: string
 	}
 
 	logger.error(`Failed to find a structured JSON block (markdown or XML), and the entire text is not valid JSON. Text: ${rawText}`);
-	console.log(`\n${rawText}\n`);
 	throw new Error('Failed to extract structured JSON. Expected ```json ... ``` or <json> ... </json> block, or the entire response to be plain JSON.');
 }

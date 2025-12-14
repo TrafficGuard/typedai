@@ -1,9 +1,7 @@
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import type { AlloyDBConfig } from './alloydbConfig';
 import { getPostgresConnectionOptions, validateAlloyDBConfig } from './alloydbConfig';
-
-const logger = pino({ name: 'AlloyDBClient' });
 
 /**
  * AlloyDB client with connection pooling

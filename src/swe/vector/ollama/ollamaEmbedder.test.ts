@@ -1,10 +1,12 @@
 import axios from 'axios';
 import { expect } from 'chai';
 import sinon from 'sinon';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { createOllamaDualEmbedder } from './ollamaDualEmbedder';
 import { OLLAMA_EMBEDDING_MODELS, OllamaEmbedderAdapter, createNomicCodeEmbedder, createQwen3Embedder } from './ollamaEmbedder';
 
 describe('OllamaEmbedder', () => {
+	setupConditionalLoggerOutput();
 	const apiUrl = 'http://localhost:11434';
 	let axiosPostStub: sinon.SinonStub;
 	let axiosGetStub: sinon.SinonStub;

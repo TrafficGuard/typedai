@@ -1,8 +1,6 @@
 import axios from 'axios';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import type { IEmbedder } from '../core/interfaces';
-
-const logger = pino({ name: 'OllamaEmbedder' });
 
 /**
  * Ollama embedding model configurations

@@ -3,6 +3,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { BatchIndexerDeps, batchIndexFiles } from './batchIndexer';
 import { DEFAULT_VECTOR_CONFIG } from './config';
 import { ContextualizedChunk, FileInfo, RawChunk } from './interfaces';
@@ -79,6 +80,8 @@ const baseDeps = (): BatchIndexerDeps => ({
 });
 
 describe('batchIndexFiles', () => {
+	setupConditionalLoggerOutput();
+
 	it('indexes files concurrently and preserves stats', async () => {
 		const files = [makeFile('a.ts'), makeFile('b.ts')];
 		const deps = baseDeps();

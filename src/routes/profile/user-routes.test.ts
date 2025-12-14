@@ -1,10 +1,12 @@
 import { expect } from 'chai';
 import type { FastifyInstance } from 'fastify';
 import type { User } from '#shared/user/user.model';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 import { createTestFastify } from '../routeTestUtils';
 
 describe.skip('User Routes', () => {
+	setupConditionalLoggerOutput();
 	let fastify: FastifyInstance;
 	let mockUser: User;
 

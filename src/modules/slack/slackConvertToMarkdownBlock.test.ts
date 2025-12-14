@@ -1,8 +1,10 @@
 import { expect } from 'chai';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 import { textToBlocks } from './slackConvertToMarkdownBlock';
 
 describe.skip('textToBlocks()', () => {
+	setupConditionalLoggerOutput();
 	/**********************************************************************
 	 *  SMALL / HAPPY-PATH CASES
 	 *********************************************************************/

@@ -1,7 +1,9 @@
 import { expect } from 'chai';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { type BatchPredictionResponse, aggregateBatchCosts, calculateBatchCost, createJsonBatchRequest, extractBatchResponseText } from './vertexBatch';
 
 describe('vertexBatch', () => {
+	setupConditionalLoggerOutput();
 	describe('createJsonBatchRequest', () => {
 		it('should create a basic batch request', () => {
 			const request = createJsonBatchRequest('test-id', 'Generate a summary');

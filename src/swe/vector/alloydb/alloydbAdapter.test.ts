@@ -1,12 +1,14 @@
 import { expect } from 'chai';
 import { afterEach, beforeEach, describe, it } from 'mocha';
 import * as sinon from 'sinon';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import type { VectorStoreConfig } from '../core/config';
 import type { EmbeddedChunk } from '../core/interfaces';
 import { AlloyDBAdapter } from './alloydbAdapter';
 import type { AlloyDBConfig } from './alloydbConfig';
 
 describe('AlloyDBAdapter', () => {
+	setupConditionalLoggerOutput();
 	let adapter: AlloyDBAdapter;
 	let mockAlloyDBConfig: AlloyDBConfig;
 	let mockVectorConfig: VectorStoreConfig;

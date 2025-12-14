@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import type { TypeDefinition } from '#functionSchema/typeDefinition';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import {
 	camelToSnake,
 	convertInterfaceToTypedDict,
@@ -9,6 +10,7 @@ import {
 } from './pythonCodeGenUtils';
 
 describe('PythonCodeGenUtils', () => {
+	setupConditionalLoggerOutput();
 	describe('camelToSnake', () => {
 		it('should convert camelCase to snake_case', () => {
 			expect(camelToSnake('camelCase')).to.equal('camel_case');

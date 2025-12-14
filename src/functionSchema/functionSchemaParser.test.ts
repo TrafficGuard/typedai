@@ -1,6 +1,7 @@
 import { unlinkSync } from 'node:fs';
 import { expect } from 'chai';
 import { systemDir } from '#app/appDirs';
+import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { func, funcClass } from './functionDecorators';
 import { functionSchemaParser } from './functionSchemaParser';
 import type { FunctionSchema } from './functions';
@@ -86,6 +87,8 @@ class TestClass {
 }
 
 describe('functionDefinitionParser', () => {
+	setupConditionalLoggerOutput();
+
 	let functionSchemas: Record<string, FunctionSchema>;
 
 	before(async () => {
