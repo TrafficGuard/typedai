@@ -88,7 +88,7 @@ describe('projectDetection', () => {
 					format: [],
 					staticAnalysis: 'eslint .',
 					devBranch: 'main',
-					indexDocs: ['docs/**/*.md'],
+					summaries: ['docs/**/*.md'],
 				},
 			] as ProjectInfoFileFormat[]);
 			const result = parseProjectInfo(fileContent);
@@ -143,7 +143,7 @@ describe('projectDetection', () => {
 				staticAnalysis: [],
 				languageTools: null, // Assuming LanguageTools is not relevant for this specific test
 				fileSelection: '', // Default or mock value
-				indexDocs: ['README.md'],
+				summaries: ['README.md'],
 			};
 			const result = mapProjectInfoToFileFormat(projectInfo);
 			expect(result.initialise).to.equal('npm install');
@@ -182,7 +182,7 @@ describe('projectDetection', () => {
 					staticAnalysis: 'node build.js lint',
 					test: 'cd frontend && npm run test:ci',
 					devBranch: 'main',
-					indexDocs: ['src/**/*.ts', 'frontend/src/**/*.ts', 'bin/**', 'shared/**'],
+					summaries: ['src/**/*.ts', 'frontend/src/**/*.ts', 'bin/**', 'shared/**'],
 				},
 			];
 			const mockFsConfig = {
@@ -205,7 +205,7 @@ describe('projectDetection', () => {
 			expect(project.staticAnalysis).to.deep.equal(['node build.js lint']);
 			expect(project.test).to.deep.equal(['cd frontend && npm run test:ci']);
 			expect(project.devBranch).to.equal('main');
-			expect(project.indexDocs).to.deep.equal(fileContentArray[0].indexDocs);
+			expect(project.summaries).to.deep.equal(fileContentArray[0].summaries);
 			// The agent should not be called if a valid file is found
 			// We don't have a direct stub to check `called` on anymore,
 			// but the logic implies it won't be called if `loadedInfos` is not null.
@@ -228,7 +228,7 @@ describe('projectDetection', () => {
 					staticAnalysis: '',
 					test: 'pytest',
 					devBranch: 'main',
-					indexDocs: [],
+					summaries: [],
 				},
 			];
 			const mockFsConfig = {
@@ -271,7 +271,7 @@ describe('projectDetection', () => {
 					test: ['yarn test'],
 					languageTools: null,
 					fileSelection: '',
-					indexDocs: [],
+					summaries: [],
 				},
 			];
 			const detectionStub = sandbox.stub().resolves(agentDetectedProjects);
@@ -351,7 +351,7 @@ describe('projectDetection', () => {
 					format: 'npm run format',
 					staticAnalysis: 'npm run lint',
 					test: 'npm test',
-					indexDocs: ['src/**/*.ts', '../common/**/*.ts'],
+					summaries: ['src/**/*.ts', '../common/**/*.ts'],
 				},
 			];
 			const mockFsConfig = {

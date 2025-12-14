@@ -26,7 +26,7 @@ describe('supportingInformation', () => {
 			format: '',
 			staticAnalysis: '',
 			test: '',
-			indexDocs: [],
+			summaries: [],
 		},
 		{
 			baseDir: 'frontend',
@@ -37,7 +37,7 @@ describe('supportingInformation', () => {
 			format: '',
 			staticAnalysis: '',
 			test: '',
-			indexDocs: [],
+			summaries: [],
 		},
 	];
 

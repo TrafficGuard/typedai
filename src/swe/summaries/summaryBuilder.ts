@@ -71,7 +71,7 @@ export class IndexDocBuilder {
 		return allSummaries.map((summary) => `${summary.path}:\n${summary.long}`).join('\n\n');
 	}
 
-	async buildIndexDocsInternal(): Promise<void> {
+	async buildSummariesInternal(): Promise<void> {
 		logger.info('Building index docs');
 		await withActiveSpan('Build index docs', async (span: Span) => {
 			try {
@@ -84,7 +84,7 @@ export class IndexDocBuilder {
 					projectInfoData = await this.fss.readFile(projectInfoPath);
 				} catch (e: any) {
 					if (e.code === 'ENOENT') {
-						logger.warn(`${AI_INFO_FILENAME} not found at ${projectInfoPath}. Cannot determine indexDocs patterns.`);
+						logger.warn(`${AI_INFO_FILENAME} not found at ${projectInfoPath}. Cannot determine summaries patterns.`);
 						throw new Error(`${AI_INFO_FILENAME} not found`);
 					}
 					throw e;
@@ -92,13 +92,13 @@ export class IndexDocBuilder {
 
 				const projectInfos = JSON.parse(projectInfoData);
 				const projectInfo = projectInfos[0];
-				const indexDocsPatterns: string[] = projectInfo.indexDocs || [];
+				const summariesPatterns: string[] = projectInfo.summaries || [];
 
-				if (indexDocsPatterns.length === 0) {
-					logger.warn('No indexDocs patterns found in AI_INFO_FILENAME. No files/folders will be indexed.');
+				if (summariesPatterns.length === 0) {
+					logger.warn('No summaries patterns found in AI_INFO_FILENAME. No files/folders will be indexed.');
 				}
 
-				const precomputedPatternBases = indexDocsPatterns.map((pattern) => {
+				const precomputedPatternBases = summariesPatterns.map((pattern) => {
 					const normalizedPattern = pattern.split(path.sep).join('/');
 					const scanResult = micromatch.scan(normalizedPattern, { dot: true });
 					let base = scanResult.base;
@@ -117,11 +117,11 @@ export class IndexDocBuilder {
 						filePath = path.relative(workingDir, filePath);
 					}
 					const normalizedPath = filePath.split(path.sep).join('/');
-					return micromatch.isMatch(normalizedPath, indexDocsPatterns, { dot: true });
+					return micromatch.isMatch(normalizedPath, summariesPatterns, { dot: true });
 				};
 
 				const folderMatchesIndexDocs = (folderPath: string): boolean => {
-					if (indexDocsPatterns.length === 0) return false;
+					if (summariesPatterns.length === 0) return false;
 					const normalizedFolderPath = folderPath === '.' ? '' : folderPath.split(path.sep).join('/');
 					for (const { originalPattern, baseDir, isGlob } of precomputedPatternBases) {
 						if (baseDir.startsWith(normalizedFolderPath)) {
@@ -257,7 +257,7 @@ export class IndexDocBuilder {
 						if (folderMatchesIndexDocs(relativeSubFolderPath)) {
 							await this.processFolderRecursively(subFolderPath, fileMatchesIndexDocs, folderMatchesIndexDocs);
 						} else {
-							logger.debug(`Skipping folder ${subFolderPath} as it does not match any indexDocs patterns`);
+							logger.debug(`Skipping folder ${subFolderPath} as it does not match any summaries patterns`);
 						}
 					}),
 				);
@@ -640,14 +640,14 @@ export class IndexDocBuilder {
  * This should generally be run in the root folder of a project/repository.
  * The documentation summaries are saved in a parallel directory structure under the .typedai/docs folder
  */
-export async function buildIndexDocs(
+export async function buildSummaries(
 	llm: LLM,
 	fss: IFileSystemService = getFileSystem(),
 	fileSummaryFn: typeof generateFileSummary = generateFileSummary,
 	folderSummaryFn: typeof generateFolderSummary = generateFolderSummary,
 ): Promise<void> {
 	const builder = new IndexDocBuilder(fss, llm, fileSummaryFn, folderSummaryFn);
-	await builder.buildIndexDocsInternal();
+	await builder.buildSummariesInternal();
 }
 
 interface ProjectSummaryDoc {
@@ -691,7 +691,7 @@ export async function loadBuildDocsSummaries(fss: IFileSystemService = getFileSy
 // Cloud SQL Sync Integration
 // ============================================================================
 
-export interface BuildIndexDocsOptions {
+export interface BuildSummariesOptions {
 	/** Whether to sync with Cloud SQL (if configured). Default: true */
 	syncToCloud?: boolean;
 	/** Whether to pull from Cloud SQL before building. Default: true */
@@ -710,7 +710,7 @@ export interface BuildIndexDocsOptions {
  *
  * If Cloud SQL is not configured, runs the existing local-only flow.
  */
-export async function buildIndexDocsWithSync(llm: LLM, fss: IFileSystemService = getFileSystem(), options: BuildIndexDocsOptions = {}): Promise<void> {
+export async function buildSummariesWithSync(llm: LLM, fss: IFileSystemService = getFileSystem(), options: BuildSummariesOptions = {}): Promise<void> {
 	const { syncToCloud = true, pullFirst = true, pushAfter = true } = options;
 
 	const config = await getSummaryStoreConfig();
@@ -718,7 +718,7 @@ export async function buildIndexDocsWithSync(llm: LLM, fss: IFileSystemService =
 	// If no cloud config, run existing local-only flow (unchanged behavior)
 	if (!syncToCloud || !isDatabaseEnabled(config)) {
 		logger.debug('Database not configured, running local-only build');
-		await buildIndexDocs(llm, fss);
+		await buildSummaries(llm, fss);
 		return;
 	}
 
@@ -726,7 +726,7 @@ export async function buildIndexDocsWithSync(llm: LLM, fss: IFileSystemService =
 	const store = await createSummaryStore(config);
 	if (!store) {
 		logger.warn('Failed to create summary store, running local-only build');
-		await buildIndexDocs(llm, fss);
+		await buildSummaries(llm, fss);
 		return;
 	}
 
@@ -748,7 +748,7 @@ export async function buildIndexDocsWithSync(llm: LLM, fss: IFileSystemService =
 		}
 
 		// 2. Run existing incremental build (unchanged)
-		await buildIndexDocs(llm, fss);
+		await buildSummaries(llm, fss);
 
 		// 3. Push to Cloud SQL (if enabled)
 		if (pushAfter) {
@@ -831,7 +831,7 @@ export async function pushSummariesToCloud(fss: IFileSystemService = getFileSyst
 
 export type SummaryMode = 'auto' | 'batch' | 'realtime';
 
-export interface SmartBuildOptions extends BuildIndexDocsOptions {
+export interface SmartBuildOptions extends BuildSummariesOptions {
 	/**
 	 * Summary generation mode:
 	 * - 'auto': Use batch API if summary store is empty, otherwise use real-time with optimal LLM
@@ -849,6 +849,12 @@ export interface SmartBuildOptions extends BuildIndexDocsOptions {
 	 * Job name for batch processing. Default: 'summary-batch'
 	 */
 	batchJobName?: string;
+	/**
+	 * Filter pattern to limit which files are processed.
+	 * Can be a glob pattern (e.g., 'src/cache/**') or path prefix (e.g., 'src/cache').
+	 * If not provided, all indexable files are processed.
+	 */
+	filter?: string;
 }
 
 /**
@@ -889,7 +895,7 @@ export function getIncrementalUpdateLLM(): LLM {
 }
 
 /**
- * Collects all file paths that should be indexed based on indexDocs patterns.
+ * Collects all file paths that should be indexed based on summaries patterns.
  */
 async function collectIndexableFilePaths(fss: IFileSystemService): Promise<string[]> {
 	const workingDir = fss.getWorkingDirectory();
@@ -900,7 +906,7 @@ async function collectIndexableFilePaths(fss: IFileSystemService): Promise<strin
 		projectInfoData = await fss.readFile(projectInfoPath);
 	} catch (e: any) {
 		if (e.code === 'ENOENT') {
-			logger.warn(`${AI_INFO_FILENAME} not found. Cannot determine indexDocs patterns.`);
+			logger.warn(`${AI_INFO_FILENAME} not found. Cannot determine summaries patterns.`);
 			return [];
 		}
 		throw e;
@@ -908,9 +914,9 @@ async function collectIndexableFilePaths(fss: IFileSystemService): Promise<strin
 
 	const projectInfos = JSON.parse(projectInfoData);
 	const projectInfo = projectInfos[0];
-	const indexDocsPatterns: string[] = projectInfo.indexDocs || [];
+	const summariesPatterns: string[] = projectInfo.summaries || [];
 
-	if (indexDocsPatterns.length === 0) {
+	if (summariesPatterns.length === 0) {
 		return [];
 	}
 
@@ -921,7 +927,7 @@ async function collectIndexableFilePaths(fss: IFileSystemService): Promise<strin
 	for (const file of allFiles) {
 		const relativePath = path.relative(workingDir, file);
 		const normalizedPath = relativePath.split(path.sep).join('/');
-		if (micromatch.isMatch(normalizedPath, indexDocsPatterns, { dot: true })) {
+		if (micromatch.isMatch(normalizedPath, summariesPatterns, { dot: true })) {
 			matchedFiles.push(file);
 		}
 	}
@@ -941,8 +947,8 @@ async function collectIndexableFilePaths(fss: IFileSystemService): Promise<strin
  *
  * Use `pnpm summaries resume` to check status and retrieve results.
  */
-export async function buildIndexDocsWithBatch(fss: IFileSystemService = getFileSystem(), jobName = 'summary-batch'): Promise<BatchSummaryResult> {
-	return withActiveSpan('buildIndexDocsWithBatch', async (span) => {
+export async function buildSummariesWithBatch(fss: IFileSystemService = getFileSystem(), jobName = 'summary-batch'): Promise<BatchSummaryResult> {
+	return withActiveSpan('buildSummariesWithBatch', async (span) => {
 		// Check if there's a pending batch job to resume
 		if (await hasPendingBatchJob(fss)) {
 			logger.info('Found pending batch job, attempting to resume');
@@ -960,7 +966,7 @@ export async function buildIndexDocsWithBatch(fss: IFileSystemService = getFileS
 					logger.info('Generating folder summaries using real-time LLM');
 					const llm = getIncrementalUpdateLLM();
 					const builder = new IndexDocBuilder(fss, llm);
-					await builder.buildIndexDocsInternal();
+					await builder.buildSummariesInternal();
 				}
 
 				return resumeResult.result;
@@ -1048,10 +1054,10 @@ export async function buildIndexDocsWithBatch(fss: IFileSystemService = getFileS
  * - mode='realtime' forces real-time processing
  * - mode='batch' forces batch processing
  */
-export async function buildIndexDocsWithSmartLlm(fss: IFileSystemService = getFileSystem(), options: SmartBuildOptions = {}): Promise<void> {
+export async function buildSummariesWithSmartLlm(fss: IFileSystemService = getFileSystem(), options: SmartBuildOptions = {}): Promise<void> {
 	const { mode = 'auto', llm, batchJobName = 'summary-batch', ...syncOptions } = options;
 
-	return withActiveSpan('buildIndexDocsWithSmartLlm', async (span) => {
+	return withActiveSpan('buildSummariesWithSmartLlm', async (span) => {
 		span.setAttribute('mode', mode);
 
 		// Determine if we should use batch mode
@@ -1069,7 +1075,7 @@ export async function buildIndexDocsWithSmartLlm(fss: IFileSystemService = getFi
 
 		if (useBatch) {
 			// Use Vertex AI Batch Prediction
-			const result = await buildIndexDocsWithBatch(fss, batchJobName);
+			const result = await buildSummariesWithBatch(fss, batchJobName);
 			span.setAttributes({
 				batchSuccessCount: result.successCount,
 				batchFailureCount: result.failureCount,
@@ -1086,7 +1092,7 @@ export async function buildIndexDocsWithSmartLlm(fss: IFileSystemService = getFi
 			span.setAttribute('llm', selectedLlm.getId());
 
 			logger.info({ llm: selectedLlm.getId() }, 'Using real-time processing for summary generation');
-			await buildIndexDocsWithSync(selectedLlm, fss, syncOptions);
+			await buildSummariesWithSync(selectedLlm, fss, syncOptions);
 		}
 	});
 }

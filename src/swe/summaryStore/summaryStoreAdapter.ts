@@ -1,5 +1,5 @@
 import { logger } from '#o11y/logger';
-import type { Summary } from '#swe/index/llmSummaries';
+import type { Summary } from '#swe/summaries/llmSummaries';
 import { CloudSqlClient } from './cloudSqlClient';
 import { type SummaryStoreConfig, isCloudSqlEnabled, isPostgresEnabled } from './config';
 import { type IPgClient, PostgresClient } from './pgClient';

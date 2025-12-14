@@ -4,7 +4,7 @@ import { expect } from 'chai';
 import mockFs from 'mock-fs';
 import { typedaiDirName } from '#app/appDirs';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
-import type { Summary } from '#swe/index/llmSummaries';
+import type { Summary } from '#swe/summaries/llmSummaries';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { normalizeGitUrl } from './repoId';
 import { PostgresSummaryStore, determineSummaryType } from './summaryStoreAdapter';

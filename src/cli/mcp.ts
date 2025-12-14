@@ -11,8 +11,8 @@ import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import { queryWithFileSelection2, queryWorkflowWithSearch, selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
-import { loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
-import { generateFileSystemTreeWithSummaries } from '#swe/index/repositoryMap';
+import { generateFileSystemTreeWithSummaries } from '#swe/summaries/repositoryMap';
+import { loadBuildDocsSummaries } from '#swe/summaries/summaryBuilder';
 import { loadCliEnvironment } from './envLoader';
 
 // Load environment variables

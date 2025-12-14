@@ -14,9 +14,9 @@ import { type CompileErrorAnalysis, type CompileErrorAnalysisDetails, analyzeCom
 import { SearchReplaceCoder } from '#swe/coder/searchReplaceCoder';
 import { selectFilesAgent } from '#swe/discovery/selectFilesAgentWithSearch';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
-import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
 import { onlineResearch } from '#swe/onlineResearch';
 import { reviewChanges } from '#swe/reviewChanges';
+import { getRepositoryOverview } from '#swe/summaries/summaryBuilder';
 import { supportingInformation } from '#swe/supportingInformation';
 import { execCommand } from '#utils/exec';
 import { AiderCodeEditor } from './aiderCodeEditor';

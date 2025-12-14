@@ -26,16 +26,16 @@ import { openAIFlexGPT5, openAIFlexGPT5Mini, openAIFlexGPT5Nano, openAIFlexLLMRe
 import { mlxGptOss20b, mlxLLMRegistry } from '#llm/services/mlx';
 import { ensurePostgresDockerRunning } from '#modules/postgres/ensureDockerPostgres';
 import type { LLM } from '#shared/llm/llm.model';
-import { hasPendingBatchJob, loadBatchJobState, resumeBatchJob } from '#swe/index/batchSummaryGenerator';
+import { hasPendingBatchJob, loadBatchJobState, resumeBatchJob } from '#swe/summaries/batchSummaryGenerator';
 import {
 	type SummaryMode,
-	buildIndexDocs,
-	buildIndexDocsWithSmartLlm,
-	buildIndexDocsWithSync,
+	buildSummaries,
+	buildSummariesWithSmartLlm,
+	buildSummariesWithSync,
 	isSummaryStoreEmpty,
 	pullSummariesFromCloud,
 	pushSummariesToCloud,
-} from '#swe/index/repoIndexDocBuilder';
+} from '#swe/summaries/summaryBuilder';
 import { getSummaryStoreConfig, isCloudSqlEnabled, isPostgresEnabled } from '#swe/summaryStore/config';
 import { getRepositoryId } from '#swe/summaryStore/repoId';
 import { getSyncStatusMessage, loadSyncState } from '#swe/summaryStore/syncState';
@@ -242,7 +242,7 @@ async function main(): Promise<void> {
 					logger.info({ llm: llmId, mode: syncMode }, 'Starting full sync: pull → build → push');
 				}
 
-				await buildIndexDocsWithSmartLlm(fss, {
+				await buildSummariesWithSmartLlm(fss, {
 					mode: syncMode,
 					llm: syncLlm,
 					syncToCloud: true,
@@ -267,7 +267,7 @@ async function main(): Promise<void> {
 					logger.info({ llm: llmId, mode: buildMode }, 'Building summaries locally (no cloud sync)...');
 				}
 
-				await buildIndexDocsWithSmartLlm(fss, {
+				await buildSummariesWithSmartLlm(fss, {
 					mode: buildMode,
 					llm: buildLlm,
 					syncToCloud: false,

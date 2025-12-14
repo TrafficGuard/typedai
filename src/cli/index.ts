@@ -7,9 +7,9 @@ import { initApplicationContext } from '#app/applicationContext';
 import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import type { AgentLLMs } from '#shared/agent/agent.model';
-import { buildIndexDocs } from '#swe/index/repoIndexDocBuilder';
-import { generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { getProjectInfos } from '#swe/projectDetection';
+import { generateRepositoryMaps } from '#swe/summaries/repositoryMap';
+import { buildSummaries } from '#swe/summaries/summaryBuilder';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 async function main() {
@@ -40,7 +40,7 @@ async function main() {
 	// if (console.log) return;
 
 	const agentId = await runWorkflowAgent(config, async () => {
-		await buildIndexDocs(llms().easy);
+		await buildSummaries(llms().easy);
 	});
 
 	if (agentId) {

@@ -9,7 +9,7 @@
     "staticAnalysis": "node build.js lint",
     "test": "node build.js test",
     "devBranch": "main",
-    "indexDocs": [
+    "summaries": [
       "src/**/*.ts",
       "frontend/src/**/*.ts",
       "bin/**",

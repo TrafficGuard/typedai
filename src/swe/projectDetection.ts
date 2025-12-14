@@ -35,7 +35,7 @@ export interface ProjectInfoFileFormat {
 	primary?: boolean;
 	language: LanguageRuntime | '';
 	devBranch: string;
-	indexDocs: string[];
+	summaries: string[];
 	initialise: ScriptCommand;
 	compile: ScriptCommand;
 	format: ScriptCommand;
@@ -71,8 +71,8 @@ export interface ProjectInfo extends ProjectScripts {
 	devBranch: string;
 	/** Note to include in the file selection prompts. e.g. "Do not include the files XYZ unless explicitly instructed" */
 	fileSelection: string;
-	/** GLob paths of which files should be processed by the buildIndexDocs function in repoIndexDocBuilder.ts */
-	indexDocs: string[];
+	/** GLob paths of which files should be processed by the summaryBuilder function in summaryBuilder.ts */
+	summaries: string[];
 	/** File system tree display configuration */
 	fileSystemTree?: {
 		/** Folders to exclude from the tree display */
@@ -85,7 +85,7 @@ export interface ProjectInfo extends ProjectScripts {
 // Helper function to convert ProjectInfo to ProjectInfoFileFormat for saving
 export function mapProjectInfoToFileFormat(projectInfo: ProjectInfo): ProjectInfoFileFormat {
 	// Destructure to explicitly pick fields for ProjectInfoFileFormat
-	const { baseDir, primary, language, devBranch, initialise, compile, format, staticAnalysis, test, indexDocs, fileSystemTree, fileSelection } = projectInfo;
+	const { baseDir, primary, language, devBranch, initialise, compile, format, staticAnalysis, test, summaries, fileSystemTree, fileSelection } = projectInfo;
 	const result: ProjectInfoFileFormat = {
 		baseDir,
 		primary,
@@ -96,7 +96,7 @@ export function mapProjectInfoToFileFormat(projectInfo: ProjectInfo): ProjectInf
 		format: normalizeScriptCommandToFileFormat(format),
 		staticAnalysis: normalizeScriptCommandToFileFormat(staticAnalysis),
 		test: normalizeScriptCommandToFileFormat(test),
-		indexDocs,
+		summaries,
 	};
 
 	// Only include optional fields if they have meaningful values
@@ -158,7 +158,7 @@ export function parseProjectInfo(fileContents: string): ProjectInfo[] | null {
 				devBranch: typeof infoFromFile.devBranch === 'string' && infoFromFile.devBranch.trim() !== '' ? infoFromFile.devBranch.trim() : 'main',
 				...scripts,
 				fileSelection: infoFromFile.fileSelection || '',
-				indexDocs: Array.isArray(infoFromFile.indexDocs) ? infoFromFile.indexDocs : [],
+				summaries: Array.isArray(infoFromFile.summaries) ? infoFromFile.summaries : [],
 				fileSystemTree: infoFromFile.fileSystemTree,
 			};
 		});

@@ -61,7 +61,7 @@ The generated summaries are saved to `.typedai/docs`, which can be done two ways
 1. Generate the summaries manually by running:
 `ai index`
 
-2. Have them automatically generated/updated. This requires adding the array property `indexDocs` to the project config file `.typedai.json` . 
+2. Have them automatically generated/updated. This requires adding the array property `summaries` to the project config file `.typedai.json` . 
 
 For example:
 
@@ -76,7 +76,7 @@ For example:
   "test": "npm run test",
   "languageTools": "typescript",
   "devBranch": "main",
-  "indexDocs": [
+  "summaries": [
     "src/**/*.ts"
   ]
 }]

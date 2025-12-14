@@ -3,7 +3,7 @@ import { getFileSystem } from '#agent/agentContextUtils';
 import { typedaiDirName } from '#app/appDirs';
 import { logger } from '#o11y/logger';
 import type { IFileSystemService } from '#shared/files/fileSystemService';
-import type { Summary } from '#swe/index/llmSummaries';
+import type { Summary } from '#swe/summaries/llmSummaries';
 
 /**
  * Writes Cloud SQL summaries to the local .typedai/docs/ structure.

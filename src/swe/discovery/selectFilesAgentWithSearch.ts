@@ -19,9 +19,9 @@ import {
 } from '#shared/llm/llm.model';
 import { text, user } from '#shared/llm/llm.model';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
-import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
-import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { type ProjectInfo, getProjectInfos } from '#swe/projectDetection';
+import { type RepositoryMaps, generateRepositoryMaps } from '#swe/summaries/repositoryMap';
+import { getRepositoryOverview } from '#swe/summaries/summaryBuilder';
 import { createVectorOrchestrator, isVectorSearchAvailable } from '#swe/vector/core/config';
 import type { IVectorSearchOrchestrator, SearchResult as VectorSearchResult } from '#swe/vector/core/interfaces';
 
@@ -134,7 +134,7 @@ At the very end of the <result> block, add a line in the format "Confidence: LEV
 
 	// Perform the additional LLM call to get the answer
 	const hard = resolvedLLMs.hard;
-	const llm: LLM = opts.useHardLLM && hard ? hard : resolvedLLMs.hard;
+	const llm: LLM = resolvedLLMs.medium; // opts.useHardLLM && hard ? hard : resolvedLLMs.hard;
 	// const thinking: ThinkingLevel = llm instanceof ReasonerDebateLLM ? 'none' : 'high';
 
 	let answer = await llm.generateText(messages, { id: 'Select Files query Answer', thinking: 'high' });

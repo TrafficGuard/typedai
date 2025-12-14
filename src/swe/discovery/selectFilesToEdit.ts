@@ -5,8 +5,8 @@ import { getFileSystem, llms } from '#agent/agentContextUtils';
 import { logger } from '#o11y/logger';
 import type { SelectedFile } from '#shared/files/files.model';
 import type { GenerateTextWithJsonResponse } from '#shared/llm/llm.model';
-import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
-import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
+import { type RepositoryMaps, generateRepositoryMaps } from '#swe/summaries/repositoryMap';
+import { getRepositoryOverview } from '#swe/summaries/summaryBuilder';
 import { type ProjectInfo, getProjectInfo } from '../projectDetection';
 
 export interface SelectFilesResponse {

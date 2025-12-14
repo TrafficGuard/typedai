@@ -26,7 +26,7 @@ This command initiates two main tasks: generating summaries and creating a vecto
 The platform walks through the repository's file structure and uses a Large Language Model (LLM) to generate descriptive summaries for individual files and entire directories.
 
 -   **Bottom-Up Approach**: Summaries are generated from the bottom up. File summaries are created first, which are then used to generate summaries for their parent directories, continuing all the way to the project root.
--   **Configuration**: The specific files and directories to be summarized are controlled by glob patterns defined in the `indexDocs` array within the project's `.typedai.json` file.
+-   **Configuration**: The specific files and directories to be summarized are controlled by glob patterns defined in the `summaries` array within the project's `.typedai.json` file.
 -   **Caching**: The process stores content hashes to track changes, ensuring that summaries are only regenerated for files or directories that have been modified.
 -   **Storage**: The generated summaries are stored in a `.typedai/docs/` directory within the project, creating a parallel structure that maps to the source code.
 
@@ -42,5 +42,5 @@ To enable powerful semantic search, the platform indexes the codebase into a vec
 
 ## Configuration
 
--   **`.typedai.json`**: This file at the root of the repository is crucial for configuring which parts of the codebase are indexed. The `indexDocs` property should contain an array of `micromatch` glob patterns.
+-   **`.typedai.json`**: This file at the root of the repository is crucial for configuring which parts of the codebase are indexed. The `summaries` property should contain an array of `micromatch` glob patterns.
 -   **Google Cloud**: The vector search functionality requires a configured Google Cloud project. The necessary credentials and configuration (like `GCLOUD_PROJECT`) must be available as environment variables.

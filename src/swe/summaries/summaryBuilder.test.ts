@@ -9,8 +9,8 @@ import { getFileSystem } from '#agent/agentContextUtils';
 import { typedaiDirName } from '#app/appDirs';
 import { FileSystemService } from '#functions/storage/fileSystemService';
 import type { LLM } from '#shared/llm/llm.model';
-import { IndexDocBuilder, buildIndexDocs, getRepositoryOverview, loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
 import { AI_INFO_FILENAME } from '#swe/projectDetection';
+import { IndexDocBuilder, buildSummaries, getRepositoryOverview, loadBuildDocsSummaries } from '#swe/summaries/summaryBuilder';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 
 chai.use(chaiSubset);
@@ -79,13 +79,13 @@ describe('IndexDocBuilder', () => {
 		mock.restore(); // Crucial to restore the filesystem after each test
 	});
 
-	describe('buildIndexDocsInternal', () => {
+	describe('summaryBuilderInternal', () => {
 		it('should correctly generate summaries for files and folders matching wildcard patterns', async () => {
 			const file1Content = 'content of file1.ts';
 			const file2Content = 'content of file2.ts';
 			const file3Content = 'content of file3.ts';
 
-			const aiConfig = [{ indexDocs: ['src/swe/**/*.ts'] }];
+			const aiConfig = [{ summaries: ['src/swe/**/*.ts'] }];
 			setupMockFs({
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
@@ -107,7 +107,7 @@ describe('IndexDocBuilder', () => {
 				},
 			});
 
-			await builder.buildIndexDocsInternal();
+			await builder.buildSummariesInternal();
 
 			// Verify file summaries
 			const summaryFile1Path = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'src/swe/file1.ts.json');
@@ -167,7 +167,7 @@ describe('IndexDocBuilder', () => {
 
 			setupMockFs({
 				[MOCK_REPO_ROOT]: {
-					[AI_INFO_FILENAME]: JSON.stringify([{ indexDocs: ['src/**/*.ts'] }]),
+					[AI_INFO_FILENAME]: JSON.stringify([{ summaries: ['src/**/*.ts'] }]),
 					src: {
 						'existing.ts': 'content',
 					},
@@ -187,7 +187,7 @@ describe('IndexDocBuilder', () => {
 			const orphanedSummaryFullPath = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'orphaned/file.ts.json');
 			expect(await fileExists(orphanedSummaryFullPath), 'Orphaned summary should exist initially').to.be.true;
 
-			await builder.buildIndexDocsInternal();
+			await builder.buildSummariesInternal();
 
 			expect(await fileExists(orphanedSummaryFullPath), 'Orphaned summary should be deleted').to.be.false;
 			const existingSummaryFullPath = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'src/existing.ts.json');
@@ -199,7 +199,7 @@ describe('IndexDocBuilder', () => {
 			const file2Content = 'content of file2.ts';
 			const file3Content = 'content of file3.ts';
 
-			const aiConfig = [{ indexDocs: ['**/*.ts'] }];
+			const aiConfig = [{ summaries: ['**/*.ts'] }];
 			setupMockFs({
 				[MOCK_REPO_ROOT]: {
 					[AI_INFO_FILENAME]: JSON.stringify(aiConfig),
@@ -219,7 +219,7 @@ describe('IndexDocBuilder', () => {
 			// Spy on processFolderRecursively to track parallel execution
 			const processFolderSpy = sinon.spy(builder, 'processFolderRecursively' as any);
 
-			await builder.buildIndexDocsInternal();
+			await builder.buildSummariesInternal();
 
 			// Verify all three folders were processed
 			const summaryFile1Path = path.join(MOCK_REPO_ROOT, typedaiDirName, 'docs', 'folder1/file1.ts.json');
@@ -247,7 +247,7 @@ describe('IndexDocBuilder', () => {
 
 		it('should not regenerate summaries if content and children hashes are unchanged', async () => {
 			const fileContent = 'content of file.ts';
-			const aiConfig = [{ indexDocs: ['src/file.ts'] }];
+			const aiConfig = [{ summaries: ['src/file.ts'] }];
 
 			const initialFileHash = hash(fileContent);
 			const initialFolderChildrenHash = hash(`src/file.ts:${initialFileHash}`);
@@ -271,7 +271,7 @@ describe('IndexDocBuilder', () => {
 				},
 			});
 
-			await builder.buildIndexDocsInternal();
+			await builder.buildSummariesInternal();
 
 			expect(generateFileSummaryStub.called, 'generateFileSummary helper should not be called').to.be.false;
 			expect(generateFolderSummaryStub.called, 'generateFolderSummary helper should not be called').to.be.false;
@@ -282,7 +282,7 @@ describe('IndexDocBuilder', () => {
 		it('should regenerate file summary if file content changes', async () => {
 			const oldFileContent = 'old content';
 			const newFileContent = 'new content';
-			const aiConfig = [{ indexDocs: ['src/file.ts'] }];
+			const aiConfig = [{ summaries: ['src/file.ts'] }];
 			const fileSummaryRelPath = 'src/file.ts';
 			const fileSummaryJsonPath = path.join(typedaiDirName, 'docs', `${fileSummaryRelPath}.json`);
 
@@ -306,7 +306,7 @@ describe('IndexDocBuilder', () => {
 
 			await fsAsync.writeFile(path.join(MOCK_REPO_ROOT, 'src/file.ts'), newFileContent);
 
-			await builder.buildIndexDocsInternal();
+			await builder.buildSummariesInternal();
 
 			expect(generateFileSummaryStub.calledOnce, 'generateFileSummary helper should be called once for changed file').to.be.true;
 			const summaryFile = JSON.parse(await fsAsync.readFile(path.join(MOCK_REPO_ROOT, fileSummaryJsonPath), 'utf-8'));
@@ -317,7 +317,7 @@ describe('IndexDocBuilder', () => {
 
 		it('should be stable after incremental update - no LLM calls on second run', async () => {
 			const fileContent = 'file content';
-			const aiConfig = [{ indexDocs: ['src/**/*.ts'] }];
+			const aiConfig = [{ summaries: ['src/**/*.ts'] }];
 
 			setupMockFs({
 				[MOCK_REPO_ROOT]: {
@@ -330,7 +330,7 @@ describe('IndexDocBuilder', () => {
 			});
 
 			// First run - should generate summaries
-			await builder.buildIndexDocsInternal();
+			await builder.buildSummariesInternal();
 
 			expect(generateFileSummaryStub.callCount).to.equal(1);
 			expect(generateFolderSummaryStub.callCount).to.equal(1);
@@ -342,7 +342,7 @@ describe('IndexDocBuilder', () => {
 			llm.generateText.resetHistory();
 
 			// Second run - should make NO LLM calls (stable incremental update)
-			await builder.buildIndexDocsInternal();
+			await builder.buildSummariesInternal();
 
 			expect(generateFileSummaryStub.called, 'generateFileSummary should NOT be called on second run').to.be.false;
 			expect(generateFolderSummaryStub.called, 'generateFolderSummary should NOT be called on second run').to.be.false;
@@ -353,7 +353,7 @@ describe('IndexDocBuilder', () => {
 			const file1Content = 'file1 content';
 			const file2OldContent = 'file2 old content';
 			const file2NewContent = 'file2 new content';
-			const aiConfig = [{ indexDocs: ['src/**/*.ts'] }];
+			const aiConfig = [{ summaries: ['src/**/*.ts'] }];
 
 			const file1Hash = hash(file1Content);
 			const file2OldHash = hash(file2OldContent);
@@ -382,7 +382,7 @@ describe('IndexDocBuilder', () => {
 			// Change only file2
 			await fsAsync.writeFile(path.join(MOCK_REPO_ROOT, 'src/file2.ts'), file2NewContent);
 
-			await builder.buildIndexDocsInternal();
+			await builder.buildSummariesInternal();
 
 			// Verify only file2 summary was regenerated (not file1)
 			expect(generateFileSummaryStub.calledOnce, 'generateFileSummary should be called once for changed file2').to.be.true;
@@ -406,7 +406,7 @@ describe('IndexDocBuilder', () => {
 			const file1Content = 'file1 content';
 			const file2OldContent = 'nested file old';
 			const file2NewContent = 'nested file new';
-			const aiConfig = [{ indexDocs: ['src/**/*.ts'] }];
+			const aiConfig = [{ summaries: ['src/**/*.ts'] }];
 
 			const file1Hash = hash(file1Content);
 			const file2OldHash = hash(file2OldContent);
@@ -441,7 +441,7 @@ describe('IndexDocBuilder', () => {
 			// Change only the nested file
 			await fsAsync.writeFile(path.join(MOCK_REPO_ROOT, 'src/nested/file2.ts'), file2NewContent);
 
-			await builder.buildIndexDocsInternal();
+			await builder.buildSummariesInternal();
 
 			// Verify only the nested file summary was regenerated
 			expect(generateFileSummaryStub.calledOnce, 'generateFileSummary should be called once for changed nested file').to.be.true;
@@ -462,7 +462,7 @@ describe('IndexDocBuilder', () => {
 			generateFolderSummaryStub.resetHistory();
 			llm.generateText.resetHistory();
 
-			await builder.buildIndexDocsInternal();
+			await builder.buildSummariesInternal();
 
 			expect(generateFileSummaryStub.called, 'No file summaries should be regenerated on stable run').to.be.false;
 			expect(generateFolderSummaryStub.called, 'No folder summaries should be regenerated on stable run').to.be.false;
@@ -476,19 +476,19 @@ describe('IndexDocBuilder', () => {
 				},
 			});
 
-			await expect(builder.buildIndexDocsInternal()).to.be.rejectedWith(Error, `${AI_INFO_FILENAME} not found`);
+			await expect(builder.buildSummariesInternal()).to.be.rejectedWith(Error, `${AI_INFO_FILENAME} not found`);
 		});
 
-		it('should handle empty indexDocs in AI_INFO_FILENAME', async () => {
+		it('should handle empty summaries in AI_INFO_FILENAME', async () => {
 			setupMockFs({
 				[MOCK_REPO_ROOT]: {
-					[AI_INFO_FILENAME]: JSON.stringify([{ indexDocs: [] }]),
+					[AI_INFO_FILENAME]: JSON.stringify([{ summaries: [] }]),
 					src: { 'file.ts': 'content' },
 					[typedaiDirName]: { docs: {} },
 				},
 			});
 
-			await builder.buildIndexDocsInternal();
+			await builder.buildSummariesInternal();
 
 			expect(generateFileSummaryStub.called).to.be.false;
 			expect(generateFolderSummaryStub.called).to.be.false;
@@ -554,7 +554,7 @@ describe('IndexDocBuilder', () => {
 });
 
 // Minimal tests for exported functions to ensure they setup and call the builder
-describe('Exported repoIndexDocBuilder functions', () => {
+describe('Exported summaryBuilder functions', () => {
 	let llm: sinon.SinonStubbedInstance<LLM>;
 	let fss: FileSystemService;
 
@@ -562,7 +562,7 @@ describe('Exported repoIndexDocBuilder functions', () => {
 		// Set up a mock filesystem needed for the functions to run
 		mock({
 			[MOCK_REPO_ROOT]: {
-				[AI_INFO_FILENAME]: JSON.stringify([{ indexDocs: ['src/file.ts'] }]),
+				[AI_INFO_FILENAME]: JSON.stringify([{ summaries: ['src/file.ts'] }]),
 				src: { 'file.ts': 'content' },
 			},
 		});
@@ -599,11 +599,11 @@ describe('Exported repoIndexDocBuilder functions', () => {
 		mock.restore(); // Restore the real filesystem
 	});
 
-	it('buildIndexDocs exported function should run', async () => {
-		const buildInternalSpy = sinon.spy(IndexDocBuilder.prototype, 'buildIndexDocsInternal');
+	it('buildSummaries exported function should run', async () => {
+		const buildInternalSpy = sinon.spy(IndexDocBuilder.prototype, 'buildSummariesInternal');
 		const fileSumStub = sinon.stub().resolves({ short: 'One-sentence file summary', long: 'Detailed paragraph', meta: { hash: 'h' }, path: '' });
 		const folderSumStub = sinon.stub().resolves({ short: 'folder', long: 'folder', meta: { hash: 'h' }, path: '' });
-		await buildIndexDocs(llm, fss, fileSumStub, folderSumStub);
+		await buildSummaries(llm, fss, fileSumStub, folderSumStub);
 		expect(buildInternalSpy.calledOnce).to.be.true;
 		buildInternalSpy.restore(); // Restore spy on prototype
 	});

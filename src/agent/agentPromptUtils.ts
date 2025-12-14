@@ -7,10 +7,10 @@ import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import type { FileMetadata } from '#shared/files/files.model';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
-import type { Summary } from '#swe/index/llmSummaries';
-import { loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
-import { generateFileSystemTreeWithSummaries } from '#swe/index/repositoryMap';
 import { getProjectInfo } from '#swe/projectDetection';
+import type { Summary } from '#swe/summaries/llmSummaries';
+import { generateFileSystemTreeWithSummaries } from '#swe/summaries/repositoryMap';
+import { loadBuildDocsSummaries } from '#swe/summaries/summaryBuilder';
 import { agentContext } from './agentContext';
 
 /**

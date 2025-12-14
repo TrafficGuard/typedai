@@ -1,8 +1,8 @@
 import { getFileSystem } from '#agent/agentContextUtils';
 import { func, funcClass } from '#functionSchema/functionDecorators';
-import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
-import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { getProjectInfos } from '#swe/projectDetection';
+import { type RepositoryMaps, generateRepositoryMaps } from '#swe/summaries/repositoryMap';
+import { getRepositoryOverview } from '#swe/summaries/summaryBuilder';
 
 /**
  * Provides functions for LLMs to list and search the file system.

@@ -14,9 +14,9 @@ import {
 } from '#shared/llm/llm.model';
 import { text, user } from '#shared/llm/llm.model';
 import { includeAlternativeAiToolFiles } from '#swe/includeAlternativeAiToolFiles';
-import { getRepositoryOverview } from '#swe/index/repoIndexDocBuilder';
-import { type RepositoryMaps, generateRepositoryMaps } from '#swe/index/repositoryMap';
 import { type ProjectInfo, getProjectInfos } from '#swe/projectDetection';
+import { type RepositoryMaps, generateRepositoryMaps } from '#swe/summaries/repositoryMap';
+import { getRepositoryOverview } from '#swe/summaries/summaryBuilder';
 import { FAST_TARGET_CHARS, normalizePath as norm, readFileContents, searchFileSystem, splitFileSystemTreeByFolder } from './fastSelectFilesAgent.utils';
 
 /*

@@ -98,7 +98,7 @@ If no projects are found, respond with an empty JSON array [].
 					languageTools: null,
 					devBranch: '',
 					fileSelection: '',
-					indexDocs: [],
+					summaries: [],
 				},
 			});
 			logger.info({ textualProjectInfosLength: textualProjectInfos.length }, 'Raw project info string from queryWorkflowWithSearch');
@@ -195,7 +195,7 @@ ${textualProjectInfos}`;
 				test: normalizeScriptCommandToArray(rawScripts.test),
 				languageTools: getLanguageTools(language),
 				fileSelection: 'Do not include package manager lock files',
-				indexDocs: [], // Default, can be populated by other means if necessary
+				summaries: [], // Default, can be populated by other means if necessary
 			};
 		})
 		.filter((p): p is ProjectInfo => p !== null);

@@ -10,8 +10,8 @@ import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/agent/agent.model';
-import { loadBuildDocsSummaries } from '#swe/index/repoIndexDocBuilder';
-import { generateFileSystemTreeWithSummaries } from '#swe/index/repositoryMap';
+import { generateFileSystemTreeWithSummaries } from '#swe/summaries/repositoryMap';
+import { loadBuildDocsSummaries } from '#swe/summaries/summaryBuilder';
 import { parseProcessArgs, saveAgentId } from './cli';
 
 /**
