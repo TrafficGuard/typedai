@@ -101,6 +101,9 @@ importers:
       '@google-cloud/firestore':
         specifier: 7.11.6
         version: 7.11.6(encoding@0.1.13)
+      '@google-cloud/monitoring':
+        specifier: ^5.3.1
+        version: 5.3.1
       '@google-cloud/opentelemetry-cloud-trace-exporter':
         specifier: ^2.4.1
         version: 2.4.1(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/resources@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(encoding@0.1.13)
@@ -1681,6 +1684,10 @@ packages:
   '@google-cloud/logging@11.2.0':
     resolution: {integrity: sha512-Ma94jvuoMpbgNniwtelOt8w82hxK62FuOXZonEv0Hyk3B+/YVuLG/SWNyY9yMso/RXnPEc1fP2qo9kDrjf/b2w==}
     engines: {node: '>=14.0.0'}
+
+  '@google-cloud/monitoring@5.3.1':
+    resolution: {integrity: sha512-f88LJn4PrzhiDaK0VH5KPxEXZfzJ7X8AGfYnK3KTfZEfH3cyxlvCnpgQQaScNTPhv+zX2MrdW/lJHDOpLsm71Q==}
+    engines: {node: '>=18'}
 
   '@google-cloud/opentelemetry-cloud-trace-exporter@2.4.1':
     resolution: {integrity: sha512-Dq2IyAyA9PCjbjLOn86i2byjkYPC59b5ic8k/L4q5bBWH0Jro8lzMs8C0G5pJfqh2druj8HF+oAIAlSdWQ+Z9Q==}
@@ -9974,6 +9981,12 @@ snapshots:
       uuid: 9.0.1
     transitivePeerDependencies:
       - encoding
+      - supports-color
+
+  '@google-cloud/monitoring@5.3.1':
+    dependencies:
+      google-gax: 5.0.1
+    transitivePeerDependencies:
       - supports-color
 
   '@google-cloud/opentelemetry-cloud-trace-exporter@2.4.1(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/resources@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(encoding@0.1.13)':

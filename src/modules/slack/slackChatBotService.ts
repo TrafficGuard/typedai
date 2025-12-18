@@ -15,6 +15,7 @@ import { GitLab } from '#functions/scm/gitlab';
 import { Perplexity } from '#functions/web/perplexity';
 import { PublicWeb } from '#functions/web/web';
 import { defaultLLMs } from '#llm/services/defaultLlms';
+import { vertexGemini_3_0_Flash } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import { getAgentUser } from '#routes/webhooks/webhookAgentUser';
 import { type AgentCompleted, type AgentContext } from '#shared/agent/agent.model';
@@ -376,7 +377,7 @@ export class SlackChatBotService implements ChatBotService, AgentCompleted {
 			subtype: 'codegen',
 			resumeAgentId: `Slack-${threadId}`,
 			initialPrompt: prompt,
-			llms: defaultLLMs(),
+			llms: { ...defaultLLMs(), hard: vertexGemini_3_0_Flash() },
 			functions: CHATBOT_FUNCTIONS,
 			agentName: `Slack-${threadId}`,
 			metadata: { slack: { channel, thread_ts: threadId, reply_ts: replyTs } }, // Use event.ts as thread_ts for new threads

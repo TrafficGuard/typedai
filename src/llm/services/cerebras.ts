@@ -40,7 +40,7 @@ export function cerebrasQwen3_235b_Thinking(): LLM {
 	return new CerebrasLLM('Qwen3 235b Thinking (Cerebras)', 'qwen-3-235b-a22b-thinking-2507', 131_000, costPerMilTokens(0.6, 1.2), ['qwen-3-235b-a22b']);
 }
 
-// https://inference-docs.cerebras.ai/models/qwen-3-480b
+// https://www.cerebras.ai/blog/glm-4-6-10-tricks-to-migrate
 export function cerebrasZaiGLM_4_6(): LLM {
 	return new CerebrasLLM('GLM 4.6 (Cerebras)', 'zai-glm-4.6', 131_000, costPerMilTokens(2, 2), ['qwen-3-235b-a22b', 'qwen-3-coder-480b']);
 }
