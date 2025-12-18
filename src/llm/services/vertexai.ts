@@ -10,7 +10,7 @@ import { envVar } from '#utils/env-var';
 export const VERTEX_SERVICE = 'vertex';
 
 export function vertexLLMRegistry(): Array<() => LLM> {
-	return [vertexGemini_3_0_Pro, vertexGemini_2_5_Flash_Lite, vertexGemini_2_5_Pro, vertexGemini_2_5_Flash];
+	return [vertexGemini_3_0_Pro, vertexGemini_3_0_Flash, vertexGemini_2_5_Flash_Lite, vertexGemini_2_5_Pro];
 }
 
 // Prompts less than 200,000 tokens: $1.25/million tokens for input, $10/million for output
@@ -21,18 +21,6 @@ export function vertexGemini_2_5_Pro(): LLM {
 		'gemini-2.5-pro-preview-05-06',
 		'gemini-2.5-pro-preview-06-05',
 	]);
-}
-
-// https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash
-export function vertexGemini_2_5_Flash(defaultOpts?: GenerateTextOptions): LLM {
-	return new VertexLLM(
-		'Gemini 2.5 Flash',
-		'gemini-2.5-flash-preview-09-2025',
-		1_000_000,
-		costPerMilTokens(0.3, 2.5),
-		['gemini-2.5-flash-preview-05-20', 'gemini-2.5-flash'],
-		defaultOpts,
-	);
 }
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash-lite
@@ -47,6 +35,15 @@ export function vertexGemini_2_5_Flash_Lite(): LLM {
 // https://cloud.google.com/vertex-ai/generative-ai/pricing#gemini_models-3
 export function vertexGemini_3_0_Pro(): LLM {
 	return new VertexLLM('Gemini 3 Pro', 'gemini-3-pro-preview', 1_000_000, costPerMilTokens(2, 12, 0.2, 4, 18, 200_000), [], undefined);
+}
+
+// https://cloud.google.com/vertex-ai/generative-ai/pricing#gemini_models-3
+export function vertexGemini_3_0_Flash(): LLM {
+	return new VertexLLM('Gemini 3 Flash', 'gemini-3-flash-preview', 1_000_000, costPerMilTokens(0.5, 3.0), [
+		'gemini-2.5-flash-preview-09-2025',
+		'gemini-2.5-flash-preview-05-20',
+		'gemini-2.5-flash',
+	]);
 }
 
 const GCLOUD_PROJECTS: string[] = [];

@@ -3,14 +3,14 @@ import { FastMediumLLM } from '#llm/multi-agent/fastMedium';
 import { MAD_Anthropic, MAD_Balanced, MAD_Fast, MAD_Grok, MAD_OpenAI, MAD_Vertex } from '#llm/multi-agent/reasoning-debate';
 // import { MAD_Balanced, MAD_Vertex, MAD_Anthropic, MAD_OpenAI, MAD_Grok, MAD_Fast } from '#llm/multi-agent/reasoning-debate';
 import { anthropicClaude4_5_Haiku, anthropicClaude4_5_Opus } from '#llm/services/anthropic';
-import { vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite, vertexGemini_3_0_Pro } from '#llm/services/vertexai';
+import { vertexGemini_2_5_Flash_Lite, vertexGemini_3_0_Flash, vertexGemini_3_0_Pro } from '#llm/services/vertexai';
 import { logger } from '#o11y/logger';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { LLM } from '#shared/llm/llm.model';
 import { Claude4_5_Opus_Vertex } from './anthropic-vertex';
 import { cerebrasGptOss_120b, cerebrasZaiGLM_4_6 } from './cerebras';
 import { fireworksKimi2thinking } from './fireworks';
-import { Gemini_2_5_Flash, Gemini_2_5_Flash_Lite, Gemini_3_0_Pro } from './gemini';
+import { Gemini_2_5_Flash_Lite, Gemini_3_0_Flash, Gemini_3_0_Pro } from './gemini';
 import { groqLlama4_Scout } from './groq';
 import { openaiGPT5, openaiGPT5mini, openaiGPT5nano } from './openai';
 import { xai_Grok4 } from './xai';
@@ -45,11 +45,11 @@ export function defaultLLMs(): AgentLLMs {
 	if (!easy) throw new Error('No default easy LLM configured');
 
 	const mediumLLMs = [
-		vertexGemini_2_5_Flash(),
+		vertexGemini_3_0_Flash(),
 		fireworksKimi2thinking(),
 		new FastMediumLLM(),
 		cerebrasZaiGLM_4_6(),
-		Gemini_2_5_Flash(),
+		Gemini_3_0_Flash(),
 		openaiGPT5mini(),
 		anthropicClaude4_5_Haiku(),
 	];

@@ -10,7 +10,7 @@ import { openaiGPT5mini } from '#llm/services/openai';
 import { perplexityLLM } from '#llm/services/perplexity-llm';
 import { sambanovaDeepseekR1 } from '#llm/services/sambanova';
 import { togetherDeepSeekR1_0528_tput } from '#llm/services/together';
-import { vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite, vertexGemini_3_0_Pro } from '#llm/services/vertexai';
+import { vertexGemini_2_5_Flash_Lite, vertexGemini_3_0_Flash, vertexGemini_3_0_Pro } from '#llm/services/vertexai';
 import type { LlmMessage } from '#shared/llm/llm.model';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { anthropicClaude4_5_Opus, anthropicClaude4_5_Sonnet } from './anthropic';
@@ -237,8 +237,8 @@ describe('LLMs', () => {
 	});
 
 	describe('VertexAI', () => {
-		describe('Flash 2.5', () => {
-			const llm = vertexGemini_2_5_Flash();
+		describe('Flash 3', () => {
+			const llm = vertexGemini_3_0_Flash();
 
 			it('should generateText', async () => {
 				const response = await llm.generateText(SKY_PROMPT, { temperature: 0, id: 'test' });

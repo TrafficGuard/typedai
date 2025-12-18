@@ -194,6 +194,14 @@ export class OpenAIFlex extends BaseLLM {
 		};
 	}
 
+	override async _generateMessage(messages: LlmMessage[], opts?: GenerateTextOptions): Promise<LlmMessage> {
+		try {
+			return await this.flexLLM.generateMessage(messages, opts);
+		} catch (error) {
+			return await this.standardLLM.generateMessage(messages, opts);
+		}
+	}
+
 	override async generateTextFromMessages(messages: LlmMessage[], opts?: GenerateTextOptions): Promise<string> {
 		for (let rateLimitAttempt = 0; rateLimitAttempt < DEFAULT_RATE_LIMIT_RETRIES; rateLimitAttempt++) {
 			const startTime = Date.now();

@@ -8,7 +8,7 @@ import { createContext } from '#agent/agentContextUtils';
 import { initApplicationContext } from '#app/applicationContext';
 import { Blueberry } from '#llm/multi-agent/blueberry';
 import { mockLLMs } from '#llm/services/mock-llm';
-import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
+import { vertexGemini_3_0_Flash } from '#llm/services/vertexai';
 import type { AgentContext } from '#shared/agent/agent.model';
 import { parseProcessArgs } from './cli';
 
@@ -38,7 +38,7 @@ async function main() {
 	console.log(`${questions.length} questions with score 0`);
 
 	// writeFileSync('easy.jsonl', '');
-	const flash = vertexGemini_2_5_Flash();
+	const flash = vertexGemini_3_0_Flash();
 	let lastCost = 0;
 	const blueberry = new Blueberry();
 	for (const question of questions) {

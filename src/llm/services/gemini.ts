@@ -8,7 +8,7 @@ import { currentUser } from '#user/userContext';
 export const GEMINI_SERVICE = 'gemini';
 
 export function geminiLLMRegistry(): Array<() => LLM> {
-	return [Gemini_2_5_Flash_Lite, Gemini_2_5_Flash, Gemini_2_5_Pro, Gemini_3_0_Pro];
+	return [Gemini_2_5_Flash_Lite, Gemini_3_0_Flash, Gemini_2_5_Pro, Gemini_3_0_Pro];
 }
 
 export function Gemini_2_5_Pro(): LLM {
@@ -29,8 +29,15 @@ export function Gemini_3_0_Pro(): LLM {
 	);
 }
 
-export function Gemini_2_5_Flash(): LLM {
-	return new GeminiLLM('Gemini 2.5 Flash (Gemini)', 'gemini-2.5-flash', 1_000_000, costPerMilTokens(0.3, 2.5));
+export function Gemini_3_0_Flash(): LLM {
+	return new GeminiLLM(
+		'Gemini 3 Flash (Gemini)',
+		'gemini-3-flash-preview',
+		1_000_000,
+		costPerMilTokens(0.5, 3.0),
+		['gemini-2.5-flash'],
+		'google/gemini-3-flash-preview',
+	);
 }
 
 export function Gemini_2_5_Flash_Lite(): LLM {

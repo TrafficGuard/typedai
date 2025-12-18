@@ -1,52 +1,43 @@
-import { AgentFeedback } from '#agent/autonomous/functions/agentFeedback';
-import { FileSystemTree } from '#agent/autonomous/functions/fileSystemTree';
-import { LiveFiles } from '#agent/autonomous/functions/liveFiles';
-import { GoogleCloud } from '#functions/cloud/google/google-cloud';
-import { CommandLineInterface } from '#functions/commandLine';
-import { Confluence } from '#functions/confluence';
-import { CustomFunctions } from '#functions/customFunctions';
-import { Jira } from '#functions/jira';
-import { LlmTools } from '#functions/llmTools';
-import { FileSystemRead } from '#functions/storage/fileSystemRead';
-import { FileSystemWrite } from '#functions/storage/fileSystemWrite';
-import { LocalFileStore } from '#functions/storage/localFileStore';
-import { SupportKnowledgebase } from '#functions/supportKnowledgebase';
-import { Perplexity } from '#functions/web/perplexity';
-import { PublicWeb } from '#functions/web/web';
-import { defaultLLMs } from '#llm/services/defaultLlms';
 import { logger } from '#o11y/logger';
 import type { LLM } from '#shared/llm/llm.model';
-import { CodeEditingAgent } from '#swe/codeEditingAgent';
-import { CodeFunctions } from '#swe/codeFunctions';
-import { NpmPackages } from '#swe/lang/nodejs/npmPackages';
-import { TypescriptTools } from '#swe/lang/nodejs/typescriptTools';
-import { SoftwareDeveloperAgent } from '#swe/softwareDeveloperAgent';
+
+// Lazy load defaultLLMs to avoid circular dependencies
+function getDefaultLLM(): LLM | undefined {
+	try {
+		const { defaultLLMs } = require('#llm/services/defaultLlms');
+		return defaultLLMs().easy;
+	} catch (error) {
+		logger.warn('Failed to load defaultLLMs for fuzzy matching:', error);
+		return undefined;
+	}
+}
 
 // Mapping of aliases to class names for easier CLI usage
+// Class names are hardcoded to avoid eager module loading
 const functionAliases: Record<string, string> = {
-	f: AgentFeedback.name,
-	swe: SoftwareDeveloperAgent.name,
-	bash: CommandLineInterface.name,
-	shell: CommandLineInterface.name,
-	cli: CommandLineInterface.name,
-	code: CodeEditingAgent.name,
-	query: CodeFunctions.name,
-	fsr: FileSystemRead.name,
-	fsw: FileSystemWrite.name,
-	fst: FileSystemTree.name,
-	lfs: LocalFileStore.name,
-	web: PublicWeb.name,
-	llm: LlmTools.name,
-	pp: Perplexity.name,
-	npm: NpmPackages.name,
-	gcp: GoogleCloud.name,
-	ts: TypescriptTools.name,
-	jira: Jira.name,
-	conf: Confluence.name,
-	live: LiveFiles.name,
-	gcloud: GoogleCloud.name,
-	custom: CustomFunctions.name,
-	kb: SupportKnowledgebase.name,
+	f: 'AgentFeedback',
+	swe: 'SoftwareDeveloperAgent',
+	bash: 'CommandLineInterface',
+	shell: 'CommandLineInterface',
+	cli: 'CommandLineInterface',
+	code: 'CodeEditingAgent',
+	query: 'CodeFunctions',
+	fsr: 'FileSystemRead',
+	fsw: 'FileSystemWrite',
+	fst: 'FileSystemTree',
+	lfs: 'LocalFileStore',
+	web: 'PublicWeb',
+	llm: 'LlmTools',
+	pp: 'Perplexity',
+	npm: 'NpmPackages',
+	gcp: 'GoogleCloud',
+	ts: 'TypescriptTools',
+	jira: 'Jira',
+	conf: 'Confluence',
+	live: 'LiveFiles',
+	gcloud: 'GoogleCloud',
+	custom: 'CustomFunctions',
+	kb: 'SupportKnowledgebase',
 };
 
 interface FunctionMatch {
@@ -65,7 +56,7 @@ export async function resolveFunctionClasses(requestedFunctions: string[]): Prom
 	const functionRegistry = (await import('../functionRegistryModule.cjs')).functionRegistry as () => Array<new () => any>;
 	const registry = functionRegistry();
 	const registryMap = new Map(registry.map((fn) => [fn.name, fn]));
-	const llm: LLM = defaultLLMs().easy;
+	const llm: LLM | undefined = getDefaultLLM();
 
 	// Build complete mapping of all function matches
 	const matches = await Promise.all(requestedFunctions.map((requested) => buildFunctionMatches(requested, registryMap, llm)));
@@ -90,7 +81,7 @@ export async function resolveFunctionClasses(requestedFunctions: string[]): Prom
 /**
  * Builds a complete mapping of requested function names to their resolved matches
  */
-async function buildFunctionMatches(requested: string, registryMap: Map<string, any>, llm: LLM): Promise<FunctionMatch> {
+async function buildFunctionMatches(requested: string, registryMap: Map<string, any>, llm: LLM | undefined): Promise<FunctionMatch> {
 	const requestedLower = requested.toLowerCase();
 
 	// Try exact match first (case-insensitive)
@@ -115,29 +106,31 @@ async function buildFunctionMatches(requested: string, registryMap: Map<string, 
 		};
 	}
 
-	// Try LLM fuzzy match as last resort
-	try {
-		const prompt = `Given the following list of available class names:
+	// Try LLM fuzzy match as last resort (if LLM is available)
+	if (llm) {
+		try {
+			const prompt = `Given the following list of available class names:
 ${Array.from(registryMap.keys()).join(', ')}
 
 Which one of these class names most closely matches "${requested}"?
 Consider similar words, abbreviations, and common variations.
 Respond only with the exact matching class name from the list, or "NO_MATCH" if none are similar enough.`;
 
-		const suggestedMatch = await llm.generateText(prompt, { id: 'Function aliases' });
+			const suggestedMatch = await llm.generateText(prompt, { id: 'Function aliases' });
 
-		// Validate LLM response is actually one of our class names
-		if (suggestedMatch && suggestedMatch !== 'NO_MATCH' && registryMap.has(suggestedMatch)) {
-			logger.info(`Mapped ${requested} to ${suggestedMatch}`);
-			return {
-				requested,
-				matched: suggestedMatch,
-				constructor: registryMap.get(suggestedMatch),
-				matchType: 'fuzzy',
-			};
+			// Validate LLM response is actually one of our class names
+			if (suggestedMatch && suggestedMatch !== 'NO_MATCH' && registryMap.has(suggestedMatch)) {
+				logger.info(`Mapped ${requested} to ${suggestedMatch}`);
+				return {
+					requested,
+					matched: suggestedMatch,
+					constructor: registryMap.get(suggestedMatch),
+					matchType: 'fuzzy',
+				};
+			}
+		} catch (error) {
+			logger.error('LLM matching failed:', error);
 		}
-	} catch (error) {
-		logger.error('LLM matching failed:', error);
 	}
 
 	// No match found

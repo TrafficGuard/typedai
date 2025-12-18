@@ -3,7 +3,7 @@ import { Claude4_5_Haiku_Vertex } from '#llm/services/anthropic-vertex';
 import { cerebrasZaiGLM_4_6 } from '#llm/services/cerebras';
 import { groqKimiK2 } from '#llm/services/groq';
 import { openaiGPT5mini } from '#llm/services/openai';
-import { vertexGemini_2_5_Flash } from '#llm/services/vertexai';
+import { vertexGemini_3_0_Flash } from '#llm/services/vertexai';
 import { countTokens } from '#llm/tokens';
 import { logger } from '#o11y/logger';
 import { type GenerateTextOptions, type LLM, type LlmMessage, messageContentIfTextOnly, messageText } from '#shared/llm/llm.model';
@@ -18,7 +18,7 @@ export class FastMediumLLM extends BaseLLM {
 	private readonly cerebras = cerebrasZaiGLM_4_6();
 	private readonly groq = groqKimiK2();
 	private readonly openai = openaiGPT5mini();
-	private readonly gemini = vertexGemini_2_5_Flash({ thinking: 'high' });
+	private readonly gemini = vertexGemini_3_0_Flash();
 	private readonly haiku = anthropicClaude4_5_Haiku();
 	private readonly vertexHaiku = Claude4_5_Haiku_Vertex();
 

@@ -12,7 +12,7 @@ import * as path from 'node:path';
 import { cerebrasZaiGLM_4_6 } from '#llm/services/cerebras';
 import { claudeCodeSonnet } from '#llm/services/claudeCode';
 import { openaiGPT5nano } from '#llm/services/openai';
-import { vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite } from '#llm/services/vertexai';
+import { vertexGemini_2_5_Flash_Lite, vertexGemini_3_0_Flash } from '#llm/services/vertexai';
 import type { LLM } from '#shared/llm/llm.model';
 import { validateContextQuality } from '#swe/vector/test/llmJudge';
 import { ASTChunker } from './chunking/astChunker';
@@ -24,7 +24,7 @@ import { VectorStoreConfig } from './core/config';
 
 const CONFIG = {
 	// LLMs to compare (array of factory functions)
-	llmsToTest: [openaiGPT5nano, vertexGemini_2_5_Flash, vertexGemini_2_5_Flash_Lite],
+	llmsToTest: [openaiGPT5nano, vertexGemini_3_0_Flash, vertexGemini_2_5_Flash_Lite],
 
 	// Test files to use for evaluation (multiple files for robust testing)
 	testFiles: ['src/swe/vector/core/contextualizer.ts', 'src/swe/vector/chunking/astChunker.ts', 'src/swe/vector/codeLoader.ts'],
