@@ -191,14 +191,84 @@ export class AlloyDBAdapter implements IVectorStore {
 
 	/**
 	 * Enable columnar engine for better filtered vector search performance
+	 * Also loads the ScaNN index into the columnar engine's index cache
+	 * @see https://cloud.google.com/alloydb/docs/ai/work-with-embeddings#manage-scann-indexes-columnar-engine
 	 */
 	private async enableColumnarEngine(): Promise<void> {
 		try {
+			// Add table to columnar engine for filtered search optimization
 			await this.client.query('SELECT google_columnar_engine_add($1)', [this.tableName]);
 			logger.info('Columnar engine enabled for table');
+
+			// Load the ScaNN index into the columnar engine's index cache
+			// This accelerates vector search queries
+			const scannIndexName = `idx_${this.tableName}_vector`;
+			const indexAdded = await this.client.addScannIndexToColumnarEngine(scannIndexName);
+			if (indexAdded) {
+				logger.info({ indexName: scannIndexName }, 'ScaNN index loaded into columnar engine cache');
+			}
 		} catch (error) {
 			logger.warn({ error }, 'Failed to enable columnar engine');
 		}
+	}
+
+	/**
+	 * Get the ScaNN index name for this table
+	 */
+	getScannIndexName(): string {
+		return `idx_${this.tableName}_vector`;
+	}
+
+	/**
+	 * Add the ScaNN index to columnar engine cache manually
+	 * Use this if you need to reload the index after it was dropped
+	 */
+	async addScannIndexToColumnarEngine(): Promise<boolean> {
+		const indexName = this.getScannIndexName();
+		return this.client.addScannIndexToColumnarEngine(indexName);
+	}
+
+	/**
+	 * Remove the ScaNN index from columnar engine cache
+	 * Useful for memory management or before dropping/recreating the index
+	 */
+	async dropScannIndexFromColumnarEngine(): Promise<boolean> {
+		const indexName = this.getScannIndexName();
+		return this.client.dropScannIndexFromColumnarEngine(indexName);
+	}
+
+	/**
+	 * Verify that vector queries are using the columnar engine
+	 * @param queryVector Sample query vector for testing
+	 * @returns Verification result with columnar engine usage info
+	 */
+	async verifyColumnarEngineUsage(queryVector?: number[]): Promise<{
+		usesColumnarEngine: boolean;
+		indexFound: boolean;
+		nodesHit?: number;
+		explainOutput: string[];
+	}> {
+		// Generate a sample query vector if not provided
+		const testVector = queryVector || Array(768).fill(0.5);
+		const vectorStr = `[${testVector.join(',')}]`;
+
+		return this.client.verifyColumnarEngineUsage(this.tableName, 'embedding', vectorStr, 100);
+	}
+
+	/**
+	 * Get columnar engine status including cached ScaNN indexes
+	 */
+	async getColumnarEngineStatus(): Promise<{
+		enabled: boolean;
+		cachedIndexes: string[];
+		thisIndexCached: boolean;
+	}> {
+		const status = await this.client.getColumnarEngineStatus();
+		const thisIndexName = this.getScannIndexName();
+		return {
+			...status,
+			thisIndexCached: status.cachedIndexes.includes(thisIndexName),
+		};
 	}
 
 	/**
@@ -312,6 +382,14 @@ export class AlloyDBAdapter implements IVectorStore {
 				USING scann (embedding cosine)
 				WITH (mode='AUTO', quantizer='AH')
 			`);
+
+			// Reload the ScaNN index into columnar engine cache if enabled
+			// This ensures optimal performance after index updates
+			if (this.alloydbConfig.enableColumnarEngine) {
+				const indexName = this.getScannIndexName();
+				await this.client.addScannIndexToColumnarEngine(indexName);
+				logger.debug({ indexName }, 'Reloaded ScaNN index into columnar engine cache after indexing');
+			}
 		} catch (error) {
 			logger.warn({ error }, 'ScaNN index may already exist or data insufficient');
 		}

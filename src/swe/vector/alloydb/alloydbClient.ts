@@ -211,6 +211,125 @@ export class AlloyDBClient {
 	}
 
 	/**
+	 * Add a ScaNN index to the columnar engine's index cache
+	 * This accelerates vector search queries by loading the index into memory
+	 * @see https://cloud.google.com/alloydb/docs/ai/work-with-embeddings#manage-scann-indexes-columnar-engine
+	 */
+	async addScannIndexToColumnarEngine(indexName: string): Promise<boolean> {
+		try {
+			await this.query('SELECT google_columnar_engine_add_index(index => $1)', [indexName]);
+			logger.info({ indexName }, 'Added ScaNN index to columnar engine cache');
+			return true;
+		} catch (error) {
+			logger.error({ error, indexName }, 'Failed to add ScaNN index to columnar engine cache');
+			return false;
+		}
+	}
+
+	/**
+	 * Remove a ScaNN index from the columnar engine's index cache
+	 * @see https://cloud.google.com/alloydb/docs/ai/work-with-embeddings#manage-scann-indexes-columnar-engine
+	 */
+	async dropScannIndexFromColumnarEngine(indexName: string): Promise<boolean> {
+		try {
+			await this.query('SELECT google_columnar_engine_drop_index(index => $1)', [indexName]);
+			logger.info({ indexName }, 'Removed ScaNN index from columnar engine cache');
+			return true;
+		} catch (error) {
+			logger.error({ error, indexName }, 'Failed to remove ScaNN index from columnar engine cache');
+			return false;
+		}
+	}
+
+	/**
+	 * Verify if a vector index scan uses the columnar engine
+	 * Uses EXPLAIN ANALYZE with COLUMNAR_ENGINE option
+	 * @returns Analysis result with columnar engine usage info
+	 */
+	async verifyColumnarEngineUsage(
+		tableName: string,
+		vectorColumn: string,
+		queryVector: string,
+		limit = 100,
+	): Promise<{
+		usesColumnarEngine: boolean;
+		indexFound: boolean;
+		nodesHit?: number;
+		explainOutput: string[];
+	}> {
+		try {
+			const result = await this.query(
+				`EXPLAIN (ANALYZE TRUE, SCANN TRUE, COSTS FALSE, TIMING FALSE, SUMMARY FALSE, VERBOSE FALSE, COLUMNAR_ENGINE TRUE)
+				SELECT * FROM ${tableName} ORDER BY ${vectorColumn} <=> $1::vector LIMIT $2`,
+				[queryVector, limit],
+			);
+
+			const explainOutput = result.rows.map((row) => row['QUERY PLAN'] || Object.values(row)[0]);
+			const outputText = explainOutput.join('\n');
+
+			// Parse the output to check for columnar engine usage
+			const usesColumnarEngine = outputText.includes('columnar engine nodes hit');
+			const indexFoundMatch = outputText.match(/Columnar Engine ScaNN Info:.*index found=(\w+)/);
+			const indexFound = indexFoundMatch ? indexFoundMatch[1] === 'true' : false;
+			const nodesHitMatch = outputText.match(/columnar engine nodes hit=(\d+)/);
+			const nodesHit = nodesHitMatch ? Number.parseInt(nodesHitMatch[1]) : undefined;
+
+			logger.debug({ usesColumnarEngine, indexFound, nodesHit }, 'Columnar engine usage verification');
+
+			return {
+				usesColumnarEngine,
+				indexFound,
+				nodesHit,
+				explainOutput,
+			};
+		} catch (error) {
+			logger.error({ error, tableName, vectorColumn }, 'Failed to verify columnar engine usage');
+			return {
+				usesColumnarEngine: false,
+				indexFound: false,
+				explainOutput: [],
+			};
+		}
+	}
+
+	/**
+	 * Get columnar engine status for ScaNN indexes
+	 * @returns Status of columnar engine and cached indexes
+	 */
+	async getColumnarEngineStatus(): Promise<{
+		enabled: boolean;
+		cachedIndexes: string[];
+	}> {
+		try {
+			// Check if columnar engine extension is available
+			const extensions = await this.checkExtensions();
+			if (!extensions.columnarEngine) {
+				return { enabled: false, cachedIndexes: [] };
+			}
+
+			// Query for cached indexes in columnar engine
+			// Note: This query structure may vary based on AlloyDB version
+			try {
+				const result = await this.query(`
+					SELECT index_name
+					FROM google_columnar_engine_index_info()
+					WHERE index_type = 'scann'
+				`);
+				return {
+					enabled: true,
+					cachedIndexes: result.rows.map((row) => row.index_name),
+				};
+			} catch {
+				// Function may not exist in all versions, just return enabled status
+				return { enabled: true, cachedIndexes: [] };
+			}
+		} catch (error) {
+			logger.warn({ error }, 'Failed to get columnar engine status');
+			return { enabled: false, cachedIndexes: [] };
+		}
+	}
+
+	/**
 	 * Get database statistics
 	 */
 	async getStats(): Promise<{
