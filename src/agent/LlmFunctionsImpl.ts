@@ -1,6 +1,6 @@
 import { Agent } from '#agent/autonomous/functions/agentFunctions';
 import { functionFactory } from '#functionSchema/functionDecorators';
-import { FUNC_SEP, type FunctionSchema, getFunctionSchemas } from '#functionSchema/functions';
+import { FUNC_SEP, type FunctionJsonSchema, getFunctionSchemas } from '#functionSchema/functions';
 import { logger } from '#o11y/logger';
 import type { LlmFunctions } from '#shared/agent/agent.model';
 import { type ToolType, toolType } from '#shared/agent/functions';
@@ -110,7 +110,7 @@ export class LlmFunctionsImpl implements LlmFunctions {
 		} else if (args.length === 1) {
 			result = await func.call(functionClassInstance, args[0]);
 		} else {
-			const functionSchemas: Record<string, FunctionSchema> = getFunctionSchemas(functionClassInstance);
+			const functionSchemas: Record<string, FunctionJsonSchema> = getFunctionSchemas(functionClassInstance);
 			let functionDefinition = functionSchemas[functionName];
 			if (!functionDefinition) {
 				// Seems bit of a hack, why coming through in both formats? Also doing this in functionDecorators.ts

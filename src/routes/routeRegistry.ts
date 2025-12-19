@@ -5,6 +5,7 @@ import { chatRoutes } from './chat';
 import { codeEditRoutes } from './codeEdit';
 import { codeReviewRoutes } from './codeReview';
 import { codeTaskRoutes } from './codeTask';
+import { debateRoutes } from './debate';
 import { llmCallRoutes } from './llms/llm-call-routes';
 import { llmRoutes } from './llms/llm-routes';
 import { userRoutes } from './profile/user-routes';
@@ -27,6 +28,7 @@ export function getAllRoutes(): FastifyRoutes[] {
 		codeEditRoutes,
 		codeReviewRoutes,
 		codeTaskRoutes,
+		debateRoutes,
 		gitlabRoutes,
 		githubRoutes,
 		jiraRoutes,

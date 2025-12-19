@@ -529,8 +529,8 @@ export class GitLab extends AbstractSCM implements SourceControlManagement {
 			const contents = await this.api().RepositoryFiles.showRaw(projectPath, filePath, ref);
 			return Buffer.isBuffer(contents) ? contents.toString('utf-8') : (contents as string);
 		} catch (error: any) {
-			logger.error(error, `Failed to fetch file from GitLab: ${projectPath}/${filePath}@${ref}`);
-			throw new Error(`Failed to fetch file from GitLab: ${error.message}`);
+			logger.error({ error }, `Failed to fetch file from GitLab: ${projectPath}/${filePath}@${ref} - ${error.message}`);
+			throw new Error(`Failed to fetch file from GitLab: ${projectPath}/${filePath}@${ref} - ${error.message}`);
 		}
 	}
 

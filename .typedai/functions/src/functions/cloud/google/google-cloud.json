@@ -54,5 +54,33 @@
     ],
     "returnType": "string",
     "returns": "The console output if the exit code is 0, else throws the console output"
+  },
+  "GoogleCloud_getCloudMonitoringMetrics": {
+    "class": "GoogleCloud",
+    "name": "GoogleCloud_getCloudMonitoringMetrics",
+    "description": "Queries Cloud Monitoring metrics using the Monitoring API.",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "projectId",
+        "type": "string",
+        "description": "The Google Cloud project ID"
+      },
+      {
+        "index": 1,
+        "name": "metricType",
+        "type": "string",
+        "description": "The metric type (e.g., 'compute.googleapis.com/instance/cpu/utilization')"
+      },
+      {
+        "index": 2,
+        "name": "options",
+        "type": "{ filter?: string; intervalMinutes?: number; alignmentPeriodSeconds?: number; aggregation?: \"ALIGN_MEAN\" | \"ALIGN_MAX\" | \"ALIGN_SUM\" | \"ALIGN_RATE\" | \"ALIGN_DELTA\"; }",
+        "description": "Configuration options",
+        "optional": true
+      }
+    ],
+    "returnType": "string",
+    "returns": "Metrics data as YAML string for token efficiency"
   }
 }

@@ -50,8 +50,9 @@ declare module '@openrouter/ai-sdk-provider' {
 /**
  * https://inference-docs.openrouter.ai/introduction
  * Next release of OpenRouter provider should work instead of using OpenAIProvider
+ * Note: OpenRouterProvider doesn't fully implement ProviderV3, so we use 'any' for the generic parameter
  */
-export class OpenRouterLLM extends AiLLM<OpenRouterProvider> {
+export class OpenRouterLLM extends AiLLM<any> {
 	constructor(displayName: string, model: string, maxInputTokens: number, calculateCosts: LlmCostFunction, defaultOptions?: GenerateTextOptions) {
 		super({ displayName, service: CEREBRAS_OPENROUTER_SERVICE, modelId: model, maxInputTokens, calculateCosts, oldIds: [], defaultOptions });
 	}

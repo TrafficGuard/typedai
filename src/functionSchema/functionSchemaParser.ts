@@ -18,7 +18,8 @@ import {
 import { systemDir } from '#app/appDirs';
 import { FUNC_DECORATOR_NAME } from '#functionSchema/functionSchemaTypes';
 import { logger } from '#o11y/logger';
-import type { FunctionParameter, FunctionSchema } from './functions';
+import { type FunctionJsonSchema, functionSchemaToJsonSchemaParameters } from './functionSchemaToJsonSchema';
+import type { FunctionParameter } from './functions';
 import type { TypeDefinition, TypeProperty } from './typeDefinition';
 
 const writeFileAsync = promisify(writeFile);
@@ -82,9 +83,9 @@ const getCachedBasePath = () => `${systemDir()}/functions/`;
  *   }
  * }
  * @param {string} sourceFilePath the full path to the source file
- * @returns An array of FunctionSchema objects
+ * @returns An object containing FunctionJsonSchema objects
  */
-export function functionSchemaParser(sourceFilePath: string): Record<string, FunctionSchema> {
+export function functionSchemaParser(sourceFilePath: string): Record<string, FunctionJsonSchema> {
 	const cwd = process.cwd();
 	let cachedPath = path.relative(cwd, sourceFilePath);
 	// trim the .ts file extension
@@ -115,7 +116,7 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 
 	const classes = sourceFile.getClasses();
 
-	const functionSchemas: Record<string, FunctionSchema> = {};
+	const functionSchemas: Record<string, FunctionJsonSchema> = {};
 
 	classes.forEach((cls: ClassDeclaration) => {
 		const className = cls.getName()!;
@@ -211,11 +212,13 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 				}
 			});
 
-			const funcDef: FunctionSchema = {
+			const funcDef: FunctionJsonSchema = {
 				class: className,
 				name: `${className}_${methodName}`,
 				description: methodDescription,
 				parameters: params,
+				// inputSchema will be added after all properties are set
+				inputSchema: { type: 'object', properties: {}, required: [] },
 			};
 			if (returnType && returnType !== 'void') {
 				funcDef.returnType = returnType;
@@ -229,6 +232,8 @@ export function functionSchemaParser(sourceFilePath: string): Record<string, Fun
 					}
 				}
 			}
+			// Generate JSON Schema for the function parameters
+			funcDef.inputSchema = functionSchemaToJsonSchemaParameters(funcDef);
 			functionSchemas[funcDef.name] = funcDef;
 		});
 	});

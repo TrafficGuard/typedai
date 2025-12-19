@@ -33,6 +33,7 @@ const functionAliases: Record<string, string> = {
 	gcp: 'GoogleCloud',
 	ts: 'TypescriptTools',
 	jira: 'Jira',
+	rollbar: 'Rollbar',
 	conf: 'Confluence',
 	live: 'LiveFiles',
 	gcloud: 'GoogleCloud',

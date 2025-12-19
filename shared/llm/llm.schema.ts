@@ -1,4 +1,4 @@
-import { LanguageModelV2Source } from '@ai-sdk/provider';
+import { LanguageModelV3Source } from '@ai-sdk/provider';
 import { type Static, Type } from '@sinclair/typebox';
 import { FinishReason } from 'ai';
 import type {
@@ -29,7 +29,7 @@ export const AttachmentInfoSchema = Type.Object({
 
 const ProviderOptionsOptionalSchema = Type.Optional(Type.Record(Type.String(), Type.Any()));
 
-const LanguageModelV2UrlSource = Type.Object({
+const LanguageModelV3UrlSource = Type.Object({
 	type: Type.Literal('source'),
 	sourceType: Type.Literal('url'),
 	id: Type.String(),
@@ -38,7 +38,7 @@ const LanguageModelV2UrlSource = Type.Object({
 	providerMetadata: Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.Any()))),
 });
 
-const LanguageModelV2DocumentSource = Type.Object({
+const LanguageModelV3DocumentSource = Type.Object({
 	type: Type.Literal('source'),
 	sourceType: Type.Literal('document'),
 	id: Type.String(),
@@ -48,15 +48,15 @@ const LanguageModelV2DocumentSource = Type.Object({
 	providerMetadata: Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.Any()))),
 });
 
-const LanguageModelV2SourceSchema = Type.Union([LanguageModelV2UrlSource, LanguageModelV2DocumentSource]);
-const _LanguageModelV2SourceCheck: AreTypesFullyCompatible<LanguageModelV2Source, Static<typeof LanguageModelV2SourceSchema>> = true;
+const LanguageModelV3SourceSchema = Type.Union([LanguageModelV3UrlSource, LanguageModelV3DocumentSource]);
+const _LanguageModelV3SourceCheck: AreTypesFullyCompatible<LanguageModelV3Source, Static<typeof LanguageModelV3SourceSchema>> = true;
 
 // Basic Part Schemas
 export const TextPartSchema = Type.Object({
 	type: Type.Literal('text'),
 	text: Type.String(),
 	providerOptions: ProviderOptionsOptionalSchema,
-	sources: Type.Optional(Type.Array(LanguageModelV2SourceSchema)),
+	sources: Type.Optional(Type.Array(LanguageModelV3SourceSchema)),
 });
 const _TextPartCheck: AreTypesFullyCompatible<TextPartExt, Static<typeof TextPartSchema>> = true;
 
@@ -125,7 +125,18 @@ export const ToolResultSchema = Type.Object(
 	},
 	{ $id: 'ToolResult' },
 );
-export const ToolContentSchema = Type.Array(ToolResultSchema, { $id: 'ToolContent' });
+
+export const ToolApprovalResponseSchema = Type.Object(
+	{
+		type: Type.Literal('tool-approval-response'),
+		approvalId: Type.String(),
+		approved: Type.Boolean(),
+		reason: Type.Optional(Type.String()),
+	},
+	{ $id: 'ToolApprovalResponse' },
+);
+
+export const ToolContentSchema = Type.Array(Type.Union([ToolResultSchema, ToolApprovalResponseSchema]), { $id: 'ToolContent' });
 // type ToolLlmContent = Extract<LlmMessage, { role: 'tool' }>['content'];
 const _ToolContentCheck: AreTypesFullyCompatible<ToolContent, Static<typeof ToolContentSchema>> = true;
 

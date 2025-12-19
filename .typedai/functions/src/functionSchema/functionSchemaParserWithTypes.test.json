@@ -4,6 +4,12 @@
     "name": "TestClassWithTypes_getProject",
     "description": "Method that returns a custom interface type",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "SimpleProject",
     "returns": "The project details",
     "typeDefinitions": [
@@ -44,6 +50,12 @@
     "name": "TestClassWithTypes_getProjects",
     "description": "Method that returns an array of custom interface type",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "SimpleProject[]",
     "returns": "Array of projects",
     "typeDefinitions": [

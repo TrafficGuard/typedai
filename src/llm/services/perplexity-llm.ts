@@ -1,6 +1,6 @@
 import type { PerplexityProvider } from '@ai-sdk/perplexity';
 import { createPerplexity } from '@ai-sdk/perplexity';
-import { LanguageModelV2 } from '@ai-sdk/provider';
+import { LanguageModelV3 } from '@ai-sdk/provider';
 import { type GenerateTextResult, extractReasoningMiddleware, wrapLanguageModel } from 'ai';
 import { Perplexity } from '#functions/web/perplexity';
 import type { LLM, LlmCostFunction } from '#shared/llm/llm.model';
@@ -90,7 +90,7 @@ export class PerplexityLLM extends AiLLM<PerplexityProvider> {
 		return this.aiProvider;
 	}
 
-	override aiModel(): LanguageModelV2 {
+	override aiModel(): LanguageModelV3 {
 		const aiModel = super.aiModel();
 		if (this.getModel().includes('sonar-reasoning-pro')) {
 			return wrapLanguageModel({

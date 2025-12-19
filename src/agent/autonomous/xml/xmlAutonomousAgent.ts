@@ -16,7 +16,7 @@ import { AGENT_REQUEST_FEEDBACK } from '#agent/autonomous/functions/agentFeedbac
 import { AGENT_COMPLETED_NAME } from '#agent/autonomous/functions/agentFunctions';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
-import { type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
+import { type FunctionJsonSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import { parseFunctionCallsXml } from '#llm/responseParsers';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
@@ -245,7 +245,7 @@ export async function runXmlAgent(agent: AgentContext): Promise<AgentExecution> 
  * @param jsonDefinitions The JSON object containing function schemas
  * @returns A string containing the XML representation of the function schemas
  */
-function convertJsonToXml(jsonDefinitions: FunctionSchema[]): string {
+function convertJsonToXml(jsonDefinitions: FunctionJsonSchema[]): string {
 	let xmlOutput = '<functions>\n';
 
 	for (const funcDef of jsonDefinitions) {

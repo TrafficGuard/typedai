@@ -8,6 +8,7 @@ import { ensureAllTablesExist, ensureUsersTableExists } from '#modules/postgres/
 import { ensurePostgresDockerRunning } from './ensureDockerPostgres';
 import { PostgresAgentStateService } from './postgresAgentStateService';
 import { PostgresChatService } from './postgresChatService';
+import { PostgresDebateStateService } from './postgresDebateStateService';
 import { PostgresFunctionCacheService } from './postgresFunctionCacheService';
 import { PostgresUserService } from './postgresUserService';
 
@@ -21,6 +22,7 @@ export function postgresApplicationContext(): ApplicationContext {
 		codeReviewService: new PostgresCodeReviewService(),
 		promptsService: new PostgresPromptsService(),
 		codeTaskRepository: new PostgresCodeTaskRepository(),
+		debateStateService: new PostgresDebateStateService(),
 		init: async () => {
 			await ensurePostgresDockerRunning();
 			await ensureAllTablesExist(db);

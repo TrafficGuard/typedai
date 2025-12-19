@@ -1,4 +1,5 @@
 import type { ApplicationContext } from '#app/applicationTypes';
+import { InMemoryDebateStateService } from '#modules/debate/inMemoryDebateStateService';
 import { InMemoryAgentStateService } from '#modules/memory/inMemoryAgentStateService';
 import { InMemoryChatService } from '#modules/memory/inMemoryChatService';
 import { InMemoryCodeReviewService } from '#modules/memory/inMemoryCodeReviewService';
@@ -18,6 +19,7 @@ export function inMemoryApplicationContext(): ApplicationContext {
 		functionCacheService: new InMemoryFunctionCacheService(),
 		promptsService: new InMemoryPromptService(),
 		codeTaskRepository: new InMemoryCodeTaskRepository(), // For CodeTask we store the Repository
+		debateStateService: new InMemoryDebateStateService(),
 		init: async () => {
 			await ctx.userService.ensureSingleUser();
 		},

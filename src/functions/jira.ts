@@ -252,6 +252,31 @@ export class Jira {
 	}
 
 	/**
+	 * Updates the description of an existing JIRA issue
+	 * @param issueId The issue ID or key (e.g., ABC-123)
+	 * @param description The new description in Markdown format
+	 * @returns {Promise<void>}
+	 */
+	@func()
+	async updateJiraDescription(issueId: string, description: string): Promise<void> {
+		if (!issueId) throw new Error('issueId is required');
+		if (!description) throw new Error('description is required');
+
+		try {
+			// const formattedDescription = await convertFormatting(description);
+			const formattedDescription = description;
+			await this.axios().put(`/rest/api/latest/issue/${issueId}`, {
+				fields: {
+					description: formattedDescription,
+				},
+			});
+		} catch (error) {
+			logger.error(error, `Error updating description for Jira issue ${issueId}`);
+			throw error;
+		}
+	}
+
+	/**
 	 * Fetches Jira issues where the user performed key activities on a given day.
 	 * Supports: issue creation, comments, and worklogs.
 	 *
@@ -340,7 +365,7 @@ export class Jira {
  * https://jira.atlassian.com/secure/WikiRendererHelpAction.jspa?section=all
  * @param markdown
  */
-async function convertFormatting(markdown: string): Promise<string> {
+export async function convertFormatting(markdown: string): Promise<string> {
 	const prompt = `<jira-text-formatting>
 Headings
 
@@ -708,5 +733,5 @@ ${markdown}
 Your task is to convert the text in the description-markdown tag from regular Markdown to the Jira text formatting.
 Output only the converted text.
 `;
-	return await llms().medium.generateText(prompt, { temperature: 0.3 });
+	return await llms().medium.generateText(prompt, { id: 'Jira formatter', temperature: 0.3, thinking: 'none' });
 }

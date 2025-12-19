@@ -350,6 +350,60 @@ export async function ensureCICDStatsTableExists(dbInstance: Kysely<Database> = 
 	}
 }
 
+export async function ensureDebatesTableExists(dbInstance: Kysely<Database> = db): Promise<void> {
+	await dbInstance.schema
+		.createTable('debates')
+		.ifNotExists()
+		.addColumn('id', 'text', (col) => col.primaryKey())
+		.addColumn('user_id', 'text')
+		.addColumn('topic', 'text', (col) => col.notNull())
+		.addColumn('background_context', 'text')
+		.addColumn('phase', 'text', (col) => col.notNull())
+		.addColumn('previous_phase', 'text') // Stores phase before pause for proper resume
+		.addColumn('current_round', 'integer', (col) => col.notNull().defaultTo(1))
+		.addColumn('debaters_serialized', 'text', (col) => col.notNull())
+		.addColumn('rounds_serialized', 'text', (col) => col.notNull().defaultTo('[]'))
+		.addColumn('config_serialized', 'text', (col) => col.notNull())
+		.addColumn('hitl_decision_serialized', 'text') // JSON string of HitlDecision
+		.addColumn('start_time', 'timestamptz', (col) => col.notNull())
+		.addColumn('end_time', 'timestamptz')
+		.addColumn('error', 'text')
+		.addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+		.addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+		.execute();
+
+	// Migration: Add columns if they don't exist (for existing databases)
+	try {
+		await dbInstance.schema.alterTable('debates').addColumn('previous_phase', 'text').execute();
+	} catch {
+		// Column already exists, ignore
+	}
+	try {
+		await dbInstance.schema.alterTable('debates').addColumn('hitl_decision_serialized', 'text').execute();
+	} catch {
+		// Column already exists, ignore
+	}
+}
+
+export async function ensureDebateResultsTableExists(dbInstance: Kysely<Database> = db): Promise<void> {
+	await dbInstance.schema
+		.createTable('debate_results')
+		.ifNotExists()
+		.addColumn('debate_id', 'text', (col) => col.primaryKey())
+		.addColumn('topic', 'text', (col) => col.notNull())
+		.addColumn('synthesized_answer_serialized', 'text', (col) => col.notNull())
+		.addColumn('verified_answer_serialized', 'text', (col) => col.notNull())
+		.addColumn('rounds_serialized', 'text', (col) => col.notNull())
+		.addColumn('round_count', 'integer', (col) => col.notNull())
+		.addColumn('consensus_reached', 'boolean', (col) => col.notNull())
+		.addColumn('hitl_invoked', 'boolean', (col) => col.notNull())
+		.addColumn('execution_time_ms', 'integer', (col) => col.notNull())
+		.addColumn('total_cost', 'double precision')
+		.addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+		.addForeignKeyConstraint('debate_results_debate_fk', ['debate_id'], 'debates', ['id'], (cb) => cb.onDelete('cascade'))
+		.execute();
+}
+
 export async function ensureAllTablesExist(dbInstance: Kysely<Database> = db): Promise<void> {
 	await ensureUsersTableExists(dbInstance);
 	await ensureChatsTableExists(dbInstance);
@@ -362,4 +416,6 @@ export async function ensureAllTablesExist(dbInstance: Kysely<Database> = db): P
 	await ensureCodeReviewConfigsTableExists(dbInstance);
 	await ensureMergeRequestReviewCacheTableExists(dbInstance);
 	await ensureCICDStatsTableExists(dbInstance);
+	await ensureDebatesTableExists(dbInstance);
+	await ensureDebateResultsTableExists(dbInstance);
 }

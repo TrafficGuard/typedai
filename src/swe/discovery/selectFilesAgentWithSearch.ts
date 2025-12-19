@@ -272,8 +272,20 @@ async function selectFilesCore(
 			newInvalidPathsFromLastTurn, // Pass invalid paths from previous turn (Fix #5)
 			iterationCount,
 			llm,
-			agentLLMs,
 			vectorSearchAvailable,
+		);
+
+		// Log the parsed response for debugging
+		logger.info(
+			{
+				iteration: iterationCount,
+				keepFilesCount: response.keepFiles?.length ?? 0,
+				ignoreFilesCount: response.ignoreFiles?.length ?? 0,
+				inspectFilesCount: response.inspectFiles?.length ?? 0,
+				hasSearch: !!response.search,
+				hasVectorSearch: !!response.vectorSearch,
+			},
+			`Iteration ${iterationCount} response summary`,
 		);
 
 		// Process keep/ignore decisions first
@@ -296,6 +308,18 @@ async function selectFilesCore(
 			newlyKeptPaths.push(key);
 		}
 
+		// Log state after processing keep/ignore decisions
+		logger.debug(
+			{
+				iteration: iterationCount,
+				totalKept: keptFiles.size,
+				totalIgnored: ignoredFiles.size,
+				pendingCount: filesPendingDecision.size,
+				newlyKeptCount: newlyKeptPaths.length,
+			},
+			`Iteration ${iterationCount} state after processing decisions`,
+		);
+
 		if (newlyKeptPaths.length) {
 			try {
 				const cwd = getFileSystem().getWorkingDirectory();
@@ -315,6 +339,18 @@ async function selectFilesCore(
 		// Validate newly requested inspectFiles (Fix #5)
 		const rawNewInspectPaths = response.inspectFiles ?? [];
 		const { validPaths: validatedNewInspectPaths, invalidPaths: newlyInvalidPaths } = await validateAndFilterPaths(rawNewInspectPaths, workingDir);
+
+		if (rawNewInspectPaths.length > 0) {
+			logger.info(
+				{
+					iteration: iterationCount,
+					requested: rawNewInspectPaths,
+					valid: validatedNewInspectPaths,
+					invalid: newlyInvalidPaths,
+				},
+				`Iteration ${iterationCount} file inspection request`,
+			);
+		}
 
 		for (const validPath of validatedNewInspectPaths) {
 			filesPendingDecision.add(validPath); // Add normalized valid paths
@@ -354,6 +390,14 @@ Respond with a valid JSON object that follows the required schema.`,
 		const hasAnySearch = response.search || response.vectorSearch;
 
 		if (hasAnySearch) {
+			logger.info(
+				{
+					iteration: iterationCount,
+					regexSearch: response.search || null,
+					vectorSearch: response.vectorSearch || null,
+				},
+				`Iteration ${iterationCount} performing search`,
+			);
 			let searchResultsText = '';
 
 			// Perform regex search if requested
@@ -499,7 +543,6 @@ async function generateFileSelectionProcessingResponse(
 	invalidPathsFromLastInspection: string[], // New parameter for Fix #5
 	iteration: number,
 	llm: LLM,
-	agentLLMs: AgentLLMs,
 	vectorSearchAvailable: boolean,
 ): Promise<IterationResponse> {
 	// filesForContent are the files whose contents will be shown to the LLM in this turn.

@@ -4,7 +4,7 @@ import { systemDir } from '#app/appDirs';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { func, funcClass } from './functionDecorators';
 import { functionSchemaParser } from './functionSchemaParser';
-import type { FunctionSchema } from './functions';
+import type { FunctionJsonSchema } from './functions';
 
 /**
  * A simple project interface for testing
@@ -45,7 +45,7 @@ class TestClassWithTypes {
 describe('functionSchemaParser with custom types', () => {
 	setupConditionalLoggerOutput();
 
-	let functionSchemas: Record<string, FunctionSchema>;
+	let functionSchemas: Record<string, FunctionJsonSchema>;
 
 	before(async () => {
 		try {

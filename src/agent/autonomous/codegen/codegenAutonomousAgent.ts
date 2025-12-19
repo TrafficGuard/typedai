@@ -31,7 +31,7 @@ import { ForceStopError } from '#agent/forceStopAgent';
 import { cloneAndTruncateBuffers, removeConsoleEscapeChars } from '#agent/trimObject';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
-import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
+import { FUNC_SEP, type FunctionJsonSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import type { FileStore } from '#functions/storage/filestore';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
@@ -279,7 +279,7 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 
 				// Configure the objects for the Python global scope which proxy to the available @func class methods
 				const functionInstances: Record<string, object> = agent.functions.getFunctionInstanceMap();
-				const functionSchemas: FunctionSchema[] = getAllFunctionSchemas(Object.values(functionInstances));
+				const functionSchemas: FunctionJsonSchema[] = getAllFunctionSchemas(Object.values(functionInstances));
 				const functionProxies = setupPyodideFunctionProxies(functionSchemas, agent, agentPlanResponse, currentIterationFunctionCalls);
 				const allGlobalsForPyodide = { ...pythonGlobalsFromXml, ...pyGlobalsForNextScriptExecution, ...functionProxies }; // XML globals + prev script vars + proxies (proxies win)
 				const pyodideGlobals = pyodide.toPy(allGlobalsForPyodide);
@@ -531,7 +531,7 @@ function replaceLastAgentPythonCodeBlock(response: string, cleanedCode: string):
 }
 
 function setupPyodideFunctionProxies(
-	functionSchemas: FunctionSchema[],
+	functionSchemas: FunctionJsonSchema[],
 	agent: AgentContext,
 	agentPlanResponse: string,
 	currentIterationFunctionCalls: FunctionCallResult[],
@@ -604,7 +604,7 @@ function setupPyodideFunctionProxies(
  * Generates Python code with a helper function and minimal wrappers
  * to automatically perform deep conversion to native Python types on JsProxy results.
  */
-export function generatePythonWrapper(schemas: FunctionSchema[], generatedPythonCode: string): string {
+export function generatePythonWrapper(schemas: FunctionJsonSchema[], generatedPythonCode: string): string {
 	let helperAndWrapperCode = `
 import sys
 import traceback # Keep traceback for JS call errors

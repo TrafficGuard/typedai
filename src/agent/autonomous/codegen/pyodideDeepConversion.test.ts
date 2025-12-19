@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { type PyodideInterface, loadPyodide } from 'pyodide';
-import type { FunctionSchema } from '#functionSchema/functions';
+import type { FunctionJsonSchema } from '#functionSchema/functions';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { generatePythonWrapper } from './codegenAutonomousAgent';
 import { mainFnCodeToFullScript } from './pythonCodeGenUtils';
@@ -17,8 +17,16 @@ describe('Pyodide deep conversion in wrappers', () => {
 	it('allows subscripting and membership on returned arrays/dicts', async function () {
 		this.timeout(30000);
 
-		const schemas: FunctionSchema[] = [
-			{ class: 'GitLab', name: 'GitLab_getProjects', description: 'list projects', returns: '', parameters: [], returnType: 'Array<Record<string, any>>' },
+		const schemas: FunctionJsonSchema[] = [
+			{
+				class: 'GitLab',
+				name: 'GitLab_getProjects',
+				description: 'list projects',
+				returns: '',
+				parameters: [],
+				returnType: 'Array<Record<string, any>>',
+				inputSchema: { type: 'object', properties: {}, required: [] },
+			},
 		];
 		// Ensure wrapper is generated for this function by including the name in "generatedPythonCode"
 		const wrapper = generatePythonWrapper(schemas, 'await GitLab_getProjects()');
@@ -74,8 +82,16 @@ first['processed'] = True
 	it('supports deep list/dict manipulation of returned structures', async function () {
 		this.timeout(30000);
 
-		const schemas: FunctionSchema[] = [
-			{ class: 'TestApi', name: 'Api_getData', description: 'get data', returns: '', parameters: [], returnType: 'Record<string, any>' },
+		const schemas: FunctionJsonSchema[] = [
+			{
+				class: 'TestApi',
+				name: 'Api_getData',
+				description: 'get data',
+				returns: '',
+				parameters: [],
+				returnType: 'Record<string, any>',
+				inputSchema: { type: 'object', properties: {}, required: [] },
+			},
 		];
 		const wrapper = generatePythonWrapper(schemas, 'await Api_getData()');
 

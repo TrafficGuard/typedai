@@ -1,0 +1,22 @@
+/* Debate Component Styles - Basic Scaffolding */
+/* Full styling TBD based on UI design */
+
+.debate-container {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding: 1rem;
+}
+
+.debate-header {
+	margin-bottom: 1rem;
+
+	h1 {
+		margin: 0 0 0.5rem 0;
+	}
+
+	.placeholder-text {
+		color: var(--fuse-text-secondary);
+		font-style: italic;
+	}
+}

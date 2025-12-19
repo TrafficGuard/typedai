@@ -1,3 +1,16 @@
+/**
+ * Generic Google Cloud operations.
+ *
+ * This module provides core GCP functionality:
+ * - Cloud Logging queries
+ * - Cloud Monitoring metrics
+ * - gcloud/bq command execution
+ *
+ * For service-specific resource discovery and metrics (Redis, Bigtable, Spanner, etc.),
+ * use GoogleResources from './google-resources.ts'.
+ */
+
+import { MetricServiceClient, protos } from '@google-cloud/monitoring';
 import { GoogleAuth } from 'google-auth-library';
 import { stringify as yamlStringify } from 'yaml';
 import { agentContext } from '#agent/agentContext';
@@ -5,6 +18,7 @@ import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { func, funcClass } from '#functionSchema/functionDecorators';
 import { extractCommonProperties } from '#utils/arrayUtils';
 import { execCommand, failOnError } from '#utils/exec';
+
 @funcClass(__filename)
 export class GoogleCloud {
 	/**
@@ -173,5 +187,69 @@ export class GoogleCloud {
 		const result = await execCommand(gcloudModifyCommand);
 		failOnError('Error running gcloudModifyCommand', result);
 		return result.stdout;
+	}
+
+	// ==================== Cloud Monitoring Metrics ====================
+
+	/**
+	 * Queries Cloud Monitoring metrics using the Monitoring API.
+	 * @param projectId The Google Cloud project ID
+	 * @param metricType The metric type (e.g., 'compute.googleapis.com/instance/cpu/utilization')
+	 * @param options Configuration options
+	 * @returns Metrics data as YAML string for token efficiency
+	 */
+	@func()
+	async getCloudMonitoringMetrics(
+		projectId: string,
+		metricType: string,
+		options?: {
+			filter?: string;
+			intervalMinutes?: number;
+			alignmentPeriodSeconds?: number;
+			aggregation?: 'ALIGN_MEAN' | 'ALIGN_MAX' | 'ALIGN_SUM' | 'ALIGN_RATE' | 'ALIGN_DELTA';
+		},
+	): Promise<string> {
+		const client = new MetricServiceClient();
+		const intervalMinutes = options?.intervalMinutes ?? 60;
+		const alignmentPeriodSeconds = options?.alignmentPeriodSeconds ?? 60;
+
+		const now = Date.now();
+		const startTime = new Date(now - intervalMinutes * 60 * 1000);
+		const endTime = new Date(now);
+
+		let filter = `metric.type="${metricType}"`;
+		if (options?.filter) filter += ` AND ${options.filter}`;
+
+		const request: protos.google.monitoring.v3.IListTimeSeriesRequest = {
+			name: `projects/${projectId}`,
+			filter,
+			interval: {
+				startTime: { seconds: Math.floor(startTime.getTime() / 1000) },
+				endTime: { seconds: Math.floor(endTime.getTime() / 1000) },
+			},
+			aggregation: {
+				alignmentPeriod: { seconds: alignmentPeriodSeconds },
+				perSeriesAligner: (options?.aggregation as any) || 'ALIGN_MEAN',
+			},
+		};
+
+		try {
+			const [timeSeries] = await client.listTimeSeries(request);
+
+			// Transform to a more compact format
+			const results = timeSeries.map((ts) => ({
+				metric: ts.metric?.type,
+				labels: ts.metric?.labels,
+				resource: ts.resource?.labels,
+				points: ts.points?.slice(0, 10).map((p) => ({
+					time: p.interval?.endTime?.seconds ? new Date(Number(p.interval.endTime.seconds) * 1000).toISOString() : null,
+					value: p.value?.doubleValue ?? p.value?.int64Value ?? p.value?.distributionValue?.mean,
+				})),
+			}));
+
+			return yamlStringify(results, { indent: 2 });
+		} catch (e: any) {
+			throw new Error(`Error querying Cloud Monitoring: ${e.message}`);
+		}
 	}
 }

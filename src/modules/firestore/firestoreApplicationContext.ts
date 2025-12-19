@@ -7,6 +7,7 @@ import { FirestoreCodeTaskRepository } from '#firestore/firestoreCodeTaskReposit
 import { FirestoreCacheService } from '#firestore/firestoreFunctionCacheService';
 import { FirestoreLlmCallService } from '#firestore/firestoreLlmCallService';
 import { FirestoreUserService } from '#firestore/firestoreUserService';
+import { InMemoryDebateStateService } from '#modules/debate/inMemoryDebateStateService';
 
 export function firestoreApplicationContext(): ApplicationContext {
 	return {
@@ -18,5 +19,6 @@ export function firestoreApplicationContext(): ApplicationContext {
 		codeReviewService: new FirestoreCodeReviewService(),
 		promptsService: new FirebasePromptService(),
 		codeTaskRepository: new FirestoreCodeTaskRepository(), // For CodeTask we store the Repository
+		debateStateService: new InMemoryDebateStateService(), // TODO: Implement FirestoreDebateStateService
 	};
 }

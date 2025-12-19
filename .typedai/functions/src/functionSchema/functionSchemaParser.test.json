@@ -3,19 +3,37 @@
     "class": "TestClass",
     "name": "TestClass_simpleMethod",
     "description": "Simple method without parameters",
-    "parameters": []
+    "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
   },
   "TestClass_methodWithVoidReturn": {
     "class": "TestClass",
     "name": "TestClass_methodWithVoidReturn",
     "description": "Method with void return type",
-    "parameters": []
+    "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
   },
   "TestClass_methodWithPromiseVoidReturn": {
     "class": "TestClass",
     "name": "TestClass_methodWithPromiseVoidReturn",
     "description": "Method with Promise<void> return type",
-    "parameters": []
+    "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
   },
   "TestClass_methodWithParams": {
     "class": "TestClass",
@@ -34,7 +52,25 @@
         "type": "number",
         "description": "Second argument"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "arg1": {
+          "type": "string",
+          "description": "First argument"
+        },
+        "arg2": {
+          "type": "number",
+          "description": "Second argument"
+        }
+      },
+      "required": [
+        "arg1",
+        "arg2"
+      ],
+      "additionalProperties": false
+    }
   },
   "TestClass_methodWithOptionalParam": {
     "class": "TestClass",
@@ -54,7 +90,24 @@
         "description": "Optional second argument",
         "optional": true
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "arg1": {
+          "type": "string",
+          "description": "First argument"
+        },
+        "arg2": {
+          "type": "number",
+          "description": "Optional second argument"
+        }
+      },
+      "required": [
+        "arg1"
+      ],
+      "additionalProperties": false
+    }
   },
   "TestClass_methodWithHiddenParam": {
     "class": "TestClass",
@@ -67,13 +120,32 @@
         "type": "string",
         "description": "First argument"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "arg1": {
+          "type": "string",
+          "description": "First argument"
+        }
+      },
+      "required": [
+        "arg1"
+      ],
+      "additionalProperties": false
+    }
   },
   "TestClass_methodWithReturnType": {
     "class": "TestClass",
     "name": "TestClass_methodWithReturnType",
     "description": "Method with return type",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "A string value"
   },
@@ -82,6 +154,12 @@
     "name": "TestClass_methodReturnsPromise",
     "description": "Method with Promise return type",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "A string value"
   },
@@ -90,6 +168,12 @@
     "name": "TestClass_methodWithComplexReturnType",
     "description": "Method with complex return type",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "Record<string, number>",
     "returns": "A record of string keys and number values"
   },
@@ -98,6 +182,12 @@
     "name": "TestClass_methodWithPromiseComplexReturnType",
     "description": "Method with Promise and complex return type",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "Record<string, number>",
     "returns": "A promise that resolves to a record of string keys and number values"
   }

@@ -1,5 +1,5 @@
 import { extractLastXmlTagContent } from '#agent/autonomous/codegen/codegenAutonomousAgentUtils';
-import type { FunctionParameter, FunctionSchema } from '#functionSchema/functions';
+import type { FunctionJsonSchema, FunctionParameter } from '#functionSchema/functions';
 import type { TypeDefinition } from '#functionSchema/typeDefinition';
 import { logger } from '#o11y/logger';
 
@@ -148,7 +148,7 @@ export function processFunctionArguments(args: any[], expectedParamNames: string
  * @param jsonDefinitions The JSON object containing function schemas
  * @returns A string containing the functions
  */
-export function convertJsonToPythonDeclaration(jsonDefinitions: FunctionSchema[]): string {
+export function convertJsonToPythonDeclaration(jsonDefinitions: FunctionJsonSchema[]): string {
 	let functions = '<functions>';
 
 	for (const def of jsonDefinitions) {

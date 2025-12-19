@@ -89,5 +89,24 @@
     ],
     "returnType": "string",
     "returns": "The ID of the created comment"
+  },
+  "Jira_updateJiraDescription": {
+    "class": "Jira",
+    "name": "Jira_updateJiraDescription",
+    "description": "Updates the description of an existing JIRA issue",
+    "parameters": [
+      {
+        "index": 0,
+        "name": "issueId",
+        "type": "string",
+        "description": "The issue ID or key (e.g., ABC-123)"
+      },
+      {
+        "index": 1,
+        "name": "description",
+        "type": "string",
+        "description": "The new description in Markdown format"
+      }
+    ]
   }
 }

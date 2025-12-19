@@ -1,5 +1,6 @@
 import { type TextStreamPart } from 'ai';
 import { countTokens } from '#llm/tokens';
+import { logger } from '#o11y/logger';
 import type { AgentContext } from '#shared/agent/agent.model';
 import {
 	type GenerateJsonOptions,
@@ -183,8 +184,10 @@ export abstract class BaseLLM implements LLM {
 		} catch (e) {
 			// Retry if SyntaxError (JSON parsing failed) or Error (specific structure not found by extractReasoningAndJson)
 			if (e instanceof SyntaxError || (e instanceof Error && e.message.startsWith('Failed to extract structured JSON'))) {
+				logger.warn({ id: options?.id, error: (e as Error).message }, 'JSON parsing failed, retrying LLM call');
 				const responseText = await this.generateText(messages, options); // Second attempt
 				const { reasoning, object } = extractReasoningAndJson<T>(responseText); // Second parse attempt
+				logger.info({ id: options?.id }, 'Retry succeeded');
 				return {
 					message: assistant(responseText),
 					reasoning,

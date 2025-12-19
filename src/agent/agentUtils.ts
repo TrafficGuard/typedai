@@ -1,5 +1,5 @@
 import { llms } from '#agent/agentContextUtils';
-import type { FunctionSchema } from '#functionSchema/functions';
+import type { FunctionJsonSchema } from '#functionSchema/functions';
 import type { AgentContext } from '#shared/agent/agent.model';
 import type { FunctionCall } from '#shared/llm/llm.model';
 
@@ -19,7 +19,7 @@ export const SCRIPT_RETURN_VALUE_MAX_TOKENS = 30000;
 export async function summarizeFunctionOutput(
 	agent: AgentContext,
 	agentPlanResponse: string,
-	schema: FunctionSchema,
+	schema: FunctionJsonSchema,
 	parameters: Record<string, any>,
 	output: string,
 ): Promise<string> {

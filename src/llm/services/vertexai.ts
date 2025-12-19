@@ -2,10 +2,14 @@ import { type GoogleVertexProvider, createVertex } from '@ai-sdk/google-vertex';
 import { HarmBlockThreshold, HarmCategory, type SafetySetting } from '@google-cloud/vertexai';
 import { costPerMilTokens } from '#llm/base-llm';
 import { AiLLM } from '#llm/services/ai-llm';
-import { logger } from '#o11y/logger';
 import { type GenerateTextOptions, type LLM, LlmCostFunction, combinePrompts } from '#shared/llm/llm.model';
 import { currentUser } from '#user/userContext';
 import { envVar } from '#utils/env-var';
+
+// NOTE: Vercel AI SDK tool calling with Vertex AI is broken as of @ai-sdk/google@2.0.44
+// Tool parameter schemas are not properly serialized, causing "parameters schema should be of type OBJECT" errors
+// See: https://github.com/vercel/ai/issues/9761
+// Fix pending in PR #9762
 
 export const VERTEX_SERVICE = 'vertex';
 

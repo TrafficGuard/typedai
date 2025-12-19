@@ -7,6 +7,7 @@ import type { FunctionCacheService } from '#cache/functionCacheService';
 import type { ChatService } from '#chat/chatService';
 import type { CodeTaskRepository } from '#codeTask/codeTaskRepository';
 import type { LlmCallService } from '#llm/llmCallService/llmCallService';
+import { InMemoryDebateStateService } from '#modules/debate/inMemoryDebateStateService';
 import type { PromptsService } from '#prompts/promptsService';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import type { UserService } from '#user/userService';
@@ -51,6 +52,7 @@ export async function mongoApplicationContext(): Promise<ApplicationContext> {
 		codeReviewService: new MongoCodeReviewService(db),
 		codeTaskRepository: new MongoCodeTaskRepository(db),
 		promptsService: new MongoPromptsService(db, mongoClient),
+		debateStateService: new InMemoryDebateStateService(), // TODO: Implement MongoDebateStateService
 	};
 }
 

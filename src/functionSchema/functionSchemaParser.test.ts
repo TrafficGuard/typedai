@@ -4,7 +4,7 @@ import { systemDir } from '#app/appDirs';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { func, funcClass } from './functionDecorators';
 import { functionSchemaParser } from './functionSchemaParser';
-import type { FunctionSchema } from './functions';
+import type { FunctionJsonSchema } from './functions';
 
 @funcClass(__filename)
 class TestClass {
@@ -89,10 +89,14 @@ class TestClass {
 describe('functionDefinitionParser', () => {
 	setupConditionalLoggerOutput();
 
-	let functionSchemas: Record<string, FunctionSchema>;
+	let functionSchemas: Record<string, FunctionJsonSchema>;
 
 	before(async () => {
-		unlinkSync(`${systemDir()}/functions/src/functionSchema/functionSchemaParser.test.json`);
+		try {
+			unlinkSync(`${systemDir()}/functions/src/functionSchema/functionSchemaParser.test.json`);
+		} catch {
+			// File may not exist
+		}
 		functionSchemas = functionSchemaParser(__filename);
 	});
 
@@ -103,6 +107,12 @@ describe('functionDefinitionParser', () => {
 				name: 'TestClass_simpleMethod',
 				description: 'Simple method without parameters',
 				parameters: [],
+				inputSchema: {
+					type: 'object',
+					properties: {},
+					required: [],
+					additionalProperties: false,
+				},
 			});
 		});
 
@@ -115,6 +125,15 @@ describe('functionDefinitionParser', () => {
 					{ index: 0, name: 'arg1', type: 'string', description: 'First argument' },
 					{ index: 1, name: 'arg2', type: 'number', description: 'Second argument' },
 				],
+				inputSchema: {
+					type: 'object',
+					properties: {
+						arg1: { type: 'string', description: 'First argument' },
+						arg2: { type: 'number', description: 'Second argument' },
+					},
+					required: ['arg1', 'arg2'],
+					additionalProperties: false,
+				},
 			});
 		});
 
@@ -127,6 +146,15 @@ describe('functionDefinitionParser', () => {
 					{ index: 0, name: 'arg1', type: 'string', description: 'First argument' },
 					{ index: 1, name: 'arg2', type: 'number', description: 'Optional second argument', optional: true },
 				],
+				inputSchema: {
+					type: 'object',
+					properties: {
+						arg1: { type: 'string', description: 'First argument' },
+						arg2: { type: 'number', description: 'Optional second argument' },
+					},
+					required: ['arg1'],
+					additionalProperties: false,
+				},
 			});
 		});
 
@@ -136,6 +164,14 @@ describe('functionDefinitionParser', () => {
 				name: 'TestClass_methodWithHiddenParam',
 				description: 'Method with a parameter without a param tag, which is hidden from the LLM',
 				parameters: [{ index: 0, name: 'arg1', type: 'string', description: 'First argument' }],
+				inputSchema: {
+					type: 'object',
+					properties: {
+						arg1: { type: 'string', description: 'First argument' },
+					},
+					required: ['arg1'],
+					additionalProperties: false,
+				},
 			});
 		});
 
@@ -145,6 +181,12 @@ describe('functionDefinitionParser', () => {
 				name: 'TestClass_methodWithReturnType',
 				description: 'Method with return type',
 				parameters: [],
+				inputSchema: {
+					type: 'object',
+					properties: {},
+					required: [],
+					additionalProperties: false,
+				},
 				returns: 'A string value',
 				returnType: 'string',
 			});
@@ -156,6 +198,12 @@ describe('functionDefinitionParser', () => {
 				name: 'TestClass_methodReturnsPromise',
 				description: 'Method with Promise return type',
 				parameters: [],
+				inputSchema: {
+					type: 'object',
+					properties: {},
+					required: [],
+					additionalProperties: false,
+				},
 				returns: 'A string value',
 				returnType: 'string',
 			});
@@ -167,6 +215,12 @@ describe('functionDefinitionParser', () => {
 				name: 'TestClass_methodWithComplexReturnType',
 				description: 'Method with complex return type',
 				parameters: [],
+				inputSchema: {
+					type: 'object',
+					properties: {},
+					required: [],
+					additionalProperties: false,
+				},
 				returns: 'A record of string keys and number values',
 				returnType: 'Record<string, number>',
 			});
@@ -178,6 +232,12 @@ describe('functionDefinitionParser', () => {
 				name: 'TestClass_methodWithPromiseComplexReturnType',
 				description: 'Method with Promise and complex return type',
 				parameters: [],
+				inputSchema: {
+					type: 'object',
+					properties: {},
+					required: [],
+					additionalProperties: false,
+				},
 				returns: 'A promise that resolves to a record of string keys and number values',
 				returnType: 'Record<string, number>',
 			});
@@ -189,6 +249,12 @@ describe('functionDefinitionParser', () => {
 				name: 'TestClass_methodWithVoidReturn',
 				description: 'Method with void return type',
 				parameters: [],
+				inputSchema: {
+					type: 'object',
+					properties: {},
+					required: [],
+					additionalProperties: false,
+				},
 			});
 		});
 
@@ -198,6 +264,12 @@ describe('functionDefinitionParser', () => {
 				name: 'TestClass_methodWithPromiseVoidReturn',
 				description: 'Method with Promise<void> return type',
 				parameters: [],
+				inputSchema: {
+					type: 'object',
+					properties: {},
+					required: [],
+					additionalProperties: false,
+				},
 			});
 		});
 	});

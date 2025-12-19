@@ -4,6 +4,7 @@ import type { ChatService } from '#chat/chatService';
 import type { CodeTaskRepository } from '#codeTask/codeTaskRepository';
 import type { TypeBoxFastifyInstance } from '#fastify/fastifyApp';
 import type { LlmCallService } from '#llm/llmCallService/llmCallService';
+import type { DebateStateService } from '#modules/debate/debateStateService';
 import type { PromptsService } from '#prompts/promptsService';
 import type { CodeReviewService } from '#swe/codeReview/codeReviewService';
 import type { UserService } from '#user/userService';
@@ -17,6 +18,7 @@ export interface ApplicationContext {
 	codeReviewService: CodeReviewService;
 	codeTaskRepository: CodeTaskRepository; // For CodeTask we store the Repository
 	promptsService: PromptsService;
+	debateStateService: DebateStateService;
 	init?: () => Promise<void>;
 }
 

@@ -1,5 +1,5 @@
 import { type AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
-import type { CoreMessage } from 'ai'; // Added import
+import type { ModelMessage } from 'ai';
 import { AiLLM } from '#llm/services/ai-llm';
 import type { AgentLLMs } from '#shared/agent/agent.model';
 import type { LLM, LlmCostFunction, LlmMessage } from '#shared/llm/llm.model';
@@ -73,7 +73,7 @@ export class Anthropic extends AiLLM<AnthropicProvider> {
 		});
 	}
 
-	protected override processMessages(llmMessages: LlmMessage[]): CoreMessage[] {
+	protected override processMessages(llmMessages: LlmMessage[]): ModelMessage[] {
 		const providerSpecificMessages = this._preprocessProviderMessages(llmMessages);
 		return super.processMessages(providerSpecificMessages);
 	}

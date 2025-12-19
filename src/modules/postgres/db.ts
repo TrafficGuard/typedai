@@ -242,6 +242,39 @@ export interface CICDStatsTable {
 	created_at: ColumnType<Date, string | undefined, never>; // Default in DB
 }
 
+export interface DebatesTable {
+	id: string; // PRIMARY KEY (UUID)
+	user_id: string | null;
+	topic: string;
+	background_context: string | null;
+	phase: string; // DebatePhase
+	previous_phase: string | null; // DebatePhase - phase before pause for proper resume
+	current_round: number;
+	debaters_serialized: string; // JSON string of DebaterConfig[]
+	rounds_serialized: string; // JSON string of DebateRound[]
+	config_serialized: string; // JSON string of DebateConfig
+	hitl_decision_serialized: string | null; // JSON string of HitlDecision
+	start_time: ColumnType<Date, string | Date, string | Date>;
+	end_time: ColumnType<Date, string | Date, string | Date> | null;
+	error: string | null;
+	created_at: ColumnType<Date, string | undefined, never>; // Default in DB
+	updated_at: ColumnType<Date, string | undefined, string | undefined>; // Default/updated in DB
+}
+
+export interface DebateResultsTable {
+	debate_id: string; // PRIMARY KEY, FK to debates.id
+	topic: string;
+	synthesized_answer_serialized: string; // JSON string of SynthesizedAnswer
+	verified_answer_serialized: string; // JSON string of VerifiedAnswer
+	rounds_serialized: string; // JSON string of DebateRound[]
+	round_count: number;
+	consensus_reached: boolean;
+	hitl_invoked: boolean;
+	execution_time_ms: number;
+	total_cost: number | null;
+	created_at: ColumnType<Date, string | undefined, never>; // Default in DB
+}
+
 export interface Database {
 	agent_contexts: AgentContextsTable;
 	agent_iterations: AgentIterationsTable;
@@ -256,6 +289,8 @@ export interface Database {
 	prompt_groups: PromptGroupsTable;
 	prompt_revisions: PromptRevisionsTable;
 	cicd_stats: CICDStatsTable;
+	debates: DebatesTable;
+	debate_results: DebateResultsTable;
 }
 
 const dialect = new PostgresDialect({

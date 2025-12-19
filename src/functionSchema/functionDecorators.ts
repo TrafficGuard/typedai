@@ -2,7 +2,7 @@ import type { Span } from '@opentelemetry/api';
 import { logger } from '#o11y/logger';
 import { setFunctionSpanAttributes, withActiveSpan } from '#o11y/trace';
 import { functionSchemaParser } from './functionSchemaParser';
-import { FUNC_SEP, type FunctionSchema, getFunctionSchemas, setFunctionSchemas } from './functions';
+import { FUNC_SEP, type FunctionJsonSchema, getFunctionSchemas, setFunctionSchemas } from './functions';
 
 let _functionFactory: Record<string, any> = {};
 
@@ -51,7 +51,7 @@ export function func() {
 			const functionName = `${className}${FUNC_SEP}${methodName}`;
 			// NOTE - modification, build attributeExtractors from all the arguments
 			const funcDefinitions = getFunctionSchemas(this);
-			let funcDef: FunctionSchema | undefined = funcDefinitions[functionName];
+			let funcDef: FunctionJsonSchema | undefined = funcDefinitions[functionName];
 			if (!funcDef) {
 				// Same hack in LlmFunction.ts
 				funcDef = funcDefinitions[methodName];

@@ -11,6 +11,7 @@ import { GoogleCalendar } from '#functions/googleCalendar';
 import { ImageGen } from '#functions/image';
 import { Jira } from '#functions/jira';
 import { LlmTools } from '#functions/llmTools';
+import { Rollbar } from '#functions/rollbar';
 import { Git } from '#functions/scm/git';
 import { GitHub } from '#functions/scm/github';
 import { GitLab } from '#functions/scm/gitlab';
@@ -51,6 +52,7 @@ const FUNCTIONS = [
 	CommandLineInterface,
 	GoogleCloud,
 	Jira,
+	Rollbar,
 	Confluence,
 	Perplexity,
 	Slack,

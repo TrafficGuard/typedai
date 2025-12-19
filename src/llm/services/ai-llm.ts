@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import type { LanguageModelV2, ProviderV2 } from '@ai-sdk/provider';
+import type { LanguageModelV3, ProviderV3 } from '@ai-sdk/provider';
 import {
 	type FilePart as AiFilePart,
 	type ImagePart as AiImagePart,
 	type TextPart as AiTextPart,
 	type ToolCallPart as AiToolCallPart,
-	type CoreMessage,
 	type GenerateTextResult,
+	type ModelMessage,
 	type TextStreamPart,
 	generateText,
 	smoothStream,
@@ -15,7 +15,7 @@ import {
 import { agentContext } from '#agent/agentContext';
 import { addCost } from '#agent/agentContext';
 import { cloneAndTruncateBuffers } from '#agent/trimObject';
-import { appContext } from '#app/applicationContext';
+import { ApplicationContext } from '#app/applicationTypes';
 import { BaseLLM, type BaseLlmConfig } from '#llm/base-llm';
 import { type CreateLlmRequest, callStack } from '#llm/llmCallService/llmCall';
 import { logger } from '#o11y/logger';
@@ -88,7 +88,7 @@ export interface AiLlmConfig extends BaseLlmConfig {
 /**
  * Base class for LLM implementations using the Vercel ai package
  */
-export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
+export abstract class AiLLM<Provider extends ProviderV3> extends BaseLLM {
 	protected aiProvider: Provider | undefined;
 	protected defaultOptions?: GenerateTextOptions;
 
@@ -110,7 +110,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 		return isConfigured;
 	}
 
-	aiModel(): LanguageModelV2 {
+	aiModel(): LanguageModelV3 {
 		return this.provider().languageModel(this.getServiceModelId());
 	}
 
@@ -118,7 +118,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 		return true;
 	}
 
-	protected processMessages(llmMessages: LlmMessage[]): CoreMessage[] {
+	protected processMessages(llmMessages: LlmMessage[]): ModelMessage[] {
 		return llmMessages.map((msg) => {
 			const { llmId, cache, stats, providerOptions, content, ...restOfMsg } = msg;
 
@@ -169,7 +169,7 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 					processedContent = [{ type: 'text', text }, ...nonTextParts] as CoreContent;
 				}
 			}
-			return { ...restOfMsg, content: processedContent } as CoreMessage;
+			return { ...restOfMsg, content: processedContent } as ModelMessage;
 		});
 	}
 
@@ -226,8 +226,8 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 		const combinedOpts = { ...this.defaultOptions, ...opts };
 		const description = combinedOpts.id ?? '';
 		return await withActiveSpan(`generateTextFromMessages ${description}`, async (span) => {
-			// The processMessages method now correctly returns CoreMessage[] and strips out reasoning parts
-			const messages: CoreMessage[] = this.processMessages(llmMessages);
+			// The processMessages method now correctly returns ModelMessage[] and strips out reasoning parts
+			const messages: ModelMessage[] = this.processMessages(llmMessages);
 
 			this.configureOptions(combinedOpts);
 
@@ -409,8 +409,8 @@ export abstract class AiLLM<Provider extends ProviderV2> extends BaseLLM {
 	): Promise<GenerationStats> {
 		const combinedOpts = { ...this.defaultOptions, ...opts };
 		return withActiveSpan(`streamText ${combinedOpts?.id ?? ''}`, async (span) => {
-			// The processMessages method now correctly returns CoreMessage[]
-			const messages: CoreMessage[] = this.processMessages(llmMessages);
+			// The processMessages method now correctly returns ModelMessage[]
+			const messages: ModelMessage[] = this.processMessages(llmMessages);
 
 			this.configureOptions(combinedOpts);
 

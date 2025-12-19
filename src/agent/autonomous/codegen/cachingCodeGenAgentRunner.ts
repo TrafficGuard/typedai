@@ -14,7 +14,7 @@ import { AGENT_COMPLETED_NAME, AGENT_SAVE_MEMORY_CONTENT_PARAM_NAME } from '#age
 import { humanInTheLoop } from '#agent/autonomous/humanInTheLoop';
 import { appContext } from '#app/applicationContext';
 import { getServiceName } from '#fastify/trace-init/trace-init';
-import { FUNC_SEP, type FunctionSchema, getAllFunctionSchemas } from '#functionSchema/functions';
+import { FUNC_SEP, type FunctionJsonSchema, getAllFunctionSchemas } from '#functionSchema/functions';
 import { logger } from '#o11y/logger';
 import { withActiveSpan } from '#o11y/trace';
 import type { AgentContext } from '#shared/agent/agent.model';
@@ -208,7 +208,7 @@ export async function runCachingCodegenAgent(agent: AgentContext): Promise<Agent
 					let pythonScript = '';
 
 					const functionInstances: Record<string, object> = agent.functions.getFunctionInstanceMap();
-					const schemas: FunctionSchema[] = getAllFunctionSchemas(Object.values(functionInstances));
+					const schemas: FunctionJsonSchema[] = getAllFunctionSchemas(Object.values(functionInstances));
 					const jsGlobals = {};
 					for (const schema of schemas) {
 						const [className, method] = schema.name.split(FUNC_SEP);

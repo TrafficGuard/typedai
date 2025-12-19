@@ -1,6 +1,6 @@
 import { createCerebras } from '@ai-sdk/cerebras';
 import type { OpenAIProvider } from '@ai-sdk/openai';
-import { LanguageModelV2 } from '@ai-sdk/provider';
+import { LanguageModelV3 } from '@ai-sdk/provider';
 import { extractReasoningMiddleware, wrapLanguageModel } from 'ai';
 import { costPerMilTokens } from '#llm/base-llm';
 import { createEnvKeyRotator } from '#llm/services/key-rotation';
@@ -63,7 +63,7 @@ export class CerebrasLLM extends AiLLM<OpenAIProvider> {
 		super({ displayName, service: CEREBRAS_SERVICE, modelId: model, maxInputTokens, calculateCosts, oldIds: oldModelIds });
 	}
 
-	override aiModel(): LanguageModelV2 {
+	override aiModel(): LanguageModelV3 {
 		const aiModel = super.aiModel();
 		if (this.getModel().includes('qwen-3')) {
 			return wrapLanguageModel({

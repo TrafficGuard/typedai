@@ -1,12 +1,12 @@
 // https://github.com/AgentOps-AI/tokencost/blob/main/tokencost/model_prices.json
-import { LanguageModelV2Source } from '@ai-sdk/provider';
+import { LanguageModelV3Source } from '@ai-sdk/provider';
 import type {
 	FilePart as AiFilePart, // Renamed to avoid conflict if we define our own FilePart
 	ImagePart as AiImagePart, // Renamed
 	AssistantContent,
-	CoreMessage,
 	FinishReason,
 	GenerateTextResult,
+	ModelMessage,
 	ToolCallPart as ModelToolCallPart, // Corrected import: ModelToolCallPart is an alias for ToolCallPart
 	ToolContent as ModelToolContent, // Alias to avoid conflict if we re-export
 	TextPart,
@@ -96,7 +96,7 @@ export type GenerateJsonOptions = Omit<GenerateTextOptions, 'type'> & { jsonSche
 /*
 Types from the 'ai' package:
 
-type CoreMessage = CoreSystemMessage | CoreUserMessage | CoreAssistantMessage | CoreToolMessage;
+type ModelMessage = SystemModelMessage | UserModelMessage | AssistantModelMessage | ToolModelMessage;
 
 type CoreUserMessage = {
     role: 'user';
@@ -165,7 +165,7 @@ interface TextPartUI {
 	text: string;
 }
 
-export type TextPartExt = TextPartUI & { providerOptions?: Record<string, any>; sources?: Array<LanguageModelV2Source> };
+export type TextPartExt = TextPartUI & { providerOptions?: Record<string, any>; sources?: Array<LanguageModelV3Source> };
 export type ImagePartExt = ImagePartUI & AttachmentInfo & { providerOptions?: Record<string, any> | undefined };
 export type FilePartExt = FilePartUI & AttachmentInfo & { providerOptions?: Record<string, any> | undefined };
 export type ToolCallPartExt = ModelToolCallPart;
@@ -241,7 +241,7 @@ export function messageText(message: LlmMessage): string {
 	return contentText(message.content as any);
 }
 
-export function messageSources(message: LlmMessage): LanguageModelV2Source[] {
+export function messageSources(message: LlmMessage): LanguageModelV3Source[] {
 	if (typeof message.content === 'string') return [];
 	return message.content.filter((c) => c.type === 'text').flatMap((c) => c.sources ?? []);
 }
