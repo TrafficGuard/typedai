@@ -29,38 +29,29 @@ import type { AreTypesFullyCompatible } from '#shared/typeUtils';
 
 export const CitationTypeSchema = Type.Union([Type.Literal('file'), Type.Literal('url'), Type.Literal('document')]);
 
-export const CitationSchema = Type.Object(
-	{
-		type: CitationTypeSchema,
-		source: Type.String(),
-		excerpt: Type.String(),
-		lineNumbers: Type.Optional(Type.Tuple([Type.Number(), Type.Number()])),
-	},
-	{ $id: 'Citation' },
-);
+export const CitationSchema = Type.Object({
+	type: CitationTypeSchema,
+	source: Type.String(),
+	excerpt: Type.String(),
+	lineNumbers: Type.Optional(Type.Tuple([Type.Number(), Type.Number()])),
+});
 const _CitationCheck: AreTypesFullyCompatible<Citation, Static<typeof CitationSchema>> = true;
 
-export const CodeTraceSchema = Type.Object(
-	{
-		description: Type.String(),
-		files: Type.Array(Type.String()),
-		excerpt: Type.String(),
-	},
-	{ $id: 'CodeTrace' },
-);
+export const CodeTraceSchema = Type.Object({
+	description: Type.String(),
+	files: Type.Array(Type.String()),
+	excerpt: Type.String(),
+});
 const _CodeTraceCheck: AreTypesFullyCompatible<CodeTrace, Static<typeof CodeTraceSchema>> = true;
 
-export const ToolCallRecordSchema = Type.Object(
-	{
-		toolName: Type.String(),
-		parameters: Type.Record(Type.String(), Type.Unknown()),
-		result: Type.Unknown(),
-		agentId: Type.String(),
-		executionTimeMs: Type.Number(),
-		timestamp: Type.Optional(Type.Number()),
-	},
-	{ $id: 'ToolCallRecord' },
-);
+export const ToolCallRecordSchema = Type.Object({
+	toolName: Type.String(),
+	parameters: Type.Record(Type.String(), Type.Unknown()),
+	result: Type.Unknown(),
+	agentId: Type.String(),
+	executionTimeMs: Type.Number(),
+	timestamp: Type.Optional(Type.Number()),
+});
 const _ToolCallRecordCheck: AreTypesFullyCompatible<ToolCallRecord, Static<typeof ToolCallRecordSchema>> = true;
 
 // ============================================================================
@@ -70,50 +61,41 @@ const _ToolCallRecordCheck: AreTypesFullyCompatible<ToolCallRecord, Static<typeo
 export const DebaterTypeSchema = Type.Union([Type.Literal('llm'), Type.Literal('claude-agent-sdk')]);
 const _DebaterTypeCheck: AreTypesFullyCompatible<DebaterType, Static<typeof DebaterTypeSchema>> = true;
 
-export const DebaterConfigSchema = Type.Object(
-	{
-		id: Type.String(),
-		name: Type.String(),
-		type: DebaterTypeSchema,
-		model: Type.Optional(Type.String()),
-		persona: Type.Optional(Type.String()),
-	},
-	{ $id: 'DebaterConfig' },
-);
+export const DebaterConfigSchema = Type.Object({
+	id: Type.String(),
+	name: Type.String(),
+	type: DebaterTypeSchema,
+	model: Type.Optional(Type.String()),
+	persona: Type.Optional(Type.String()),
+});
 const _DebaterConfigCheck: AreTypesFullyCompatible<DebaterConfig, Static<typeof DebaterConfigSchema>> = true;
 
 // ============================================================================
 // Position Schemas
 // ============================================================================
 
-export const DebatePositionSchema = Type.Object(
-	{
-		agentId: Type.String(),
-		position: Type.String(),
-		confidence: Type.Number(),
-		reasoning: Type.String(),
-		citations: Type.Array(CitationSchema),
-		codeTraces: Type.Array(CodeTraceSchema),
-		toolCalls: Type.Array(ToolCallRecordSchema),
-	},
-	{ $id: 'DebatePosition' },
-);
+export const DebatePositionSchema = Type.Object({
+	agentId: Type.String(),
+	position: Type.String(),
+	confidence: Type.Number(),
+	reasoning: Type.String(),
+	citations: Type.Array(CitationSchema),
+	codeTraces: Type.Array(CodeTraceSchema),
+	toolCalls: Type.Array(ToolCallRecordSchema),
+});
 const _DebatePositionCheck: AreTypesFullyCompatible<DebatePosition, Static<typeof DebatePositionSchema>> = true;
 
 // ============================================================================
 // Round Schemas
 // ============================================================================
 
-export const DebateRoundSchema = Type.Object(
-	{
-		round: Type.Number(),
-		positions: Type.Array(DebatePositionSchema),
-		toolCalls: Type.Array(ToolCallRecordSchema),
-		consensusReached: Type.Boolean(),
-		timestamp: Type.Number(),
-	},
-	{ $id: 'DebateRound' },
-);
+export const DebateRoundSchema = Type.Object({
+	round: Type.Number(),
+	positions: Type.Array(DebatePositionSchema),
+	toolCalls: Type.Array(ToolCallRecordSchema),
+	consensusReached: Type.Boolean(),
+	timestamp: Type.Number(),
+});
 const _DebateRoundCheck: AreTypesFullyCompatible<DebateRound, Static<typeof DebateRoundSchema>> = true;
 
 // ============================================================================
@@ -123,43 +105,34 @@ const _DebateRoundCheck: AreTypesFullyCompatible<DebateRound, Static<typeof Deba
 export const ClaimStatusSchema = Type.Union([Type.Literal('verified'), Type.Literal('unverified'), Type.Literal('incorrect')]);
 const _ClaimStatusCheck: AreTypesFullyCompatible<ClaimStatus, Static<typeof ClaimStatusSchema>> = true;
 
-export const ClaimSchema = Type.Object(
-	{
-		claim: Type.String(),
-		status: ClaimStatusSchema,
-		citation: Type.Optional(CitationSchema),
-		correction: Type.Optional(Type.String()),
-	},
-	{ $id: 'Claim' },
-);
+export const ClaimSchema = Type.Object({
+	claim: Type.String(),
+	status: ClaimStatusSchema,
+	citation: Type.Optional(CitationSchema),
+	correction: Type.Optional(Type.String()),
+});
 const _ClaimCheck: AreTypesFullyCompatible<Claim, Static<typeof ClaimSchema>> = true;
 
-export const SynthesizedAnswerSchema = Type.Object(
-	{
-		answer: Type.String(),
-		keyPoints: Type.Array(
-			Type.Object({
-				agentId: Type.String(),
-				points: Type.Array(Type.String()),
-			}),
-		),
-		citations: Type.Array(CitationSchema),
-		confidence: Type.Number(),
-	},
-	{ $id: 'SynthesizedAnswer' },
-);
+export const SynthesizedAnswerSchema = Type.Object({
+	answer: Type.String(),
+	keyPoints: Type.Array(
+		Type.Object({
+			agentId: Type.String(),
+			points: Type.Array(Type.String()),
+		}),
+	),
+	citations: Type.Array(CitationSchema),
+	confidence: Type.Number(),
+});
 const _SynthesizedAnswerCheck: AreTypesFullyCompatible<SynthesizedAnswer, Static<typeof SynthesizedAnswerSchema>> = true;
 
-export const VerifiedAnswerSchema = Type.Object(
-	{
-		originalAnswer: Type.String(),
-		verifiedAnswer: Type.String(),
-		claims: Type.Array(ClaimSchema),
-		corrections: Type.Array(Type.String()),
-		citations: Type.Array(CitationSchema),
-	},
-	{ $id: 'VerifiedAnswer' },
-);
+export const VerifiedAnswerSchema = Type.Object({
+	originalAnswer: Type.String(),
+	verifiedAnswer: Type.String(),
+	claims: Type.Array(ClaimSchema),
+	corrections: Type.Array(Type.String()),
+	citations: Type.Array(CitationSchema),
+});
 const _VerifiedAnswerCheck: AreTypesFullyCompatible<VerifiedAnswer, Static<typeof VerifiedAnswerSchema>> = true;
 
 // ============================================================================
@@ -179,24 +152,18 @@ export const DebatePhaseSchema = Type.Union([
 ]);
 const _DebatePhaseCheck: AreTypesFullyCompatible<DebatePhase, Static<typeof DebatePhaseSchema>> = true;
 
-export const DebateConfigSchema = Type.Object(
-	{
-		maxRounds: Type.Number(),
-		hitlEnabled: Type.Boolean(),
-		debug: Type.Optional(Type.Boolean()),
-	},
-	{ $id: 'DebateConfig' },
-);
+export const DebateConfigSchema = Type.Object({
+	maxRounds: Type.Number(),
+	hitlEnabled: Type.Boolean(),
+	debug: Type.Optional(Type.Boolean()),
+});
 const _DebateConfigCheck: AreTypesFullyCompatible<DebateConfig, Static<typeof DebateConfigSchema>> = true;
 
-export const HitlDecisionSchema = Type.Object(
-	{
-		selectedAgentId: Type.Optional(Type.String()),
-		customAnswer: Type.Optional(Type.String()),
-		feedback: Type.Optional(Type.String()),
-	},
-	{ $id: 'HitlDecision' },
-);
+export const HitlDecisionSchema = Type.Object({
+	selectedAgentId: Type.Optional(Type.String()),
+	customAnswer: Type.Optional(Type.String()),
+	feedback: Type.Optional(Type.String()),
+});
 const _HitlDecisionCheck: AreTypesFullyCompatible<HitlDecision, Static<typeof HitlDecisionSchema>> = true;
 
 export const DebateStateSchema = Type.Object(

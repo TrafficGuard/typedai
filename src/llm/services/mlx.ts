@@ -33,6 +33,35 @@ export const MLX_SERVICE = 'mlx';
  * 3. Models are automatically downloaded from HuggingFace on first use.
  *    They are cached in ~/.cache/huggingface/hub/
  *
+ * ## Direct CLI usage
+ *
+ * mlx_lm.generate --model mlx-community/NVIDIA-Nemotron-3-Nano-30B-A3B-MLX-6Bit --prompt "why is the sky blue?"
+ *
+ * ## Prompt caching
+ *
+ * https://github.com/ml-explore/mlx-lm?tab=readme-ov-file#long-prompts-and-generations
+ *
+ * mlx-lm has some tools to scale efficiently to long prompts and generations:
+ * - A rotating fixed-size key-value cache.
+ * - Prompt caching
+ *
+ * To use the rotating key-value cache pass the argument --max-kv-size n where n can be any integer. Smaller values like 512 will use very little RAM but result in worse quality. Larger values like 4096 or higher will use more RAM but have better quality.
+ *
+ * Caching prompts can substantially speedup reusing the same long context with different queries. To cache a prompt use mlx_lm.cache_prompt. For example:
+ *
+ * cat prompt.txt | mlx_lm.cache_prompt \
+ *  --model mistralai/Mistral-7B-Instruct-v0.3 \
+ *  --prompt - \
+ *  --prompt-cache-file mistral_prompt.safetensors
+ *
+ * Then use the cached prompt with mlx_lm.generate:
+ *
+ * mlx_lm.generate \
+ *    --prompt-cache-file mistral_prompt.safetensors \
+ *    --prompt "\nSummarize the above text."
+ *
+ * The cached prompt is treated as a prefix to the supplied prompt. Also notice when using a cached prompt, the model to use is read from the cache and need not be supplied explicitly.
+ *
  * ## Troubleshooting
  *
  * - If you get "ENOENT" errors, ensure mlx-lm is installed and ~/.local/bin is in your PATH
@@ -140,7 +169,7 @@ export const MLX_MODELS = {
 		maxInputTokens: 32768,
 	},
 
-	// GPT-OSS (Cerebras)
+	// GPT-OSS 20B
 	GPT_OSS_20B: {
 		displayName: 'GPT-OSS 20B',
 		model: 'mlx-community/gpt-oss-20b-MXFP4-Q4',
@@ -152,6 +181,12 @@ export const MLX_MODELS = {
 		displayName: 'Phi 4 14B',
 		model: 'mlx-community/phi-4-4bit',
 		maxInputTokens: 16384,
+	},
+
+	NEMOTRON3_NANO_30B3B: {
+		displayName: 'Nemotron3 Nano 30b/3b 5bit',
+		model: 'mlx-community/NVIDIA-Nemotron-3-Nano-30B-A3B-MLX-5Bit',
+		maxInputTokens: 100_000,
 	},
 } as const;
 
@@ -456,6 +491,11 @@ export function mlxGptOss20b(): LLM {
 // Phi models
 export function mlxPhi4_14b(): LLM {
 	return new MlxLLM(MLX_MODELS.PHI_4_14B);
+}
+
+// Nemotron 3
+export function mlxNemotron3Nano(): LLM {
+	return new MlxLLM(MLX_MODELS.NEMOTRON3_NANO_30B3B);
 }
 
 /**

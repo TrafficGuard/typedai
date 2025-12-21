@@ -5,6 +5,7 @@ import { Claude4_5_Opus_Vertex } from '#llm/services/anthropic-vertex';
 import { cerebrasQwen3_235b_Thinking, cerebrasZaiGLM_4_6 } from '#llm/services/cerebras';
 import { claudeCodeOpus } from '#llm/services/claudeCode';
 import { defaultLLMs } from '#llm/services/defaultLlms';
+import { mlxNemotron3Nano } from '#llm/services/mlx';
 import { openaiGPT5, openaiGPT5flex, openaiGPT5mini, openaiGPT5nano, openaiGPT5priority } from '#llm/services/openai';
 import { perplexityDeepResearchLLM, perplexityLLM, perplexityReasoningProLLM } from '#llm/services/perplexity-llm';
 import { vertexGemini_3_0_Flash } from '#llm/services/vertexai';
@@ -29,6 +30,7 @@ export const LLM_CLI_ALIAS: Record<string, () => LLM> = {
 	madb: MAD_Balanced,
 	mads: MAD_SOTA,
 	madf: MAD_Fast,
+	nemo: mlxNemotron3Nano,
 	opus: Claude4_5_Opus_Vertex,
 	pp1: perplexityLLM,
 	pp2: perplexityReasoningProLLM,

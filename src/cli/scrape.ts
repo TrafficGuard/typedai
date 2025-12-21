@@ -26,6 +26,7 @@ async function url2markdown(url: string, outputFilename?: string) {
 	const tokens = await countTokens(markdown);
 	console.log(markdown);
 	terminalLog(`Written ${tokens} tokens to ${file}`);
+	process.exit(0);
 }
 
 const args = process.argv

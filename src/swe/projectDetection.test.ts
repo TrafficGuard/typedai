@@ -87,6 +87,7 @@ describe('projectDetection', () => {
 					test: '',
 					format: [],
 					staticAnalysis: 'eslint .',
+					check: '',
 					devBranch: 'main',
 					summaries: ['docs/**/*.md'],
 				},
@@ -141,6 +142,7 @@ describe('projectDetection', () => {
 				test: [],
 				format: ['prettier --write .'],
 				staticAnalysis: [],
+				check: [],
 				languageTools: null, // Assuming LanguageTools is not relevant for this specific test
 				fileSelection: '', // Default or mock value
 				summaries: ['README.md'],
@@ -181,6 +183,7 @@ describe('projectDetection', () => {
 					format: '', // Will be normalized to []
 					staticAnalysis: 'node build.js lint',
 					test: 'cd frontend && npm run test:ci',
+					check: 'pnpm check',
 					devBranch: 'main',
 					summaries: ['src/**/*.ts', 'frontend/src/**/*.ts', 'bin/**', 'shared/**'],
 				},
@@ -227,6 +230,7 @@ describe('projectDetection', () => {
 					format: '',
 					staticAnalysis: '',
 					test: 'pytest',
+					check: '',
 					devBranch: 'main',
 					summaries: [],
 				},
@@ -269,6 +273,7 @@ describe('projectDetection', () => {
 					format: [],
 					staticAnalysis: [],
 					test: ['yarn test'],
+					check: [],
 					languageTools: null,
 					fileSelection: '',
 					summaries: [],
@@ -351,6 +356,7 @@ describe('projectDetection', () => {
 					format: 'npm run format',
 					staticAnalysis: 'npm run lint',
 					test: 'npm test',
+					check: '',
 					summaries: ['src/**/*.ts', '../common/**/*.ts'],
 				},
 			];

@@ -7,6 +7,8 @@
       "Bash(find:*)",
       "Bash(grep:*)",
       "Bash(chmod:*)",
+      "Bash(file-tree)",
+      "Bash(query)",
       "Bash(node --version)",
       "Bash(timeout 20 node:*)",
       "Bash(timeout 30 node:*)",
@@ -18,38 +20,38 @@
       "Bash(pnpm check:*)",
       "Bash(pnpm test:*)",
       "Bash(pnpm test:unit:*)",
+      "Bash(pnpm test:single:*)",
       "Bash(pnpm run test:unit:*)",
       "Bash(pnpm run test:single:*)",
       "Bash(pnpm run test:postgres:*)",
       "Bash(timeout 30 pnpm test:single:*)",
+      "Bash(timeout 60 pnpm test:single:*)",
       "Bash(pnpm summaries build:*)",
       "Bash(pnpm summaries:*)",
       "Bash(timeout 30 pnpm nextgen:*)",
       "Bash(timeout 60 pnpm nextgen:*)",
       "Bash(timeout 180 pnpm run nextgen:*)",
+      "WebSearch",
       "WebFetch(domain:github.com)",
-      "mcp__perplexity__search",
-      "mcp__ide__getDiagnostics",
-      "WebFetch(domain:docs.docker.com)",
+      "WebFetch(domain:code.claude.com)",
       "WebFetch(domain:docs.anthropic.com)",
-      "Bash(pnpm test:single:*)"
+      "WebFetch(domain:docs.docker.com)",
+      "WebFetch(domain:docs.cloud.google.com)",
+      "WebFetch(domain:docs.github.com)",
+      "WebFetch(domain:docs.gitlab.com)",
+      "WebFetch(domain:angular.dev)",
+      "WebFetch(domain:ai-sdk.dev)",
+      "WebFetch(domain:fastify.dev)",
+      "WebFetch(domain:zod.dev)",
+      "WebFetch(domain:biomejs.dev)",
+      "WebFetch(domain:ui.shadcn.com)",
+      "mcp__ide__getDiagnostics",
+      "mcp__perplexity__search"
     ],
     "deny": [],
     "ask": []
   },
   "enabledMcpjsonServers": [
     "perplexity"
-  ],
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/ensure-pnpm-check.mjs"
-          }
-        ]
-      }
-    ]
-  }
+  ]
 }

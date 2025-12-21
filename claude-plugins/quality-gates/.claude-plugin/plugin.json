@@ -1,0 +1,6 @@
+{
+  "name": "quality-gates",
+  "description": "Quality gate hooks that ensure tests and checks pass before stopping",
+  "version": "0.1.0",
+  "hooks": "../hooks/hooks.json"
+}

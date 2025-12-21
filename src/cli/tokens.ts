@@ -13,6 +13,7 @@ async function main() {
 
 	const tokens = await countTokens(textPrompt);
 	console.log(`${tokens} text tokens`);
+	process.exit(0);
 }
 
 main().catch(console.error);

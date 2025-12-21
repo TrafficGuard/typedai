@@ -135,7 +135,11 @@ export class ClaudeCode extends BaseLLM {
 				// Use spawn with stdin for stream-json input
 				const result = await this.executeClaudeCommandWithStdin(command, inputJson);
 
-				if (result.exitCode !== 0) throw new Error(`Claude Code CLI execution failed: ${result.stderr || 'Unknown error'}`);
+				if (result.exitCode !== 0) {
+					const errorDetails = [result.stderr, result.stdout].filter(Boolean).join('\n').trim() || 'Unknown error';
+					logger.error({ exitCode: result.exitCode, stderr: result.stderr, stdout: result.stdout }, 'Claude Code CLI execution failed');
+					throw new Error(`Claude Code CLI execution failed (exit code ${result.exitCode}): ${errorDetails}`);
+				}
 
 				// Parse the stream-json output to find the result
 				const lines = result.stdout.split('\n').filter((line) => line.trim());

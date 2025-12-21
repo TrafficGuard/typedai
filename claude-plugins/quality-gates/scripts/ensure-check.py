@@ -3,6 +3,8 @@
 Stop hook that ensures the check command has been run since the last stop
 (only if files have changed)
 
+Reads the check command from .typedai.json in the current directory or git root.
+
 Exit codes:
   0 - Allow stopping (stdout/stderr not shown)
   2 - Block stopping (stderr shown to model)
@@ -13,16 +15,40 @@ import json
 import re
 import os
 import subprocess
-import hashlib
 
-# --- Configuration ---
-CHECK_COMMAND = 'pnpm check'
+# --- Configuration from .typedai.json ---
 
-# Pattern to match the check command (not just mentioned in a grep/echo)
-# Must start with the command, optionally with env vars before it
-CHECK_COMMAND_PATTERN = re.compile(
-    r'^(\w+=\w+\s+)*' + CHECK_COMMAND.replace(' ', r'\s+') + r'(\s|$)'
-)
+def find_typedai_config(cwd, git_root):
+    """Find .typedai.json in cwd or git root."""
+    # Try cwd first
+    cwd_path = os.path.join(cwd, '.typedai.json')
+    if os.path.isfile(cwd_path):
+        return cwd_path
+
+    # Try git root if different
+    if git_root and git_root != cwd:
+        root_path = os.path.join(git_root, '.typedai.json')
+        if os.path.isfile(root_path):
+            return root_path
+
+    return None
+
+
+def get_check_command(config_path):
+    """Extract the check command from .typedai.json."""
+    try:
+        with open(config_path, 'r') as f:
+            content = json.load(f)
+
+        if not isinstance(content, list):
+            return None
+
+        # Find primary project or use first
+        project = next((p for p in content if p.get('primary')), None) or (content[0] if content else None)
+        return project.get('check') if project else None
+    except:
+        return None
+
 
 # --- Git state tracking ---
 
@@ -133,6 +159,23 @@ def main():
         # Not a git repo, allow stopping
         sys.exit(0)
 
+    # --- Find check command from .typedai.json ---
+    config_path = find_typedai_config(cwd, git_root)
+    if not config_path:
+        # No config file, allow stopping
+        sys.exit(0)
+
+    check_command = get_check_command(config_path)
+    if not check_command:
+        # No check command configured, allow stopping
+        sys.exit(0)
+
+    # Build pattern to match the check command (not just mentioned in grep/echo)
+    # Must start with the command, optionally with env vars before it
+    CHECK_COMMAND_PATTERN = re.compile(
+        r'^(\w+=\w+\s+)*' + check_command.replace(' ', r'\s+') + r'(\s|$)'
+    )
+
     current_state = get_git_state(git_root)
     last_state = get_last_state(git_root)
 
@@ -184,8 +227,8 @@ def main():
         sys.exit(0)
 
     print(
-        f"Files have changed since last stop and `{CHECK_COMMAND}` has not been run. "
-        f"Please run `{CHECK_COMMAND}` before stopping.",
+        f"Files have changed since last stop and `{check_command}` has not been run. "
+        f"Please run `{check_command}` before stopping.",
         file=sys.stderr
     )
     sys.exit(2)

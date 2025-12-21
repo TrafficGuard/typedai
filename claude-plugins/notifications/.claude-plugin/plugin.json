@@ -1,0 +1,6 @@
+{
+  "name": "notifications",
+  "description": "Cross-platform notifications when Claude Code needs user input",
+  "version": "0.1.0",
+  "hooks": "../hooks/hooks.json"
+}

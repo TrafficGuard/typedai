@@ -362,6 +362,7 @@ async function main(): Promise<void> {
 	}
 
 	await shutdownTrace();
+	process.exit(0);
 }
 
 main().then(

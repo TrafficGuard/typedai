@@ -1,0 +1,5 @@
+{
+  "name": "code-analysis",
+  "description": "Codebase analysis commands: query, select-files, and file-tree for exploring and understanding repositories",
+  "version": "0.1.0"
+}

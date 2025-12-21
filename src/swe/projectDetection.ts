@@ -41,6 +41,7 @@ export interface ProjectInfoFileFormat {
 	format: ScriptCommand;
 	staticAnalysis: ScriptCommand;
 	test: ScriptCommand;
+	check: ScriptCommand;
 	/** Vector search configuration - references presets from typedai's .vectorconfig.json */
 	vector?: RepositoryVectorConfig | RepositoryVectorConfig[];
 	fileSelection?: string;
@@ -59,6 +60,7 @@ export interface ProjectScripts {
 	format: string[];
 	staticAnalysis: string[];
 	test: string[];
+	check: string[];
 }
 
 export interface ProjectInfo extends ProjectScripts {
@@ -85,7 +87,8 @@ export interface ProjectInfo extends ProjectScripts {
 // Helper function to convert ProjectInfo to ProjectInfoFileFormat for saving
 export function mapProjectInfoToFileFormat(projectInfo: ProjectInfo): ProjectInfoFileFormat {
 	// Destructure to explicitly pick fields for ProjectInfoFileFormat
-	const { baseDir, primary, language, devBranch, initialise, compile, format, staticAnalysis, test, summaries, fileSystemTree, fileSelection } = projectInfo;
+	const { baseDir, primary, language, devBranch, initialise, compile, format, staticAnalysis, test, check, summaries, fileSystemTree, fileSelection } =
+		projectInfo;
 	const result: ProjectInfoFileFormat = {
 		baseDir,
 		primary,
@@ -96,6 +99,7 @@ export function mapProjectInfoToFileFormat(projectInfo: ProjectInfo): ProjectInf
 		format: normalizeScriptCommandToFileFormat(format),
 		staticAnalysis: normalizeScriptCommandToFileFormat(staticAnalysis),
 		test: normalizeScriptCommandToFileFormat(test),
+		check: normalizeScriptCommandToFileFormat(check),
 		summaries,
 	};
 
@@ -146,6 +150,7 @@ export function parseProjectInfo(fileContents: string): ProjectInfo[] | null {
 				format: normalizeScriptCommandToArray(infoFromFile.format),
 				staticAnalysis: normalizeScriptCommandToArray(infoFromFile.staticAnalysis),
 				test: normalizeScriptCommandToArray(infoFromFile.test),
+				check: normalizeScriptCommandToArray(infoFromFile.check),
 			};
 
 			const language = (infoFromFile.language as LanguageRuntime) || '';

@@ -88,6 +88,7 @@ async function main() {
 	);
 	terminalLog('Wrote output to src/cli/gen-out');
 	beep();
+	process.exit(0);
 }
 
 main().catch(console.error);

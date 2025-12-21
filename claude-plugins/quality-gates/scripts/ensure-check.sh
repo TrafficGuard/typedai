@@ -1,5 +1,5 @@
 #!/bin/bash
-# Stop hook that ensures pnpm check has been run since the last stop
+# Stop hook that ensures the check command has been run since the last stop
 #
 # Exit codes:
 #   0 - Allow stopping (stdout/stderr not shown)
@@ -15,9 +15,9 @@ read -r input || true
 
 # Use Node.js if available, otherwise fall back to Python
 if command -v node &> /dev/null; then
-  echo "$input" | node "$SCRIPT_DIR/ensure-pnpm-check.mjs"
+  echo "$input" | node "$SCRIPT_DIR/ensure-check.mjs"
 elif command -v python3 &> /dev/null; then
-  echo "$input" | python3 "$SCRIPT_DIR/ensure-pnpm-check.py"
+  echo "$input" | python3 "$SCRIPT_DIR/ensure-check.py"
 else
   # No runtime available, allow stopping
   exit 0

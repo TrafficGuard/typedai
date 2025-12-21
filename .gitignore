@@ -26,6 +26,7 @@ firestore-debug.log
 bench
 /benchmarks
 .tmp/
+llmCall.json
 .claude/todos/
 .claude/projects/
 .claude/debug/

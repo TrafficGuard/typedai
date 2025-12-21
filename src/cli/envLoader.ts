@@ -1,11 +1,12 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
 /**
  * @fileoverview
  * Utility for loading environment variables from .env files in CLI tools.
  * When using git worktrees enables using the local.env from the main repository
  * Extracted from startLocal.ts to be shared across all CLI tools.
  */
-import { existsSync, readFileSync } from 'node:fs';
-import { isAbsolute, resolve } from 'node:path';
+import { logger } from '#o11y/logger';
 
 interface ResolveEnvFileOptions {
 	envFile?: string | null;
@@ -107,7 +108,7 @@ export function loadEnvFile(filePath: string): ParsedEnv {
  *   overwrite existing `process.env` values.
  */
 export function applyEnvFile(filePath: string, options: ApplyEnvOptions = {}): void {
-	console.log(`loading env file ${filePath}`);
+	// logger.debug(`loading env file ${filePath}`);
 	const envVars = loadEnvFile(filePath);
 	const override = options.override ?? false;
 
@@ -127,7 +128,7 @@ export function loadCliEnvironment(options: ApplyEnvOptions = {}): void {
 		const envFilePath = resolveEnvFilePath();
 		loadedEnvFilePath = envFilePath;
 		applyEnvFile(envFilePath, options);
-		console.log(`Loaded environment from ${envFilePath}`);
+		// console.log(`Loaded environment from ${envFilePath}`);
 	} catch (err) {
 		console.log(err, 'No environment file found; continuing with existing process.env');
 	}

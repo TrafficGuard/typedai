@@ -93,6 +93,7 @@ If no projects are found, respond with an empty JSON array [].
 					initialise: [],
 					staticAnalysis: [],
 					test: [],
+					check: [],
 					primary: false,
 					language: '',
 					languageTools: null,
@@ -193,6 +194,7 @@ ${textualProjectInfos}`;
 				format: normalizeScriptCommandToArray(rawScripts.format),
 				staticAnalysis: normalizeScriptCommandToArray(rawScripts.staticAnalysis),
 				test: normalizeScriptCommandToArray(rawScripts.test),
+				check: [], // Not auto-detected, can be configured manually
 				languageTools: getLanguageTools(language),
 				fileSelection: 'Do not include package manager lock files',
 				summaries: [], // Default, can be populated by other means if necessary

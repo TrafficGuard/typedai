@@ -1,0 +1,6 @@
+{
+  "name": "security",
+  "description": "Content security scanning with auto-detection of backends (Google Model Armor, Ollama, MLX)",
+  "version": "0.2.0",
+  "hooks": "../hooks/hooks.json"
+}

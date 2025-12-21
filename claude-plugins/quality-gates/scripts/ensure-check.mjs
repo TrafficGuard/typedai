@@ -3,25 +3,47 @@
  * Stop hook that ensures the check command has been run since the last stop
  * (only if files have changed)
  *
+ * Reads the check command from .typedai.json in the current directory or git root.
+ *
  * Exit codes:
  *   0 - Allow stopping (stdout/stderr not shown)
  *   2 - Block stopping (stderr shown to model)
  */
 
 import { execSync } from 'child_process';
-import { readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 import { createInterface } from 'readline';
 
-// --- Configuration ---
-const CHECK_COMMAND = 'pnpm check';
+// --- Configuration from .typedai.json ---
 
-// Pattern to match the check command (not just mentioned in a grep/echo)
-// Must start with the command, optionally with env vars before it
-const CHECK_COMMAND_PATTERN = new RegExp(
-  `^(\\w+=\\w+\\s+)*${CHECK_COMMAND.replace(/\s+/g, '\\s+')}(\\s|$)`
-);
+function findTypedAiConfig(cwd, gitRoot) {
+  // Try cwd first
+  const cwdPath = join(cwd, '.typedai.json');
+  if (existsSync(cwdPath)) return cwdPath;
+
+  // Try git root if different
+  if (gitRoot && gitRoot !== cwd) {
+    const rootPath = join(gitRoot, '.typedai.json');
+    if (existsSync(rootPath)) return rootPath;
+  }
+
+  return null;
+}
+
+function getCheckCommand(configPath) {
+  try {
+    const content = JSON.parse(readFileSync(configPath, 'utf-8'));
+    if (!Array.isArray(content)) return null;
+
+    // Find primary project or use first
+    const project = content.find(p => p.primary) || content[0];
+    return project?.check || null;
+  } catch {
+    return null;
+  }
+}
 
 // --- Git state tracking ---
 
@@ -134,6 +156,25 @@ async function main() {
     process.exit(0);
   }
 
+  // --- Find check command from .typedai.json ---
+  const configPath = findTypedAiConfig(cwd, gitRoot);
+  if (!configPath) {
+    // No config file, allow stopping
+    process.exit(0);
+  }
+
+  const checkCommand = getCheckCommand(configPath);
+  if (!checkCommand) {
+    // No check command configured, allow stopping
+    process.exit(0);
+  }
+
+  // Build pattern to match the check command (not just mentioned in grep/echo)
+  // Must start with the command, optionally with env vars before it
+  const CHECK_COMMAND_PATTERN = new RegExp(
+    `^(\\w+=\\w+\\s+)*${checkCommand.replace(/\s+/g, '\\s+')}(\\s|$)`
+  );
+
   const currentState = getGitState(gitRoot);
   const lastState = getLastState(gitRoot);
 
@@ -196,7 +237,7 @@ async function main() {
     process.exit(0);
   }
 
-  console.error(`Files have changed since last stop and \`${CHECK_COMMAND}\` has not been run. Please run \`${CHECK_COMMAND}\` before stopping.`);
+  console.error(`Files have changed since last stop and \`${checkCommand}\` has not been run. Please run \`${checkCommand}\` before stopping.`);
   process.exit(2);
 }
 

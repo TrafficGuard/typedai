@@ -26,6 +26,7 @@ describe('supportingInformation', () => {
 			format: '',
 			staticAnalysis: '',
 			test: '',
+			check: '',
 			summaries: [],
 		},
 		{
@@ -37,6 +38,7 @@ describe('supportingInformation', () => {
 			format: '',
 			staticAnalysis: '',
 			test: '',
+			check: '',
 			summaries: [],
 		},
 	];

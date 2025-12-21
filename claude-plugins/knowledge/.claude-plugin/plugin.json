@@ -1,0 +1,6 @@
+{
+  "name": "knowledge",
+  "description": "Knowledge management commands and hooks for extracting learnings from Claude Code sessions",
+  "version": "0.1.0",
+  "hooks": "../hooks/hooks.json"
+}

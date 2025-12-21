@@ -87,6 +87,7 @@ async function main() {
 	}
 
 	await shutdownTrace();
+	process.exit(0);
 }
 
 /**
