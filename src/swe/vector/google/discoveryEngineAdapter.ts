@@ -1,12 +1,10 @@
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import { struct } from 'pb-util';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { VectorStoreConfig } from '../core/config';
 import { EmbeddedChunk, IVectorStore, SearchResult } from '../core/interfaces';
 import { DiscoveryEngine } from './discoveryEngine';
 import { GoogleVectorServiceConfig } from './googleVectorConfig';
-
-const logger = pino({ name: 'DiscoveryEngineAdapter' });
 
 /**
  * Google Discovery Engine adapter implementing IVectorStore

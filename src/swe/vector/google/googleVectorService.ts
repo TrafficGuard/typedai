@@ -1,7 +1,7 @@
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import pLimit from 'p-limit';
 import { struct } from 'pb-util';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { ChunkSearchResult, ChunkWithFileContext } from '../chunking/chunkTypes';
 import { CodeFile, readFilesToIndex } from '../codeLoader';
@@ -12,8 +12,6 @@ import { VectorStore } from '../vector';
 import { DiscoveryEngine } from './discoveryEngine';
 import { GoogleVectorServiceConfig } from './googleVectorConfig';
 import { VertexAITextEmbeddingService } from './vertexEmbedder';
-
-const logger = pino({ name: 'GoogleVectorStore' });
 
 const FILE_PROCESSING_PARALLEL_BATCH_SIZE = 20;
 

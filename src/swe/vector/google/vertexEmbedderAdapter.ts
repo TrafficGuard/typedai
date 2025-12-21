@@ -1,11 +1,9 @@
-import pino from 'pino';
+import { logger } from '#o11y/logger';
+import type { RateLimitCircuitBreakerConfig } from '#utils/rateLimitCircuitBreaker';
 import { VectorStoreConfig } from '../core/config';
 import { IEmbedder } from '../core/interfaces';
-import { CircuitBreakerConfig } from './gcpQuotaCircuitBreaker';
 import { GoogleVectorServiceConfig } from './googleVectorConfig';
 import { TaskType, VertexAITextEmbeddingService } from './vertexEmbedder';
-
-const logger = pino({ name: 'VertexEmbedderAdapter' });
 
 type Dimensionality = 768 | 1536 | 3072;
 
@@ -18,7 +16,7 @@ export class VertexEmbedderAdapter implements IEmbedder {
 	private dimension: Dimensionality;
 	private model: string;
 
-	constructor(googleConfig: GoogleVectorServiceConfig, dimension: Dimensionality = 768, circuitBreakerConfig?: CircuitBreakerConfig) {
+	constructor(googleConfig: GoogleVectorServiceConfig, dimension: Dimensionality = 768, circuitBreakerConfig?: RateLimitCircuitBreakerConfig) {
 		this.service = new VertexAITextEmbeddingService(googleConfig, circuitBreakerConfig);
 		this.dimension = dimension;
 		this.model = googleConfig.embeddingModel;

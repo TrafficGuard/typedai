@@ -1,8 +1,6 @@
 import axios from 'axios';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { IReranker, SearchResult } from '../core/interfaces';
-
-const logger = pino({ name: 'OllamaReranker' });
 
 export interface OllamaRerankerConfig {
 	/** Ollama API URL (default: http://localhost:11434) */

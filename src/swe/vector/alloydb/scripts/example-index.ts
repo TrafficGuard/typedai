@@ -7,10 +7,8 @@
 
 import path from 'node:path';
 import { config } from 'dotenv';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { createAlloyDBOrchestrator } from '../alloydbFactory';
-
-const logger = pino({ name: 'AlloyDBExample', level: 'info' });
 
 // Load environment variables
 const envPath = path.join(__dirname, '../.env.local');

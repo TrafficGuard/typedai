@@ -17,7 +17,6 @@
  *   - Otherwise: Uses defaultLLMs().easy
  */
 
-import pino from 'pino';
 import { llms } from '#agent/agentContextUtils';
 import { getFileSystem } from '#agent/agentContextUtils';
 import { initApplicationContext } from '#app/applicationContext';
@@ -25,6 +24,7 @@ import { shutdownTrace } from '#fastify/trace-init/trace-init';
 import { openAIFlexGPT5, openAIFlexGPT5Mini, openAIFlexGPT5Nano, openAIFlexLLMRegistry } from '#llm/multi-agent/openaiFlex';
 import { mlxGptOss20b, mlxLLMRegistry } from '#llm/services/mlx';
 import { ensurePostgresDockerRunning } from '#modules/postgres/ensureDockerPostgres';
+import { logger } from '#o11y/logger';
 import type { LLM } from '#shared/llm/llm.model';
 import { hasPendingBatchJob, loadBatchJobState, resumeBatchJob } from '#swe/summaries/batchSummaryGenerator';
 import {
@@ -40,8 +40,6 @@ import { getSummaryStoreConfig, isCloudSqlEnabled, isPostgresEnabled } from '#sw
 import { getRepositoryId } from '#swe/summaryStore/repoId';
 import { getSyncStatusMessage, loadSyncState } from '#swe/summaryStore/syncState';
 import { loadCliEnvironment } from './envLoader';
-
-const logger = pino({ name: 'SummariesCLI' });
 
 function printUsage(): void {
 	const mlxModels = mlxLLMRegistry().map((fn) => fn().getId());
@@ -69,6 +67,8 @@ Options:
                        Special values: 'mlx-gpt-oss-20b' for local MLX inference
                        Available MLX models: ${mlxModels.join(', ')}
                        Available OpenAI Flex models: ${flexModels.join(', ')}
+  --concurrency <num>  Number of parallel file processing. Default: 20
+                       Use 1 for sequential mode (recommended for local models like MLX)
 
 Smart LLM Selection (when --llm not specified):
   - Empty store: Uses Vertex AI Batch Prediction (50% savings, may take hours)
@@ -135,6 +135,26 @@ function getModeFromArgs(args: string[]): SummaryMode {
 
 	logger.warn({ mode }, 'Unknown mode specified, using auto');
 	return 'auto';
+}
+
+/**
+ * Get concurrency from --concurrency flag or default to 20
+ */
+function getConcurrencyFromArgs(args: string[]): number {
+	const concurrencyIndex = args.indexOf('--concurrency');
+	if (concurrencyIndex === -1 || concurrencyIndex === args.length - 1) {
+		return 20; // Default concurrency
+	}
+
+	const concurrencyStr = args[concurrencyIndex + 1];
+	const concurrency = Number.parseInt(concurrencyStr, 10);
+
+	if (Number.isNaN(concurrency) || concurrency < 1) {
+		logger.warn({ value: concurrencyStr }, 'Invalid concurrency value, using default of 20');
+		return 20;
+	}
+
+	return concurrency;
 }
 
 /**
@@ -231,6 +251,7 @@ async function main(): Promise<void> {
 			case 'sync': {
 				const syncMode = getModeFromArgs(args);
 				const syncLlm = getLlmFromArgs(args);
+				const syncConcurrency = getConcurrencyFromArgs(args);
 				const isEmpty = await isSummaryStoreEmpty(fss);
 
 				if (syncMode === 'batch' || (syncMode === 'auto' && isEmpty)) {
@@ -239,12 +260,13 @@ async function main(): Promise<void> {
 					console.log('Note: Batch jobs may take up to 24 hours to complete\n');
 				} else {
 					const llmId = syncLlm?.getId() ?? 'auto-selected';
-					logger.info({ llm: llmId, mode: syncMode }, 'Starting full sync: pull → build → push');
+					logger.info({ llm: llmId, mode: syncMode, concurrency: syncConcurrency }, 'Starting full sync: pull → build → push');
 				}
 
 				await buildSummariesWithSmartLlm(fss, {
 					mode: syncMode,
 					llm: syncLlm,
+					concurrency: syncConcurrency,
 					syncToCloud: true,
 					pullFirst: true,
 					pushAfter: true,
@@ -256,6 +278,7 @@ async function main(): Promise<void> {
 			case 'build': {
 				const buildMode = getModeFromArgs(args);
 				const buildLlm = getLlmFromArgs(args);
+				const buildConcurrency = getConcurrencyFromArgs(args);
 				const isEmpty = await isSummaryStoreEmpty(fss);
 
 				if (buildMode === 'batch' || (buildMode === 'auto' && isEmpty)) {
@@ -264,12 +287,13 @@ async function main(): Promise<void> {
 					console.log('Note: Batch jobs may take up to 24 hours to complete\n');
 				} else {
 					const llmId = buildLlm?.getId() ?? 'auto-selected';
-					logger.info({ llm: llmId, mode: buildMode }, 'Building summaries locally (no cloud sync)...');
+					logger.info({ llm: llmId, mode: buildMode, concurrency: buildConcurrency }, 'Building summaries locally (no cloud sync)...');
 				}
 
 				await buildSummariesWithSmartLlm(fss, {
 					mode: buildMode,
 					llm: buildLlm,
+					concurrency: buildConcurrency,
 					syncToCloud: false,
 				});
 				console.log('✓ Successfully built local summaries');

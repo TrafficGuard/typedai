@@ -4,12 +4,10 @@
  */
 
 import * as path from 'node:path';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { VectorStoreConfig } from './core/config';
 import { getGoogleVectorServiceConfig } from './google/googleVectorConfig';
 import { VectorSearchOrchestrator } from './google/vectorSearchOrchestrator';
-
-const logger = pino({ name: 'VectorSearchDemo', level: 'info' });
 
 async function main() {
 	console.log(`\n${'='.repeat(60)}`);

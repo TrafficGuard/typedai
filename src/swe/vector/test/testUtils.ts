@@ -1,12 +1,10 @@
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { sleep } from '#utils/async-utils';
 import { VectorStoreConfig } from '../core/config';
 import { SearchResult } from '../core/interfaces';
-
-const logger = pino({ name: 'VectorTestUtils' });
 
 /**
  * Creates a realistic test repository with diverse code samples

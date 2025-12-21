@@ -1,18 +1,18 @@
 import { expect } from 'chai';
 import { afterEach, beforeEach, describe, it } from 'mocha';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
-import { CircuitState, GcpQuotaCircuitBreaker } from './gcpQuotaCircuitBreaker';
+import { CircuitState, RateLimitCircuitBreaker } from './rateLimitCircuitBreaker';
 import {
 	FakeTimer,
 	MockLogger,
 	createAlwaysSucceeds,
 	createFailNTimesThenSucceed,
-	createNonQuotaError,
-	createQuotaError,
+	createNonRateLimitError,
+	createRateLimitError,
 	waitForAsync,
-} from './gcpQuotaCircuitBreaker.testHelpers';
+} from './rateLimitCircuitBreaker.testHelpers';
 
-async function triggerExecution<T>(breaker: GcpQuotaCircuitBreaker, fn: () => Promise<T>, swallowErrors = true): Promise<void> {
+async function triggerExecution<T>(breaker: RateLimitCircuitBreaker, fn: () => Promise<T>, swallowErrors = true): Promise<void> {
 	const promise = breaker.execute(fn);
 	if (swallowErrors) {
 		promise.catch(() => {});
@@ -20,24 +20,24 @@ async function triggerExecution<T>(breaker: GcpQuotaCircuitBreaker, fn: () => Pr
 	await waitForAsync();
 }
 
-async function triggerRecovery(breaker: GcpQuotaCircuitBreaker): Promise<void> {
+async function triggerRecovery(breaker: RateLimitCircuitBreaker): Promise<void> {
 	const recovery = (breaker as any).testServiceRecovery;
 	if (typeof recovery !== 'function') throw new Error('testServiceRecovery not accessible');
 	await recovery.call(breaker);
 	await waitForAsync(5);
 }
 
-describe('GcpQuotaCircuitBreaker', () => {
+describe('RateLimitCircuitBreaker', () => {
 	setupConditionalLoggerOutput();
 
-	let circuitBreaker: GcpQuotaCircuitBreaker;
+	let circuitBreaker: RateLimitCircuitBreaker;
 	let fakeTimer: FakeTimer;
 	let mockLogger: MockLogger;
 
 	beforeEach(() => {
 		fakeTimer = new FakeTimer();
 		mockLogger = new MockLogger();
-		circuitBreaker = new GcpQuotaCircuitBreaker({
+		circuitBreaker = new RateLimitCircuitBreaker({
 			retryIntervalMs: 5000,
 			failureThreshold: 1,
 			successThreshold: 1,
@@ -62,7 +62,7 @@ describe('GcpQuotaCircuitBreaker', () => {
 		});
 
 		it('should accept custom configuration', () => {
-			const cb = new GcpQuotaCircuitBreaker({
+			const cb = new RateLimitCircuitBreaker({
 				retryIntervalMs: 10000,
 				failureThreshold: 3,
 				successThreshold: 2,
@@ -74,81 +74,76 @@ describe('GcpQuotaCircuitBreaker', () => {
 	});
 
 	describe('Error Detection', () => {
-		it('should detect gRPC code 8 as quota error', () => {
+		it('should detect gRPC code 8 as rate limit error', () => {
 			const error = { code: 8, message: 'RESOURCE_EXHAUSTED' };
-			expect(circuitBreaker.isQuotaError(error)).to.be.true;
+			expect(circuitBreaker.isRateLimitError(error)).to.be.true;
 		});
 
-		it('should detect HTTP 429 status as quota error', () => {
+		it('should detect HTTP 429 status as rate limit error', () => {
 			const error = { status: 429, message: 'Too Many Requests' };
-			expect(circuitBreaker.isQuotaError(error)).to.be.true;
+			expect(circuitBreaker.isRateLimitError(error)).to.be.true;
 		});
 
-		it('should detect HTTP 429 statusCode as quota error', () => {
+		it('should detect HTTP 429 statusCode as rate limit error', () => {
 			const error = { statusCode: 429, message: 'Too Many Requests' };
-			expect(circuitBreaker.isQuotaError(error)).to.be.true;
+			expect(circuitBreaker.isRateLimitError(error)).to.be.true;
 		});
 
-		it('should detect "RESOURCE_EXHAUSTED" message as quota error', () => {
+		it('should detect "RESOURCE_EXHAUSTED" message as rate limit error', () => {
 			const error = new Error('8 RESOURCE_EXHAUSTED: Quota exceeded');
-			expect(circuitBreaker.isQuotaError(error)).to.be.true;
+			expect(circuitBreaker.isRateLimitError(error)).to.be.true;
 		});
 
-		it('should detect "Quota exceeded" message as quota error', () => {
+		it('should detect "Quota exceeded" message as rate limit error', () => {
 			const error = new Error('Quota exceeded for quota metric');
-			expect(circuitBreaker.isQuotaError(error)).to.be.true;
+			expect(circuitBreaker.isRateLimitError(error)).to.be.true;
 		});
 
-		it('should detect "quota" keyword as quota error', () => {
-			const error = new Error('Hit quota limit');
-			expect(circuitBreaker.isQuotaError(error)).to.be.true;
-		});
-
-		it('should detect "rate limit" message as quota error', () => {
+		it('should detect "rate limit" message as rate limit error', () => {
 			const error = new Error('Rate limit exceeded');
-			expect(circuitBreaker.isQuotaError(error)).to.be.true;
+			expect(circuitBreaker.isRateLimitError(error)).to.be.true;
 		});
 
-		it('should NOT detect non-quota errors', () => {
+		it('should NOT detect non-rate-limit errors', () => {
 			const networkError = { code: 14, message: 'Network error' };
-			expect(circuitBreaker.isQuotaError(networkError)).to.be.false;
+			expect(circuitBreaker.isRateLimitError(networkError)).to.be.false;
 		});
 
 		it('should NOT detect validation errors', () => {
 			const validationError = new Error('Validation failed');
-			expect(circuitBreaker.isQuotaError(validationError)).to.be.false;
+			expect(circuitBreaker.isRateLimitError(validationError)).to.be.false;
 		});
 
-		it('should detect Vercel AI SDK AI_APICallError with 429 as quota error', () => {
-			const error = createQuotaError('ai_api_call');
-			expect(circuitBreaker.isQuotaError(error)).to.be.true;
+		it('should detect Vercel AI SDK AI_APICallError with 429 as rate limit error', () => {
+			const error = createRateLimitError('ai_api_call');
+			expect(circuitBreaker.isRateLimitError(error)).to.be.true;
 		});
 
-		it('should detect Vercel AI SDK AI_RetryError with nested quota errors', () => {
-			const error = createQuotaError('ai_retry');
-			expect(circuitBreaker.isQuotaError(error)).to.be.true;
+		it('should detect Vercel AI SDK AI_RetryError with nested rate limit errors', () => {
+			const error = createRateLimitError('ai_retry');
+			expect(circuitBreaker.isRateLimitError(error)).to.be.true;
 		});
 
 		it('should NOT detect AI_APICallError with non-429 status', () => {
 			const error = Object.assign(new Error('Bad Request'), { name: 'AI_APICallError', statusCode: 400 });
-			expect(circuitBreaker.isQuotaError(error)).to.be.false;
+			expect(circuitBreaker.isRateLimitError(error)).to.be.false;
 		});
 
-		it('should NOT detect AI_RetryError without nested quota errors', () => {
+		it('should NOT detect AI_RetryError without nested rate limit errors', () => {
 			const error = Object.assign(new Error('Maximum retries exceeded'), {
 				name: 'AI_RetryError',
 				reason: 'maxRetriesExceeded',
 				errors: [Object.assign(new Error('Network error'), { name: 'AI_APICallError', statusCode: 500 })],
 			});
-			expect(circuitBreaker.isQuotaError(error)).to.be.false;
+			expect(circuitBreaker.isRateLimitError(error)).to.be.false;
 		});
 	});
 
 	describe('State Transitions: CLOSED -> OPEN', () => {
-		it('should open circuit on quota error', async () => {
+		it('should open circuit on rate limit error', async () => {
 			const fn = createFailNTimesThenSucceed(1);
 
-			// Execute - will fail with quota error
+			// Execute - will fail with rate limit error
 			await triggerExecution(circuitBreaker, fn);
 
 			// Circuit should open immediately
@@ -156,7 +151,7 @@ describe('GcpQuotaCircuitBreaker', () => {
 
 			// Should have logged warning
 			expect(mockLogger.warnCalls.length).to.be.greaterThan(0);
-			expect(JSON.stringify(mockLogger.warnCalls)).to.include('quota');
+			expect(JSON.stringify(mockLogger.warnCalls)).to.include('rate limit');
 
 			// Timer should be started
 			expect(fakeTimer.getActiveTimers()).to.equal(1);
@@ -178,9 +173,9 @@ describe('GcpQuotaCircuitBreaker', () => {
 			expect(circuitBreaker.getQueueDepth()).to.equal(3);
 		});
 
-		it('should NOT open circuit on non-quota errors', async () => {
+		it('should NOT open circuit on non-rate-limit errors', async () => {
 			const fn = async () => {
-				throw createNonQuotaError();
+				throw createNonRateLimitError();
 			};
 
 			try {
@@ -194,7 +189,7 @@ describe('GcpQuotaCircuitBreaker', () => {
 		});
 
 		it('should respect failure threshold', async () => {
-			const cb = new GcpQuotaCircuitBreaker({
+			const cb = new RateLimitCircuitBreaker({
 				retryIntervalMs: 5000,
 				failureThreshold: 3,
 				timer: fakeTimer,
@@ -202,7 +197,7 @@ describe('GcpQuotaCircuitBreaker', () => {
 			});
 
 			const fn = async () => {
-				throw createQuotaError();
+				throw createRateLimitError();
 			};
 
 			// First failure - circuit stays closed
@@ -269,11 +264,11 @@ describe('GcpQuotaCircuitBreaker', () => {
 			expect(circuitBreaker.getState()).to.equal(CircuitState.CLOSED);
 		});
 
-		it('should stay OPEN if test request fails with quota error', async () => {
+		it('should stay OPEN if test request fails with rate limit error', async () => {
 			let callCount = 0;
 			const fn = async () => {
 				callCount++;
-				throw createQuotaError(); // Always fails
+				throw createRateLimitError(); // Always fails
 			};
 
 			// Open circuit
@@ -401,14 +396,14 @@ describe('GcpQuotaCircuitBreaker', () => {
 
 	describe('Internal State', () => {
 		it('should track consecutive failures', async () => {
-			const cb = new GcpQuotaCircuitBreaker({
+			const cb = new RateLimitCircuitBreaker({
 				failureThreshold: 3,
 				timer: fakeTimer,
 				logger: mockLogger,
 			});
 
 			const fn = async () => {
-				throw createQuotaError();
+				throw createRateLimitError();
 			};
 
 			// First failure
@@ -425,14 +420,14 @@ describe('GcpQuotaCircuitBreaker', () => {
 		});
 
 		it('should reset failure counter on success', async () => {
-			const cb = new GcpQuotaCircuitBreaker({
+			const cb = new RateLimitCircuitBreaker({
 				failureThreshold: 3,
 				timer: fakeTimer,
 				logger: mockLogger,
 			});
 
 			const failFn = async () => {
-				throw createQuotaError();
+				throw createRateLimitError();
 			};
 			const successFn = async () => 'success';
 

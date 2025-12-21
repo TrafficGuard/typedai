@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { expect } from 'chai';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { VectorStoreConfig } from './core/config';
 import type { SearchResult } from './core/interfaces';
@@ -20,8 +20,6 @@ import {
 	validateSearchResults,
 	waitForIndexing,
 } from './test/testUtils';
-
-const logger = pino({ name: 'VectorSearchE2ETest' });
 
 describe('Vector Search E2E Tests', function () {
 	setupConditionalLoggerOutput();

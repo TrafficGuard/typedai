@@ -1,12 +1,10 @@
-import pino from 'pino';
 import { cacheRetry } from '#cache/cacheRetry';
 import { summaryLLM } from '#llm/services/defaultLlms';
+import { logger } from '#o11y/logger';
 import type { LLM } from '#shared/llm/llm.model';
 import { quotaRetry } from '#utils/quotaRetry';
-import type { GcpQuotaCircuitBreaker } from '../google/gcpQuotaCircuitBreaker';
+import type { RateLimitCircuitBreaker } from '#utils/rateLimitCircuitBreaker';
 import { ContextualizedChunk, FileInfo, ICodeTranslator, RawChunk } from './interfaces';
-
-const logger = pino({ name: 'CodeTranslator' });
 
 /**
  * Code to natural language translator
@@ -15,9 +13,9 @@ const logger = pino({ name: 'CodeTranslator' });
  */
 export class LLMCodeTranslator implements ICodeTranslator {
 	private llm: LLM;
-	private circuitBreaker?: GcpQuotaCircuitBreaker;
+	private circuitBreaker?: RateLimitCircuitBreaker;
 
-	constructor(llm?: LLM, circuitBreaker?: GcpQuotaCircuitBreaker) {
+	constructor(llm?: LLM, circuitBreaker?: RateLimitCircuitBreaker) {
 		this.llm = llm || summaryLLM();
 		this.circuitBreaker = circuitBreaker;
 	}

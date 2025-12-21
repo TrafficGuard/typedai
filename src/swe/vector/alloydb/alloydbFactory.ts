@@ -1,12 +1,10 @@
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import type { VectorStoreConfig } from '../core/config';
 import { DEFAULT_VECTOR_CONFIG } from '../core/config';
 import { AlloyDBAdapter } from './alloydbAdapter';
 import type { AlloyDBConfig } from './alloydbConfig';
 import { DEFAULT_ALLOYDB_CONFIG, buildAlloyDBConfig } from './alloydbConfig';
 import { AlloyDBOrchestrator } from './alloydbOrchestrator';
-
-const logger = pino({ name: 'AlloyDBFactory' });
 
 /**
  * Create AlloyDB vector store adapter

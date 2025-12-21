@@ -1,11 +1,9 @@
 // https://cloud.google.com/nodejs/docs/reference/discoveryengine/latest/discoveryengine/v1.rankserviceclient
 import { RankServiceClient } from '@google-cloud/discoveryengine';
 import { google } from '@google-cloud/discoveryengine/build/protos/protos';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { IReranker, SearchResult } from '../core/interfaces';
 import { GoogleVectorServiceConfig } from './googleVectorConfig';
-
-const logger = pino({ name: 'GoogleReranker' });
 
 /**
  * Google Vertex AI Ranking service for reranking search results

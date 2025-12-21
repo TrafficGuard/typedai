@@ -27,6 +27,8 @@ bench
 /benchmarks
 .tmp/
 llmCall.json
+kb/
+template-repos/
 .claude/todos/
 .claude/projects/
 .claude/debug/
@@ -37,4 +39,3 @@ llmCall.json
 .claude.json.backup
 .claude/history.jsonl
 .claude/stats-cache.json
-llmCall.json

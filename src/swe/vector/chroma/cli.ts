@@ -15,12 +15,10 @@
 
 import * as path from 'node:path';
 import { Command } from 'commander';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import type { VectorStoreConfig } from '../core/config';
 import { OLLAMA_EMBEDDING_MODELS } from '../ollama/ollamaEmbedder';
 import { ChromaOrchestrator } from './chromaOrchestrator';
-
-const logger = pino({ name: 'ChromaCLI', level: process.env.LOG_LEVEL || 'info' });
 
 const program = new Command();
 

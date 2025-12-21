@@ -2,7 +2,7 @@
  * Test helpers for circuit breaker unit tests
  */
 
-import { LoggerInterface, TimerInterface } from './gcpQuotaCircuitBreaker';
+import type { LoggerInterface, TimerInterface } from './rateLimitCircuitBreaker';
 
 /**
  * Fake timer for testing - allows manual control of time
@@ -102,9 +102,9 @@ export class MockLogger implements LoggerInterface {
 }
 
 /**
- * Helper to create quota errors
+ * Helper to create rate limit / quota errors
  */
-export function createQuotaError(type: 'grpc' | 'http429' | 'message' | 'ai_api_call' | 'ai_retry' = 'grpc'): Error {
+export function createRateLimitError(type: 'grpc' | 'http429' | 'message' | 'ai_api_call' | 'ai_retry' = 'grpc'): Error {
 	switch (type) {
 		case 'grpc':
 			return Object.assign(new Error('RESOURCE_EXHAUSTED'), { code: 8 });
@@ -126,9 +126,9 @@ export function createQuotaError(type: 'grpc' | 'http429' | 'message' | 'ai_api_
 }
 
 /**
- * Helper to create non-quota errors
+ * Helper to create non-rate-limit errors
  */
-export function createNonQuotaError(type: 'network' | 'validation' | 'generic' = 'generic'): Error {
+export function createNonRateLimitError(type: 'network' | 'validation' | 'generic' = 'generic'): Error {
 	switch (type) {
 		case 'network':
 			return Object.assign(new Error('Network error'), { code: 14 });
@@ -149,7 +149,7 @@ export async function waitForAsync(ms = 0): Promise<void> {
 /**
  * Helper to create a function that fails N times then succeeds
  */
-export function createFailNTimesThenSucceed(failCount: number, errorFactory: () => Error = createQuotaError) {
+export function createFailNTimesThenSucceed(failCount: number, errorFactory: () => Error = createRateLimitError) {
 	let callCount = 0;
 	return async () => {
 		callCount++;
@@ -163,7 +163,7 @@ export function createFailNTimesThenSucceed(failCount: number, errorFactory: () 
 /**
  * Helper to create a function that always fails
  */
-export function createAlwaysFails(errorFactory: () => Error = createQuotaError) {
+export function createAlwaysFails(errorFactory: () => Error = createRateLimitError) {
 	let callCount = 0;
 	return async () => {
 		callCount++;

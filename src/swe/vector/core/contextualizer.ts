@@ -1,13 +1,11 @@
-import pino from 'pino';
 import { RetryableError, cacheRetry } from '#cache/cacheRetry';
 import { summaryLLM } from '#llm/services/defaultLlms';
+import { logger } from '#o11y/logger';
 import type { LLM } from '#shared/llm/llm.model';
 import { quotaRetry } from '#utils/quotaRetry';
-import type { GcpQuotaCircuitBreaker } from '../google/gcpQuotaCircuitBreaker';
+import type { RateLimitCircuitBreaker } from '#utils/rateLimitCircuitBreaker';
 import { VectorStoreConfig } from './config';
 import { ContextualizedChunk, FileInfo, IContextualizer, RawChunk } from './interfaces';
-
-const logger = pino({ name: 'Contextualizer' });
 
 /**
  * Contextualizer implementation using LLM to generate context for chunks
@@ -16,9 +14,9 @@ const logger = pino({ name: 'Contextualizer' });
  */
 export class LLMContextualizer implements IContextualizer {
 	private llm: LLM;
-	private circuitBreaker?: GcpQuotaCircuitBreaker;
+	private circuitBreaker?: RateLimitCircuitBreaker;
 
-	constructor(llm?: LLM, circuitBreaker?: GcpQuotaCircuitBreaker) {
+	constructor(llm?: LLM, circuitBreaker?: RateLimitCircuitBreaker) {
 		this.llm = llm || summaryLLM();
 		this.circuitBreaker = circuitBreaker;
 	}
@@ -73,7 +71,7 @@ class SingleCallFileChunker {
 	constructor(
 		private llm: LLM,
 		private fileInfo: FileInfo,
-		private circuitBreaker?: GcpQuotaCircuitBreaker,
+		private circuitBreaker?: RateLimitCircuitBreaker,
 	) {}
 
 	async chunkAndContextualize(): Promise<ContextualizedChunk[]> {

@@ -2,14 +2,12 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { expect } from 'chai';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { setupConditionalLoggerOutput } from '#test/testUtils';
 import { VectorStoreConfig } from './core/config';
 import { getGoogleVectorServiceConfig } from './google/googleVectorConfig';
 import { VectorSearchOrchestrator } from './google/vectorSearchOrchestrator';
 import { cleanupTempDir, createMinimalTestRepo, createTestDataStoreId, waitForIndexing } from './test/testUtils';
-
-const logger = pino({ name: 'IncrementalSyncTest' });
 
 describe('Incremental Sync Integration Tests', function () {
 	setupConditionalLoggerOutput();

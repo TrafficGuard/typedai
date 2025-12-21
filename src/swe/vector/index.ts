@@ -87,12 +87,14 @@ export { DiscoveryEngineAdapter } from './google/discoveryEngineAdapter';
 // Main Orchestrator
 export { VectorSearchOrchestrator } from './google/vectorSearchOrchestrator';
 
-// Circuit Breaker
-export { GcpQuotaCircuitBreaker, CircuitState } from './google/gcpQuotaCircuitBreaker';
-export type { CircuitBreakerConfig, TimerInterface, LoggerInterface } from './google/gcpQuotaCircuitBreaker';
+// Circuit Breaker (re-exported from utils for convenience)
+export { RateLimitCircuitBreaker, CircuitState } from '#utils/rateLimitCircuitBreaker';
+export type { RateLimitCircuitBreakerConfig, TimerInterface, LoggerInterface } from '#utils/rateLimitCircuitBreaker';
 
-// Deprecated: Use GcpQuotaCircuitBreaker instead
-export { GcpQuotaCircuitBreaker as DiscoveryEngineCircuitBreaker } from './google/gcpQuotaCircuitBreaker';
+// Deprecated aliases for backward compatibility
+export { RateLimitCircuitBreaker as GcpQuotaCircuitBreaker } from '#utils/rateLimitCircuitBreaker';
+export { RateLimitCircuitBreaker as DiscoveryEngineCircuitBreaker } from '#utils/rateLimitCircuitBreaker';
+export type { RateLimitCircuitBreakerConfig as CircuitBreakerConfig } from '#utils/rateLimitCircuitBreaker';
 
 // Legacy exports for backward compatibility
 export { DiscoveryEngine } from './google/discoveryEngine';

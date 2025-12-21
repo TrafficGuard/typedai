@@ -14,7 +14,7 @@
 import * as path from 'node:path';
 import * as readline from 'node:readline';
 import { Command } from 'commander';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { DEFAULT_VECTOR_CONFIG, buildGoogleVectorServiceConfig, loadVectorConfig } from './core/config';
 import type { VectorStoreConfig } from './core/config';
 import type { GoogleVectorServiceConfig } from './google/googleVectorConfig';
@@ -112,8 +112,6 @@ async function printConfiguration(
 	console.log('━'.repeat(60));
 	console.log();
 }
-
-const logger = pino({ name: 'VectorCLI', level: process.env.LOG_LEVEL || 'info' });
 
 const program = new Command();
 

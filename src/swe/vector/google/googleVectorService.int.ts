@@ -1,15 +1,12 @@
-import { expect } from 'chai';
-import pino from 'pino';
-import { GoogleVectorServiceConfig, getGoogleVectorServiceConfig } from './googleVectorConfig';
-import { GoogleVectorStore } from './googleVectorService';
-
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { expect } from 'chai';
+import { logger } from '#o11y/logger';
 import { sleep } from '#utils/async-utils';
 import { ChunkSearchResult } from '../chunking/chunkTypes';
-
-const logger = pino({ name: 'GoogleVectorStoreIntTest' });
+import { GoogleVectorServiceConfig, getGoogleVectorServiceConfig } from './googleVectorConfig';
+import { GoogleVectorStore } from './googleVectorService';
 
 describe('GoogleVectorStore Integration Test', function () {
 	this.timeout(300000); // 5 minutes

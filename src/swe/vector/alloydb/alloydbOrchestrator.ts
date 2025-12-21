@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import pLimit from 'p-limit';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { ASTChunker } from '../chunking/astChunker';
 import { readFilesToIndex } from '../codeLoader';
@@ -29,8 +29,6 @@ import { MerkleSynchronizer } from '../sync/merkleSynchronizer';
 import { AlloyDBAdapter } from './alloydbAdapter';
 import type { AlloyDBConfig } from './alloydbConfig';
 import { buildAlloyDBConfig } from './alloydbConfig';
-
-const logger = pino({ name: 'AlloyDBOrchestrator' });
 
 interface IndexingStats {
 	fileCount: number;

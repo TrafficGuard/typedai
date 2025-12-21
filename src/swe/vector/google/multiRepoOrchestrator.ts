@@ -1,10 +1,8 @@
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { VectorStoreConfig } from '../core/config';
 import { SearchResult } from '../core/interfaces';
 import { GoogleVectorServiceConfig } from './googleVectorConfig';
 import { VectorSearchOrchestrator } from './vectorSearchOrchestrator';
-
-const logger = pino({ name: 'MultiRepoOrchestrator' });
 
 export interface RepositoryConfig {
 	name: string;

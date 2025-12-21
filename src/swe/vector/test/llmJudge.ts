@@ -1,9 +1,7 @@
-import pino from 'pino';
 import { anthropicClaude4_5_Sonnet } from '#llm/services/anthropic';
+import { logger } from '#o11y/logger';
 import type { LLM } from '#shared/llm/llm.model';
 import { ContextualizedChunk, RawChunk, SearchResult } from '../core/interfaces';
-
-const logger = pino({ name: 'LLMJudge' });
 
 /**
  * Result from LLM-as-a-judge evaluation

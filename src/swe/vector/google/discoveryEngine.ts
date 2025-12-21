@@ -3,7 +3,7 @@ import { google } from '@google-cloud/discoveryengine/build/protos/protos';
 import { cacheRetry } from '#cache/cacheRetry';
 import { logger } from '#o11y/logger';
 import { quotaRetry } from '#utils/quotaRetry';
-import { CircuitBreakerConfig, GcpQuotaCircuitBreaker } from './gcpQuotaCircuitBreaker';
+import { RateLimitCircuitBreaker, type RateLimitCircuitBreakerConfig } from '#utils/rateLimitCircuitBreaker';
 import {
 	CIRCUIT_BREAKER_FAILURE_THRESHOLD,
 	CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
@@ -36,9 +36,9 @@ export class DiscoveryEngine {
 	private parentPath: string;
 	private datastoreName: string;
 	private branchPath: string;
-	private circuitBreaker: GcpQuotaCircuitBreaker;
+	private circuitBreaker: RateLimitCircuitBreaker;
 
-	constructor(config: GoogleVectorServiceConfig, circuitBreakerConfig?: CircuitBreakerConfig, clients?: DiscoveryEngineClients) {
+	constructor(config: GoogleVectorServiceConfig, circuitBreakerConfig?: RateLimitCircuitBreakerConfig, clients?: DiscoveryEngineClients) {
 		this.project = config.project;
 		this.location = config.discoveryEngineLocation;
 		this.collection = config.collection;
@@ -59,7 +59,7 @@ export class DiscoveryEngine {
 		this.branchPath = `${this.datastoreName}/branches/default_branch`;
 
 		// Initialize circuit breaker with config or defaults
-		this.circuitBreaker = new GcpQuotaCircuitBreaker(
+		this.circuitBreaker = new RateLimitCircuitBreaker(
 			circuitBreakerConfig || {
 				serviceName: 'Discovery Engine',
 				retryIntervalMs: CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
@@ -139,7 +139,7 @@ export class DiscoveryEngine {
 	/**
 	 * Get circuit breaker for status monitoring
 	 */
-	getCircuitBreaker(): GcpQuotaCircuitBreaker {
+	getCircuitBreaker(): RateLimitCircuitBreaker {
 		return this.circuitBreaker;
 	}
 

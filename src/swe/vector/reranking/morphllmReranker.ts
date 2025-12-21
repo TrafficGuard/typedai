@@ -1,9 +1,7 @@
 import axios from 'axios';
-import pino from 'pino';
 import { getSecretEnvVar } from '#config/secretConfig';
+import { logger } from '#o11y/logger';
 import { IReranker, SearchResult } from '../core/interfaces';
-
-const logger = pino({ name: 'MorphLLMReranker' });
 
 export interface MorphLLMRerankerConfig {
 	/** MorphLLM API URL (default: https://api.morphllm.com/v1) */

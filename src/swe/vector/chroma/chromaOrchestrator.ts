@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import pLimit from 'p-limit';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
 import { readFilesToIndex } from '../codeLoader';
 import { LLMCodeTranslator } from '../core/codeTranslator';
@@ -25,8 +25,6 @@ import { MerkleSynchronizer } from '../sync/merkleSynchronizer';
 import { ChromaAdapter } from './chromaAdapter';
 import type { ChromaConfig } from './chromaConfig';
 import { buildChromaConfig } from './chromaConfig';
-
-const logger = pino({ name: 'ChromaOrchestrator' });
 
 // Parallel batch size for file processing
 const FILE_PROCESSING_PARALLEL_BATCH_SIZE = 5;

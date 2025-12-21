@@ -1,11 +1,9 @@
 import { ChromaClient, type Collection, IncludeEnum } from 'chromadb';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import type { VectorStoreConfig } from '../core/config';
 import type { EmbeddedChunk, IVectorStore, SearchResult } from '../core/interfaces';
 import type { ChromaConfig } from './chromaConfig';
 import { getCollectionNameForRepo } from './chromaConfig';
-
-const logger = pino({ name: 'ChromaAdapter' });
 
 /**
  * ChromaDB adapter implementing IVectorStore

@@ -1,7 +1,8 @@
 import * as path from 'node:path';
 import pLimit from 'p-limit';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { span } from '#o11y/trace';
+import { RateLimitCircuitBreaker } from '#utils/rateLimitCircuitBreaker';
 import { ASTChunker } from '../chunking/astChunker';
 import { readFilesToIndex } from '../codeLoader';
 import { batchIndexFiles } from '../core/batchIndexer';
@@ -30,7 +31,6 @@ import {
 import { createReranker } from '../reranking';
 import { MerkleSynchronizer } from '../sync/merkleSynchronizer';
 import { DiscoveryEngineAdapter } from './discoveryEngineAdapter';
-import { GcpQuotaCircuitBreaker } from './gcpQuotaCircuitBreaker';
 import {
 	CIRCUIT_BREAKER_FAILURE_THRESHOLD,
 	CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
@@ -39,8 +39,6 @@ import {
 } from './googleVectorConfig';
 import { GoogleVectorServiceConfig } from './googleVectorConfig';
 import { DualEmbeddingGenerator, VertexEmbedderAdapter } from './vertexEmbedderAdapter';
-
-const logger = pino({ name: 'VectorSearchOrchestrator' });
 
 interface IndexingStats {
 	fileCount: number;
@@ -77,14 +75,14 @@ export class VectorSearchOrchestrator implements IVectorSearchOrchestrator {
 	};
 
 	// Circuit breaker for LLM services (contextualization, translation)
-	private llmCircuitBreaker: GcpQuotaCircuitBreaker;
+	private llmCircuitBreaker: RateLimitCircuitBreaker;
 
 	constructor(googleConfig: GoogleVectorServiceConfig, config?: VectorStoreConfig) {
 		this.googleConfig = googleConfig;
 		this.config = config || this.DEFAULT_CONFIG;
 
 		// Create shared circuit breaker for LLM services
-		this.llmCircuitBreaker = new GcpQuotaCircuitBreaker({
+		this.llmCircuitBreaker = new RateLimitCircuitBreaker({
 			serviceName: 'LLM Service',
 			retryIntervalMs: CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
 			failureThreshold: CIRCUIT_BREAKER_FAILURE_THRESHOLD,

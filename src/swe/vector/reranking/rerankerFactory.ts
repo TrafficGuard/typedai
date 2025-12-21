@@ -1,9 +1,7 @@
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import type { OllamaNestedConfig, RerankingConfig } from '../core/config';
 import type { IReranker } from '../core/interfaces';
 import type { GoogleVectorServiceConfig } from '../google/googleVectorConfig';
-
-const logger = pino({ name: 'RerankerFactory' });
 
 /**
  * Create a reranker based on the provided configuration

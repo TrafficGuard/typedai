@@ -19,6 +19,7 @@ import { getRepositoryId } from '#swe/summaryStore/repoId';
 import { createSummaryStore } from '#swe/summaryStore/summaryStoreAdapter';
 import { loadSyncState, recordPendingPush, recordSuccessfulPull, recordSuccessfulPush } from '#swe/summaryStore/syncState';
 import { errorToString } from '#utils/errors';
+import { RateLimitCircuitBreaker } from '#utils/rateLimitCircuitBreaker';
 import {
 	type BatchSummaryResult,
 	type FileSummaryRequest,
@@ -41,19 +42,31 @@ import { type Summary, generateDetailedSummaryPrompt, generateFileSummary, gener
  */
 
 // Configuration constants
-const BATCH_SIZE = 10;
+const DEFAULT_CONCURRENCY = 20;
 
 function hash(content: string): string {
 	return createHash('md5').update(content).digest('hex');
 }
 
 export class IndexDocBuilder {
+	private readonly concurrency: number;
+	private readonly circuitBreaker: RateLimitCircuitBreaker;
+
 	constructor(
 		private readonly fss: IFileSystemService,
 		private readonly llm: LLM,
 		private readonly generateFileSummaryFn: typeof generateFileSummary = generateFileSummary,
 		private readonly generateFolderSummaryFn: typeof generateFolderSummary = generateFolderSummary,
-	) {}
+		concurrency: number = DEFAULT_CONCURRENCY,
+	) {
+		this.concurrency = concurrency;
+		this.circuitBreaker = new RateLimitCircuitBreaker({
+			serviceName: 'Summary LLM',
+			retryIntervalMs: 5000,
+			failureThreshold: 1,
+			successThreshold: 1,
+		});
+	}
 
 	private static getSummaryFileName(filePath: string): string {
 		// filePath is already relative to CWD from processFile/buildFolderSummary
@@ -211,25 +224,44 @@ export class IndexDocBuilder {
 
 		if (filteredFiles.length === 0) return;
 
-		logger.debug(`Processing ${filteredFiles.length} files in folder ${folderPath}`);
+		logger.debug(`Processing ${filteredFiles.length} files in folder ${folderPath} (concurrency: ${this.concurrency})`);
 		const errors: Array<{ file: string; error: Error }> = [];
 
 		await withActiveSpan('processFilesInBatches', async (span: Span) => {
-			for (let i = 0; i < filteredFiles.length; i += BATCH_SIZE) {
-				const batch = filteredFiles.slice(i, i + BATCH_SIZE);
-				await Promise.all(
-					batch.map(async (file) => {
-						const filePath = join(folderPath, file);
-						try {
-							await this.processFile(filePath);
-						} catch (e: any) {
-							// Ensure 'e' is typed
-							logger.error(e, `Failed to process file ${filePath}`);
-							errors.push({ file: filePath, error: e as Error });
-						}
-					}),
-				);
-				logger.debug(`Completed batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(filteredFiles.length / BATCH_SIZE)}`);
+			span.setAttribute('concurrency', this.concurrency);
+			span.setAttribute('fileCount', filteredFiles.length);
+
+			if (this.concurrency === 1) {
+				// Sequential mode - process one file at a time (for local models like MLX)
+				for (let i = 0; i < filteredFiles.length; i++) {
+					const file = filteredFiles[i];
+					const filePath = join(folderPath, file);
+					try {
+						await this.processFile(filePath);
+						logger.debug(`Completed file ${i + 1} of ${filteredFiles.length}: ${file}`);
+					} catch (e: any) {
+						logger.error(e, `Failed to process file ${filePath}`);
+						errors.push({ file: filePath, error: e as Error });
+					}
+				}
+			} else {
+				// Parallel mode with circuit breaker for rate limit handling
+				for (let i = 0; i < filteredFiles.length; i += this.concurrency) {
+					const batch = filteredFiles.slice(i, i + this.concurrency);
+					await Promise.all(
+						batch.map(async (file) => {
+							const filePath = join(folderPath, file);
+							try {
+								// Use circuit breaker to handle rate limits
+								await this.circuitBreaker.execute(() => this.processFile(filePath));
+							} catch (e: any) {
+								logger.error(e, `Failed to process file ${filePath}`);
+								errors.push({ file: filePath, error: e as Error });
+							}
+						}),
+					);
+					logger.debug(`Completed batch ${Math.floor(i / this.concurrency) + 1} of ${Math.ceil(filteredFiles.length / this.concurrency)}`);
+				}
 			}
 		});
 
@@ -639,14 +671,21 @@ export class IndexDocBuilder {
  * This auto-generates summary documentation for a project/repository, to assist with searching in the repository.
  * This should generally be run in the root folder of a project/repository.
  * The documentation summaries are saved in a parallel directory structure under the .typedai/docs folder
+ *
+ * @param llm - The LLM to use for generating summaries
+ * @param fss - File system service
+ * @param fileSummaryFn - Function to generate file summaries
+ * @param folderSummaryFn - Function to generate folder summaries
+ * @param concurrency - Number of concurrent file processing. Default: 20. Use 1 for sequential mode (local models like MLX)
  */
 export async function buildSummaries(
 	llm: LLM,
 	fss: IFileSystemService = getFileSystem(),
 	fileSummaryFn: typeof generateFileSummary = generateFileSummary,
 	folderSummaryFn: typeof generateFolderSummary = generateFolderSummary,
+	concurrency: number = DEFAULT_CONCURRENCY,
 ): Promise<void> {
-	const builder = new IndexDocBuilder(fss, llm, fileSummaryFn, folderSummaryFn);
+	const builder = new IndexDocBuilder(fss, llm, fileSummaryFn, folderSummaryFn, concurrency);
 	await builder.buildSummariesInternal();
 }
 
@@ -698,6 +737,8 @@ export interface BuildSummariesOptions {
 	pullFirst?: boolean;
 	/** Whether to push to Cloud SQL after building. Default: true */
 	pushAfter?: boolean;
+	/** Number of concurrent file processing. Default: 20. Use 1 for sequential mode (local models like MLX) */
+	concurrency?: number;
 }
 
 /**
@@ -711,14 +752,14 @@ export interface BuildSummariesOptions {
  * If Cloud SQL is not configured, runs the existing local-only flow.
  */
 export async function buildSummariesWithSync(llm: LLM, fss: IFileSystemService = getFileSystem(), options: BuildSummariesOptions = {}): Promise<void> {
-	const { syncToCloud = true, pullFirst = true, pushAfter = true } = options;
+	const { syncToCloud = true, pullFirst = true, pushAfter = true, concurrency = DEFAULT_CONCURRENCY } = options;
 
 	const config = await getSummaryStoreConfig();
 
 	// If no cloud config, run existing local-only flow (unchanged behavior)
 	if (!syncToCloud || !isDatabaseEnabled(config)) {
 		logger.debug('Database not configured, running local-only build');
-		await buildSummaries(llm, fss);
+		await buildSummaries(llm, fss, generateFileSummary, generateFolderSummary, concurrency);
 		return;
 	}
 
@@ -726,7 +767,7 @@ export async function buildSummariesWithSync(llm: LLM, fss: IFileSystemService =
 	const store = await createSummaryStore(config);
 	if (!store) {
 		logger.warn('Failed to create summary store, running local-only build');
-		await buildSummaries(llm, fss);
+		await buildSummaries(llm, fss, generateFileSummary, generateFolderSummary, concurrency);
 		return;
 	}
 
@@ -747,8 +788,8 @@ export async function buildSummariesWithSync(llm: LLM, fss: IFileSystemService =
 			}
 		}
 
-		// 2. Run existing incremental build (unchanged)
-		await buildSummaries(llm, fss);
+		// 2. Run existing incremental build
+		await buildSummaries(llm, fss, generateFileSummary, generateFolderSummary, concurrency);
 
 		// 3. Push to Cloud SQL (if enabled)
 		if (pushAfter) {
@@ -1059,6 +1100,7 @@ export async function buildSummariesWithSmartLlm(fss: IFileSystemService = getFi
 
 	return withActiveSpan('buildSummariesWithSmartLlm', async (span) => {
 		span.setAttribute('mode', mode);
+		span.setAttribute('concurrency', syncOptions.concurrency ?? DEFAULT_CONCURRENCY);
 
 		// Determine if we should use batch mode
 		let useBatch = mode === 'batch';

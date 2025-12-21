@@ -3,10 +3,8 @@ import type { Dirent, Stats } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import { ISynchronizer } from '../core/interfaces';
-
-const logger = pino({ name: 'MerkleSynchronizer' });
 
 interface MerkleDAGNode {
 	id: string;

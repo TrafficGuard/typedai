@@ -1,16 +1,14 @@
 import { PredictionServiceClient, helpers, protos } from '@google-cloud/aiplatform';
-import pino from 'pino';
 import { cacheRetry } from '#cache/cacheRetry';
+import { logger } from '#o11y/logger';
 import { quotaRetry } from '#utils/quotaRetry';
-import { CircuitBreakerConfig, GcpQuotaCircuitBreaker } from './gcpQuotaCircuitBreaker';
+import { RateLimitCircuitBreaker, type RateLimitCircuitBreakerConfig } from '#utils/rateLimitCircuitBreaker';
 import {
 	CIRCUIT_BREAKER_FAILURE_THRESHOLD,
 	CIRCUIT_BREAKER_RETRY_INTERVAL_MS,
 	CIRCUIT_BREAKER_SUCCESS_THRESHOLD,
 	GoogleVectorServiceConfig,
 } from './googleVectorConfig';
-
-const logger = pino({ name: 'Embedder' });
 
 type PredictRequest = protos.google.cloud.aiplatform.v1.IPredictRequest;
 
@@ -36,9 +34,9 @@ function normalizeEmbedding(values: number[]): number[] {
 export class VertexAITextEmbeddingService {
 	private client: PredictionServiceClient;
 	private endpointPath: string;
-	private circuitBreaker: GcpQuotaCircuitBreaker;
+	private circuitBreaker: RateLimitCircuitBreaker;
 
-	constructor(googleCloudConfig: GoogleVectorServiceConfig, circuitBreakerConfig?: CircuitBreakerConfig) {
+	constructor(googleCloudConfig: GoogleVectorServiceConfig, circuitBreakerConfig?: RateLimitCircuitBreakerConfig) {
 		// Vertex AI embeddings are only available in specific regions - use us-central1 by default
 		const embeddingRegion = 'us-central1';
 		const clientOptions = {
@@ -49,7 +47,7 @@ export class VertexAITextEmbeddingService {
 		this.endpointPath = `projects/${googleCloudConfig.project}/locations/${embeddingRegion}/publishers/google/models/${googleCloudConfig.embeddingModel}`;
 
 		// Initialize circuit breaker with config or defaults
-		this.circuitBreaker = new GcpQuotaCircuitBreaker(
+		this.circuitBreaker = new RateLimitCircuitBreaker(
 			circuitBreakerConfig || {
 				serviceName: 'Vertex AI Embeddings',
 				retryIntervalMs: CIRCUIT_BREAKER_RETRY_INTERVAL_MS,

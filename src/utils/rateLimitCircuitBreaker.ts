@@ -1,4 +1,5 @@
-import pino from 'pino';
+import { logger as o11yLogger } from '#o11y/logger';
+import { isQuotaError } from '#utils/quotaRetry';
 
 /**
  * Timer interface for dependency injection (enables testing with fake timers)
@@ -32,29 +33,23 @@ class DefaultTimer implements TimerInterface {
 }
 
 /**
- * Pino logger adapter implementing LoggerInterface
+ * Default logger adapter implementing LoggerInterface using o11y logger
  */
-class PinoLoggerAdapter implements LoggerInterface {
-	private logger: pino.Logger;
-
-	constructor(serviceName?: string) {
-		this.logger = pino({ name: serviceName || 'GcpQuotaCircuitBreaker' });
-	}
-
+class DefaultLoggerAdapter implements LoggerInterface {
 	info(msg: string | object, ...args: any[]): void {
-		this.logger.info(msg, ...args);
+		o11yLogger.info(msg, ...args);
 	}
 
 	warn(msg: string | object, ...args: any[]): void {
-		this.logger.warn(msg, ...args);
+		o11yLogger.warn(msg, ...args);
 	}
 
 	error(msg: string | object, ...args: any[]): void {
-		this.logger.error(msg, ...args);
+		o11yLogger.error(msg, ...args);
 	}
 
 	debug(msg: string | object, ...args: any[]): void {
-		this.logger.debug(msg, ...args);
+		o11yLogger.debug(msg, ...args);
 	}
 }
 
@@ -82,8 +77,8 @@ interface QueuedRequest<T> {
 /**
  * Configuration for circuit breaker
  */
-export interface CircuitBreakerConfig {
-	/** Service name for logging (e.g., "Discovery Engine", "Vertex AI Embeddings") */
+export interface RateLimitCircuitBreakerConfig {
+	/** Service name for logging (e.g., "LLM API", "Vertex AI Embeddings") */
 	serviceName?: string;
 	/** Interval in milliseconds between retry attempts when circuit is OPEN (default: 5000ms) */
 	retryIntervalMs?: number;
@@ -98,7 +93,7 @@ export interface CircuitBreakerConfig {
 }
 
 /**
- * Circuit Breaker for Google Cloud Platform API calls (Discovery Engine, Vertex AI, etc.)
+ * Circuit Breaker for API calls with rate limiting / quota handling
  *
  * Implements circuit breaker pattern to handle quota exhaustion:
  * - CLOSED: Normal operation, requests proceed
@@ -112,7 +107,7 @@ export interface CircuitBreakerConfig {
  * 4. On success: close circuit and process entire queue
  * 5. On failure: wait another 5 seconds
  */
-export class GcpQuotaCircuitBreaker {
+export class RateLimitCircuitBreaker {
 	private state: CircuitState = CircuitState.CLOSED;
 	private queue: QueuedRequest<any>[] = [];
 	private retryIntervalMs: number;
@@ -126,13 +121,13 @@ export class GcpQuotaCircuitBreaker {
 	private logger: LoggerInterface;
 	private serviceName: string;
 
-	constructor(config: CircuitBreakerConfig = {}) {
-		this.serviceName = config.serviceName || 'GCP Service';
+	constructor(config: RateLimitCircuitBreakerConfig = {}) {
+		this.serviceName = config.serviceName || 'API Service';
 		this.retryIntervalMs = config.retryIntervalMs || 5000;
 		this.failureThreshold = config.failureThreshold || 1;
 		this.successThreshold = config.successThreshold || 1;
 		this.timer = config.timer || new DefaultTimer();
-		this.logger = config.logger || new PinoLoggerAdapter(config.serviceName);
+		this.logger = config.logger || new DefaultLoggerAdapter();
 	}
 
 	/**
@@ -162,8 +157,8 @@ export class GcpQuotaCircuitBreaker {
 				this.onSuccess();
 				return result;
 			} catch (error) {
-				if (this.isQuotaError(error)) {
-					this.onQuotaError();
+				if (this.isRateLimitError(error)) {
+					this.onRateLimitError();
 					// Queue this request for retry
 					return this.enqueue(fn);
 				}
@@ -181,47 +176,18 @@ export class GcpQuotaCircuitBreaker {
 	}
 
 	/**
-	 * Check if error is a quota exhaustion error
-	 * Handles GCP errors, HTTP errors, and Vercel AI SDK errors
+	 * Check if error is a rate limit / quota exhaustion error
+	 * Uses the shared isQuotaError from quotaRetry.ts
 	 * Public for testing purposes
 	 */
-	public isQuotaError(error: any): boolean {
-		// gRPC code 8 = RESOURCE_EXHAUSTED
-		if (error.code === 8) {
-			return true;
-		}
-
-		// HTTP 429 = Too Many Requests
-		if (error.status === 429 || error.statusCode === 429) {
-			return true;
-		}
-
-		// Vercel AI SDK: AI_APICallError with statusCode
-		if (error.name === 'AI_APICallError' && error.statusCode === 429) {
-			return true;
-		}
-
-		// Vercel AI SDK: AI_RetryError with nested quota errors
-		if (error.name === 'AI_RetryError' && Array.isArray(error.errors)) {
-			// Recursively check nested errors
-			if (error.errors.some((e: any) => this.isQuotaError(e))) {
-				return true;
-			}
-		}
-
-		// Check error message for quota-related keywords
-		const message = (error.message || '').toLowerCase();
-		if (message.includes('resource_exhausted') || message.includes('quota exceeded') || message.includes('quota') || message.includes('rate limit')) {
-			return true;
-		}
-
-		return false;
+	public isRateLimitError(error: any): boolean {
+		return isQuotaError(error);
 	}
 
 	/**
-	 * Handle quota error - open circuit
+	 * Handle rate limit error - open circuit
 	 */
-	private onQuotaError(): void {
+	private onRateLimitError(): void {
 		this.consecutiveFailures++;
 		this.consecutiveSuccesses = 0;
 
@@ -250,9 +216,9 @@ export class GcpQuotaCircuitBreaker {
 			return; // Already open
 		}
 
-		this.logger.warn(`Circuit breaker OPENING - quota limit hit, pausing ${this.serviceName} requests`);
+		this.logger.warn(`Circuit breaker OPENING - rate limit hit, pausing ${this.serviceName} requests`);
 		this.logger.warn(
-			`⚠️  ${this.serviceName} quota limit hit - pausing requests. Will retry every ${this.retryIntervalMs / 1000} seconds until service recovers`,
+			`Rate limit hit for ${this.serviceName} - pausing requests. Will retry every ${this.retryIntervalMs / 1000} seconds until service recovers`,
 		);
 
 		this.state = CircuitState.OPEN;
@@ -270,7 +236,7 @@ export class GcpQuotaCircuitBreaker {
 		const deferQueueProcessing = this.isProcessingQueue;
 
 		this.logger.info('Circuit breaker CLOSING - service recovered, resuming normal operation');
-		this.logger.info(`✅ ${this.serviceName} service recovered - resuming requests`);
+		this.logger.info(`${this.serviceName} service recovered - resuming requests`);
 
 		this.state = CircuitState.CLOSED;
 		this.stopPeriodicRetry();
@@ -350,13 +316,13 @@ export class GcpQuotaCircuitBreaker {
 			// Close circuit and process remaining queue
 			this.closeCircuit();
 		} catch (error) {
-			if (this.isQuotaError(error)) {
-				// Still hitting quota - keep circuit open
-				this.logger.debug('Service recovery test failed - quota still exhausted');
+			if (this.isRateLimitError(error)) {
+				// Still hitting rate limit - keep circuit open
+				this.logger.debug('Service recovery test failed - rate limit still active');
 				this.state = CircuitState.OPEN;
 			} else {
 				// Different error - reject the request and try next one
-				this.logger.warn({ error }, 'Service recovery test failed with non-quota error');
+				this.logger.warn({ error }, 'Service recovery test failed with non-rate-limit error');
 				this.queue.shift(); // Remove failed request
 				testRequest.reject(error as Error);
 
@@ -409,14 +375,14 @@ export class GcpQuotaCircuitBreaker {
 				const result = await request.execute();
 				request.resolve(result);
 			} catch (error) {
-				if (this.isQuotaError(error)) {
-					// Hit quota again - reopen circuit
-					this.onQuotaError();
+				if (this.isRateLimitError(error)) {
+					// Hit rate limit again - reopen circuit
+					this.onRateLimitError();
 					// Put request back at front of queue
 					this.queue.unshift(request);
 					break;
 				}
-				// Non-quota error - reject and continue
+				// Non-rate-limit error - reject and continue
 				request.reject(error as Error);
 			}
 		}

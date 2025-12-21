@@ -1,9 +1,7 @@
-import pino from 'pino';
+import { logger } from '#o11y/logger';
 import type { VectorStoreConfig } from '../core/config';
 import type { IEmbedder } from '../core/interfaces';
 import { OLLAMA_EMBEDDING_MODELS, OllamaEmbedderAdapter } from './ollamaEmbedder';
-
-const logger = pino({ name: 'OllamaDualEmbedder' });
 
 /**
  * Dual embedding generator for Ollama

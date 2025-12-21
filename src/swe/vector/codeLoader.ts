@@ -1,9 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import fg from 'fast-glob';
-import pino from 'pino';
-
-const logger = pino({ name: 'CodeLoader' });
+import { logger } from '#o11y/logger';
 
 const SUPPORTED_EXTENSIONS = [
 	'ts',
