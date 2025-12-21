@@ -10,6 +10,19 @@
         "type": "string",
         "description": "Notes on what additional information/decision is required. Be specific on what you have been doing up to this point, and provide relevant information to help with the decision/feedback."
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "request": {
+          "type": "string",
+          "description": "Notes on what additional information/decision is required. Be specific on what you have been doing up to this point, and provide relevant information to help with the decision/feedback."
+        }
+      },
+      "required": [
+        "request"
+      ],
+      "additionalProperties": false
+    }
   }
 }

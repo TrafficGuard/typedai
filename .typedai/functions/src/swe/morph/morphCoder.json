@@ -38,6 +38,62 @@
         "description": "Whether to commit the changes after editing",
         "optional": true
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "fileEdits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "filePath": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "filePath"
+            ]
+          },
+          "description": "Array of file edits to make. Each `codeEdits` string should:\n\t *\n\t * **Follow Morph's Edit File Format Requirements**\n\t * - Contain only the *precise changes* being made\n\t * - Use `// ... existing code ...` markers to indicate omitted sections\n\t * - Include sufficient context (unchanged lines) around changes for accurate placement\n\t * - Follow the structure defined in the [Edit File Tool](#section-edit-file-tool)\n\t *\n\t * **codeEdits Example:**\n\t * ```javascript\n\t * // ... existing code ...\n\t * function calculateTotal(items) {\n\t *   // ... existing code ...\n\t *   for item in items:\n\t *     total += item.price;\n\t *   return total * 1.1;  // Add 10% tax\n\t * }\n\t * // ... existing code ...\n\t * ```\n\t *\n\t * **Important Rules:**\n\t * - Only have one array entry per file with all of the changes to the file in the codeEdits property\n\t * - For deletions: Show context before/after and omit lines between markers\n\t * - Bias toward fewer unchanged lines while maintaining context clarity\n\t *"
+        },
+        "newFiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "filePath": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "filePath"
+            ]
+          },
+          "description": "Array of new files to create"
+        },
+        "deleteFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of file paths to delete"
+        },
+        "dirtyCommit": {
+          "type": "boolean",
+          "description": "Whether to commit any files with uncommitted changes before editing"
+        },
+        "autoCommit": {
+          "type": "boolean",
+          "description": "Whether to commit the changes after editing"
+        }
+      },
+      "required": [
+        "fileEdits"
+      ],
+      "additionalProperties": false
+    }
   }
 }

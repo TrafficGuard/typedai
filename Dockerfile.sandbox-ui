@@ -1,0 +1,96 @@
+# Dockerfile.sandbox-ui
+# Sandbox image with Playwright/Chromium for UI testing
+#
+# Uses official Playwright image (browsers pre-installed)
+# Browsers run in headless mode by default - no Xvfb needed
+#
+# Security features when used with --sandbox flag:
+# - Resource limits: 16G RAM, 8 CPU, 500 PIDs
+# - Capabilities: cap_drop ALL, cap_add minimal set
+# - Privilege escalation: no-new-privileges
+# - Source mount: read-only
+
+FROM mcr.microsoft.com/playwright:v1.48.0-noble
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Node.js 22 (Playwright image has older version)
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g pnpm @anthropic-ai/claude-code
+
+# Install additional build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git make g++ gcc build-essential \
+    python3 python3-pip \
+    libssl-dev zlib1g-dev libbz2-dev \
+    libreadline-dev libsqlite3-dev wget llvm \
+    libncursesw5-dev xz-utils tk-dev libxml2-dev \
+    libxmlsec1-dev libffi-dev liblzma-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+ENV USER_NAME=typedai
+ENV HOMEDIR=/home/${USER_NAME}
+RUN useradd --create-home -d ${HOMEDIR} -g users ${USER_NAME} \
+    && chown -R ${USER_NAME}:users /ms-playwright
+
+WORKDIR ${HOMEDIR}
+
+# Copy .python-version file
+COPY .python-version ${HOMEDIR}/.python-version
+RUN chown ${USER_NAME}:users ${HOMEDIR}/.python-version
+
+# Copy .husky files
+RUN mkdir -p ".husky"
+COPY .husky/install.mjs .husky/install.mjs
+RUN chown -R ${USER_NAME}:users ${HOMEDIR}/.husky
+
+# Copy package files
+COPY package.json pnpm-lock.yaml ./
+RUN chown ${USER_NAME}:users package.json pnpm-lock.yaml
+
+# Switch to non-root user
+USER ${USER_NAME}
+
+# Configure pnpm to use a cache directory we can mount
+ENV PNPM_HOME="${HOMEDIR}/.local/share/pnpm"
+ENV PATH="${PNPM_HOME}:${PATH}"
+
+# Install dependencies with BuildKit cache mount for pnpm store
+RUN --mount=type=cache,target=/home/typedai/.local/share/pnpm/store,uid=1000,gid=100 \
+    pnpm install --frozen-lockfile
+
+# Install frontend dependencies
+WORKDIR ${HOMEDIR}/frontend
+COPY --chown=${USER_NAME}:users frontend/package.json ./
+COPY --chown=${USER_NAME}:users frontend/pnpm-lock.yaml ./
+RUN --mount=type=cache,target=/home/typedai/.local/share/pnpm/store,uid=1000,gid=100 \
+    pnpm install --force
+
+# Return to home directory
+WORKDIR ${HOMEDIR}
+
+# Git config for safe directories
+RUN git config --global --add safe.directory ${HOMEDIR} \
+    && git config --global --add safe.directory /workspace \
+    && git config --global --add safe.directory /worktrees
+
+# Set up pyenv
+RUN git clone --depth 1 https://github.com/pyenv/pyenv.git ${HOMEDIR}/.pyenv
+ENV PYENV_ROOT="${HOMEDIR}/.pyenv"
+ENV PATH="${PYENV_ROOT}/bin:${PYENV_ROOT}/shims:${PATH}"
+
+# Initialize pyenv and install Python version
+RUN eval "$(pyenv init --path)" && \
+    eval "$(pyenv init -)" && \
+    pyenv install --skip-existing $(cat ${HOMEDIR}/.python-version) && \
+    pyenv global $(cat ${HOMEDIR}/.python-version) && \
+    pyenv rehash
+
+# Playwright browsers location (pre-installed in image at /ms-playwright)
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV NODE_ENV=development
+
+EXPOSE 3000
+CMD ["bash"]

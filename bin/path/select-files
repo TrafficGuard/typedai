@@ -14,5 +14,5 @@ CWD=$(pwd)
 # Run the select-files npm script with all arguments and the filesystem arg
 (
   cd "$TYPEDAI_HOME"
-  npm run select-files -- --fs="${CWD}" "$@"
+  pnpm run select-files -- --fs="${CWD}" "$@"
 )

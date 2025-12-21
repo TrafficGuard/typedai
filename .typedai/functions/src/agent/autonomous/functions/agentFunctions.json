@@ -10,7 +10,20 @@
         "type": "string",
         "description": "A detailed description that answers/completes the user request using Markdown formatting."
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "note": {
+          "type": "string",
+          "description": "A detailed description that answers/completes the user request using Markdown formatting."
+        }
+      },
+      "required": [
+        "note"
+      ],
+      "additionalProperties": false
+    }
   },
   "Agent_memory": {
     "class": "Agent",
@@ -44,6 +57,37 @@
         "optional": true
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "SAVE",
+            "DELETE",
+            "GET"
+          ],
+          "description": "'SAVE', 'DELETE', or 'GET'"
+        },
+        "key": {
+          "type": "string",
+          "description": "The memory key to save, delete, or get"
+        },
+        "content": {
+          "type": "string",
+          "description": "The content to save to the memory (when operation is 'SAVE')"
+        },
+        "description": {
+          "type": "string",
+          "description": "A description identifiying the source of the content (when operation is 'SAVE')"
+        }
+      },
+      "required": [
+        "operation",
+        "key"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "Void, or string when operation is 'GET'"
   },
@@ -59,6 +103,19 @@
         "description": "The text to count tokens for"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The text to count tokens for"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "number",
     "returns": "The number of tokens in the text"
   }

@@ -1,0 +1,81 @@
+.option-selection-container {
+    @apply p-4;
+}
+
+.option-selection-header {
+    @apply mb-4;
+}
+
+.progress-section {
+    @apply p-4 mb-4 bg-blue-50 border border-blue-200 rounded;
+}
+
+.option-tabs {
+    .mat-mdc-tab-body-wrapper {
+        @apply mt-2;
+    }
+}
+
+.option-content {
+    @apply min-h-[300px];
+}
+
+.option-card {
+    @apply h-full;
+}
+
+.section-title {
+    @apply text-sm font-medium mb-2 flex items-center gap-1;
+}
+
+.section {
+    @apply mb-4;
+}
+
+.stats-grid {
+    @apply grid grid-cols-3 gap-4;
+
+    .stat-item {
+        @apply flex flex-col;
+
+        .stat-label {
+            @apply text-xs text-gray-500;
+        }
+
+        .stat-value {
+            @apply text-sm font-medium;
+        }
+    }
+}
+
+.commits-section {
+    @apply max-h-32 overflow-auto;
+}
+
+.side-by-side-comparison {
+    .comparison-item {
+        @apply bg-gray-50;
+
+        &:hover {
+            @apply bg-gray-100;
+        }
+    }
+}
+
+.option-selection-footer {
+    @apply flex justify-end border-t pt-4;
+}
+
+// Animation for spinning icon
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}

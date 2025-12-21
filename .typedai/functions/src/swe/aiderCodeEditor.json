@@ -16,6 +16,27 @@
         "type": "string[]",
         "description": "The names of any existing relevant files to edit"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "requirements": {
+          "type": "string",
+          "description": "The complete task requirements with all the supporting documentation and code samples"
+        },
+        "filesToEdit": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The names of any existing relevant files to edit"
+        }
+      },
+      "required": [
+        "requirements",
+        "filesToEdit"
+      ],
+      "additionalProperties": false
+    }
   }
 }

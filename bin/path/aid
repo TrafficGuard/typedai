@@ -1,17 +1,169 @@
 #!/bin/bash
 
-# This script is for running a TypedAI script on a target repository (not the TypedAI repo) in a container.
-# This should be run from the target repository, and may modify the target repository depending on the script called.
+# TypedAI Agent Runner with Sandbox Support
+#
+# This script runs a TypedAI script on a target repository (not the TypedAI repo) in a container.
+# Run from the target repository. May modify the target repository depending on the script called.
+#
+# Usage:
+#   aid [OPTIONS] <script-name> [script-args...]
+#
+# Options:
+#   --sandbox           Enable sandbox mode with security hardening
+#   --ui                Enable UI testing (Playwright/Chromium)
+#   --nextjs            Enable NextJS MCP server
+#   --profile=NAME      Use profile (.claude/profiles/NAME/ with settings.json and skills/)
+#   --upgrade           Upgrade Claude Code to latest version (rebuilds Docker images)
+#
+# Special commands:
+#   claude        Run Claude Code CLI directly (not an npm script)
+#
+# Examples:
+#   aid codeAgent "fix the bug"
+#   aid --sandbox nextgen "migrate to Next.js"
+#   aid --sandbox --ui nextgen "add login tests"
+#   aid --sandbox claude "migrate Angular to React"
+#   aid --profile=migration claude "migrate frontend to React"
 
-# Check if TYPEDAI_HOME is set
-if [ -z "$TYPEDAI_HOME" ]; then
+set -euo pipefail
+
+# === Configuration ===
+SANDBOX_MODE=false
+UI_TESTING=false
+NEXTJS_MCP=false
+PROFILE=""
+FORCE_UPGRADE=false
+
+# === Help Function ===
+show_help() {
+  cat << 'HELP'
+aid - TypedAI Agent Runner with Docker Sandbox Support
+
+USAGE:
+  aid [OPTIONS] <command> [args...]
+
+OPTIONS:
+  --help, -h          Show this help message and exit
+  --sandbox           Enable sandbox mode with security hardening
+                      (read-only source, resource limits, capability restrictions)
+  --ui                Enable UI testing with Playwright/Chromium
+                      (implies --sandbox)
+  --nextjs            Enable NextJS MCP server for development
+                      (implies --sandbox --ui)
+  --profile=NAME      Use profile from .claude/profiles/NAME/
+                      (loads settings.json and symlinks skills/)
+                      (implies --sandbox)
+  --upgrade           Upgrade Claude Code to latest version
+                      Rebuilds Docker images with newest Claude Code CLI
+                      Run without command to just upgrade, or with command to upgrade and run
+
+COMMANDS:
+  claude              Run Claude Code CLI directly in the container
+                      Automatically adds --dangerously-skip-permissions
+  <npm-script>        Run an npm script from TypedAI (e.g., nextgen, codeAgent)
+
+EXAMPLES:
+  # Run Claude Code CLI on current directory
+  aid claude
+
+  # Run Claude Code with a prompt
+  aid claude "fix the bug in auth.ts"
+
+  # Run in secure sandbox mode
+  aid --sandbox claude "refactor the API"
+
+  # Use a profile with custom settings and skills
+  aid --profile=migration claude "migrate to React"
+
+  # Run nextgen agent
+  aid --sandbox nextgen "add user authentication"
+
+  # Enable UI testing for Playwright tests
+  aid --sandbox --ui nextgen "add e2e login tests"
+
+  # Upgrade Claude Code to latest version
+  aid --upgrade
+
+  # Upgrade and then run
+  aid --upgrade claude
+
+ENVIRONMENT:
+  TYPEDAI_HOME        Required. Path to TypedAI repository
+  ANTHROPIC_API_KEY   Optional. Passed through to container
+  PERPLEXITY_API_KEY  Optional. Passed through to container (for MCP)
+
+PROFILES:
+  Profiles are stored in .claude/profiles/<name>/ with:
+    - settings.json   Claude Code settings (hooks, permissions, etc.)
+    - skills/         Directory of skills to make available
+
+  The profile's settings.json is copied to settings.local.json and
+  skills/ is symlinked to .claude/skills/ for the duration of the run.
+
+DOCKER IMAGES:
+  aid builds and caches Docker images in layers:
+    - typedai-sandbox-base    OS packages, Node.js, Claude Code CLI
+    - typedai-sandbox-deps    pnpm dependencies (rebuilds on lockfile change)
+    - typedai_sandbox_*       Final image with your configuration
+
+  Images auto-rebuild when:
+    - Claude Code has a new version (checked every 12 hours)
+    - pnpm-lock.yaml changes
+HELP
+}
+
+# === Parse Flags ===
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --help|-h)
+      show_help
+      exit 0
+      ;;
+    --sandbox)
+      SANDBOX_MODE=true
+      shift
+      ;;
+    --ui)
+      UI_TESTING=true
+      SANDBOX_MODE=true
+      shift
+      ;;
+    --nextjs)
+      NEXTJS_MCP=true
+      UI_TESTING=true
+      SANDBOX_MODE=true
+      shift
+      ;;
+    --profile=*)
+      PROFILE="${1#--profile=}"
+      SANDBOX_MODE=true
+      shift
+      ;;
+    --upgrade)
+      FORCE_UPGRADE=true
+      SANDBOX_MODE=true
+      shift
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      exit 1
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+# === Validation ===
+if [ -z "${TYPEDAI_HOME:-}" ]; then
   echo "Error: TYPEDAI_HOME is not set."
   exit 1
 fi
 
-# Check if at least one argument (npm script name) is passed
 if [ $# -lt 1 ]; then
-  echo "Usage: aid <npm-script> [args]"
+  echo "Usage: aid [OPTIONS] <command> [args...]"
+  echo ""
+  echo "Run 'aid --help' for more information."
   exit 1
 fi
 
@@ -21,58 +173,482 @@ if ! command -v docker &> /dev/null || ! docker compose version &> /dev/null; th
     exit 1
 fi
 
-TYPEDAI_HOME_ABS=$(realpath "$TYPEDAI_HOME")
-CWD_ABS=$(realpath "$(pwd)") # pwd is the target repository
+# === Path Setup ===
+# Use realpath if available, otherwise fall back to Python (for older macOS)
+if command -v realpath &> /dev/null; then
+  TYPEDAI_HOME_ABS=$(realpath "$TYPEDAI_HOME")
+  CWD_ABS=$(realpath "$(pwd)")
+else
+  # Fallback for older macOS without coreutils
+  TYPEDAI_HOME_ABS=$(cd "$TYPEDAI_HOME" && pwd -P)
+  CWD_ABS=$(pwd -P)
+fi
 SCRIPT_NAME="$1"
 shift
 SCRIPT_ARGS=("$@")
 
+# Workspace identifier for persistent volumes (use shasum on macOS, md5sum on Linux)
+if command -v md5sum &> /dev/null; then
+  WORKSPACE_ID=$(echo "$CWD_ABS" | md5sum | cut -c1-12)
+else
+  WORKSPACE_ID=$(echo "$CWD_ABS" | md5 | cut -c1-12)
+fi
+
+# === Load Environment Variables ===
+# Check if we're in a git worktree and find the main repo
+MAIN_REPO=""
+if [ -f "${CWD_ABS}/.git" ]; then
+  # .git is a file in worktrees, contains path to main repo
+  WORKTREE_GIT=$(cat "${CWD_ABS}/.git" | grep "gitdir:" | sed 's/gitdir: //')
+  if [ -n "$WORKTREE_GIT" ]; then
+    # Extract main repo path from worktree gitdir (e.g., /path/to/main/.git/worktrees/branch)
+    MAIN_REPO=$(echo "$WORKTREE_GIT" | sed 's|/\.git/worktrees/.*||')
+  fi
+fi
+
+# Load local.env from main repo (if worktree) or current directory
+LOCAL_ENV_FILE=""
+if [ -n "$MAIN_REPO" ] && [ -f "${MAIN_REPO}/variables/local.env" ]; then
+  LOCAL_ENV_FILE="${MAIN_REPO}/variables/local.env"
+elif [ -f "${CWD_ABS}/variables/local.env" ]; then
+  LOCAL_ENV_FILE="${CWD_ABS}/variables/local.env"
+elif [ -f "${TYPEDAI_HOME_ABS}/variables/local.env" ]; then
+  LOCAL_ENV_FILE="${TYPEDAI_HOME_ABS}/variables/local.env"
+fi
+
+if [ -n "$LOCAL_ENV_FILE" ]; then
+  echo "Loading env vars from: ${LOCAL_ENV_FILE}"
+  set -a  # auto-export all variables
+  source "$LOCAL_ENV_FILE"
+  set +a
+fi
+
+# === Claude Code Version Check (async) ===
+CLAUDE_VERSION_CACHE="/tmp/claude-code-latest-version"
+CLAUDE_VERSION_CACHE_MAX_AGE=43200  # 12 hours
+
+check_claude_version() {
+  # Use cache if fresh (unless forcing upgrade)
+  if [ "$FORCE_UPGRADE" != true ] && [ -f "$CLAUDE_VERSION_CACHE" ]; then
+    if command -v stat &> /dev/null; then
+      # macOS uses -f %m, Linux uses -c %Y
+      CACHE_MTIME=$(stat -f %m "$CLAUDE_VERSION_CACHE" 2>/dev/null || stat -c %Y "$CLAUDE_VERSION_CACHE" 2>/dev/null || echo "0")
+      CACHE_AGE=$(($(date +%s) - CACHE_MTIME))
+      if [ "$CACHE_AGE" -lt "$CLAUDE_VERSION_CACHE_MAX_AGE" ]; then
+        cat "$CLAUDE_VERSION_CACHE"
+        return
+      fi
+    fi
+  fi
+
+  # Fetch latest version from npm and cache it
+  VERSION=$(npm view @anthropic-ai/claude-code version 2>/dev/null || echo "")
+  if [ -n "$VERSION" ]; then
+    echo "$VERSION" > "$CLAUDE_VERSION_CACHE"
+    echo "$VERSION"
+  fi
+}
+
+# Start async version check early (only in sandbox mode)
+LATEST_VERSION_FILE=""
+VERSION_CHECK_PID=""
+if [ "$SANDBOX_MODE" = true ]; then
+  LATEST_VERSION_FILE=$(mktemp)
+  check_claude_version > "$LATEST_VERSION_FILE" &
+  VERSION_CHECK_PID=$!
+fi
+
+# === Image Selection ===
+if [ "$UI_TESTING" = true ]; then
+  DOCKER_IMAGE="typedai_sandbox_ui_${USER}"
+  DOCKERFILE="Dockerfile.sandbox-ui"
+elif [ "$SANDBOX_MODE" = true ]; then
+  DOCKER_IMAGE="typedai_sandbox_${USER}"
+  DOCKERFILE="Dockerfile.sandbox"
+else
+  DOCKER_IMAGE="typedai_agent_runner_img_${USER}"
+  DOCKERFILE="Dockerfile.dev"
+fi
+
+# === Auto-rebuild images if needed ===
+if [ "$SANDBOX_MODE" = true ]; then
+  # Wait for async version check to complete
+  if [ -n "$VERSION_CHECK_PID" ]; then
+    wait $VERSION_CHECK_PID 2>/dev/null || true
+    LATEST_CLAUDE_VERSION=$(cat "$LATEST_VERSION_FILE" 2>/dev/null || echo "")
+    rm -f "$LATEST_VERSION_FILE"
+  fi
+
+  # Get installed Claude Code version from base image label
+  INSTALLED_CLAUDE_VERSION=$(docker inspect typedai-sandbox-base --format '{{index .Config.Labels "claude-code.version"}}' 2>/dev/null || echo "")
+
+  # Check if Claude Code needs updating
+  REBUILD_BASE=false
+  if [ "$FORCE_UPGRADE" = true ]; then
+    echo "Forcing Claude Code upgrade..."
+    rm -f "$CLAUDE_VERSION_CACHE"
+    if [ -z "$LATEST_CLAUDE_VERSION" ]; then
+      LATEST_CLAUDE_VERSION=$(npm view @anthropic-ai/claude-code version 2>/dev/null || echo "")
+    fi
+    REBUILD_BASE=true
+  elif ! docker image inspect typedai-sandbox-base &>/dev/null; then
+    echo "Building typedai-sandbox-base (first time)..."
+    REBUILD_BASE=true
+  elif [ -n "$LATEST_CLAUDE_VERSION" ] && [ "$INSTALLED_CLAUDE_VERSION" != "$LATEST_CLAUDE_VERSION" ]; then
+    echo "Claude Code update available: ${INSTALLED_CLAUDE_VERSION:-unknown} → $LATEST_CLAUDE_VERSION"
+    echo "Rebuilding typedai-sandbox-base..."
+    REBUILD_BASE=true
+  fi
+
+  if [ "$REBUILD_BASE" = true ]; then
+    docker build -t typedai-sandbox-base \
+      --build-arg CLAUDE_VERSION="${LATEST_CLAUDE_VERSION}" \
+      --label "claude-code.version=${LATEST_CLAUDE_VERSION}" \
+      -f "${TYPEDAI_HOME_ABS}/Dockerfile.sandbox-base" \
+      "${TYPEDAI_HOME_ABS}"
+  fi
+
+  # Handle --upgrade only mode (just rebuild, don't run)
+  if [ "$FORCE_UPGRADE" = true ] && [ $# -eq 0 ]; then
+    echo "Claude Code upgraded to ${LATEST_CLAUDE_VERSION}. Rebuilding deps image..."
+    # Force deps rebuild by clearing stored hash
+    docker build -t typedai-sandbox-deps \
+      -f "${TYPEDAI_HOME_ABS}/Dockerfile.sandbox-deps" \
+      "${TYPEDAI_HOME_ABS}"
+    echo "Upgrade complete!"
+    exit 0
+  fi
+
+  # Compute hash of lockfiles (use md5 on macOS, md5sum on Linux)
+  if command -v md5sum &> /dev/null; then
+    LOCKFILE_HASH=$(cat "${TYPEDAI_HOME_ABS}/pnpm-lock.yaml" "${TYPEDAI_HOME_ABS}/frontend/pnpm-lock.yaml" 2>/dev/null | md5sum | cut -c1-32)
+  else
+    LOCKFILE_HASH=$(cat "${TYPEDAI_HOME_ABS}/pnpm-lock.yaml" "${TYPEDAI_HOME_ABS}/frontend/pnpm-lock.yaml" 2>/dev/null | md5 | cut -c1-32)
+  fi
+
+  # Get stored hash from image label (empty if image doesn't exist)
+  STORED_HASH=$(docker inspect typedai-sandbox-deps --format '{{index .Config.Labels "lockfile.hash"}}' 2>/dev/null || echo "")
+
+  if [ "$LOCKFILE_HASH" != "$STORED_HASH" ]; then
+    if [ -z "$STORED_HASH" ]; then
+      echo "Building typedai-sandbox-deps (first time)..."
+    else
+      echo "Lockfiles changed, rebuilding typedai-sandbox-deps..."
+    fi
+    docker build -t typedai-sandbox-deps \
+      --build-arg LOCKFILE_HASH="${LOCKFILE_HASH}" \
+      -f "${TYPEDAI_HOME_ABS}/Dockerfile.sandbox-deps" \
+      "${TYPEDAI_HOME_ABS}"
+  fi
+fi
+
+# === Build Security Options ===
+SECURITY_OPTS=""
+RESOURCE_LIMITS=""
+
+if [ "$SANDBOX_MODE" = true ]; then
+  SECURITY_OPTS="
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE"
+  RESOURCE_LIMITS="
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 16G
+          pids: 500"
+fi
+
+# === Build Volume Mounts ===
+# TypedAI source is read-only in sandbox mode, UNLESS we're running inside the TypedAI repo
+# (in which case the agent needs to modify the TypedAI codebase itself)
+SOURCE_MOUNT_MODE="delegated"
+if [ "$SANDBOX_MODE" = true ]; then
+  # Check if CWD is inside TYPEDAI_HOME (agent is working on TypedAI itself)
+  if [[ "$CWD_ABS" == "$TYPEDAI_HOME_ABS"* ]]; then
+    SOURCE_MOUNT_MODE="delegated"  # Writable - agent is modifying TypedAI
+  else
+    SOURCE_MOUNT_MODE="ro,delegated"  # Read-only - agent working on external repo
+  fi
+fi
+
+VOLUMES="
+      - \"${TYPEDAI_HOME_ABS}:/home/typedai/:${SOURCE_MOUNT_MODE}\"
+      - typedai_node_modules:/home/typedai/node_modules
+      - typedai_frontend_node_modules:/home/typedai/frontend/node_modules
+      - \"${CWD_ABS}:/workspace/:delegated\""
+
+# Add gcloud credentials if they exist
+if [ -d "${HOME}/.config/gcloud" ]; then
+  VOLUMES="${VOLUMES}
+      - \"${HOME}/.config/gcloud:/home/typedai/.config/gcloud:ro\""
+fi
+
+# Add anthropic credentials if they exist
+if [ -d "${HOME}/.anthropic" ]; then
+  VOLUMES="${VOLUMES}
+      - \"${HOME}/.anthropic:/home/typedai/.anthropic:ro\""
+fi
+
+# Add worktrees volume for nextgen
+if [ "$SCRIPT_NAME" = "nextgen" ]; then
+  VOLUMES="${VOLUMES}
+      - nextgen_worktrees_${WORKSPACE_ID}:/worktrees"
+fi
+
+
+# Add cache volumes for UI testing
+if [ "$UI_TESTING" = true ]; then
+  VOLUMES="${VOLUMES}
+      - typedai_playwright_cache:/home/typedai/.cache/ms-playwright
+      - typedai_npm_cache:/home/typedai/.npm"
+fi
+
+# === SSH Agent Forwarding ===
+# Allows git SSH operations (push/pull) without exposing private keys
+# Agent can USE keys to authenticate but cannot READ or COPY them
+SSH_ENV=""
+SSH_AGENT_STATUS="not available"
+
+# Check if SSH agent is running and has keys
+check_ssh_agent() {
+  if [ -z "${SSH_AUTH_SOCK:-}" ]; then
+    return 1
+  fi
+  # Check if agent has any keys loaded
+  if ssh-add -l &>/dev/null; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+if check_ssh_agent; then
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    # Docker Desktop on macOS has built-in SSH agent forwarding via magic path
+    VOLUMES="${VOLUMES}
+      - /run/host-services/ssh-auth.sock:/ssh-agent:ro"
+    SSH_AGENT_STATUS="forwarded (macOS)"
+  else
+    # Linux: mount the SSH agent socket directly
+    VOLUMES="${VOLUMES}
+      - \"${SSH_AUTH_SOCK}:/ssh-agent:ro\""
+    SSH_AGENT_STATUS="forwarded (Linux)"
+  fi
+  SSH_ENV="
+      - SSH_AUTH_SOCK=/ssh-agent"
+elif [ -n "${SSH_AUTH_SOCK:-}" ]; then
+  SSH_AGENT_STATUS="running but no keys loaded (run: ssh-add)"
+else
+  SSH_AGENT_STATUS="not running"
+fi
+
+# === Build Environment Variables ===
+ENV_VARS="
+      - TYPEDAI_HOME=/home/typedai
+      - WORKSPACE=/workspace
+      - WORKTREES_DIR=/worktrees
+      - PYENV_ROOT=/home/typedai/.pyenv
+      - PATH=/home/typedai/.pyenv/shims:/home/typedai/.pyenv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${SSH_ENV}"
+
+if [ "$UI_TESTING" = true ]; then
+  ENV_VARS="${ENV_VARS}
+      - PLAYWRIGHT_BROWSERS_PATH=/home/typedai/.cache/ms-playwright
+      - DISPLAY=:99"
+fi
+
+if [ "$NEXTJS_MCP" = true ]; then
+  ENV_VARS="${ENV_VARS}
+      - NEXTJS_MCP_ENABLED=true
+      - NEXTJS_DEV_PORT=3000"
+fi
+
+# Pass through API keys if set
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+  ENV_VARS="${ENV_VARS}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}"
+fi
+if [ -n "${PERPLEXITY_API_KEY:-}" ]; then
+  ENV_VARS="${ENV_VARS}
+      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}"
+fi
+
+# === Temp Directory ===
+TEMP_COMPOSE_DIR="${TYPEDAI_HOME_ABS}/.tmp"
+mkdir -p "$TEMP_COMPOSE_DIR"
+
+# === Build Command ===
 # Prepare script arguments for the YAML list command.
-# Each argument will be a separate item in the YAML list, on a new line.
-# Arguments are wrapped in double quotes for YAML.
-YAML_COMMAND_LINES="      - \"npm\"
+if [ "$SCRIPT_NAME" = "claude" ]; then
+  # Separate flags (--*) from the prompt
+  CLAUDE_FLAGS=()
+  CLAUDE_PROMPT=""
+
+  # Profile uses wrapper script to swap settings and skills (handled below)
+
+  # Parse remaining args (handle empty array for bash with set -u)
+  if [ ${#SCRIPT_ARGS[@]} -gt 0 ]; then
+    for arg in "${SCRIPT_ARGS[@]}"; do
+      if [[ "$arg" == --* ]]; then
+        # It's a flag - might be --flag or --flag=value or --flag value
+        CLAUDE_FLAGS+=("$arg")
+      elif [[ "${#CLAUDE_FLAGS[@]}" -gt 0 && "${CLAUDE_FLAGS[-1]}" == "--settings" ]]; then
+        # Previous was --settings, this is the value
+        CLAUDE_FLAGS+=("$arg")
+      elif [ -z "$CLAUDE_PROMPT" ]; then
+        # First non-flag arg is the prompt
+        CLAUDE_PROMPT="$arg"
+      fi
+    done
+  fi
+
+  # Build the claude command string
+  CLAUDE_CMD="claude --dangerously-skip-permissions"
+  if [ ${#CLAUDE_FLAGS[@]} -gt 0 ]; then
+    for flag in "${CLAUDE_FLAGS[@]}"; do
+      escaped_flag=$(echo "$flag" | sed "s/'/'\\\\''/g")
+      CLAUDE_CMD="${CLAUDE_CMD} '${escaped_flag}'"
+    done
+  fi
+  if [ -n "$CLAUDE_PROMPT" ]; then
+    escaped_prompt=$(echo "$CLAUDE_PROMPT" | sed "s/'/'\\\\''/g")
+    CLAUDE_CMD="${CLAUDE_CMD} -p '${escaped_prompt}'"
+  fi
+
+  if [ -n "$PROFILE" ]; then
+    # Write wrapper script to temp file (will be mounted into container)
+    PROFILE_WRAPPER="${TEMP_COMPOSE_DIR}/profile-wrapper-$$.sh"
+    cat > "$PROFILE_WRAPPER" << WRAPPER_EOF
+#!/bin/bash
+set -e
+CLAUDE_DIR=/workspace/.claude
+PROFILE_DIR=\$CLAUDE_DIR/profiles/${PROFILE}
+PROFILE_SETTINGS=\$PROFILE_DIR/settings.json
+SETTINGS_BACKUP=\$CLAUDE_DIR/settings.local.json.profile-backup
+SKILLS_BACKUP=\$CLAUDE_DIR/skills.profile-backup
+
+# Validate profile directory and settings exist
+if [ ! -d \$PROFILE_DIR ]; then
+  echo "Error: Profile directory not found: \$PROFILE_DIR" >&2
+  exit 1
+fi
+if [ ! -f \$PROFILE_SETTINGS ]; then
+  echo "Error: Profile settings not found: \$PROFILE_SETTINGS" >&2
+  exit 1
+fi
+
+# Backup existing settings.local.json if it exists
+if [ -f \$CLAUDE_DIR/settings.local.json ]; then
+  mv \$CLAUDE_DIR/settings.local.json \$SETTINGS_BACKUP
+fi
+
+# Copy profile settings to settings.local.json so Claude Code finds them
+cp \$PROFILE_SETTINGS \$CLAUDE_DIR/settings.local.json
+
+# Backup existing skills directory if it exists
+if [ -d \$CLAUDE_DIR/skills ]; then
+  mv \$CLAUDE_DIR/skills \$SKILLS_BACKUP
+fi
+
+# Symlink profile skills if they exist
+if [ -d \$PROFILE_DIR/skills ]; then
+  ln -s \$PROFILE_DIR/skills \$CLAUDE_DIR/skills
+fi
+
+# Restore on exit
+cleanup() {
+  rm -f \$CLAUDE_DIR/settings.local.json
+  if [ -f \$SETTINGS_BACKUP ]; then mv \$SETTINGS_BACKUP \$CLAUDE_DIR/settings.local.json; fi
+  rm -rf \$CLAUDE_DIR/skills
+  if [ -d \$SKILLS_BACKUP ]; then mv \$SKILLS_BACKUP \$CLAUDE_DIR/skills; fi
+}
+trap cleanup EXIT
+
+${CLAUDE_CMD}
+WRAPPER_EOF
+    chmod +x "$PROFILE_WRAPPER"
+
+    # Add wrapper script mount to volumes
+    VOLUMES="${VOLUMES}
+      - \"${PROFILE_WRAPPER}:/tmp/profile-wrapper.sh:ro\""
+
+    YAML_COMMAND_LINES="      - \"/tmp/profile-wrapper.sh\""
+  else
+    # No profile: run claude directly
+    YAML_COMMAND_LINES="      - \"claude\"
+      - \"--dangerously-skip-permissions\""
+    if [ ${#CLAUDE_FLAGS[@]} -gt 0 ]; then
+      for flag in "${CLAUDE_FLAGS[@]}"; do
+        escaped_flag=$(echo "$flag" | sed 's/"/\\"/g')
+        YAML_COMMAND_LINES="${YAML_COMMAND_LINES}
+      - \"${escaped_flag}\""
+      done
+    fi
+    if [ -n "$CLAUDE_PROMPT" ]; then
+      escaped_prompt=$(echo "$CLAUDE_PROMPT" | sed 's/"/\\"/g')
+      YAML_COMMAND_LINES="${YAML_COMMAND_LINES}
+      - \"-p\"
+      - \"${escaped_prompt}\""
+    fi
+  fi
+else
+  # Normal case: run npm script
+  YAML_COMMAND_LINES="      - \"npm\"
       - \"run\"
-      - \"${SCRIPT_NAME}\" # SCRIPT_NAME itself is quoted
+      - \"${SCRIPT_NAME}\"
       - \"--\"
       - \"--fs=/workspace/\""
 
-for arg in "${SCRIPT_ARGS[@]}"; do
-  # Escape double quotes within the argument string for YAML
-  escaped_arg=$(echo "$arg" | sed 's/"/\\"/g')
-  YAML_COMMAND_LINES="${YAML_COMMAND_LINES}
-      - \"${escaped_arg}\"" # Append as a new line, new list item, quoted
-done
+  # Add script arguments (handle empty array safely for bash 3.x on macOS)
+  if [ ${#SCRIPT_ARGS[@]} -gt 0 ]; then
+    for arg in "${SCRIPT_ARGS[@]}"; do
+      # Escape double quotes within the argument string for YAML
+      escaped_arg=$(echo "$arg" | sed 's/"/\\"/g')
+      YAML_COMMAND_LINES="${YAML_COMMAND_LINES}
+      - \"${escaped_arg}\""
+    done
+  fi
+fi
 
-# Create a temporary directory for the dynamic compose file if it doesn't exist
-TEMP_COMPOSE_DIR="${TYPEDAI_HOME_ABS}/.tmp"
-mkdir -p "$TEMP_COMPOSE_DIR"
-# Unique name for compose file
-DYNAMIC_COMPOSE_FILENAME="docker-compose.dynamic.${SCRIPT_NAME}_$(date +%s%N).yml"
+# === Generate Compose File ===
+# Use seconds + PID for uniqueness (date %N not supported on macOS)
+DYNAMIC_COMPOSE_FILENAME="docker-compose.dynamic.${SCRIPT_NAME}_$(date +%s)_$$.yml"
 DYNAMIC_COMPOSE_PATH="${TEMP_COMPOSE_DIR}/${DYNAMIC_COMPOSE_FILENAME}"
 
-# Generate the dynamic docker-compose.yml content
+# === Build Working Directory ===
+# For claude command, work in /workspace/ (target repo)
+# For npm scripts (nextgen, codeAgent, etc.), work in /home/typedai/ (TypedAI source)
+if [ "$SCRIPT_NAME" = "claude" ]; then
+  WORKING_DIR="/workspace/"
+else
+  WORKING_DIR="/home/typedai/"
+fi
+
 COMPOSE_FILE_CONTENT=$(cat <<EOF
 version: '3.8'
 services:
   ai_agent:
     build:
       context: "${TYPEDAI_HOME_ABS}"
-      dockerfile: Dockerfile.dev
-    image: typedai_agent_runner_img_${USER}
+      dockerfile: ${DOCKERFILE}
+    image: ${DOCKER_IMAGE}
+${SECURITY_OPTS}
+${RESOURCE_LIMITS}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      - TYPEDAI_HOME=/home/typedai
-      - PYENV_ROOT=/home/typedai/.pyenv
-      # CRITICAL: Ensure pyenv shims and bin are first in PATH
-      # The shims directory allows 'python' to point to the pyenv-managed version.
-      - PATH=/home/typedai/.pyenv/shims:/home/typedai/.pyenv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+${ENV_VARS}
     volumes:
-      - "${TYPEDAI_HOME_ABS}:/home/typedai/:delegated"
-      - typedai_node_modules:/home/typedai/node_modules
-      - typedai_frontend_node_modules:/home/typedai/frontend/node_modules
-      - "${CWD_ABS}:/workspace/:delegated"
-      - "${HOME}/.config/gcloud:/home/typedai/.config/gcloud:ro"
-    working_dir: /home/typedai/
-    user: typedai # This should match USER_NAME in Dockerfile
+${VOLUMES}
+    working_dir: ${WORKING_DIR}
+    user: typedai
     tty: true
     stdin_open: true
     command:
@@ -81,30 +657,80 @@ ${YAML_COMMAND_LINES}
 volumes:
   typedai_node_modules:
   typedai_frontend_node_modules:
+  nextgen_worktrees_${WORKSPACE_ID}:
+  typedai_playwright_cache:
+  typedai_npm_cache:
 EOF
 )
 
 echo "$COMPOSE_FILE_CONTENT" > "$DYNAMIC_COMPOSE_PATH"
 
+# === Display Info ===
 echo "Running AI agent in Docker..."
 echo "TypedAI Home: ${TYPEDAI_HOME_ABS}"
 echo "Target Repo: ${CWD_ABS}"
-echo "NPM Script: ${SCRIPT_NAME}"
-echo "Script Args: ${SCRIPT_ARGS[*]}"
+if [ "$SCRIPT_NAME" = "claude" ]; then
+  echo "Mode: Claude Code CLI (--dangerously-skip-permissions)"
+else
+  echo "NPM Script: ${SCRIPT_NAME}"
+fi
+if [ ${#SCRIPT_ARGS[@]} -gt 0 ]; then
+  echo "Script Args: ${SCRIPT_ARGS[*]}"
+fi
+if [ "$SANDBOX_MODE" = true ]; then
+  echo "Sandbox Mode: enabled (read-only source, resource limits, capability restrictions)"
+fi
+if [ "$UI_TESTING" = true ]; then
+  echo "UI Testing: enabled (Playwright/Chromium)"
+fi
+if [ "$NEXTJS_MCP" = true ]; then
+  echo "NextJS MCP: enabled"
+fi
+if [ -n "$PROFILE" ]; then
+  echo "Profile: ${PROFILE} (using .claude/profiles/${PROFILE}/)"
+fi
+echo "Working Dir: ${WORKING_DIR}"
+# Check for .claude hooks in target workspace
+if [ -d "${CWD_ABS}/.claude" ]; then
+  if [ -f "${CWD_ABS}/.claude/settings.local.json" ]; then
+    HOOKS_COUNT=$(grep -c '"hooks"' "${CWD_ABS}/.claude/settings.local.json" 2>/dev/null || echo "0")
+    if [ "$HOOKS_COUNT" -gt 0 ]; then
+      echo "Hooks: configured in ${CWD_ABS}/.claude/settings.local.json"
+    else
+      echo "Hooks: .claude/settings.local.json found (no hooks configured)"
+    fi
+  else
+    echo "Hooks: .claude/ directory exists (no settings.local.json)"
+  fi
+else
+  echo "Hooks: no .claude/ directory in target workspace"
+  echo "  └─ Create ${CWD_ABS}/.claude/settings.local.json to configure hooks"
+fi
+if [[ "$SSH_AGENT_STATUS" == "forwarded"* ]]; then
+  echo "SSH Agent: ${SSH_AGENT_STATUS}"
+else
+  echo "SSH Agent: ${SSH_AGENT_STATUS}"
+  echo "  └─ To enable git SSH operations, run:"
+  if [ -z "${SSH_AUTH_SOCK:-}" ]; then
+    # Agent not running
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      echo "     ssh-add"
+    else
+      echo "     eval \"\$(ssh-agent -s)\" && ssh-add"
+    fi
+  else
+    # Agent running but no keys
+    echo "     ssh-add"
+  fi
+fi
 echo "Dynamic Compose File: ${DYNAMIC_COMPOSE_PATH}"
-# For debugging, you can print the content of the generated compose file:
-# echo "--- Generated Docker Compose File ---"
-# cat "$DYNAMIC_COMPOSE_PATH"
-# echo "-----------------------------------"
 
-# Execute docker compose run.
-# The command specified in the dynamic compose file will be executed.
-# --rm ensures the container is removed after execution.
-# Running 'docker compose' from TYPEDAI_HOME_ABS ensures the build context is correctly picked up.
+# === Execute ===
 (cd "$TYPEDAI_HOME_ABS" && docker compose -f "$DYNAMIC_COMPOSE_PATH" run --build --rm ai_agent)
 EXIT_CODE=$?
 
-# Optional: Cleanup the dynamic compose file
-# rm "$DYNAMIC_COMPOSE_PATH"
+# Cleanup temp files
+rm -f "$DYNAMIC_COMPOSE_PATH"
+rm -f "${PROFILE_WRAPPER:-}"
 
 exit $EXIT_CODE

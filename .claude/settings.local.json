@@ -1,46 +1,52 @@
 {
   "permissions": {
-  "allow": [
-    "Bash(ls:*)",
-    "Bash(cat:*)",
-    "Bash(echo:*)",
-    "Bash(grep:*)",
-    "Bash(chmod:*)",
-    "Bash(node --version)",
-
-    "Bash(pnpm run build:*)",
-
-    "Bash(npm test:*)",
-    "Bash(pnpm test:*)",
-    "Bash(pnpm test:unit:*)",
-    "Bash(pnpm run test:unit:*)",
-    "Bash(pnpm run test:single:*)",
-    "Bash(timeout 30 pnpm test:single:*)",
-    "Bash(pnpm run test:postgres:*)",
-
-    "Bash(pnpm lint:*)",
-    "Bash(pnpm run lint:*)",
-
-    "Bash(pnpm summaries build:*)",
-    "Bash(pnpm summaries:*)",
-
-    "mcp__ide__getDiagnostics",
-
-    "WebSearch",
-    "WebFetch(domain:github.com)",
-    "WebFetch(domain:docs.cloud.google.com)",
-    "mcp__perplexity__search"
-  ],
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(echo:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(chmod:*)",
+      "Bash(node --version)",
+      "Bash(timeout 20 node:*)",
+      "Bash(timeout 30 node:*)",
+      "Bash(timeout 60 node:*)",
+      "Bash(npm test:*)",
+      "Bash(pnpm run build:*)",
+      "Bash(pnpm run lint:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm check:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm test:unit:*)",
+      "Bash(pnpm run test:unit:*)",
+      "Bash(pnpm run test:single:*)",
+      "Bash(pnpm run test:postgres:*)",
+      "Bash(timeout 30 pnpm test:single:*)",
+      "Bash(pnpm summaries build:*)",
+      "Bash(pnpm summaries:*)",
+      "Bash(timeout 30 pnpm nextgen:*)",
+      "Bash(timeout 60 pnpm nextgen:*)",
+      "Bash(timeout 180 pnpm run nextgen:*)",
+      "WebFetch(domain:github.com)",
+      "mcp__perplexity__search",
+      "mcp__ide__getDiagnostics",
+      "WebFetch(domain:docs.docker.com)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(pnpm test:single:*)"
+    ],
     "deny": [],
     "ask": []
   },
+  "enabledMcpjsonServers": [
+    "perplexity"
+  ],
   "hooks": {
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/ensure-pnpm-check.sh"
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/ensure-pnpm-check.mjs"
           }
         ]
       }

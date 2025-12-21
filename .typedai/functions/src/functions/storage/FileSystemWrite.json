@@ -22,7 +22,30 @@
         "type": "boolean",
         "description": "If the filePath already exists, then it will overwrite or throw an error based on the allowOverwrite property"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "filePath": {
+          "type": "string",
+          "description": "The file path (either full filesystem path or relative to current working directory)"
+        },
+        "contents": {
+          "type": "string",
+          "description": "The contents to write to the file"
+        },
+        "allowOverwrite": {
+          "type": "boolean",
+          "description": "If the filePath already exists, then it will overwrite or throw an error based on the allowOverwrite property"
+        }
+      },
+      "required": [
+        "filePath",
+        "contents",
+        "allowOverwrite"
+      ],
+      "additionalProperties": false
+    }
   },
   "FileSystemWrite_editFileContents": {
     "class": "FileSystemWrite",
@@ -41,7 +64,25 @@
         "type": "string",
         "description": "A natual language description of the changes to make to the file contents"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "filePath": {
+          "type": "string",
+          "description": "The file to update"
+        },
+        "descriptionOfChanges": {
+          "type": "string",
+          "description": "A natual language description of the changes to make to the file contents"
+        }
+      },
+      "required": [
+        "filePath",
+        "descriptionOfChanges"
+      ],
+      "additionalProperties": false
+    }
   },
   "FileSystemWrite_deleteFile": {
     "class": "FileSystemWrite",
@@ -54,7 +95,20 @@
         "type": "string",
         "description": "The file to delete"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "filePath": {
+          "type": "string",
+          "description": "The file to delete"
+        }
+      },
+      "required": [
+        "filePath"
+      ],
+      "additionalProperties": false
+    }
   },
   "FileSystemWrite_patchEditFile": {
     "class": "FileSystemWrite",
@@ -79,6 +133,29 @@
         "type": "string",
         "description": "The new text to use as a replacement"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "filePath": {
+          "type": "string",
+          "description": "The file to edit"
+        },
+        "search": {
+          "type": "string",
+          "description": "The lines of text in the file to replace. Note that all the whitespace must be identical."
+        },
+        "replace": {
+          "type": "string",
+          "description": "The new text to use as a replacement"
+        }
+      },
+      "required": [
+        "filePath",
+        "search",
+        "replace"
+      ],
+      "additionalProperties": false
+    }
   }
 }

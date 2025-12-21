@@ -12,6 +12,17 @@
         "optional": true
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "baseRef": {
+          "type": "string",
+          "description": "Optional commit SHA or branch name.\n\t *                - If provided: Uses `git merge-base <baseRef> HEAD` to find the diff start point.\n\t *                - If omitted: Attempts to guess the source branch (e.g., main, develop)\n\t *                  by inspecting other local branches and uses that for the merge-base calculation.\n\t *                  Note: Guessing the source branch may be unreliable in some cases."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The git diff. Note this could be a large string."
   },
@@ -20,6 +31,12 @@
     "name": "Git_getStagedDiff",
     "description": "Gets the diff of all currently staged files against the HEAD commit.",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The git diff for staged changes. This could be a large string."
   },
@@ -28,6 +45,12 @@
     "name": "Git_getStagedFiles",
     "description": "Gets the list of file paths for all currently staged files.",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "string[]",
     "returns": "An array of file paths that are staged for the next commit."
   },
@@ -42,7 +65,20 @@
         "type": "string",
         "description": "The commit message"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "commitMessage": {
+          "type": "string",
+          "description": "The commit message"
+        }
+      },
+      "required": [
+        "commitMessage"
+      ],
+      "additionalProperties": false
+    }
   },
   "Git_getRecentCommits": {
     "class": "Git",
@@ -57,6 +93,17 @@
         "optional": true
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "n": {
+          "type": "number",
+          "description": "The number of commits (defaults to 2)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "Commit[]",
     "returns": "An array of the commit details"
   }

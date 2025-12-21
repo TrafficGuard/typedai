@@ -24,6 +24,7 @@ export const AgentRunningStateSchema = Type.Union(
 		Type.Literal('hitl_tool'),
 		Type.Literal('hitl_feedback'),
 		Type.Literal('hitl_user'),
+		Type.Literal('hitl_review'),
 		Type.Literal('completed'),
 		Type.Literal('restart'),
 		Type.Literal('child_agents'),
@@ -144,6 +145,17 @@ export type AgentContextApi = Static<typeof AgentContextSchema>;
 export const AgentContextPreviewSchema = Type.Pick(AgentContextSchema, AGENT_PREVIEW_KEYS, { $id: 'AgentContextPreview' });
 const _agentContextPreviewCheck: AreTypesFullyCompatible<AgentContextPreview, Static<typeof AgentContextPreviewSchema>> = true;
 
+const ProgressSignalSchema = Type.Union([Type.Literal('forward'), Type.Literal('lateral'), Type.Literal('backward'), Type.Literal('stuck')]);
+
+const DecisionTypeSchema = Type.Union([
+	Type.Literal('explore'),
+	Type.Literal('implement'),
+	Type.Literal('verify'),
+	Type.Literal('fix'),
+	Type.Literal('refactor'),
+	Type.Literal('other'),
+]);
+
 export const AutonomousIterationSchema = Type.Object({
 	agentId: Type.String(),
 	iteration: Type.Number(),
@@ -167,10 +179,30 @@ export const AutonomousIterationSchema = Type.Object({
 	toolState: Type.Optional(Type.Record(Type.String(), Type.Any())),
 	error: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 	stats: GenerationStatsSchema,
+	// Evaluation metrics
+	progressSignal: Type.Optional(ProgressSignalSchema),
+	progressConfidence: Type.Optional(Type.Number()),
+	filesRead: Type.Optional(Type.Number()),
+	filesModified: Type.Optional(Type.Number()),
+	linesAdded: Type.Optional(Type.Number()),
+	linesRemoved: Type.Optional(Type.Number()),
+	compileSuccess: Type.Optional(Type.Boolean()),
+	testsRun: Type.Optional(Type.Number()),
+	testsPassed: Type.Optional(Type.Number()),
+	testsFailed: Type.Optional(Type.Number()),
+	lintErrorsDelta: Type.Optional(Type.Number()),
+	similarityToPrevious: Type.Optional(Type.Number()),
+	repeatedPatternCount: Type.Optional(Type.Number()),
+	decisionType: Type.Optional(DecisionTypeSchema),
+	llmCallCount: Type.Optional(Type.Number()),
+	llmTotalCost: Type.Optional(Type.Number()),
+	llmTotalInputTokens: Type.Optional(Type.Number()),
+	llmTotalOutputTokens: Type.Optional(Type.Number()),
+	llmCacheHitRatio: Type.Optional(Type.Number()),
 });
 
 // This check depends on AutonomousIteration.memory and .toolState being Record, not Map.
-const _autonomousIterationCheck: AreTypesFullyCompatible<AutonomousIteration, Static<typeof AutonomousIterationSchema>> = true;
+type _autonomousIterationCheck = AreTypesFullyCompatible<AutonomousIteration, Static<typeof AutonomousIterationSchema>>;
 
 export const AutonomousIterationSummarySchema = Type.Pick(AutonomousIterationSchema, AUTONOMOUS_ITERATION_SUMMARY_KEYS, {
 	$id: 'AutonomousIterationSummary',

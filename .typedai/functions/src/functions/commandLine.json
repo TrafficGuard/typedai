@@ -11,6 +11,19 @@
         "description": "The command to execute in the current working directory"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "The command to execute in the current working directory"
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "{ stdout: string; stderr: string; }",
     "returns": "An object with the stdout and stderr properties"
   }

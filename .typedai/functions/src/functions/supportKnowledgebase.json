@@ -4,6 +4,12 @@
     "name": "SupportKnowledgebase_getCoreDocumentation",
     "description": "",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The core documentation which must be known to resolve support requests"
   },
@@ -12,6 +18,12 @@
     "name": "SupportKnowledgebase_searchDocs",
     "description": "",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The search various sources (docs, wiki, issues etc) for content relevant to the support request."
   }

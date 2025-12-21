@@ -10,6 +10,19 @@
         "type": "string",
         "description": "The message text"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string",
+          "description": "The message text"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "additionalProperties": false
+    }
   }
 }

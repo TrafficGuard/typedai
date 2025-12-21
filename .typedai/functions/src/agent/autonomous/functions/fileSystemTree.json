@@ -11,6 +11,19 @@
         "description": "The folder to collapse in the File System tree view"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "folderPath": {
+          "type": "string",
+          "description": "The folder to collapse in the File System tree view"
+        }
+      },
+      "required": [
+        "folderPath"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "boolean",
     "returns": "If the node was collapsed, i.e. the folderPath exists and is a folder"
   },
@@ -18,7 +31,13 @@
     "class": "FileSystemTree",
     "name": "FileSystemTree_expandAll",
     "description": "Expands all directories in the file system tree view",
-    "parameters": []
+    "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
   },
   "FileSystemTree_expandFolder": {
     "class": "FileSystemTree",
@@ -32,6 +51,19 @@
         "description": "The folder to expand in the File System tree view. If no value is provided, then all folders are expanded and always returns true."
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "folderPath": {
+          "type": "string",
+          "description": "The folder to expand in the File System tree view. If no value is provided, then all folders are expanded and always returns true."
+        }
+      },
+      "required": [
+        "folderPath"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "boolean",
     "returns": "If the node was expanded, i.e. the folderPath exists and is a folder and was previously collapsed"
   }

@@ -18,6 +18,24 @@
         "optional": true
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the image"
+        },
+        "size": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "The generated image size. Defaults to 256x256"
+        }
+      },
+      "required": [
+        "description"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The location of the image file"
   }

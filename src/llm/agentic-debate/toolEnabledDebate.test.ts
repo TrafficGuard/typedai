@@ -591,9 +591,10 @@ describe('agentic-debate', () => {
 }
 \`\`\``;
 
-				// Queue responses for: 1 initial position, consensus check, synthesis, verification
+				// Queue responses for: initial position, debate round 1, consensus check, synthesis, verification
 				mockLLM
 					.addResponse(positionResponse) // Initial position
+					.addResponse(positionResponse) // Debate round 1 (generateDebateResponse)
 					.addResponse('CONSISTENT\nAll agree') // Consensus check
 					.addResponse(
 						`\`\`\`json
@@ -641,9 +642,11 @@ describe('agentic-debate', () => {
 			it('should emit events during debate', async () => {
 				const events: string[] = [];
 
+				const positionResponse = '{"position": "P", "confidence": 0.8, "reasoning": "R", "citations": [], "codeTraces": []}';
 				mockLLM
-					.addResponse('{"position": "P", "confidence": 0.8, "reasoning": "R", "citations": [], "codeTraces": []}')
-					.addResponse('CONSISTENT')
+					.addResponse(positionResponse) // Initial position
+					.addResponse(positionResponse) // Debate round 1
+					.addResponse('CONSISTENT') // Consensus check
 					.addResponse('{"answer": "A", "keyPoints": [], "citations": [], "confidence": 0.9}')
 					.addResponse('{"verifiedAnswer": "V", "claims": [], "corrections": [], "citations": []}');
 

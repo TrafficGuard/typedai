@@ -29,6 +29,40 @@
         "description": "The query to answer or requirements to generate a response for"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Any filesystem files to include in the query"
+        },
+        "memoryKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Any memory keys to include in the query"
+        },
+        "additionalInformation": {
+          "type": "string",
+          "description": "Any additional information to include in the query (logs, function outputs, etc)"
+        },
+        "queryOrRequirements": {
+          "type": "string",
+          "description": "The query to answer or requirements to generate a response for"
+        }
+      },
+      "required": [
+        "files",
+        "memoryKeys",
+        "additionalInformation",
+        "queryOrRequirements"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The response to the query"
   }

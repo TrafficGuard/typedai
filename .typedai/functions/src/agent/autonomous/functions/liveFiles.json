@@ -10,7 +10,23 @@
         "type": "string[]",
         "description": "The files to always include the current contents of in the prompt"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The files to always include the current contents of in the prompt"
+        }
+      },
+      "required": [
+        "files"
+      ],
+      "additionalProperties": false
+    }
   },
   "LiveFiles_removeFiles": {
     "class": "LiveFiles",
@@ -23,6 +39,22 @@
         "type": "string[]",
         "description": "The files to remove"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The files to remove"
+        }
+      },
+      "required": [
+        "files"
+      ],
+      "additionalProperties": false
+    }
   }
 }

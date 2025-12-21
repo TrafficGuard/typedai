@@ -22,6 +22,29 @@
         "type": "string",
         "description": "Specify ONLY the precise lines of code that you wish to edit. Use // ... existing code ... for unchanged sections."
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "filePath": {
+          "type": "string",
+          "description": "The path to the file to edit"
+        },
+        "instructions": {
+          "type": "string",
+          "description": "A single sentence written in the first person describing what you’re changing. Used to help disambiguate uncertainty in the edit."
+        },
+        "codeEdit": {
+          "type": "string",
+          "description": "Specify ONLY the precise lines of code that you wish to edit. Use // ... existing code ... for unchanged sections."
+        }
+      },
+      "required": [
+        "filePath",
+        "instructions",
+        "codeEdit"
+      ],
+      "additionalProperties": false
+    }
   }
 }

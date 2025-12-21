@@ -4,6 +4,12 @@
     "name": "GitLab_getProjects",
     "description": "",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "GitProject[]",
     "returns": "The details of all the projects available"
   },
@@ -19,6 +25,19 @@
         "description": "The full project path in GitLab"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectPathWithNamespace": {
+          "type": "string",
+          "description": "The full project path in GitLab"
+        }
+      },
+      "required": [
+        "projectPathWithNamespace"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The file system path where the repository is located. You will need to call FileSystem_setWorkingDirectory() with this result to work with the project."
   },
@@ -58,6 +77,39 @@
         "description": "The branch to merge to"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "description": "The full project path or numeric id"
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the merge request"
+        },
+        "description": {
+          "type": "string",
+          "description": "The description of the merge request"
+        },
+        "sourceBranch": {
+          "type": "string",
+          "description": "The branch to merge in"
+        },
+        "targetBranch": {
+          "type": "string",
+          "description": "The branch to merge to"
+        }
+      },
+      "required": [
+        "projectId",
+        "title",
+        "description",
+        "sourceBranch",
+        "targetBranch"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "MergeRequest",
     "returns": "The merge request URL"
   },
@@ -78,7 +130,25 @@
         "type": "number",
         "description": "The merge request IID. Can be found in the URL to a pipeline"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "gitlabProjectId": {
+          "type": "string",
+          "description": "The full path or numeric id"
+        },
+        "mergeRequestIId": {
+          "type": "number",
+          "description": "The merge request IID. Can be found in the URL to a pipeline"
+        }
+      },
+      "required": [
+        "gitlabProjectId",
+        "mergeRequestIId"
+      ],
+      "additionalProperties": false
+    }
   },
   "GitLab_getPipelineFailedJobLogs": {
     "class": "GitLab",
@@ -98,6 +168,24 @@
         "description": "The pipelineId. Can be determined from the URL of a pipeline. https://<gitlab-host>/<group>/[<sub-group>/]<project>/-/pipelines/<pipelineId>"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "gitlabProjectId": {
+          "type": "string",
+          "description": "GitLab project full path or the numeric id"
+        },
+        "pipelineId": {
+          "type": "number",
+          "description": "The pipelineId. Can be determined from the URL of a pipeline. https://<gitlab-host>/<group>/[<sub-group>/]<project>/-/pipelines/<pipelineId>"
+        }
+      },
+      "required": [
+        "gitlabProjectId",
+        "pipelineId"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "A Record with the job name as the key and the logs as the value."
   },
@@ -119,6 +207,24 @@
         "description": "The merge request IID. Can get this from the URL of the merge request. https://<gitlab-host>/<group>/[<sub-group>/]<project>/-/merge_requests/<mergeRequestIId>"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "gitlabProjectId": {
+          "type": "string",
+          "description": "GitLab project full path or the numeric id"
+        },
+        "mergeRequestIId": {
+          "type": "number",
+          "description": "The merge request IID. Can get this from the URL of the merge request. https://<gitlab-host>/<group>/[<sub-group>/]<project>/-/merge_requests/<mergeRequestIId>"
+        }
+      },
+      "required": [
+        "gitlabProjectId",
+        "mergeRequestIId"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "A Record with the job name as the key and the logs as the value."
   },
@@ -139,7 +245,25 @@
         "type": "string | number",
         "description": "The job id"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectPath": {
+          "type": "string",
+          "description": "Full project path or numeric id"
+        },
+        "jobId": {
+          "type": "string",
+          "description": "The job id"
+        }
+      },
+      "required": [
+        "projectPath",
+        "jobId"
+      ],
+      "additionalProperties": false
+    }
   },
   "GitLab_getJobLogs": {
     "class": "GitLab",
@@ -158,7 +282,25 @@
         "type": "string | number",
         "description": "The job id. Can get this from a job URL in the format https://<gitlab-host>/<group>/[<sub-group>/]<project>/-/jobs/<jobId>"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectIdOrProjectPath": {
+          "type": "string",
+          "description": "GitLab projectId. Either the full path (group(s) and project id) or the numeric id"
+        },
+        "jobId": {
+          "type": "string",
+          "description": "The job id. Can get this from a job URL in the format https://<gitlab-host>/<group>/[<sub-group>/]<project>/-/jobs/<jobId>"
+        }
+      },
+      "required": [
+        "projectIdOrProjectPath",
+        "jobId"
+      ],
+      "additionalProperties": false
+    }
   },
   "GitLab_getBranches": {
     "class": "GitLab",
@@ -172,6 +314,19 @@
         "description": "The full project path (e.g., 'group/subgroup/project') or the numeric project ID."
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "description": "The full project path (e.g., 'group/subgroup/project') or the numeric project ID."
+        }
+      },
+      "required": [
+        "projectId"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string[]",
     "returns": "A promise that resolves to an array of branch names."
   },
@@ -187,6 +342,19 @@
         "description": "The GitLab blob URL in the format: https://<host>/<project-path>/-/blob/<ref>/<file-path>\n\t *            Example: https://gitlab.internal.company.com/engineering/services/user-service/-/blob/main/src/model/user.ts"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "The GitLab blob URL in the format: https://<host>/<project-path>/-/blob/<ref>/<file-path>\n\t *            Example: https://gitlab.internal.company.com/engineering/services/user-service/-/blob/main/src/model/user.ts"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The raw file contents as a string\n\t *"
   }

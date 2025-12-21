@@ -17,13 +17,39 @@
         "description": "Arguments to add to the `npm run <script>` command",
         "optional": true
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "script": {
+          "type": "string",
+          "description": "The script in the package.json file to run"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Arguments to add to the `npm run <script>` command"
+        }
+      },
+      "required": [
+        "script"
+      ],
+      "additionalProperties": false
+    }
   },
   "TypescriptTools_generateProjectMap": {
     "class": "TypescriptTools",
     "name": "TypescriptTools_generateProjectMap",
     "description": "Generates an outline of a TypeScript repository by running the tsc command with the emitDeclarationOnly flag\nand returning the contents of all the type definition files.",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "A comprehensive outline of the project"
   },
@@ -38,6 +64,19 @@
         "type": "string",
         "description": "The name of the package to install"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "packageName": {
+          "type": "string",
+          "description": "The name of the package to install"
+        }
+      },
+      "required": [
+        "packageName"
+      ],
+      "additionalProperties": false
+    }
   }
 }

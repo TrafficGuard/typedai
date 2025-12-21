@@ -11,6 +11,19 @@
         "description": "The numeric issue id (e.g. 73479)"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "issueId": {
+          "type": "string",
+          "description": "The numeric issue id (e.g. 73479)"
+        }
+      },
+      "required": [
+        "issueId"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "{ key: string; summary: string; }",
     "returns": "The issue key (e.g. XYZ-123)"
   },
@@ -26,6 +39,19 @@
         "description": "The issue id (e.g. XYZ-123)"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "issueId": {
+          "type": "string",
+          "description": "The issue id (e.g. XYZ-123)"
+        }
+      },
+      "required": [
+        "issueId"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The issue details"
   },
@@ -66,6 +92,38 @@
         "optional": true
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "The Jira project key (usually a short capitalized code)"
+        },
+        "title": {
+          "type": "string",
+          "description": "The issue summary"
+        },
+        "description": {
+          "type": "string",
+          "description": "The issue description in Markdown format"
+        },
+        "reporterEmail": {
+          "type": "string",
+          "description": "The email address of the user who be assigned as the reporter for this issue."
+        },
+        "relatedContentForIssueTypeDetection": {
+          "type": "string",
+          "description": "User content (chat messages etc) which could assist with the issue type detection"
+        }
+      },
+      "required": [
+        "projectKey",
+        "title",
+        "description",
+        "reporterEmail"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "{ key: string; url: string; }",
     "returns": ">} The created issue key and URL"
   },
@@ -87,6 +145,24 @@
         "description": "The comment text to post"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "issueId": {
+          "type": "string",
+          "description": "The issue ID (e.g., ABC-123)"
+        },
+        "comment": {
+          "type": "string",
+          "description": "The comment text to post"
+        }
+      },
+      "required": [
+        "issueId",
+        "comment"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The ID of the created comment"
   },
@@ -107,6 +183,24 @@
         "type": "string",
         "description": "The new description in Markdown format"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "issueId": {
+          "type": "string",
+          "description": "The issue ID or key (e.g., ABC-123)"
+        },
+        "description": {
+          "type": "string",
+          "description": "The new description in Markdown format"
+        }
+      },
+      "required": [
+        "issueId",
+        "description"
+      ],
+      "additionalProperties": false
+    }
   }
 }

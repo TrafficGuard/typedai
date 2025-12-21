@@ -17,6 +17,24 @@
         "description": "A description of the changes/processing to apply to the text"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The input text"
+        },
+        "descriptionOfChanges": {
+          "type": "string",
+          "description": "A description of the changes/processing to apply to the text"
+        }
+      },
+      "required": [
+        "text",
+        "descriptionOfChanges"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The processed text"
   },
@@ -38,6 +56,24 @@
         "description": "The query ask about the image/document"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "filePath": {
+          "type": "string",
+          "description": "The path to the image/document"
+        },
+        "query": {
+          "type": "string",
+          "description": "The query ask about the image/document"
+        }
+      },
+      "required": [
+        "filePath",
+        "query"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The analysis of the image/document"
   }

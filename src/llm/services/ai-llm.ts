@@ -15,6 +15,7 @@ import {
 import { agentContext } from '#agent/agentContext';
 import { addCost } from '#agent/agentContext';
 import { cloneAndTruncateBuffers } from '#agent/trimObject';
+import { appContext } from '#app/applicationContext';
 import { ApplicationContext } from '#app/applicationTypes';
 import { BaseLLM, type BaseLlmConfig } from '#llm/base-llm';
 import { type CreateLlmRequest, callStack } from '#llm/llmCallService/llmCall';

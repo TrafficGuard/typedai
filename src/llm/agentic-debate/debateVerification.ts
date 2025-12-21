@@ -57,7 +57,7 @@ export async function freshVerificationPass(
 		const maxToolCalls = options?.maxToolCalls ?? 10;
 		const debug = options?.debug ?? false;
 
-		log.info({ topic, answerLength: synthesizedAnswer.answer.length }, 'Starting fresh verification pass');
+		log.info({ topic, answerLength: synthesizedAnswer.answer?.length ?? 0 }, 'Starting fresh verification pass');
 
 		// Build the verification prompt (fresh context - no debate history)
 		const initialPrompt = buildVerificationPrompt(topic, synthesizedAnswer, tools);

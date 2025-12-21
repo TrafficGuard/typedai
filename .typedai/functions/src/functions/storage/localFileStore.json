@@ -23,6 +23,29 @@
         "description": "A description of the contents which can be used to identify it later."
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "filename": {
+          "type": "string",
+          "description": "The name of the file to save."
+        },
+        "contents": {
+          "type": "string",
+          "description": "The contents to save to the file."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the contents which can be used to identify it later."
+        }
+      },
+      "required": [
+        "filename",
+        "contents",
+        "description"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string"
   },
   "LocalFileStore_getFile": {
@@ -37,6 +60,19 @@
         "description": "The name of the file to read."
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "filename": {
+          "type": "string",
+          "description": "The name of the file to read."
+        }
+      },
+      "required": [
+        "filename"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string"
   }
 }

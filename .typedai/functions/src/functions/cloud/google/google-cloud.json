@@ -23,6 +23,32 @@
         "description": "Configuration options\n\t * @param {string} [options.dateFromIso] - The date/time to get the logs from. Optional.\n\t * @param {string} [options.dateToIso] - The date/time to get the logs to. Optional.\n\t * @param {string} [options.freshness] - The freshness of the logs (eg. 10m, 1h). Optional.\n\t * @param {string} [options.format] - Format of the response. Defaults to 'yaml' which is more compact and token efficient than 'json'. If you need to parse the results into JSON for programatic use, set this to 'json'.\n\t * @param {'asc'|'desc'} [options.order] - The order of the logs (asc or desc. defaults to desc). Optional.\n\t * @param {number} [options.limit] - The limit of the logs. Optional. Defaults to 200. Maximum of 500."
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "description": "The Google Cloud projectId"
+        },
+        "filter": {
+          "type": "string",
+          "description": "The Cloud Logging filter to search (e.g. \"resource.type=cloud_run_revision\" and \"resource.labels.service_name=the-service-name\")"
+        },
+        "options": {
+          "type": "string",
+          "enum": [
+            "desc\"; limit?: number; format?: \"json"
+          ],
+          "description": "Configuration options\n\t * @param {string} [options.dateFromIso] - The date/time to get the logs from. Optional.\n\t * @param {string} [options.dateToIso] - The date/time to get the logs to. Optional.\n\t * @param {string} [options.freshness] - The freshness of the logs (eg. 10m, 1h). Optional.\n\t * @param {string} [options.format] - Format of the response. Defaults to 'yaml' which is more compact and token efficient than 'json'. If you need to parse the results into JSON for programatic use, set this to 'json'.\n\t * @param {'asc'|'desc'} [options.order] - The order of the logs (asc or desc. defaults to desc). Optional.\n\t * @param {number} [options.limit] - The limit of the logs. Optional. Defaults to 200. Maximum of 500."
+        }
+      },
+      "required": [
+        "projectId",
+        "filter",
+        "options"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string"
   },
   "GoogleCloud_executeBqCommand": {
@@ -37,6 +63,19 @@
         "description": "The bq command to execute"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "bqCommand": {
+          "type": "string",
+          "description": "The bq command to execute"
+        }
+      },
+      "required": [
+        "bqCommand"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The console output if the exit code is 0, else throws the console output"
   },
@@ -52,6 +91,19 @@
         "description": "The gcloud query command to execute (incuding --project=<projectId> if allowed)"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "gcloudQueryCommand": {
+          "type": "string",
+          "description": "The gcloud query command to execute (incuding --project=<projectId> if allowed)"
+        }
+      },
+      "required": [
+        "gcloudQueryCommand"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The console output if the exit code is 0, else throws the console output"
   },
@@ -80,6 +132,33 @@
         "optional": true
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "description": "The Google Cloud project ID"
+        },
+        "metricType": {
+          "type": "string",
+          "description": "The metric type (e.g., 'compute.googleapis.com/instance/cpu/utilization')"
+        },
+        "options": {
+          "type": "string",
+          "enum": [
+            "ALIGN_MAX",
+            "ALIGN_SUM",
+            "ALIGN_RATE"
+          ],
+          "description": "Configuration options"
+        }
+      },
+      "required": [
+        "projectId",
+        "metricType"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "Metrics data as YAML string for token efficiency"
   }

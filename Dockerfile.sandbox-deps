@@ -1,0 +1,45 @@
+# Dockerfile.sandbox-deps
+# Caches pnpm install - rebuild when pnpm-lock.yaml changes
+#
+# Build: docker build -t typedai-sandbox-deps -f Dockerfile.sandbox-deps .
+# Rebuild when: pnpm-lock.yaml or frontend/pnpm-lock.yaml changes
+
+ARG BASE_IMAGE=typedai-sandbox-base
+FROM ${BASE_IMAGE}
+
+ENV USER_NAME=typedai
+ENV HOMEDIR=/home/${USER_NAME}
+ENV PNPM_HOME="${HOMEDIR}/.local/share/pnpm"
+ENV PATH="${PNPM_HOME}:${PATH}"
+
+USER root
+WORKDIR ${HOMEDIR}
+
+# Copy .husky files
+RUN mkdir -p ".husky"
+COPY .husky/install.mjs .husky/install.mjs
+RUN chown -R ${USER_NAME}:users ${HOMEDIR}/.husky
+
+# Copy package files for dependency installation
+COPY package.json pnpm-lock.yaml ./
+RUN chown ${USER_NAME}:users package.json pnpm-lock.yaml
+
+# Switch to non-root user
+USER ${USER_NAME}
+
+# Install main dependencies
+RUN pnpm install --frozen-lockfile
+
+# Install frontend dependencies
+WORKDIR ${HOMEDIR}/frontend
+COPY --chown=${USER_NAME}:users frontend/package.json ./
+COPY --chown=${USER_NAME}:users frontend/pnpm-lock.yaml ./
+RUN pnpm install --force
+
+WORKDIR ${HOMEDIR}
+
+# Store lockfile hash for change detection by aid script
+ARG LOCKFILE_HASH=""
+LABEL lockfile.hash="${LOCKFILE_HASH}"
+
+CMD ["bash"]

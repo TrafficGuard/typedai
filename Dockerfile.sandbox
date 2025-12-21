@@ -1,0 +1,31 @@
+# Dockerfile.sandbox
+# Sandbox image for AI agents (no UI testing)
+#
+# For fastest builds, pre-build the image layers:
+#   docker build -t typedai-sandbox-base -f Dockerfile.sandbox-base .
+#   docker build -t typedai-sandbox-deps -f Dockerfile.sandbox-deps .
+#
+# Then this Dockerfile builds instantly (just adds git config).
+#
+# Security features when used with --sandbox flag:
+# - Resource limits: 16G RAM, 8 CPU, 500 PIDs
+# - Capabilities: cap_drop ALL, cap_add minimal set
+# - Privilege escalation: no-new-privileges
+# - Source mount: read-only
+
+# Use pre-built deps image (includes base + pnpm install)
+ARG BASE_IMAGE=typedai-sandbox-deps
+FROM ${BASE_IMAGE}
+
+ENV USER_NAME=typedai
+ENV HOMEDIR=/home/${USER_NAME}
+
+# Git config for safe directories (in case not set in base)
+RUN git config --global --add safe.directory ${HOMEDIR} 2>/dev/null || true \
+    && git config --global --add safe.directory /workspace 2>/dev/null || true \
+    && git config --global --add safe.directory /worktrees 2>/dev/null || true
+
+ENV NODE_ENV=development
+
+EXPOSE 3000
+CMD ["bash"]

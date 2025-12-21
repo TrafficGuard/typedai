@@ -14,5 +14,5 @@ CWD=$(pwd)
 
 (
   cd "$TYPEDAI_HOME"
-  LOG_LEVEL=fatal npm run query -- --fs="${CWD}" "$@"
+  LOG_LEVEL=fatal pnpm run query -- --fs="${CWD}" "$@"
 )

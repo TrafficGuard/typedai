@@ -11,6 +11,19 @@
         "description": "{string} The web page URL (https://...)"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "{string} The web page URL (https://...)"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The web page contents in Markdown format"
   },
@@ -26,6 +39,19 @@
         "description": "The URL of the file to download."
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "The URL of the file to download."
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The local file path where the file was saved."
   },
@@ -33,7 +59,13 @@
     "class": "PublicWeb",
     "name": "PublicWeb_serpApiSearch",
     "description": "Performs a Google search and returns the URL and title of the search results",
-    "parameters": []
+    "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
   },
   "PublicWeb_takeScreenshotAndLogs": {
     "class": "PublicWeb",
@@ -47,6 +79,19 @@
         "description": "The URL of the web page to screenshot. Must be a complete URL with http(s)://"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "The URL of the web page to screenshot. Must be a complete URL with http(s)://"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "{ image: ImageSource; logs: string[]; }",
     "returns": "The screenshot image data in .png format, and the browser logs"
   }

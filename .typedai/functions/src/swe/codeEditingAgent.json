@@ -16,6 +16,27 @@
         "type": "string[]",
         "description": "{string[]} An array of files which the code editing agent will have access to."
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "implementationPlan": {
+          "type": "string",
+          "description": "The detailed implementation plan to make the changes for. Include any git branch and commit naming conventions to follow"
+        },
+        "fileSelection": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "{string[]} An array of files which the code editing agent will have access to."
+        }
+      },
+      "required": [
+        "implementationPlan",
+        "fileSelection"
+      ],
+      "additionalProperties": false
+    }
   }
 }

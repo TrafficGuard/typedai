@@ -30,6 +30,32 @@
         "description": "(Optional) defaults to primary",
         "optional": true
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "description": "The start of the time range to get events for"
+        },
+        "to": {
+          "type": "string",
+          "description": "The end of the time range to get events for"
+        },
+        "targetTimezone": {
+          "type": "string",
+          "description": "(Optional) defaults to Australia/Perth"
+        },
+        "calendarId": {
+          "type": "string",
+          "description": "(Optional) defaults to primary"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "additionalProperties": false
+    }
   }
 }

@@ -4,6 +4,12 @@
     "name": "FileSystemList_getWorkingDirectory",
     "description": "",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The full path of the working directory on the filesystem"
   },
@@ -18,7 +24,20 @@
         "type": "string",
         "description": "The new working directory"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "dir": {
+          "type": "string",
+          "description": "The new working directory"
+        }
+      },
+      "required": [
+        "dir"
+      ],
+      "additionalProperties": false
+    }
   },
   "FileSystemList_searchFilesMatchingContents": {
     "class": "FileSystemList",
@@ -32,6 +51,19 @@
         "description": "The regular expression to search the content all the files recursively for"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "contentsRegex": {
+          "type": "string",
+          "description": "The regular expression to search the content all the files recursively for"
+        }
+      },
+      "required": [
+        "contentsRegex"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The list of filenames (with postfix :<match_count>) which have contents matching the regular expression."
   },
@@ -47,6 +79,19 @@
         "description": "The regular expression to match the filename."
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "fileNameRegex": {
+          "type": "string",
+          "description": "The regular expression to match the filename."
+        }
+      },
+      "required": [
+        "fileNameRegex"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string[]",
     "returns": "The list of filenames matching the regular expression."
   },
@@ -63,6 +108,17 @@
         "optional": true
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "dirPath": {
+          "type": "string",
+          "description": "The folder to list the files in. Defaults to the working directory"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "string[]",
     "returns": "The list of file and folder names"
   },
@@ -71,6 +127,12 @@
     "name": "FileSystemList_listFilesRecursively",
     "description": "List all the files recursively under the given path, excluding any paths in a .gitignore file if it exists",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "string[]",
     "returns": "The list of files relative to the working directory"
   },
@@ -86,6 +148,19 @@
         "description": "The file path to check"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "filePath": {
+          "type": "string",
+          "description": "The file path to check"
+        }
+      },
+      "required": [
+        "filePath"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "boolean",
     "returns": "True if the file exists, else false"
   }

@@ -41,6 +41,7 @@ import { type FunctionCallResult, type ImagePartExt, type LlmMessage, type UserC
 import { errorToString } from '#utils/errors';
 import { CDATA_END, CDATA_START } from '#utils/xml-utils';
 import { llms } from '../../agentContextUtils';
+import { type IterationMetricsBuilder, getMetricsCollector } from '../../nextgen/metrics/metricsCollectorService';
 import { type HitlCounters, checkHumanInTheLoop } from '../humanInTheLoopChecks';
 import { checkForImageSources } from './agentImageUtils';
 import {
@@ -146,6 +147,8 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 		[PREVIOUS_SCRIPT_OUTPUT_VAR]: '',
 	};
 
+	const metricsCollector = getMetricsCollector();
+
 	let shouldContinue = true;
 	while (shouldContinue) {
 		shouldContinue = await withActiveSpan(CODEGEN_AGENT_SPAN, async (span) => {
@@ -159,6 +162,9 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 			let currentImageParts: ImagePartExt[] = []; // Reset image parts for this iteration's script result processing
 
 			const initialCost = agent.cost;
+
+			// Start metrics collection for this iteration
+			const metricsBuilder: IterationMetricsBuilder = metricsCollector.startIteration(agent.agentId, agent.iterations);
 
 			const iterationData: Partial<AutonomousIteration> = {
 				agentId: agent.agentId,
@@ -429,6 +435,30 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 				// Generate and set iteration summary
 				await createIterationSummary(iterationData, previousScriptResult, agent);
 
+				// Calculate iteration cost
+				iterationData.cost = agent.cost - initialCost;
+
+				// Finalize metrics with progress detection
+				const finalizedIteration = metricsBuilder.finalize(iterationData);
+
+				// Record the iteration for pattern tracking
+				metricsCollector.recordIteration(finalizedIteration);
+
+				// Check for loop detection and log warning if stuck
+				const loopResult = metricsCollector.detectLoop(agent.agentId);
+				if (loopResult.isLooping) {
+					logger.warn(
+						{
+							agentId: agent.agentId,
+							iteration: agent.iterations,
+							loopPattern: loopResult.pattern,
+							loopLength: loopResult.loopLength,
+							suggestion: loopResult.suggestion,
+						},
+						'Agent appears to be stuck in a loop',
+					);
+				}
+
 				try {
 					await agentStateService.save(agent);
 				} catch (e) {
@@ -436,13 +466,12 @@ async function runAgentExecution(agent: AgentContext, span: Span): Promise<strin
 					controlLoopError = e;
 				}
 
-				// Save iteration data
+				// Save iteration data with metrics
 				try {
-					iterationData.cost = agent.cost - initialCost;
-					await agentStateService.saveIteration(iterationData as AutonomousIteration);
+					await agentStateService.saveIteration(finalizedIteration);
 				} catch (e) {
 					logger.error(e, 'Error saving agent iteration data in control loop [e]');
-					for (const [k, v] of Object.entries(iterationData)) {
+					for (const [k, v] of Object.entries(finalizedIteration)) {
 						const bytes = Buffer.byteLength(JSON.stringify(v), 'utf8');
 						if (bytes > 10000) {
 							logger.info(`${k} ${bytes} bytes`);

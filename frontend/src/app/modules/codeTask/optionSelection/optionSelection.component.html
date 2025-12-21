@@ -1,0 +1,175 @@
+<div class="option-selection-container">
+    <!-- Header -->
+    <div class="option-selection-header">
+        <div class="flex items-center gap-2">
+            <mat-icon svgIcon="heroicons_outline:scale" class="text-primary"></mat-icon>
+            <h3 class="text-lg font-semibold">Parallel Options Ready</h3>
+        </div>
+        <p class="text-secondary mt-1">{{ question }}</p>
+    </div>
+
+    <!-- Progress indicator when options are being explored -->
+    <div *ngIf="isAnyInProgress" class="progress-section">
+        <div class="flex items-center gap-2 text-blue-600">
+            <mat-icon svgIcon="heroicons_outline:refresh" class="animate-spin"></mat-icon>
+            <span>Options are being explored in parallel...</span>
+        </div>
+        <mat-progress-bar mode="indeterminate" class="mt-2"></mat-progress-bar>
+    </div>
+
+    <!-- Options comparison using tabs -->
+    <mat-tab-group [(selectedIndex)]="selectedTabIndex" class="option-tabs">
+        <mat-tab *ngFor="let option of options; let i = index">
+            <ng-template mat-tab-label>
+                <div class="flex items-center gap-2">
+                    <mat-icon
+                        [svgIcon]="getStatusIcon(option.status)"
+                        [class]="getStatusColor(option.status)">
+                    </mat-icon>
+                    <span>{{ option.name }}</span>
+                </div>
+            </ng-template>
+
+            <!-- Tab content -->
+            <div class="option-content p-4">
+                <mat-card class="option-card">
+                    <mat-card-header>
+                        <mat-card-title class="flex items-center gap-2">
+                            {{ option.name }}
+                            <mat-chip-listbox class="ml-2">
+                                <mat-chip [class]="getStatusColor(option.status)">
+                                    {{ option.status | titlecase }}
+                                </mat-chip>
+                            </mat-chip-listbox>
+                        </mat-card-title>
+                    </mat-card-header>
+
+                    <mat-card-content>
+                        <!-- Description -->
+                        <div class="section">
+                            <h4 class="section-title">Description</h4>
+                            <p class="text-secondary">{{ option.description }}</p>
+                        </div>
+
+                        <mat-divider class="my-4"></mat-divider>
+
+                        <!-- Pros & Cons -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="pros-section">
+                                <h4 class="section-title text-green-600">
+                                    <mat-icon svgIcon="heroicons_outline:check" class="icon-size-4"></mat-icon>
+                                    Pros
+                                </h4>
+                                <ul class="list-disc list-inside text-sm">
+                                    <li *ngFor="let pro of option.pros" class="text-green-700">{{ pro }}</li>
+                                    <li *ngIf="!option.pros?.length" class="text-gray-400">None specified</li>
+                                </ul>
+                            </div>
+                            <div class="cons-section">
+                                <h4 class="section-title text-red-600">
+                                    <mat-icon svgIcon="heroicons_outline:x-mark" class="icon-size-4"></mat-icon>
+                                    Cons
+                                </h4>
+                                <ul class="list-disc list-inside text-sm">
+                                    <li *ngFor="let con of option.cons" class="text-red-700">{{ con }}</li>
+                                    <li *ngIf="!option.cons?.length" class="text-gray-400">None specified</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Implementation details (when completed) -->
+                        <ng-container *ngIf="option.status === 'completed' && option.summary">
+                            <mat-divider class="my-4"></mat-divider>
+                            <div class="implementation-section">
+                                <h4 class="section-title">Implementation Summary</h4>
+                                <p class="text-secondary whitespace-pre-wrap">{{ option.summary }}</p>
+
+                                <!-- Diff Stats -->
+                                <div class="stats-grid mt-4">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Changes</span>
+                                        <span class="stat-value">{{ formatDiffStats(option) }}</span>
+                                    </div>
+                                    <div class="stat-item" *ngIf="option.cost !== undefined">
+                                        <span class="stat-label">Cost</span>
+                                        <span class="stat-value">{{ formatCost(option.cost) }}</span>
+                                    </div>
+                                    <div class="stat-item" *ngIf="option.branch">
+                                        <span class="stat-label">Branch</span>
+                                        <span class="stat-value font-mono text-xs">{{ option.branch }}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Commits -->
+                                <div *ngIf="option.commits?.length" class="commits-section mt-4">
+                                    <h5 class="text-sm font-medium mb-2">Commits</h5>
+                                    <ul class="text-xs font-mono text-secondary">
+                                        <li *ngFor="let commit of option.commits" class="py-1">{{ commit }}</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </ng-container>
+
+                        <!-- Failed state -->
+                        <ng-container *ngIf="option.status === 'failed'">
+                            <mat-divider class="my-4"></mat-divider>
+                            <div class="p-4 bg-red-50 border border-red-200 rounded">
+                                <div class="flex items-center gap-2 text-red-600">
+                                    <mat-icon svgIcon="heroicons_outline:exclamation-triangle"></mat-icon>
+                                    <span>This option failed to complete</span>
+                                </div>
+                            </div>
+                        </ng-container>
+                    </mat-card-content>
+
+                    <mat-card-actions align="end" *ngIf="option.status === 'completed'">
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            [disabled]="!canSelect || isSelecting"
+                            (click)="selectOption(option)"
+                            [matTooltip]="isSelecting ? 'Selection in progress...' : 'Select this option'"
+                        >
+                            <mat-icon svgIcon="heroicons_outline:check" class="mr-1"></mat-icon>
+                            Select This Option
+                        </button>
+                    </mat-card-actions>
+                </mat-card>
+            </div>
+        </mat-tab>
+    </mat-tab-group>
+
+    <!-- Side-by-side comparison (alternative view for larger screens) -->
+    <div class="side-by-side-comparison hidden lg:block" *ngIf="options.length === 2 && canSelect">
+        <mat-divider class="my-4"></mat-divider>
+        <h4 class="text-sm font-medium mb-4 text-center">Quick Comparison</h4>
+        <div class="grid grid-cols-2 gap-4">
+            <div *ngFor="let option of options" class="comparison-item p-4 border rounded">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="font-medium">{{ option.name }}</span>
+                    <mat-chip [class]="getStatusColor(option.status)">
+                        {{ option.status | titlecase }}
+                    </mat-chip>
+                </div>
+                <p class="text-sm text-secondary mb-2">{{ option.description }}</p>
+                <div class="text-xs text-gray-500 mb-2">{{ formatDiffStats(option) }}</div>
+                <button
+                    mat-stroked-button
+                    color="primary"
+                    class="w-full"
+                    [disabled]="option.status !== 'completed' || isSelecting"
+                    (click)="selectOption(option)"
+                >
+                    Select
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer actions -->
+    <div class="option-selection-footer mt-4">
+        <button mat-button (click)="cancel()" [disabled]="isSelecting">
+            Cancel / Skip
+        </button>
+    </div>
+</div>

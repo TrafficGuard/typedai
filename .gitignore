@@ -25,3 +25,15 @@ firestore-debug.log
 .pm2/
 bench
 /benchmarks
+.tmp/
+.claude/todos/
+.claude/projects/
+.claude/debug/
+.claude/statsig/
+.claude/hooks/__pycache__/
+.claude/.credentials.json
+.claude.json
+.claude.json.backup
+.claude/history.jsonl
+.claude/stats-cache.json
+llmCall.json

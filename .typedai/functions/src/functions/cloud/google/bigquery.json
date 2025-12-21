@@ -22,7 +22,30 @@
         "type": "string",
         "description": "The Google Cloud project id to run the query from. Defaults to the GCLOUD_PROJECT environment variable"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "sqlQuery": {
+          "type": "string",
+          "description": "The query to run"
+        },
+        "location": {
+          "type": "string",
+          "description": "The (multi)region to run the query in. eg. us, us-central1"
+        },
+        "projectId": {
+          "type": "string",
+          "description": "The Google Cloud project id to run the query from. Defaults to the GCLOUD_PROJECT environment variable"
+        }
+      },
+      "required": [
+        "sqlQuery",
+        "location",
+        "projectId"
+      ],
+      "additionalProperties": false
+    }
   },
   "BigQuery_getTableSchema": {
     "class": "BigQuery",
@@ -35,6 +58,19 @@
         "type": "string",
         "description": "Table id in the format project_id:dataset.table"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "tableId": {
+          "type": "string",
+          "description": "Table id in the format project_id:dataset.table"
+        }
+      },
+      "required": [
+        "tableId"
+      ],
+      "additionalProperties": false
+    }
   }
 }

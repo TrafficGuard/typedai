@@ -3,7 +3,13 @@
     "class": "GitHub",
     "name": "GitHub_runIntegrationTest",
     "description": "Runs the integration test for the GitHub service class",
-    "parameters": []
+    "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
   },
   "GitHub_createIssue": {
     "class": "GitHub",
@@ -44,6 +50,42 @@
         "optional": true
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectPathWithNamespace": {
+          "type": "string",
+          "description": "The full path of the project, e.g., 'owner/repo'."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the issue."
+        },
+        "body": {
+          "type": "string",
+          "description": "Optional description for the issue."
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional array of labels to add to the issue."
+        },
+        "assignees": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional array of GitHub usernames to assign to the issue."
+        }
+      },
+      "required": [
+        "projectPathWithNamespace",
+        "title"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "GitHubIssue",
     "returns": "A promise that resolves to the created GitHubIssue object.",
     "typeDefinitions": [
@@ -108,6 +150,29 @@
         "description": "The content of the comment."
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectPathWithNamespace": {
+          "type": "string",
+          "description": "The full path of the project, e.g., 'owner/repo'."
+        },
+        "issueNumber": {
+          "type": "number",
+          "description": "The number of the issue to comment on."
+        },
+        "body": {
+          "type": "string",
+          "description": "The content of the comment."
+        }
+      },
+      "required": [
+        "projectPathWithNamespace",
+        "issueNumber",
+        "body"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "GitHubIssueComment",
     "returns": "A promise that resolves to the created GitHubIssueComment object.",
     "typeDefinitions": [
@@ -166,6 +231,24 @@
         "description": "The number of the issue to get comments for."
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectPathWithNamespace": {
+          "type": "string",
+          "description": "The full path of the project, e.g., 'owner/repo'."
+        },
+        "issueNumber": {
+          "type": "number",
+          "description": "The number of the issue to get comments for."
+        }
+      },
+      "required": [
+        "projectPathWithNamespace",
+        "issueNumber"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "GitHubIssueComment[]",
     "returns": "A promise that resolves to an array of GitHubIssueComment objects.",
     "typeDefinitions": [
@@ -218,6 +301,19 @@
         "description": "The full project path in GitLab"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectPathWithNamespace": {
+          "type": "string",
+          "description": "The full project path in GitLab"
+        }
+      },
+      "required": [
+        "projectPathWithNamespace"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The file system path where the repository is located. You will need to call FileSystem_setWorkingDirectory() with this result to work with the project."
   },
@@ -226,6 +322,12 @@
     "name": "GitHub_createMergeRequest",
     "description": "Creates a Pull Request",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "MergeRequest",
     "returns": "The MergeRequest details"
   },
@@ -234,6 +336,12 @@
     "name": "GitHub_getProjects",
     "description": "",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "GitProject[]",
     "returns": "The projects available for the account"
   },
@@ -249,6 +357,19 @@
         "description": "The project identifier, either as 'owner/repo' string or the numeric repository ID as a string or number."
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "description": "The project identifier, either as 'owner/repo' string or the numeric repository ID as a string or number."
+        }
+      },
+      "required": [
+        "projectId"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string[]",
     "returns": "A promise that resolves to an array of branch names."
   },
@@ -270,6 +391,24 @@
         "description": "The ID of the workflow run."
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectPath": {
+          "type": "string",
+          "description": "The path to the project, e.g., 'owner/repo'."
+        },
+        "runId": {
+          "type": "number",
+          "description": "The ID of the workflow run."
+        }
+      },
+      "required": [
+        "projectPath",
+        "runId"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "GitHubWorkflowJob[]",
     "returns": "A promise that resolves to an array of workflow job objects."
   },
@@ -278,6 +417,12 @@
     "name": "GitHub_testCreateIssueE2E",
     "description": "Runs an E2E test for creating an issue in a GitHub repository.\nThis method will attempt to create a real issue in a pre-defined test repository.",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "GitHubIssue",
     "returns": "A promise that resolves to the created GitHubIssue object.",
     "typeDefinitions": [
@@ -336,6 +481,24 @@
         "description": "The ID of the job for which to fetch logs"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectPath": {
+          "type": "string",
+          "description": "The path to the project, typically in the format 'owner/repo'"
+        },
+        "jobId": {
+          "type": "string",
+          "description": "The ID of the job for which to fetch logs"
+        }
+      },
+      "required": [
+        "projectPath",
+        "jobId"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "A promise that resolves to the job logs as a string\n\t *"
   }

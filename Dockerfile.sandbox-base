@@ -1,0 +1,51 @@
+# Dockerfile.sandbox-base
+# Pre-built base image with OS packages and global tools
+# Build once: docker build -t typedai-sandbox-base -f Dockerfile.sandbox-base .
+#
+# Rebuild when:
+# - Node.js version changes
+# - Claude Code CLI needs updating
+# - OS packages need updating
+
+FROM node:22-slim
+
+# Claude Code version (set by aid script, used for cache busting)
+ARG CLAUDE_VERSION=""
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install base dependencies (rarely changes)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl git make g++ gcc build-essential \
+    libssl-dev zlib1g-dev libbz2-dev \
+    libreadline-dev libsqlite3-dev wget llvm \
+    libncursesw5-dev xz-utils tk-dev libxml2-dev \
+    libxmlsec1-dev libffi-dev liblzma-dev \
+    python3 python3-pip \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm and Claude Code CLI globally
+RUN npm install -g pnpm @anthropic-ai/claude-code
+
+# Create non-root user
+ENV USER_NAME=typedai
+ENV HOMEDIR=/home/${USER_NAME}
+RUN useradd --create-home -d ${HOMEDIR} -g users ${USER_NAME}
+
+# Git config for safe directories
+RUN git config --global --add safe.directory /home/typedai \
+    && git config --global --add safe.directory /workspace \
+    && git config --global --add safe.directory /worktrees
+
+ENV PNPM_HOME="${HOMEDIR}/.local/share/pnpm"
+ENV PATH="${PNPM_HOME}:${PATH}"
+ENV NODE_ENV=development
+
+WORKDIR ${HOMEDIR}
+USER ${USER_NAME}
+
+# Store version for upgrade detection (set via --label in docker build)
+LABEL claude-code.version="${CLAUDE_VERSION}"
+
+CMD ["bash"]

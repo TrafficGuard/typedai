@@ -10,13 +10,32 @@
         "type": "string",
         "description": "The NPM package name"
       }
-    ]
+    ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "packageName": {
+          "type": "string",
+          "description": "The NPM package name"
+        }
+      },
+      "required": [
+        "packageName"
+      ],
+      "additionalProperties": false
+    }
   },
   "NpmPackages_getPackageInfo": {
     "class": "NpmPackages",
     "name": "NpmPackages_getPackageInfo",
     "description": "Gets the GitHub URL and the documentation site URL, if either exist, for a NPM package.",
     "parameters": [],
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
     "returnType": "NpmPackageInfo",
     "returns": "Promise<{docUrl: string; gitHubUrl: string;}>",
     "typeDefinitions": [

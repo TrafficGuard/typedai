@@ -17,6 +17,24 @@
         "description": "The LLM generated query to filter the search results to"
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "searchString": {
+          "type": "string",
+          "description": "The string to search for"
+        },
+        "searchResultFilterQuery": {
+          "type": "string",
+          "description": "The LLM generated query to filter the search results to"
+        }
+      },
+      "required": [
+        "searchString",
+        "searchResultFilterQuery"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "{ id: string; title: string; summary: string; }[]",
     "returns": ">>}"
   },
@@ -32,6 +50,19 @@
         "description": "The Confluence page ID."
       }
     ],
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "pageId": {
+          "type": "string",
+          "description": "The Confluence page ID."
+        }
+      },
+      "required": [
+        "pageId"
+      ],
+      "additionalProperties": false
+    },
     "returnType": "string",
     "returns": "The page content as XML."
   }

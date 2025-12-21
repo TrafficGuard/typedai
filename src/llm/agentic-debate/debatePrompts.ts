@@ -187,7 +187,7 @@ export function buildConsensusCheckPrompt(positions: DebatePosition[]): string {
 			(p, i) => `AGENT ${i + 1} (${p.agentId}):
 Position: ${p.position}
 Confidence: ${p.confidence}
-Key reasoning: ${p.reasoning.slice(0, 500)}${p.reasoning.length > 500 ? '...' : ''}`,
+Key reasoning: ${(p.reasoning ?? '').slice(0, 500)}${(p.reasoning?.length ?? 0) > 500 ? '...' : ''}`,
 		)
 		.join('\n\n');
 
