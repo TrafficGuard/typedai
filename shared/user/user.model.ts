@@ -10,6 +10,7 @@ export interface LLMServicesConfig {
 	geminiKey?: string;
 	groqKey?: string;
 	nebiusKey?: string;
+	atlasCloudKey?: string;
 	openaiKey?: string;
 	openrouterKey?: string;
 	sambanovaKey?: string;

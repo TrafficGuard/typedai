@@ -36,6 +36,7 @@ export const LLMServicesConfigModelSchema = Type.Object({
 	geminiKey: Type.Optional(Type.String()),
 	groqKey: Type.Optional(Type.String()),
 	nebiusKey: Type.Optional(Type.String()),
+	atlasCloudKey: Type.Optional(Type.String()),
 	openaiKey: Type.Optional(Type.String()),
 	openrouterKey: Type.Optional(Type.String()),
 	sambanovaKey: Type.Optional(Type.String()),

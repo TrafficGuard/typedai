@@ -13,6 +13,7 @@ import { fireworksLLMRegistry } from '#llm/services/fireworks';
 import { geminiLLMRegistry } from '#llm/services/gemini';
 import { groqLLMRegistry } from '#llm/services/groq';
 import { mockLLMRegistry } from '#llm/services/mock-llm';
+import { atlasCloudLLMRegistry } from '#llm/services/atlascloud';
 import { nebiusLLMRegistry } from '#llm/services/nebius';
 import { ollamaLLMRegistry } from '#llm/services/ollama';
 import { openAiLLMRegistry } from '#llm/services/openai';
@@ -69,6 +70,7 @@ function ensureLLMFactory(): Record<string, () => LLM> {
 			perplexityLLMRegistry(),
 			// xaiLLMRegistry(),
 			nebiusLLMRegistry(),
+			atlasCloudLLMRegistry(),
 			sambanovaLLMRegistry(),
 			ollamaLLMRegistry(),
 			MoA_reasoningLLMRegistry(),
